@@ -1,0 +1,155 @@
+package buffer
+
+import "testing"
+
+func linesOf(bp *Buffer) []string {
+	out := make([]string, 0, int(bp.LineCount))
+	for i := uint(1); i <= bp.LineCount; i++ {
+		lp := GetLine(bp, i)
+		if lp == nil {
+			out = append(out, "")
+			continue
+		}
+		out = append(out, string(lp.Data))
+	}
+	return out
+}
+
+func TestReplaceRaw_SingleLineInsert(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("abcdef"), 6)
+
+	begin := MakeLocation(1, 3)
+	end := MakeLocation(1, 3)
+	var newEnd Location
+	ok := ReplaceRaw(bp, begin, end, []byte("X"), 1, &newEnd)
+	if !ok {
+		t.Fatal("ReplaceRaw failed")
+	}
+	lines := linesOf(bp)
+	if len(lines) != 1 || lines[0] != "abcXdef" {
+		t.Fatalf("unexpected content: %q", lines)
+	}
+	if newEnd.Line != 1 || newEnd.Offset != 4 {
+		t.Fatalf("unexpected newEnd: %+v", newEnd)
+	}
+}
+
+func TestReplaceRaw_MultiLineInsert(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("abcdef"), 6)
+
+	begin := MakeLocation(1, 3)
+	end := MakeLocation(1, 3)
+	var newEnd Location
+	ok := ReplaceRaw(bp, begin, end, []byte("X\nY"), 3, &newEnd)
+	if !ok {
+		t.Fatal("ReplaceRaw failed")
+	}
+	lines := linesOf(bp)
+	if len(lines) != 2 || lines[0] != "abcX" || lines[1] != "Ydef" {
+		t.Fatalf("unexpected content: %q", lines)
+	}
+}
+
+func TestReplaceRaw_DeleteToEOF(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("hello"), 5)
+
+	ok := ReplaceRaw(bp, MakeLocation(1, 3), MakeLocation(EOF(bp), 0), nil, 0, nil)
+	if !ok {
+		t.Fatal("ReplaceRaw failed")
+	}
+	lines := linesOf(bp)
+	if len(lines) != 1 || lines[0] != "hel" {
+		t.Fatalf("unexpected content: %q", lines)
+	}
+}
+
+func TestReplaceRaw_InsertAtEOF(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("hello"), 5)
+
+	var newEnd Location
+	ok := ReplaceRaw(bp, MakeLocation(EOF(bp), 0), MakeLocation(EOF(bp), 0), []byte("world"), 5, &newEnd)
+	if !ok {
+		t.Fatal("ReplaceRaw failed")
+	}
+	lines := linesOf(bp)
+	if len(lines) != 2 || lines[0] != "hello" || lines[1] != "world" {
+		t.Fatalf("unexpected content: %q", lines)
+	}
+	if newEnd.Line != 2 || newEnd.Offset != 5 {
+		t.Fatalf("unexpected newEnd: %+v", newEnd)
+	}
+}
+
+func TestReplaceRaw_NoOp(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("hello"), 5)
+
+	var newEnd Location
+	ok := ReplaceRaw(bp, MakeLocation(1, 2), MakeLocation(1, 2), nil, 0, &newEnd)
+	if !ok {
+		t.Fatal("ReplaceRaw failed")
+	}
+	if newEnd.Line != 1 || newEnd.Offset != 2 {
+		t.Fatalf("unexpected newEnd: %+v", newEnd)
+	}
+	if linesOf(bp)[0] != "hello" {
+		t.Fatalf("content changed: %q", linesOf(bp))
+	}
+}
+
+func TestReplaceRaw_HonorsNewLen(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("abcdef"), 6)
+
+	ok := ReplaceRaw(bp, MakeLocation(1, 3), MakeLocation(1, 3), []byte("XYZZ"), 1, nil)
+	if !ok {
+		t.Fatal("ReplaceRaw failed")
+	}
+	if linesOf(bp)[0] != "abcXdef" {
+		t.Fatalf("unexpected content: %q", linesOf(bp))
+	}
+}
+
+func TestSetTextUndoDelete(t *testing.T) {
+	bp := New()
+	AppendLineBytes(bp, []byte("hello world"), 11)
+	var undo UndoHistory
+	undo.BeginCommand(bp, MakeLocation(1, 11))
+	ok := SetText(bp, &undo, MakeLocation(1, 5), MakeLocation(1, 11), nil, 0, nil)
+	undo.EndCommand()
+	if !ok {
+		t.Fatal("SetText failed")
+	}
+	if string(GetLine(bp, 1).Data) != "hello" {
+		t.Fatalf("after delete: %q", GetLine(bp, 1).Data)
+	}
+	replay := UndoReplay{
+		InsertText: func(lineNumber, offset uint, text []byte, length uint) bool {
+			loc := MakeLocation(lineNumber, offset)
+			return ReplaceRaw(bp, loc, loc, text, length, nil)
+		},
+		DeleteText: func(lineNumber, offset uint, text []byte, length uint) bool {
+			begin := MakeLocation(lineNumber, offset)
+			endLine, endOffset := lineNumber, offset
+			for i := uint(0); i < length; i++ {
+				if text[i] == '\n' {
+					endLine++
+					endOffset = 0
+				} else {
+					endOffset++
+				}
+			}
+			return ReplaceRaw(bp, begin, MakeLocation(endLine, endOffset), nil, 0, nil)
+		},
+	}
+	if !undo.Undo(replay) {
+		t.Fatal("undo failed")
+	}
+	if string(GetLine(bp, 1).Data) != "hello world" {
+		t.Fatalf("after undo: %q", GetLine(bp, 1).Data)
+	}
+}

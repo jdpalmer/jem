@@ -1,0 +1,103 @@
+# ==========================================
+# Prerequisites & Dependency Tracking Files
+# ==========================================
+*.d
+
+# ==========================================
+# Object Files & Intermediate Build Artifacts
+# ==========================================
+*.o
+*.ko
+*.obj
+*.elf
+*.ilk
+*.map
+*.exp
+
+# ==========================================
+# Precompiled Headers
+# ==========================================
+*.gch
+*.pch
+
+# ==========================================
+# Static and Dynamic Libraries
+# ==========================================
+*.lib
+*.a
+*.la
+*.lo
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# ==========================================
+# Executables
+# ==========================================
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# ==========================================
+# Debug Files and Core Dumps
+# ==========================================
+*.dSYM/
+*.su
+*.idb
+*.pdb
+core
+vgcore.*
+
+# ==========================================
+# Build Directories & Automation Tools
+# ==========================================
+# Common build directory outputs
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+
+# CMake tracking files
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# ==========================================
+# IDEs and Text Editors
+# ==========================================
+# Visual Studio Code
+.vscode/
+
+# JetBrains CLion
+.idea/
+cmake-build-*/
+
+# Visual Studio (Windows)
+.vs/
+
+.aider*
+.aider.tags.cache.v4/
+.crush/
+
+# Go / jem
+/jem
+*.pprof
+
+# Editor backups
+*.bak
+*.backup
+
+# Planning
+planning/
+
+# Legacy
+legacy/
+
+# OS
+.DS_Store
