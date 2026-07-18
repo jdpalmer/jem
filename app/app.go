@@ -8,5 +8,22 @@ type AppState struct {
 	EditorSettingsState
 }
 
-// State is the process-wide application state.
-var State AppState
+var defaultState AppState
+
+// State points at the active AppState. Bound by editor.Editor.Activate;
+// leaf packages keep using app.State.Field without an Editor import.
+var State *AppState = &defaultState
+
+// Bind points State at s. Pass nil to restore the package default storage.
+func Bind(s *AppState) {
+	if s == nil {
+		State = &defaultState
+		return
+	}
+	State = s
+}
+
+// Reset clears the currently bound AppState to its zero value.
+func Reset() {
+	*State = AppState{}
+}

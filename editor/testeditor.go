@@ -5,48 +5,49 @@ import (
 	"testing"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/completion"
+	"github.com/jdpalmer/jem/edit"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
+	"github.com/jdpalmer/jem/ui"
 )
 
 // TestEditor is a headless editor instance for integration tests.
 type TestEditor struct {
 	t *testing.T
+	e *Editor
 }
 
 // NewTestEditor resets package globals and returns a fresh headless editor.
 func NewTestEditor(t *testing.T) *TestEditor {
 	t.Helper()
-	resetTestEditorState()
+	e := resetTestEditorState()
 	VarsInit()
-	DisplayInitHeadless(24, 80)
+	ui.DisplayInitHeadless(24, 80)
 	KeybindingsInit()
 	backgroundJobsInit()
 	EditorInit("test")
 	if app.State.CurrentWindow != nil {
 		app.State.CurrentWindow.Height = uint32(term.Rows())
 	}
-	return &TestEditor{t: t}
+	return &TestEditor{t: t, e: e}
 }
 
-func resetTestEditorState() {
-	app.State = App{}
-	editorUndo = UndoHistory{}
-	killRing = [16][]byte{}
-	killRingCount = 0
-	killRingIdx = 0
-	killAggregate = nil
-	registerStore = make(map[string][]byte)
-	completionPending = ""
-	quitRequested = false
+func resetTestEditorState() *Editor {
+	e := New()
+	e.Activate()
+	edit.ResetKillForTests()
+	completion.ClearPending()
 	tools.ResetBackgroundJobsForTests()
+	return e
 }
 
-func (te *TestEditor) BP() *Buffer {
+func (te *TestEditor) BP() *buffer.Buffer {
 	return app.State.CurrentBuffer
 }
 
-func (te *TestEditor) WP() *Window {
+func (te *TestEditor) WP() *app.Window {
 	return app.State.CurrentWindow
 }
 
@@ -72,7 +73,7 @@ func (te *TestEditor) LoadText(text string) {
 			wp.Cursor.Offset = 0
 		}
 	} else {
-		wp.Cursor = Location{Line: bp.EOF(), Offset: 0}
+		wp.Cursor = buffer.Location{Line: bp.EOF(), Offset: 0}
 	}
 	wp.Mark = wp.Cursor
 	bp.IsChanged = false
@@ -102,18 +103,18 @@ func (te *TestEditor) SetCursor(line, offset uint) {
 	if wp == nil {
 		te.t.Fatal("no window")
 	}
-	wp.Cursor = Location{Line: line, Offset: offset}
+	wp.Cursor = buffer.Location{Line: line, Offset: offset}
 }
 
-func (te *TestEditor) Cursor() Location {
+func (te *TestEditor) Cursor() buffer.Location {
 	wp := te.WP()
 	if wp == nil {
-		return Location{}
+		return buffer.Location{}
 	}
 	return wp.Cursor
 }
 
-func (te *TestEditor) SetLangMode(mode LangMode) {
+func (te *TestEditor) SetLangMode(mode buffer.LangMode) {
 	bp := te.BP()
 	if bp == nil {
 		te.t.Fatal("no buffer")
@@ -131,7 +132,7 @@ func (te *TestEditor) Click(row, col uint32) {
 	te.t.Helper()
 	app.State.Mouse.Row = row
 	app.State.Mouse.Col = col
-	if !Execute(int(MouseLeft), false, 1) {
+	if !Execute(int(term.MouseLeft), false, 1) {
 		te.t.Fatalf("mouse left click at (%d,%d) failed", row, col)
 	}
 }
@@ -142,7 +143,7 @@ func (te *TestEditor) Keys(s string) {
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c == '\n' {
-			te.Key(KeyEnter)
+			te.Key(term.KeyEnter)
 			continue
 		}
 		if !te.Key(uint32(c)) {
@@ -186,7 +187,7 @@ func (te *TestEditor) ForgetUndo() {
 	}
 }
 
-func (te *TestEditor) Edit(begin, end Location, text string) {
+func (te *TestEditor) Edit(begin, end buffer.Location, text string) {
 	te.t.Helper()
 	bp := te.BP()
 	if bp == nil {

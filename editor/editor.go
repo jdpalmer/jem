@@ -5,8 +5,10 @@ package editor
 import "github.com/jdpalmer/jem/app"
 
 func EditorInit(firstBufferName string) {
-	app.State.BufferCount = 0
-	app.State.WindowCount = 0
+	e := ensureCurrent()
+
+	app.State.Buffers = nil
+	app.State.WINDOWS = nil
 
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp != nil {
@@ -20,16 +22,10 @@ func EditorInit(firstBufferName string) {
 	}
 	app.WindowRetile()
 
-	app.State.MovementState = CmdStateNone
-	app.State.KillState = CmdStateNone
+	app.State.MovementState = app.CmdStateNone
+	app.State.KillState = app.CmdStateNone
 	macroInit()
-	app.PackageHooks = app.Hooks{
-		UndoForgetBuffer: UndoForgetBuffer,
-		SwitchBuffer:     editorSwitchBuffer,
-	}
-	initModeHooks()
-	initBufferSyntaxHooks()
-	initSearchHooks()
-	initUIHooks()
-	initToolsHooks()
+	e.Services = buildServices()
+	Svc = e.Services
+	installServices(Svc)
 }

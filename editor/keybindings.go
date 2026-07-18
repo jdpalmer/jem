@@ -20,6 +20,6 @@ func DispatchCommand(keycode uint32) bool {
 func CmdQuit(f bool, n int) bool {
 	_ = f
 	_ = n
-	quitRequested = true
+	ensureCurrent().QuitRequested = true
 	return true
 }

@@ -2,20 +2,22 @@ package editor
 
 import (
 	"bytes"
-	"github.com/jdpalmer/jem/buffer"
 	"sort"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
+	"github.com/jdpalmer/jem/ui"
 )
 
 // region.go - port of cmd_region.c: mark/region related commands
 
-func getRegion(wp *Window, rp *Region) bool {
+func getRegion(wp *app.Window, rp *app.Region) bool {
 	if wp == nil || rp == nil {
 		return false
 	}
 	if wp.Mark.Line == 0 {
-		mbWrite("[no mark set in this window]")
+		ui.MBWrite("[no mark set in this window]")
 		return false
 	}
 	cursor := wp.Cursor
@@ -39,13 +41,13 @@ func CmdKillRegion(f bool, n int) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	var region Region
+	var region app.Region
 	if !getRegion(wp, &region) {
 		return false
 	}
-	killBegin()
+	edit.KillBegin()
 	// unset mark
-	wp.Mark = Location{Line: 0, Offset: 0}
+	wp.Mark = buffer.Location{Line: 0, Offset: 0}
 	wp.SetCursor(region.Start)
 	return bufferSetText(wp.Buffer, region.Start, region.End, nil, nil, true)
 }
@@ -58,25 +60,25 @@ func CmdCopyRegion(f bool, n int) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	var region Region
+	var region app.Region
 	if !getRegion(wp, &region) {
 		return false
 	}
-	killBegin()
+	edit.KillBegin()
 	text := wp.Buffer.GetText(region.Start, region.End)
 	length := uint(len(text))
 	if length > 0 && text == nil {
-		mbWrite("[out of memory]")
+		ui.MBWrite("[out of memory]")
 		return false
 	}
-	if !killAppend(text) {
-		mbWrite("[out of memory]")
+	if !edit.KillAppend(text) {
+		ui.MBWrite("[out of memory]")
 		return false
 	}
-	killWriteClipboard()
-	mbWrite("[region copied]")
+	edit.KillWriteClipboard()
+	ui.MBWrite("[region copied]")
 	// unset mark and mark window for redraw
-	wp.Mark = Location{Line: 0, Offset: 0}
+	wp.Mark = buffer.Location{Line: 0, Offset: 0}
 	wp.ShouldRedraw = true
 	return true
 }
@@ -89,16 +91,16 @@ func CmdYank(f bool, n int) bool {
 	}
 	// Prefer the system clipboard, but fall back to the in-process kill ring
 	// when yanking immediately after a kill in environments without clipboard access.
-	if !killReadClipboard() && app.State.KillState == CmdStateNone {
+	if !edit.KillReadClipboard() && app.State.KillState == app.CmdStateNone {
 		return false
 	}
-	kb := killBytes()
+	kb := edit.KillBytes()
 	klen := uint(len(kb))
 	if klen == 0 {
 		return false
 	}
 	if klen > (1 << 31) {
-		mbWrite("[kill buffer too large]")
+		ui.MBWrite("[kill buffer too large]")
 		return false
 	}
 	for i := 0; i < n; i++ {
@@ -122,14 +124,14 @@ func CmdSetMark(f bool, n int) bool {
 		return false
 	}
 	if wp.Mark.Line != 0 {
-		wp.Mark = Location{Line: 0, Offset: 0}
+		wp.Mark = buffer.Location{Line: 0, Offset: 0}
 		wp.ShouldRedraw = true
-		mbWrite("[mark unset]")
+		ui.MBWrite("[mark unset]")
 		return true
 	}
 	wp.Mark = wp.Cursor
 	wp.ShouldRedraw = true
-	mbWrite("[mark set]")
+	ui.MBWrite("[mark set]")
 	return true
 }
 
@@ -142,7 +144,7 @@ func CmdSwapMark(f bool, n int) bool {
 		return false
 	}
 	if wp.Mark.Line == 0 {
-		mbWrite("[no mark in this window]")
+		ui.MBWrite("[no mark in this window]")
 		return false
 	}
 	temp := wp.Cursor
@@ -164,7 +166,7 @@ func CmdMarkWholeBuffer(f bool, n int) bool {
 	wp.Mark = buffer.MakeLocation(bp.EOF(), 0)
 	wp.SetCursor(buffer.MakeLocation(1, 0))
 	wp.ShouldRedraw = true
-	mbWrite("[mark set]")
+	ui.MBWrite("[mark set]")
 	return true
 }
 
@@ -174,14 +176,14 @@ func transformRegionCase(upper bool) bool {
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
-	var region Region
+	var region app.Region
 	if !getRegion(wp, &region) {
 		return false
 	}
 	text := bp.GetText(region.Start, region.End)
 	length := uint(len(text))
 	if text == nil && length > 0 {
-		mbWrite("[out of memory]")
+		ui.MBWrite("[out of memory]")
 		return false
 	}
 	changed := false
@@ -230,14 +232,14 @@ func CmdSortRegion(f bool, n int) bool {
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
-	var region Region
+	var region app.Region
 	if !getRegion(wp, &region) {
 		return false
 	}
 	lastLine := region.End.Line
 	nlines := lastLine - region.Start.Line + 1
 	if nlines < 2 {
-		mbWrite("[sort needs at least 2 lines]")
+		ui.MBWrite("[sort needs at least 2 lines]")
 		return false
 	}
 	start := buffer.MakeLocation(region.Start.Line, 0)
@@ -245,7 +247,7 @@ func CmdSortRegion(f bool, n int) bool {
 	text := bp.GetText(start, end)
 	total := uint(len(text))
 	if text == nil && total > 0 {
-		mbWrite("[out of memory]")
+		ui.MBWrite("[out of memory]")
 		return false
 	}
 	slines := make([]sortLine, 0, nlines)
@@ -282,8 +284,8 @@ func CmdSortRegion(f bool, n int) bool {
 		return false
 	}
 	wp.Cursor = savedCursor
-	wp.Mark = Location{Line: 0, Offset: 0}
-	mbWrite("[region sorted]")
+	wp.Mark = buffer.Location{Line: 0, Offset: 0}
+	ui.MBWrite("[region sorted]")
 	return true
 }
 
@@ -296,25 +298,25 @@ func CmdCopyRegister(f bool, n int) bool {
 	if wp == nil || bp == nil {
 		return false
 	}
-	var region Region
+	var region app.Region
 	if !getRegion(wp, &region) {
 		return false
 	}
-	name, pr := mbReadString("Register Name: ", "")
-	if pr != PromptResultYes {
+	name, pr := ui.MBReadString("Register Name: ", "")
+	if pr != app.PromptResultYes {
 		return false
 	}
 	text := bp.GetText(region.Start, region.End)
 	length := uint(len(text))
 	if text == nil && length > 0 {
-		mbWrite("[out of memory]")
+		ui.MBWrite("[out of memory]")
 		return false
 	}
 	if !RegisterSetText(name, text) {
 		return false
 	}
-	mbWrite("Register '%s' copied.", name)
-	wp.Mark = Location{Line: 0, Offset: 0}
+	ui.MBWrite("Register '%s' copied.", name)
+	wp.Mark = buffer.Location{Line: 0, Offset: 0}
 	wp.ShouldRedraw = true
 	return true
 }
@@ -327,18 +329,18 @@ func CmdInsertRegister(f bool, n int) bool {
 	if wp == nil {
 		return false
 	}
-	name, pr := mbReadString("Register Name: ", "")
-	if pr != PromptResultYes {
+	name, pr := ui.MBReadString("Register Name: ", "")
+	if pr != app.PromptResultYes {
 		return false
 	}
 	text, ok := RegisterGetText(name)
 	if !ok {
-		mbWrite("[register '%s' not found]", name)
+		ui.MBWrite("[register '%s' not found]", name)
 		return false
 	}
 	if !windowInsertText(wp, text) {
 		return false
 	}
-	mbWrite("Register '%s' inserted.", name)
+	ui.MBWrite("Register '%s' inserted.", name)
 	return true
 }

@@ -1,12 +1,14 @@
-package modes
+package modeactions
 
 import (
 	"bytes"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 )
 
-func lineColOfOffset(lp *Line, offset uint) int {
+func lineColOfOffset(lp *buffer.Line, offset uint) int {
 	if lp == nil {
 		return 0
 	}
@@ -16,7 +18,7 @@ func lineColOfOffset(lp *Line, offset uint) int {
 	return int(offset)
 }
 
-func lineFirstNonblankOffset(lp *Line) (uint, byte) {
+func lineFirstNonblankOffset(lp *buffer.Line) (uint, byte) {
 	if lp == nil {
 		return 0, 0
 	}
@@ -29,7 +31,7 @@ func lineFirstNonblankOffset(lp *Line) (uint, byte) {
 	return lp.Len(), 0
 }
 
-func lineStartsWith(lp *Line, text string) bool {
+func lineStartsWith(lp *buffer.Line, text string) bool {
 	if lp == nil {
 		return false
 	}
@@ -44,7 +46,7 @@ func lineStartsWith(lp *Line, text string) bool {
 	return bytes.Equal(lp.Data[off:off+uint(len(pat))], pat)
 }
 
-func lineIsCommentOrPreproc(bp *Buffer, lineNumber uint) bool {
+func lineIsCommentOrPreproc(bp *buffer.Buffer, lineNumber uint) bool {
 	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return false
@@ -68,7 +70,7 @@ func lineIsCommentOrPreproc(bp *Buffer, lineNumber uint) bool {
 	return false
 }
 
-func lineIsPreproc(bp *Buffer, lineNumber uint) bool {
+func lineIsPreproc(bp *buffer.Buffer, lineNumber uint) bool {
 	lp := bp.Line(lineNumber)
 	if lp == nil || lp.IsBlank() {
 		return false
@@ -77,7 +79,7 @@ func lineIsPreproc(bp *Buffer, lineNumber uint) bool {
 	return ch == '#'
 }
 
-func prevCodeLineNumber(bp *Buffer, lineNumber uint) uint {
+func prevCodeLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
 	for ln := lineNumber; ln > 1; {
 		ln--
 		p := bp.Line(ln)
@@ -91,7 +93,7 @@ func prevCodeLineNumber(bp *Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func lineIsCaseLabel(lp *Line) bool {
+func lineIsCaseLabel(lp *buffer.Line) bool {
 	if lp == nil {
 		return false
 	}
@@ -114,7 +116,7 @@ func lineIsCaseLabel(lp *Line) bool {
 	return false
 }
 
-func lineEndsWithContinuation(lp *Line) bool {
+func lineEndsWithContinuation(lp *buffer.Line) bool {
 	if lp == nil || lp.Len() == 0 {
 		return false
 	}
@@ -127,7 +129,7 @@ func lineEndsWithContinuation(lp *Line) bool {
 	}
 }
 
-func calcCommentIndent(bp *Buffer, lineNumber uint) int {
+func calcCommentIndent(bp *buffer.Buffer, lineNumber uint) int {
 	prevLine := lineNumber
 	for prevLine > 1 {
 		prevLine--
@@ -149,7 +151,7 @@ func calcCommentIndent(bp *Buffer, lineNumber uint) int {
 	return 0
 }
 
-func findCaseIndent(bp *Buffer, lineNumber uint, offset uint) int {
+func findCaseIndent(bp *buffer.Buffer, lineNumber uint, offset uint) int {
 	cIndent := bp.CIndent
 	cColonOffset := bp.CColonOffset
 	for ln := int(lineNumber); ln >= 1; ln-- {
@@ -168,7 +170,7 @@ func findCaseIndent(bp *Buffer, lineNumber uint, offset uint) int {
 	return 0
 }
 
-func findClosingDelimiterIndent(bp *Buffer, lineNumber uint, offset uint) int {
+func findClosingDelimiterIndent(bp *buffer.Buffer, lineNumber uint, offset uint) int {
 	line := bp.Line(lineNumber)
 	if line == nil || offset >= line.Len() {
 		return 0
@@ -216,7 +218,7 @@ func findClosingDelimiterIndent(bp *Buffer, lineNumber uint, offset uint) int {
 	return 0
 }
 
-func findUnmatchedOpenDelim(bp *Buffer, lineNumber, offset uint) (Location, byte, bool) {
+func findUnmatchedOpenDelim(bp *buffer.Buffer, lineNumber, offset uint) (buffer.Location, byte, bool) {
 	depthParen := 0
 	depthBracket := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
@@ -236,7 +238,7 @@ func findUnmatchedOpenDelim(bp *Buffer, lineNumber, offset uint) (Location, byte
 				if depthParen > 0 {
 					depthParen--
 				} else {
-					return MakeLocation(uint(ln), uint(i)), '(', true
+					return buffer.MakeLocation(uint(ln), uint(i)), '(', true
 				}
 			case ']':
 				depthBracket++
@@ -244,15 +246,15 @@ func findUnmatchedOpenDelim(bp *Buffer, lineNumber, offset uint) (Location, byte
 				if depthBracket > 0 {
 					depthBracket--
 				} else {
-					return MakeLocation(uint(ln), uint(i)), '[', true
+					return buffer.MakeLocation(uint(ln), uint(i)), '[', true
 				}
 			}
 		}
 	}
-	return Location{}, 0, false
+	return buffer.Location{}, 0, false
 }
 
-func findDelimiterContinuationIndent(bp *Buffer, lineNumber uint, offset uint) int {
+func findDelimiterContinuationIndent(bp *buffer.Buffer, lineNumber uint, offset uint) int {
 	open, _, ok := findUnmatchedOpenDelim(bp, lineNumber, offset)
 	if !ok {
 		return -1
@@ -272,7 +274,7 @@ func findDelimiterContinuationIndent(bp *Buffer, lineNumber uint, offset uint) i
 	return int(lp.IndentColumn()) + int(bp.CIndent)
 }
 
-func findEnclosingBlockIndent(bp *Buffer, lineNumber uint, offset uint) int {
+func findEnclosingBlockIndent(bp *buffer.Buffer, lineNumber uint, offset uint) int {
 	open, ok := findUnmatchedOpenBrace(bp, lineNumber, offset)
 	if !ok {
 		return -1
@@ -284,7 +286,7 @@ func findEnclosingBlockIndent(bp *Buffer, lineNumber uint, offset uint) int {
 	return int(lp.IndentColumn()) + int(bp.CIndent)
 }
 
-func findUnmatchedOpenBrace(bp *Buffer, lineNumber, offset uint) (Location, bool) {
+func findUnmatchedOpenBrace(bp *buffer.Buffer, lineNumber, offset uint) (buffer.Location, bool) {
 	depth := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
 		lp := bp.Line(uint(ln))
@@ -303,15 +305,15 @@ func findUnmatchedOpenBrace(bp *Buffer, lineNumber, offset uint) (Location, bool
 				if depth > 0 {
 					depth--
 				} else {
-					return MakeLocation(uint(ln), uint(i)), true
+					return buffer.MakeLocation(uint(ln), uint(i)), true
 				}
 			}
 		}
 	}
-	return Location{}, false
+	return buffer.Location{}, false
 }
 
-func calcIndent(bp *Buffer, lineNumber uint) int {
+func calcIndent(bp *buffer.Buffer, lineNumber uint) int {
 	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return 0
@@ -364,8 +366,8 @@ func calcIndent(bp *Buffer, lineNumber uint) int {
 	return ind
 }
 
-func setLineIndent(wp *Window, col int) bool {
-	if wp == nil || wp.Buffer == nil || col < 0 || PackageHooks.BufferSetText == nil {
+func setLineIndent(wp *app.Window, col int) bool {
+	if wp == nil || wp.Buffer == nil || col < 0 {
 		return false
 	}
 	bp := wp.Buffer
@@ -379,15 +381,12 @@ func setLineIndent(wp *Window, col int) bool {
 	for i := range spaces {
 		spaces[i] = ' '
 	}
-	begin := MakeLocation(ln, 0)
-	end := MakeLocation(ln, oldFirst)
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, spaces, nil, false)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	begin := buffer.MakeLocation(ln, 0)
+	end := buffer.MakeLocation(ln, oldFirst)
+	edit.BeginCommand()
+	err := edit.SetText(bp, begin, end, spaces, nil)
+	ok := err == nil
+	edit.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
@@ -401,11 +400,11 @@ func cmdCNewlineAndIndent(f bool, n int) bool {
 	}
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !PackageHooks.WindowInsertNewline(wp) {
+		if !edit.InsertNewline(wp) {
 			return false
 		}
 		indent := calcIndent(bp, wp.Cursor.Line)
@@ -435,7 +434,7 @@ func cmdCMakeComment(f bool, n int) bool {
 	_ = n
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.BufferSetText == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	if wp.Mark.Line != 0 && wp.Mark.Line != wp.Cursor.Line {
@@ -451,36 +450,28 @@ func cmdCMakeComment(f bool, n int) bool {
 			endOffset = bp.Line(endLine).Len()
 		}
 		orig := wp.Cursor
-		if PackageHooks.UndoBeginCommand != nil {
-			PackageHooks.UndoBeginCommand()
-		}
+		edit.BeginCommand()
 		for ln := startLine; ln <= endLine; ln++ {
 			lineLp := bp.Line(ln)
 			if lineLp == nil {
 				continue
 			}
 			start := lineLp.FirstNonblank()
-			insLoc := MakeLocation(ln, start)
-			if !PackageHooks.BufferSetText(bp, insLoc, insLoc, []byte("/*"), nil, false) {
+			insLoc := buffer.MakeLocation(ln, start)
+			if err := edit.SetText(bp, insLoc, insLoc, []byte("/*"), nil); err != nil {
 				wp.Cursor = orig
-				if PackageHooks.UndoEndCommand != nil {
-					PackageHooks.UndoEndCommand()
-				}
+				edit.EndCommand()
 				return false
 			}
 			lineLp = bp.Line(ln)
-			closeLoc := MakeLocation(ln, lineLp.Len())
-			if !PackageHooks.BufferSetText(bp, closeLoc, closeLoc, []byte("*/"), nil, false) {
+			closeLoc := buffer.MakeLocation(ln, lineLp.Len())
+			if err := edit.SetText(bp, closeLoc, closeLoc, []byte("*/"), nil); err != nil {
 				wp.Cursor = orig
-				if PackageHooks.UndoEndCommand != nil {
-					PackageHooks.UndoEndCommand()
-				}
+				edit.EndCommand()
 				return false
 			}
 		}
-		if PackageHooks.UndoEndCommand != nil {
-			PackageHooks.UndoEndCommand()
-		}
+		edit.EndCommand()
 		wp.Cursor.Line = endLine
 		wp.Cursor.Offset = endOffset
 		wp.DidMove = true
@@ -488,7 +479,7 @@ func cmdCMakeComment(f bool, n int) bool {
 	}
 	insLoc := wp.Cursor
 	cmt := []byte("  /* */")
-	if !PackageHooks.BufferSetText(bp, insLoc, insLoc, cmt, nil, false) {
+	if err := edit.SetText(bp, insLoc, insLoc, cmt, nil); err != nil {
 		return false
 	}
 	lp := bp.Line(wp.Cursor.Line)
@@ -554,7 +545,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 			if sigLine > 1 {
 				sigLine--
 			}
-				wp.SetCursor(MakeLocation(sigLine, 0))
+			wp.SetCursor(buffer.MakeLocation(sigLine, 0))
 			wp.DidMove = true
 			return true
 		}
@@ -598,7 +589,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 					depth--
 					continue
 				}
-					wp.SetCursor(MakeLocation(uint(ln), uint(i)))
+				wp.SetCursor(buffer.MakeLocation(uint(ln), uint(i)))
 				wp.DidMove = true
 				return true
 			}
@@ -624,7 +615,7 @@ func cmdCMarkFunction(f bool, n int) bool {
 	}
 	wp.Mark.Line = wp.Cursor.Line
 	wp.Mark.Offset = wp.Cursor.Offset
-		wp.SetCursor(MakeLocation(origLine, origDoto))
+	wp.SetCursor(buffer.MakeLocation(origLine, origDoto))
 	if !cmdCTopOfFunction(false, 1) {
 		wp.Mark.Line = 0
 		return false
@@ -643,13 +634,13 @@ func cmdCCloseBrace(f bool, n int) bool {
 	}
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.WindowInsertCodepoint == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	col := calcIndent(bp, wp.Cursor.Line)
 	setLineIndent(wp, col)
 	for i := 0; i < n; i++ {
-		if !PackageHooks.WindowInsertCodepoint(wp, '}') {
+		if !edit.InsertCodepoint(wp, '}') {
 			return false
 		}
 	}
@@ -668,7 +659,7 @@ func cmdCCloseBrace(f bool, n int) bool {
 func init() {
 	for i := range modeTable {
 		switch modeTable[i].Mode {
-		case app.LModeC, app.LModeJava, app.LModeCSharp, app.LModeGo, app.LModeKotlin, app.LModeSwift, app.LModeJavaScript, app.LModeTypeScript, app.LModeActionScript, app.LModeDart, app.LModeRust:
+		case buffer.LModeC, buffer.LModeJava, buffer.LModeCSharp, buffer.LModeGo, buffer.LModeKotlin, buffer.LModeSwift, buffer.LModeJavaScript, buffer.LModeTypeScript, buffer.LModeActionScript, buffer.LModeDart, buffer.LModeRust:
 			modeTable[i].NewlineAndIndent = cmdCNewlineAndIndent
 			modeTable[i].IndentLine = cmdCIndentLine
 			modeTable[i].CloseBrace = cmdCCloseBrace

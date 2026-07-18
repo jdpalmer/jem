@@ -30,7 +30,7 @@ func TestCmdEdit(t *testing.T) {
 
 	te.LoadText("hello world")
 	te.SetCursor(1, 5)
-	app.State.KillState = CmdStateNone
+	app.State.KillState = app.CmdStateNone
 	te.Press("C-k")
 	te.ExpectText("hello")
 	te.Press("C-y")

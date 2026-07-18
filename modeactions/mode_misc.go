@@ -1,6 +1,10 @@
-package modes
+package modeactions
 
-import "github.com/jdpalmer/jem/app"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
+)
 
 const (
 	SIMPLE_INDENT            = 2
@@ -23,7 +27,7 @@ func u8isalnum(b byte) bool {
 	return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }
 
-func prevNonblankLineNumberBuf(bp *Buffer, lineNumber uint) uint {
+func prevNonblankLineNumberBuf(bp *buffer.Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
 		p := bp.Line(lineNumber)
@@ -34,7 +38,7 @@ func prevNonblankLineNumberBuf(bp *Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func wordMatchCI(lp *Line, start uint, word string) bool {
+func wordMatchCI(lp *buffer.Line, start uint, word string) bool {
 	if lp == nil {
 		return false
 	}
@@ -57,18 +61,18 @@ func wordMatchCI(lp *Line, start uint, word string) bool {
 	return !(u8isalnum(c) || c == '_')
 }
 
-func lineStartsWordCI(lp *Line, word string) bool {
+func lineStartsWordCI(lp *buffer.Line, word string) bool {
 	return wordMatchCI(lp, lp.FirstNonblank(), word)
 }
 
-func lineEndsWithWordCI(lp *Line, word string) bool {
+func lineEndsWithWordCI(lp *buffer.Line, word string) bool {
 	if lp == nil {
 		return false
 	}
 	end := int(lp.Len())
 	wlen := len(word)
 	for end > 0 {
-		c := lp.Byte(uint(end-1))
+		c := lp.Byte(uint(end - 1))
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -85,11 +89,11 @@ func lineEndsWithWordCI(lp *Line, word string) bool {
 	if end == wlen {
 		return true
 	}
-	c := lp.Byte(uint(end-wlen-1))
+	c := lp.Byte(uint(end - wlen - 1))
 	return !(u8isalnum(c) || c == '_')
 }
 
-func isMakeTargetLine(lp *Line) bool {
+func isMakeTargetLine(lp *buffer.Line) bool {
 	if lp == nil {
 		return false
 	}
@@ -116,10 +120,10 @@ func isMakeTargetLine(lp *Line) bool {
 	return seenColon
 }
 
-func calcMakeIndent(bp *Buffer, lineNumber uint) IndentSpec {
+func calcMakeIndent(bp *buffer.Buffer, lineNumber uint) IndentSpec {
 	lp := bp.Line(lineNumber)
 	refLine := prevNonblankLineNumberBuf(bp, lineNumber)
-	var ref *Line
+	var ref *buffer.Line
 	if refLine != 0 {
 		ref = bp.Line(refLine)
 	}
@@ -138,26 +142,26 @@ func calcMakeIndent(bp *Buffer, lineNumber uint) IndentSpec {
 	return IndentSpec{0, false}
 }
 
-func luaIsCloser(lp *Line) bool {
+func luaIsCloser(lp *buffer.Line) bool {
 	return lineStartsWordCI(lp, "end") || lineStartsWordCI(lp, "until") || lineStartsWordCI(lp, "elseif") || lineStartsWordCI(lp, "else")
 }
-func luaIsOpener(lp *Line) bool {
+func luaIsOpener(lp *buffer.Line) bool {
 	return lineEndsWithWordCI(lp, "then") || lineEndsWithWordCI(lp, "do") || lineStartsWordCI(lp, "repeat") || lineStartsWordCI(lp, "function")
 }
-func pascalIsCloser(lp *Line) bool {
+func pascalIsCloser(lp *buffer.Line) bool {
 	return lineStartsWordCI(lp, "end") || lineStartsWordCI(lp, "until") || lineStartsWordCI(lp, "else")
 }
-func pascalIsOpener(lp *Line) bool {
+func pascalIsOpener(lp *buffer.Line) bool {
 	return lineStartsWordCI(lp, "begin") || lineStartsWordCI(lp, "repeat") || lineEndsWithWordCI(lp, "then") || lineEndsWithWordCI(lp, "do") || lineStartsWordCI(lp, "case") || lineStartsWordCI(lp, "record")
 }
-func verilogIsCloser(lp *Line) bool {
+func verilogIsCloser(lp *buffer.Line) bool {
 	return lineStartsWordCI(lp, "endcase") || lineStartsWordCI(lp, "endmodule") || lineStartsWordCI(lp, "endfunction") || lineStartsWordCI(lp, "endtask") || lineStartsWordCI(lp, "endclass") || lineStartsWordCI(lp, "join") || lineStartsWordCI(lp, "end")
 }
-func verilogIsOpener(lp *Line) bool {
+func verilogIsOpener(lp *buffer.Line) bool {
 	return lineStartsWordCI(lp, "module") || lineStartsWordCI(lp, "class") || lineStartsWordCI(lp, "function") || lineStartsWordCI(lp, "task") || lineStartsWordCI(lp, "case") || lineStartsWordCI(lp, "casex") || lineStartsWordCI(lp, "casez") || lineStartsWordCI(lp, "fork") || lineEndsWithWordCI(lp, "begin")
 }
 
-func htmlIsCloser(lp *Line) bool {
+func htmlIsCloser(lp *buffer.Line) bool {
 	i := lp.FirstNonblank()
 	if i >= lp.Len() || lp.Byte(i) != '<' {
 		return false
@@ -166,11 +170,11 @@ func htmlIsCloser(lp *Line) bool {
 	return i < lp.Len() && lp.Byte(i) == '/'
 }
 
-func htmlIsOpener(lp *Line) bool {
+func htmlIsOpener(lp *buffer.Line) bool {
 	i := lp.FirstNonblank()
 	end := lp.Len()
 	for end > i {
-		c := lp.Byte(uint(end-1))
+		c := lp.Byte(uint(end - 1))
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -179,7 +183,7 @@ func htmlIsOpener(lp *Line) bool {
 	if i >= end || lp.Byte(i) != '<' || i+1 >= end {
 		return false
 	}
-	c := lp.Byte(uint(i+1))
+	c := lp.Byte(uint(i + 1))
 	if c == '/' || c == '!' || c == '?' {
 		return false
 	}
@@ -189,10 +193,10 @@ func htmlIsOpener(lp *Line) bool {
 	return lp.Byte(uint(end-1)) == '>'
 }
 
-func calcBlockIndent(bp *Buffer, lineNumber uint, isCloser func(*Line) bool, isOpener func(*Line) bool) IndentSpec {
+func calcBlockIndent(bp *buffer.Buffer, lineNumber uint, isCloser func(*buffer.Line) bool, isOpener func(*buffer.Line) bool) IndentSpec {
 	lp := bp.Line(lineNumber)
 	refLine := prevNonblankLineNumberBuf(bp, lineNumber)
-	var ref *Line
+	var ref *buffer.Line
 	if refLine != 0 {
 		ref = bp.Line(refLine)
 	}
@@ -213,7 +217,7 @@ func calcBlockIndent(bp *Buffer, lineNumber uint, isCloser func(*Line) bool, isO
 	return IndentSpec{uint(base), false}
 }
 
-func calcLispIndent(bp *Buffer, lineNumber uint) IndentSpec {
+func calcLispIndent(bp *buffer.Buffer, lineNumber uint) IndentSpec {
 	lp := bp.Line(lineNumber)
 	depth := 0
 	closeAlign := lp != nil && lp.FirstByte() == ')'
@@ -224,7 +228,7 @@ func calcLispIndent(bp *Buffer, lineNumber uint) IndentSpec {
 			continue
 		}
 		for i := int(p.Len()); i > 0; i-- {
-			c := p.Byte(uint(i-1))
+			c := p.Byte(uint(i - 1))
 			if c == ')' {
 				depth++
 			} else if c == '(' {
@@ -252,7 +256,7 @@ func calcLispIndent(bp *Buffer, lineNumber uint) IndentSpec {
 	return IndentSpec{0, false}
 }
 
-func calcMiscIndent(bp *Buffer, lineNumber uint) IndentSpec {
+func calcMiscIndent(bp *buffer.Buffer, lineNumber uint) IndentSpec {
 	kind := LangModeInfo(bp.LangMode).MiscIndentKind
 	switch kind {
 	case app.ModeMiscIndentNone:
@@ -276,8 +280,8 @@ func calcMiscIndent(bp *Buffer, lineNumber uint) IndentSpec {
 	}
 }
 
-func setLineIndentMisc(wp *Window, spec IndentSpec) bool {
-	if wp == nil || wp.Buffer == nil || PackageHooks.BufferSetText == nil {
+func setLineIndentMisc(wp *app.Window, spec IndentSpec) bool {
+	if wp == nil || wp.Buffer == nil {
 		return false
 	}
 	bp := wp.Buffer
@@ -296,15 +300,12 @@ func setLineIndentMisc(wp *Window, spec IndentSpec) bool {
 			prefix[i] = ' '
 		}
 	}
-	begin := MakeLocation(ln, 0)
-	end := MakeLocation(ln, first)
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, prefix, nil, false)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	begin := buffer.MakeLocation(ln, 0)
+	end := buffer.MakeLocation(ln, first)
+	edit.BeginCommand()
+	err := edit.SetText(bp, begin, end, prefix, nil)
+	ok := err == nil
+	edit.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
@@ -318,11 +319,11 @@ func cmdMiscNewlineAndIndent(f bool, n int) bool {
 	}
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !PackageHooks.WindowInsertNewline(wp) {
+		if !edit.InsertNewline(wp) {
 			return false
 		}
 		spec := calcMiscIndent(bp, wp.Cursor.Line)

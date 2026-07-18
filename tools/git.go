@@ -8,6 +8,8 @@ package tools
 import (
 	"bytes"
 	"fmt"
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -16,7 +18,7 @@ import (
 )
 
 type gitModelineCache struct {
-	buffer      *Buffer
+	buffer      *buffer.Buffer
 	valid       bool
 	hasRepo     bool
 	refreshedAt int64
@@ -26,7 +28,7 @@ type gitModelineCache struct {
 	diffCount   uint
 }
 
-var gitModelineCaches [MaxBuffers]gitModelineCache
+var gitModelineCaches []gitModelineCache
 
 func gitNextLine(buf []byte, start int) (int, []byte) {
 	if start >= len(buf) {
@@ -43,7 +45,7 @@ func gitNextLine(buf []byte, start int) (int, []byte) {
 	return lineEnd, line
 }
 
-func gitSetLineDiff(cache *gitModelineCache, lineNumber uint, marker GitLineDiff) {
+func gitSetLineDiff(cache *gitModelineCache, lineNumber uint, marker app.GitLineDiff) {
 	if cache == nil || lineNumber == 0 || lineNumber > cache.diffCount {
 		return
 	}
@@ -76,7 +78,7 @@ func gitRun(argv []string, maxOut int) (stdout string, exitCode int, ran bool) {
 	return out.String(), 0, true
 }
 
-func gitModelineCacheForBuffer(bp *Buffer) *gitModelineCache {
+func gitModelineCacheForBuffer(bp *buffer.Buffer) *gitModelineCache {
 	if bp == nil || bp.FileName == "" {
 		return nil
 	}
@@ -92,7 +94,11 @@ func gitModelineCacheForBuffer(bp *Buffer) *gitModelineCache {
 		}
 	}
 	if cache == nil {
-		return nil
+		if len(gitModelineCaches) >= app.MaxBuffers {
+			return nil
+		}
+		gitModelineCaches = append(gitModelineCaches, gitModelineCache{})
+		cache = &gitModelineCaches[len(gitModelineCaches)-1]
 	}
 
 	if cache.buffer == nil {
@@ -114,7 +120,7 @@ func gitModelineCacheForBuffer(bp *Buffer) *gitModelineCache {
 	return cache
 }
 
-func gitRefreshCache(cache *gitModelineCache, bp *Buffer, fname string, now int64) {
+func gitRefreshCache(cache *gitModelineCache, bp *buffer.Buffer, fname string, now int64) {
 	cache.valid = true
 	cache.hasRepo = false
 	cache.refreshedAt = now
@@ -199,7 +205,7 @@ func gitRefreshCache(cache *gitModelineCache, bp *Buffer, fname string, now int6
 	if fileUntracked {
 		dirty = "[?]"
 		for i := uint(1); i <= cache.diffCount; i++ {
-			gitSetLineDiff(cache, i, GitLineDiffAdded)
+			gitSetLineDiff(cache, i, app.GitLineDiffAdded)
 		}
 	} else if fileIndexStatus != '.' || fileWorktreeStatus != '.' {
 		dirty = fmt.Sprintf("[%c%c]", fileIndexStatus, fileWorktreeStatus)
@@ -255,7 +261,7 @@ func gitRefreshCache(cache *gitModelineCache, bp *Buffer, fname string, now int6
 			for i := 0; i < newCount; i++ {
 				lineNumber := newStart + i
 				if lineNumber > 0 {
-					gitSetLineDiff(cache, uint(lineNumber), GitLineDiffAdded)
+					gitSetLineDiff(cache, uint(lineNumber), app.GitLineDiffAdded)
 				}
 			}
 			continue
@@ -268,19 +274,19 @@ func gitRefreshCache(cache *gitModelineCache, bp *Buffer, fname string, now int6
 			if uint(target) > cache.diffCount && cache.diffCount > 0 {
 				target = int(cache.diffCount)
 			}
-			gitSetLineDiff(cache, uint(target), GitLineDiffDeleted)
+			gitSetLineDiff(cache, uint(target), app.GitLineDiffDeleted)
 			continue
 		}
 		for i := 0; i < newCount; i++ {
 			lineNumber := newStart + i
 			if lineNumber > 0 {
-				gitSetLineDiff(cache, uint(lineNumber), GitLineDiffModified)
+				gitSetLineDiff(cache, uint(lineNumber), app.GitLineDiffModified)
 			}
 		}
 		if oldCount > newCount {
 			lineNumber := newStart + newCount
 			if lineNumber > 0 {
-				gitSetLineDiff(cache, uint(lineNumber), GitLineDiffDeleted)
+				gitSetLineDiff(cache, uint(lineNumber), app.GitLineDiffDeleted)
 			}
 		}
 	}
@@ -305,7 +311,7 @@ func gitParseHunkHeader(line string) (oldStart, oldCount, newStart, newCount int
 }
 
 // GitModelineText returns branch/status text for the modeline, or "" when unavailable.
-func GitModelineText(bp *Buffer) string {
+func GitModelineText(bp *buffer.Buffer) string {
 	cache := gitModelineCacheForBuffer(bp)
 	if cache == nil || !cache.hasRepo || cache.text == "" {
 		return ""
@@ -314,10 +320,10 @@ func GitModelineText(bp *Buffer) string {
 }
 
 // GitLineDiffAt returns the gutter diff marker for a buffer line.
-func GitLineDiffAt(bp *Buffer, lineNumber uint) GitLineDiff {
+func GitLineDiffAt(bp *buffer.Buffer, lineNumber uint) app.GitLineDiff {
 	cache := gitModelineCacheForBuffer(bp)
 	if cache == nil || !cache.hasRepo || lineNumber == 0 || lineNumber > cache.diffCount {
-		return GitLineDiffNone
+		return app.GitLineDiffNone
 	}
-	return GitLineDiff(cache.lineDiffs[lineNumber-1])
+	return app.GitLineDiff(cache.lineDiffs[lineNumber-1])
 }

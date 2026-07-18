@@ -6,17 +6,18 @@ import (
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
 )
 
 const wheelLines = 3
 
-var mouseAnchorWindow *Window
+var mouseAnchorWindow *app.Window
 var mouseAnchorLine uint
 var mouseAnchorOffset uint
 
 // winAt returns the window that occupies screen row r, or nil.
-func winAt(r uint32) *Window {
-	for i := 0; i < int(app.State.WindowCount); i++ {
+func winAt(r uint32) *app.Window {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil && r >= wp.ScreenTopRow && r < wp.ScreenTopRow+wp.Height {
 			return wp
@@ -26,7 +27,7 @@ func winAt(r uint32) *Window {
 }
 
 // lineOffsetAtCol returns the byte offset at or before the given screen column goal.
-func lineOffsetAtCol(lp *Line, goal uint32) uint {
+func lineOffsetAtCol(lp *buffer.Line, goal uint32) uint {
 	if lp == nil {
 		return 0
 	}
@@ -57,9 +58,9 @@ func lineOffsetAtCol(lp *Line, goal uint32) uint {
 }
 
 // mouseLocationInWindow maps screen mouse coordinates to a buffer location within a specific window.
-func mouseLocationInWindow(wp *Window) Location {
+func mouseLocationInWindow(wp *app.Window) buffer.Location {
 	if wp == nil {
-		return Location{}
+		return buffer.Location{}
 	}
 	rowInWin := app.State.Mouse.Row - wp.ScreenTopRow
 	lineNumber := wp.TopLine
@@ -68,7 +69,7 @@ func mouseLocationInWindow(wp *Window) Location {
 		rowInWin--
 	}
 
-	loc := Location{Line: lineNumber, Offset: 0}
+	loc := buffer.Location{Line: lineNumber, Offset: 0}
 	line := wp.Buffer.Line(loc.Line)
 	textCol := int(app.State.Mouse.Col) - int(wp.GutterWidth()) + int(wp.HScroll)
 	if textCol < 0 {
@@ -81,7 +82,7 @@ func mouseLocationInWindow(wp *Window) Location {
 }
 
 // windowCursorIsVisible checks if the window's cursor is currently within the visible viewport.
-func windowCursorIsVisible(wp *Window) bool {
+func windowCursorIsVisible(wp *app.Window) bool {
 	if wp == nil {
 		return false
 	}
@@ -99,7 +100,7 @@ func windowCursorIsVisible(wp *Window) bool {
 }
 
 // windowLastVisibleLine finds the last line index currently visible within the window's viewport.
-func windowLastVisibleLine(wp *Window) uint {
+func windowLastVisibleLine(wp *app.Window) uint {
 	if wp == nil {
 		return 1
 	}
@@ -116,7 +117,7 @@ func windowLastVisibleLine(wp *Window) uint {
 }
 
 // windowScroll scrolls the window viewport by n lines (positive for down, negative for up).
-func windowScroll(wp *Window, n int) {
+func windowScroll(wp *app.Window, n int) {
 	if wp == nil || wp.Buffer == nil {
 		return
 	}
@@ -141,11 +142,11 @@ func windowScroll(wp *Window, n int) {
 
 	if wp == app.State.CurrentWindow {
 		if !windowCursorIsVisible(wp) {
-			var loc Location
+			var loc buffer.Location
 			if n > 0 {
-				loc = Location{Line: windowLastVisibleLine(wp), Offset: 0}
+				loc = buffer.Location{Line: windowLastVisibleLine(wp), Offset: 0}
 			} else {
-				loc = Location{Line: wp.TopLine, Offset: 0}
+				loc = buffer.Location{Line: wp.TopLine, Offset: 0}
 			}
 			wp.SetCursor(loc)
 		}

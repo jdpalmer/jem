@@ -2,11 +2,13 @@ package editor
 
 // registers.go - Named clipboards / text registers (translation of registers.c)
 
+import "github.com/jdpalmer/jem/ui"
+
 var registerStore = make(map[string][]byte)
 
 func RegisterSetText(name string, text []byte) bool {
 	if name == "" {
-		mbWrite("[register name required]")
+		ui.MBWrite("[register name required]")
 		return false
 	}
 	if len(text) == 0 {

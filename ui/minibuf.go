@@ -4,9 +4,6 @@ package ui
 
 import (
 	"fmt"
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/fileio"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +11,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
+	"github.com/jdpalmer/jem/fileio"
 	"github.com/jdpalmer/jem/term"
 )
 
@@ -42,7 +43,7 @@ func mbHistoryAdd(text string) {
 // ---- Message line rendering ---------------------------------------------------
 
 // mlBegin starts rendering on the message line (resets gutter clip like C ml_begin).
-func mlBegin(style TextStyle) {
+func mlBegin(style buffer.TextStyle) {
 	clipLeftCol = 0
 	screenMove(term.Rows(), 0)
 	screenSetStyle(style)
@@ -94,7 +95,7 @@ func displayWidthBytes(text []byte, endOff int) int {
 
 // mbWritePromptStyle renders prompt+text on the message line with the cursor
 // placed at the column corresponding to cpos (byte offset into text).
-func mbWritePromptStyle(prompt string, text []byte, cpos int, style TextStyle) {
+func mbWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextStyle) {
 	mlBegin(style)
 	screenPutBytes([]byte(prompt))
 	cursorCol := displayWidthBytes([]byte(prompt), len(prompt)) + displayWidthBytes(text, cpos)
@@ -161,7 +162,7 @@ func isMinibufWordRune(r rune) bool {
 
 // mbSetText replaces the entire contents of state.Text with text, placing the
 // cursor at the end.  text is silently truncated to Nbuf-1 bytes if necessary.
-func mbSetText(state *MinibufferState, text []byte) {
+func mbSetText(state *app.MinibufferState, text []byte) {
 	n := len(text)
 	if uint(n) >= state.Nbuf {
 		n = int(state.Nbuf) - 1
@@ -175,7 +176,7 @@ func mbSetText(state *MinibufferState, text []byte) {
 }
 
 // mbInsertChar inserts rune r at the current cursor position.
-func mbInsertChar(state *MinibufferState, r rune) bool {
+func mbInsertChar(state *app.MinibufferState, r rune) bool {
 	var enc [utf8.UTFMax]byte
 	n := utf8.EncodeRune(enc[:], r)
 	if uint(len(state.Text)+n) >= state.Nbuf {
@@ -199,7 +200,7 @@ func mbInsertChar(state *MinibufferState, r rune) bool {
 }
 
 // mbDeleteBackward deletes the rune immediately before the cursor.
-func mbDeleteBackward(state *MinibufferState) bool {
+func mbDeleteBackward(state *app.MinibufferState) bool {
 	if state.CursorPos == 0 {
 		return false
 	}
@@ -213,7 +214,7 @@ func mbDeleteBackward(state *MinibufferState) bool {
 }
 
 // mbDeleteForward deletes the rune at the cursor position.
-func mbDeleteForward(state *MinibufferState) bool {
+func mbDeleteForward(state *app.MinibufferState) bool {
 	if int(state.CursorPos) >= len(state.Text) {
 		return false
 	}
@@ -226,7 +227,7 @@ func mbDeleteForward(state *MinibufferState) bool {
 }
 
 // mbClearText erases all text and resets the cursor to position 0.
-func mbClearText(state *MinibufferState) bool {
+func mbClearText(state *app.MinibufferState) bool {
 	if len(state.Text) == 0 {
 		return false
 	}
@@ -237,21 +238,17 @@ func mbClearText(state *MinibufferState) bool {
 
 // mbKillRange removes bytes [start, end) from state.Text and adds them to the
 // kill ring.  The cursor is left at start.
-func mbKillRange(state *MinibufferState, start, end int) bool {
+func mbKillRange(state *app.MinibufferState, start, end int) bool {
 	if start == end {
 		return false
 	}
 	killed := make([]byte, end-start)
 	copy(killed, state.Text[start:end])
-	if PackageHooks.KillBegin != nil {
-		PackageHooks.KillBegin()
-	}
-	if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(killed) {
+	edit.KillBegin()
+	if !edit.KillAppend(killed) {
 		return false
 	}
-	if PackageHooks.KillWriteClipboard != nil {
-		PackageHooks.KillWriteClipboard()
-	}
+	edit.KillWriteClipboard()
 	copy(state.Text[start:], state.Text[end:])
 	state.Text = state.Text[:len(state.Text)-(end-start)]
 	state.CursorPos = uint(start)
@@ -259,7 +256,7 @@ func mbKillRange(state *MinibufferState, start, end int) bool {
 }
 
 // mbBackwardChar moves the cursor one rune to the left.
-func mbBackwardChar(state *MinibufferState) bool {
+func mbBackwardChar(state *app.MinibufferState) bool {
 	if state.CursorPos == 0 {
 		return false
 	}
@@ -268,7 +265,7 @@ func mbBackwardChar(state *MinibufferState) bool {
 }
 
 // mbForwardChar moves the cursor one rune to the right.
-func mbForwardChar(state *MinibufferState) bool {
+func mbForwardChar(state *app.MinibufferState) bool {
 	if int(state.CursorPos) >= len(state.Text) {
 		return false
 	}
@@ -277,7 +274,7 @@ func mbForwardChar(state *MinibufferState) bool {
 }
 
 // mbGotoBol moves the cursor to the start of the text.
-func mbGotoBol(state *MinibufferState) bool {
+func mbGotoBol(state *app.MinibufferState) bool {
 	if state.CursorPos == 0 {
 		return false
 	}
@@ -286,7 +283,7 @@ func mbGotoBol(state *MinibufferState) bool {
 }
 
 // mbGotoEol moves the cursor to the end of the text.
-func mbGotoEol(state *MinibufferState) bool {
+func mbGotoEol(state *app.MinibufferState) bool {
 	end := uint(len(state.Text))
 	if state.CursorPos == end {
 		return false
@@ -297,7 +294,7 @@ func mbGotoEol(state *MinibufferState) bool {
 
 // mbBackwardWord moves the cursor backward over one word
 // (skips non-word chars, then skips word chars).
-func mbBackwardWord(state *MinibufferState) bool {
+func mbBackwardWord(state *app.MinibufferState) bool {
 	pos := int(state.CursorPos)
 	// skip non-word chars
 	for pos > 0 {
@@ -326,7 +323,7 @@ func mbBackwardWord(state *MinibufferState) bool {
 
 // mbForwardWord moves the cursor forward over one word
 // (skips non-word chars, then skips word chars).
-func mbForwardWord(state *MinibufferState) bool {
+func mbForwardWord(state *app.MinibufferState) bool {
 	pos := int(state.CursorPos)
 	textLen := len(state.Text)
 	// skip non-word chars
@@ -353,7 +350,7 @@ func mbForwardWord(state *MinibufferState) bool {
 }
 
 // mbDeleteWordBackward kills from the start of the previous word to the cursor.
-func mbDeleteWordBackward(state *MinibufferState) bool {
+func mbDeleteWordBackward(state *app.MinibufferState) bool {
 	oldPos := int(state.CursorPos)
 	if !mbBackwardWord(state) {
 		return false
@@ -362,7 +359,7 @@ func mbDeleteWordBackward(state *MinibufferState) bool {
 }
 
 // mbDeleteWordForward kills from the cursor to the end of the next word.
-func mbDeleteWordForward(state *MinibufferState) bool {
+func mbDeleteWordForward(state *app.MinibufferState) bool {
 	startPos := int(state.CursorPos)
 	if !mbForwardWord(state) {
 		return false
@@ -373,7 +370,7 @@ func mbDeleteWordForward(state *MinibufferState) bool {
 }
 
 // mbKill kills from the cursor to the end of the text (C-k).
-func mbKill(state *MinibufferState) bool {
+func mbKill(state *app.MinibufferState) bool {
 	end := len(state.Text)
 	cpos := int(state.CursorPos)
 	if cpos >= end {
@@ -384,14 +381,9 @@ func mbKill(state *MinibufferState) bool {
 
 // mbYank inserts the kill-ring contents at the cursor (C-y).
 // Rejects pastes that contain newlines.
-func mbYank(state *MinibufferState) bool {
-	if PackageHooks.KillReadClipboard != nil {
-		PackageHooks.KillReadClipboard()
-	}
-	if PackageHooks.KillBytes == nil {
-		return false
-	}
-	k := PackageHooks.KillBytes()
+func mbYank(state *app.MinibufferState) bool {
+	edit.KillReadClipboard()
+	k := edit.KillBytes()
 	klen := uint(len(k))
 	if klen == 0 {
 		return false
@@ -443,7 +435,7 @@ func editorMinibufferPaste(text []byte) bool {
 
 // mbStepHistory navigates the global history ring.
 // dir < 0 moves backward (older), dir > 0 moves forward (newer).
-func mbStepHistory(state *MinibufferState, dir int) bool {
+func mbStepHistory(state *app.MinibufferState, dir int) bool {
 	histLen := len(minibufferHistory)
 	if histLen == 0 {
 		return false
@@ -484,41 +476,41 @@ func mbStepHistory(state *MinibufferState, dir int) bool {
 }
 
 // mbEditKey applies one editing keystroke to a raw prompt buffer (used by isearch).
-func mbEditKey(buf []byte, cpos *int, nbuf int, k uint32) MinibufferEditResult {
+func mbEditKey(buf []byte, cpos *int, nbuf int, k uint32) app.MinibufferEditResult {
 	if cpos == nil || nbuf <= 0 {
-		return MinibufEditUnhandled
+		return app.MinibufEditUnhandled
 	}
 	end := 0
 	for end < nbuf && buf[end] != 0 {
 		end++
 	}
-	state := MinibufferState{
+	state := app.MinibufferState{
 		Text:       append(make([]byte, 0, nbuf), buf[:end]...),
 		Nbuf:       uint(nbuf),
 		CursorPos:  uint(*cpos),
 		HistoryPos: -1,
 	}
-	if k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J') {
-		return MinibufEditUnhandled
+	if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
+		return app.MinibufEditUnhandled
 	}
-	if app.State.KillState != CmdStateNone {
+	if app.State.KillState != app.CmdStateNone {
 		app.State.KillState--
 	}
 	switch k {
-	case 0x7F, CTL | 'H':
+	case 0x7F, term.CTL | 'H':
 		if !mbDeleteBackward(&state) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
-	case CTL | 'U':
+	case term.CTL | 'U':
 		if !mbClearText(&state) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
 	default:
-		if (k&KeyMask) != 0 || k < 0x20 {
-			return MinibufEditUnhandled
+		if (k&term.KeyMask) != 0 || k < 0x20 {
+			return app.MinibufEditUnhandled
 		}
 		if !mbInsertChar(&state, rune(k)) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
 	}
 	copy(buf, state.Text)
@@ -526,19 +518,19 @@ func mbEditKey(buf []byte, cpos *int, nbuf int, k uint32) MinibufferEditResult {
 		buf[len(state.Text)] = 0
 	}
 	*cpos = int(state.CursorPos)
-	return MinibufEditChanged
+	return app.MinibufEditChanged
 }
 
 // mbEditKeyHistory is like mbEditKey but supports C-p/C-n history navigation.
-func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) MinibufferEditResult {
+func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) app.MinibufferEditResult {
 	if cpos == nil || historyPos == nil || haveSavedEdit == nil || nbuf <= 0 {
-		return MinibufEditUnhandled
+		return app.MinibufEditUnhandled
 	}
 	end := 0
 	for end < nbuf && buf[end] != 0 {
 		end++
 	}
-	state := MinibufferState{
+	state := app.MinibufferState{
 		Text:          append(make([]byte, 0, nbuf), buf[:end]...),
 		Nbuf:          uint(nbuf),
 		CursorPos:     uint(*cpos),
@@ -549,35 +541,35 @@ func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPo
 		state.SavedEdit = append([]byte(nil), savedEdit...)
 	}
 	_ = initial
-	if k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J') {
-		return MinibufEditUnhandled
+	if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
+		return app.MinibufEditUnhandled
 	}
-	if app.State.KillState != CmdStateNone {
+	if app.State.KillState != app.CmdStateNone {
 		app.State.KillState--
 	}
 	switch k {
-	case CTL | 'P', KeyUp:
+	case term.CTL | 'P', term.KeyUp:
 		if !mbStepHistory(&state, -1) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
-	case CTL | 'N', KeyDown:
+	case term.CTL | 'N', term.KeyDown:
 		if !mbStepHistory(&state, 1) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
-	case 0x7F, CTL | 'H':
+	case 0x7F, term.CTL | 'H':
 		if !mbDeleteBackward(&state) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
-	case CTL | 'U':
+	case term.CTL | 'U':
 		if !mbClearText(&state) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
 	default:
-		if (k&KeyMask) != 0 || k < 0x20 {
-			return MinibufEditUnhandled
+		if (k&term.KeyMask) != 0 || k < 0x20 {
+			return app.MinibufEditUnhandled
 		}
 		if !mbInsertChar(&state, rune(k)) {
-			return MinibufEditNoChange
+			return app.MinibufEditNoChange
 		}
 	}
 	copy(buf, state.Text)
@@ -590,22 +582,46 @@ func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPo
 	if state.HaveSavedEdit {
 		copy(savedEdit, state.SavedEdit)
 	}
-	return MinibufEditChanged
+	return app.MinibufEditChanged
 }
 
 // ---- Text prompts ------------------------------------------------------------
 
+// macroPlayPrompt fills buf from the macro stream during playback (until a NUL).
+func macroPlayPrompt(buf []byte) (app.PromptResult, bool) {
+	if !app.State.IsPlaying() {
+		return app.PromptResultAbort, false
+	}
+	pos := 0
+	for app.State.PlayPos < app.MacroCapacity {
+		c := app.State.Keys[app.State.PlayPos]
+		app.State.PlayPos++
+		if c == 0 {
+			break
+		}
+		if pos+1 < len(buf) {
+			buf[pos] = byte(c)
+			pos++
+		}
+	}
+	if pos < len(buf) {
+		buf[pos] = 0
+	}
+	if pos > 0 && buf[0] != 0 {
+		return app.PromptResultYes, true
+	}
+	return app.PromptResultNo, true
+}
+
 // mbReadInitial prompts the user and returns their input in buf.  If initial
 // is non-nil it is used as the starting content.  Full Emacs-style editing
 // (C-a/e/b/f/d, M-b/f/d, C-k, C-y, C-p/n history, …) is supported.
-func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) PromptResult {
-	if PackageHooks.MacroPlayPrompt != nil {
-		if pr, played := PackageHooks.MacroPlayPrompt(buf); played {
-			return pr
-		}
+func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) app.PromptResult {
+	if pr, played := macroPlayPrompt(buf); played {
+		return pr
 	}
 
-	state := MinibufferState{
+	state := app.MinibufferState{
 		Prompt:     prompt,
 		Text:       make([]byte, 0, capacity),
 		Nbuf:       uint(capacity),
@@ -626,7 +642,7 @@ func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) Prom
 	for {
 		k, ok := <-GlobalMinibufKeyCh
 		if !ok {
-			return PromptResultAbort
+			return app.PromptResultAbort
 		}
 		if isPasteRedrawKey(k) {
 			DisplayUpdate()
@@ -635,7 +651,7 @@ func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) Prom
 		}
 
 		switch {
-		case k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J'):
+		case k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J'):
 			mbHistoryAdd(string(state.Text))
 			n := copy(buf, state.Text)
 			if n < len(buf) {
@@ -645,75 +661,75 @@ func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) Prom
 				PackageHooks.MacroRecordMinibufferResult(state.Text)
 			}
 			mbClear()
-			return PromptResultYes
+			return app.PromptResultYes
 
-		case k == (CTL|'G') || k == 0x07 || k == 0x1B:
+		case k == (term.CTL|'G') || k == 0x07 || k == 0x1B:
 			mbWrite("^G")
 			mbClear()
-			return PromptResultAbort
+			return app.PromptResultAbort
 
 		// History navigation
-		case k == (CTL|'P') || k == KeyUp:
+		case k == (term.CTL|'P') || k == term.KeyUp:
 			if !mbStepHistory(&state, -1) {
 				term.Beep()
 			}
-		case k == (CTL|'N') || k == KeyDown:
+		case k == (term.CTL|'N') || k == term.KeyDown:
 			if !mbStepHistory(&state, 1) {
 				term.Beep()
 			}
 
 		// Cursor movement
-		case k == (CTL|'A') || k == KeyHome:
+		case k == (term.CTL|'A') || k == term.KeyHome:
 			if !mbGotoBol(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'E') || k == KeyEnd:
+		case k == (term.CTL|'E') || k == term.KeyEnd:
 			if !mbGotoEol(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'B') || k == KeyLeft:
+		case k == (term.CTL|'B') || k == term.KeyLeft:
 			if !mbBackwardChar(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'F') || k == KeyRight:
+		case k == (term.CTL|'F') || k == term.KeyRight:
 			if !mbForwardChar(&state) {
 				term.Beep()
 			}
-		case k == (META|'B') || k == (SHIFT|KeyLeft):
+		case k == (term.META|'B') || k == (term.SHIFT|term.KeyLeft):
 			if !mbBackwardWord(&state) {
 				term.Beep()
 			}
-		case k == (META|'F') || k == (SHIFT|KeyRight):
+		case k == (term.META|'F') || k == (term.SHIFT|term.KeyRight):
 			if !mbForwardWord(&state) {
 				term.Beep()
 			}
 
 		// Editing
-		case k == 0x7F || k == (CTL|'H'):
+		case k == 0x7F || k == (term.CTL|'H'):
 			if !mbDeleteBackward(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'D') || k == KeyDelete:
+		case k == (term.CTL|'D') || k == term.KeyDelete:
 			if !mbDeleteForward(&state) {
 				term.Beep()
 			}
-		case k == (CTL | 'U'):
+		case k == (term.CTL | 'U'):
 			if !mbClearText(&state) {
 				term.Beep()
 			}
-		case k == (CTL | 'K'):
+		case k == (term.CTL | 'K'):
 			if !mbKill(&state) {
 				term.Beep()
 			}
-		case k == (CTL | 'Y'):
+		case k == (term.CTL | 'Y'):
 			if !mbYank(&state) {
 				term.Beep()
 			}
-		case k == (META | 'D'):
+		case k == (term.META | 'D'):
 			if !mbDeleteWordForward(&state) {
 				term.Beep()
 			}
-		case k == (META|'H') || k == (META|0x7F):
+		case k == (term.META|'H') || k == (term.META|0x7F):
 			if !mbDeleteWordBackward(&state) {
 				term.Beep()
 			}
@@ -722,7 +738,7 @@ func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) Prom
 			if k&0x20000000 != 0 {
 				continue // ignore mouse events while typing at the prompt
 			}
-			if k < UnicodeLimit && k >= 0x20 && (k&KeyMask) == 0 {
+			if k < term.UnicodeLimit && k >= 0x20 && (k&term.KeyMask) == 0 {
 				if !mbInsertChar(&state, rune(k)) {
 					term.Beep()
 				}
@@ -737,7 +753,7 @@ func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) Prom
 }
 
 // mbRead is a convenience wrapper for mbReadInitial with no initial text.
-func mbRead(prompt string, buf []byte) PromptResult {
+func mbRead(prompt string, buf []byte) app.PromptResult {
 	return mbReadInitial(prompt, buf, len(buf), nil)
 }
 
@@ -751,7 +767,7 @@ const (
 
 // mlChoiceVisibleWidth returns the total column width if choices [start..end]
 // are displayed (including overflow indicators but not the leading prompt).
-func mlChoiceVisibleWidth(ctx any, labelFn MLChoiceLabelFn, count, start, end int) int {
+func mlChoiceVisibleWidth(ctx any, labelFn app.MLChoiceLabelFn, count, start, end int) int {
 	w := 0
 	if start > 0 {
 		w += mlChoiceLeftWidth
@@ -770,7 +786,7 @@ func mlChoiceVisibleWidth(ctx any, labelFn MLChoiceLabelFn, count, start, end in
 
 // mlChoiceWindow computes the widest visible window of choices around selected
 // that fits within avail columns, alternating right/left expansion.
-func mlChoiceWindow(ctx any, labelFn MLChoiceLabelFn, count, selected, avail int) (start, end int) {
+func mlChoiceWindow(ctx any, labelFn app.MLChoiceLabelFn, count, selected, avail int) (start, end int) {
 	start = selected
 	end = selected
 	chooseRight := true
@@ -830,7 +846,7 @@ func drainGlobalKeyCh() {
 
 // mlChoiceRender renders the visible choice window on the message line and
 // positions the cursor on the selected item.
-func mlChoiceRender(prompt string, ctx any, labelFn MLChoiceLabelFn, count, start, end, selected int) {
+func mlChoiceRender(prompt string, ctx any, labelFn app.MLChoiceLabelFn, count, start, end, selected int) {
 	normalStyle := app.State.Theme.NormalStyle
 	selStyle := app.State.Theme.PickerSelectionStyle
 	maxcol := term.Cols() - 1
@@ -876,7 +892,7 @@ func mlChoiceRender(prompt string, ctx any, labelFn MLChoiceLabelFn, count, star
 
 // mbChoose presents a horizontal menu of count choices at the message line.
 // Returns the selected index (≥0), -1 on Escape/cancel, or -2 on Ctrl-G abort.
-func mbChoose(prompt string, ctx any, labelFn MLChoiceLabelFn, count uint8, defaultIdx uint8) int16 {
+func mbChoose(prompt string, ctx any, labelFn app.MLChoiceLabelFn, count uint8, defaultIdx uint8) int16 {
 	n := int(count)
 	if n <= 0 {
 		return -1
@@ -891,7 +907,7 @@ func mbChoose(prompt string, ctx any, labelFn MLChoiceLabelFn, count uint8, defa
 		avail = 1
 	}
 
-	app.State.ActiveMinibuffer = &MinibufferState{}
+	app.State.ActiveMinibuffer = &app.MinibufferState{}
 	defer func() { app.State.ActiveMinibuffer = nil }()
 	drainGlobalMinibufKeys()
 	drainGlobalKeyCh()
@@ -909,20 +925,20 @@ func mbChoose(prompt string, ctx any, labelFn MLChoiceLabelFn, count uint8, defa
 			continue
 		}
 		switch {
-		case k == 0x0D || k == 0x0A || k == KeyEnter || k == (CTL|'M') || k == (CTL|'J'):
+		case k == 0x0D || k == 0x0A || k == term.KeyEnter || k == (term.CTL|'M') || k == (term.CTL|'J'):
 			mbClear()
 			return int16(selected)
-		case k == 0x07 || k == (CTL|'G'):
+		case k == 0x07 || k == (term.CTL|'G'):
 			mbClear()
 			return -2
 		case k == 0x1B:
 			mbClear()
 			return -1
-		case k == KeyLeft || k == (CTL|'B') || k == KeyUp:
+		case k == term.KeyLeft || k == (term.CTL|'B') || k == term.KeyUp:
 			if selected > 0 {
 				selected--
 			}
-		case k == KeyRight || k == (CTL|'F') || k == KeyDown:
+		case k == term.KeyRight || k == (term.CTL|'F') || k == term.KeyDown:
 			if selected < n-1 {
 				selected++
 			}
@@ -936,7 +952,7 @@ func mbChoose(prompt string, ctx any, labelFn MLChoiceLabelFn, count uint8, defa
 }
 
 // mbYesNo prompts the user for a yes/no answer using the horizontal choice menu.
-func mbYesNo(prompt string) PromptResult {
+func mbYesNo(prompt string) app.PromptResult {
 	choices := [][]byte{[]byte("yes"), []byte("no")}
 	labelFn := func(ctx any, idx uint8) []byte {
 		sl := ctx.([][]byte)
@@ -952,11 +968,11 @@ func mbYesNo(prompt string) PromptResult {
 	choice := mbChoose(question, choices, labelFn, 2, 0)
 	switch choice {
 	case 0:
-		return PromptResultYes
+		return app.PromptResultYes
 	case 1:
-		return PromptResultNo
+		return app.PromptResultNo
 	default:
-		return PromptResultAbort
+		return app.PromptResultAbort
 	}
 }
 
@@ -1110,7 +1126,7 @@ func filenameFuzzyMatches(paths []string, query string, maxMatches int) []uint {
 // matching prefix, replaces the typed portion with the longest common prefix,
 // and appends "/" when exactly one match is a directory.
 // Returns true if the text was changed.
-func completePromptFilename(state *MinibufferState) bool {
+func completePromptFilename(state *app.MinibufferState) bool {
 	typed := string(state.Text)
 	expanded := fileio.ExpandPath(typed)
 
@@ -1192,8 +1208,8 @@ func promptFormatWithCount(prompt string, sel, count int) string {
 // mbReadFilename prompts for a filename with tab completion and fuzzy matching.
 // The caller passes a pre-allocated buf of size nbuf; on success the chosen
 // path is written as a NUL-terminated string into buf.
-func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
-	state := MinibufferState{
+func mbReadFilename(prompt string, buf []byte, nbuf int) app.PromptResult {
+	state := app.MinibufferState{
 		Prompt:     prompt,
 		Text:       make([]byte, 0, nbuf),
 		Nbuf:       uint(nbuf),
@@ -1333,7 +1349,7 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 	for {
 		k, ok := <-GlobalMinibufKeyCh
 		if !ok {
-			return PromptResultAbort
+			return app.PromptResultAbort
 		}
 		if isPasteRedrawKey(k) {
 			DisplayUpdate()
@@ -1344,7 +1360,7 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 		changed := false
 
 		switch {
-		case k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J'):
+		case k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J'):
 			full := applyMatchSelection()
 			if len(matchIndices) > 0 && sel < len(matchIndices) {
 				selected := filePaths[matchIndices[sel]]
@@ -1365,13 +1381,13 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 				PackageHooks.MacroRecordMinibufferResult(state.Text)
 			}
 			mbClear()
-			return PromptResultYes
+			return app.PromptResultYes
 
-		case k == (CTL|'G') || k == 0x07 || k == 0x1B:
+		case k == (term.CTL|'G') || k == 0x07 || k == 0x1B:
 			mbClear()
-			return PromptResultAbort
+			return app.PromptResultAbort
 
-		case k == KeyTab:
+		case k == term.KeyTab:
 			if len(matchIndices) > 0 && sel < len(matchIndices) {
 				setPromptText(applyMatchSelection())
 				syncMatches()
@@ -1384,7 +1400,7 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 				term.Beep()
 			}
 
-		case k == KeyUp || k == (CTL|'P'):
+		case k == term.KeyUp || k == (term.CTL|'P'):
 			if len(matchIndices) == 0 {
 				term.Beep()
 			} else {
@@ -1394,7 +1410,7 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 				changed = true
 			}
 
-		case k == KeyDown || k == (CTL|'N'):
+		case k == term.KeyDown || k == (term.CTL|'N'):
 			if len(matchIndices) == 0 {
 				term.Beep()
 			} else {
@@ -1405,65 +1421,65 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 			}
 
 		// Cursor movement
-		case k == (CTL|'A') || k == KeyHome:
+		case k == (term.CTL|'A') || k == term.KeyHome:
 			if !mbGotoBol(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'E') || k == KeyEnd:
+		case k == (term.CTL|'E') || k == term.KeyEnd:
 			if !mbGotoEol(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'B') || k == KeyLeft:
+		case k == (term.CTL|'B') || k == term.KeyLeft:
 			if !mbBackwardChar(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'F') || k == KeyRight:
+		case k == (term.CTL|'F') || k == term.KeyRight:
 			if !mbForwardChar(&state) {
 				term.Beep()
 			}
-		case k == (META|'B') || k == (SHIFT|KeyLeft):
+		case k == (term.META|'B') || k == (term.SHIFT|term.KeyLeft):
 			if !mbBackwardWord(&state) {
 				term.Beep()
 			}
-		case k == (META|'F') || k == (SHIFT|KeyRight):
+		case k == (term.META|'F') || k == (term.SHIFT|term.KeyRight):
 			if !mbForwardWord(&state) {
 				term.Beep()
 			}
 
 		// Editing
-		case k == 0x7F || k == (CTL|'H'):
+		case k == 0x7F || k == (term.CTL|'H'):
 			changed = mbDeleteBackward(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (CTL|'D') || k == KeyDelete:
+		case k == (term.CTL|'D') || k == term.KeyDelete:
 			changed = mbDeleteForward(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (CTL | 'U'):
+		case k == (term.CTL | 'U'):
 			changed = mbClearText(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (CTL | 'K'):
+		case k == (term.CTL | 'K'):
 			changed = mbKill(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (META | 'D'):
+		case k == (term.META | 'D'):
 			changed = mbDeleteWordForward(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (META|'H') || k == (META|0x7F):
+		case k == (term.META|'H') || k == (term.META|0x7F):
 			changed = mbDeleteWordBackward(&state)
 			if !changed {
 				term.Beep()
 			}
 
 		default:
-			if k < UnicodeLimit && k >= 0x20 && (k&KeyMask) == 0 {
+			if k < term.UnicodeLimit && k >= 0x20 && (k&term.KeyMask) == 0 {
 				if mbInsertChar(&state, rune(k)) {
 					changed = true
 				} else {
@@ -1482,14 +1498,14 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 }
 
 // mbReadCommand opens the command-palette prompt (M-x).
-func mbReadCommand(buf []byte, nbuf int) PromptResult {
+func mbReadCommand(buf []byte, nbuf int) app.PromptResult {
 	if PackageHooks.BuildCommandList == nil || PackageHooks.CommandsProvider == nil {
-		return PromptResultAbort
+		return app.PromptResultAbort
 	}
 	names := PackageHooks.BuildCommandList()
 	if len(names) == 0 {
 		mbWrite("[no commands]")
-		return PromptResultNo
+		return app.PromptResultNo
 	}
 	return mbReadFuzzyList("M-x: ", PackageHooks.CommandsProvider, names, uint(len(names)), buf[:nbuf], nbuf)
 }
@@ -1499,19 +1515,19 @@ func mbReadCommand(buf []byte, nbuf int) PromptResult {
 const fuzzyMaxMatches = 16
 
 type fuzzyMatchCtx struct {
-	provider         MbNameProviderFn
+	provider         app.MbNameProviderFn
 	providerCtx      any
-	displayFormatter MbMatchFormatter
+	displayFormatter app.MbMatchFormatter
 	displayCtx       any
 	indices          []uint
 }
 
-func matchWindowGet() *Window {
+func matchWindowGet() *app.Window {
 	mbp := app.BufferFind("*match*")
 	if mbp == nil {
 		return nil
 	}
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil && wp.Buffer == mbp {
 			return wp
@@ -1534,8 +1550,8 @@ func matchWindowShow() {
 	}
 	wp.Buffer = mbp
 	wp.TopLine = 1
-	wp.Cursor = Location{Line: 1, Offset: 0}
-	wp.Mark = Location{Line: 0, Offset: 0}
+	wp.Cursor = buffer.Location{Line: 1, Offset: 0}
+	wp.Mark = buffer.Location{Line: 0, Offset: 0}
 	wp.ShouldRedraw = true
 	wp.ShouldUpdateModeLine = true
 	app.WindowRetile()
@@ -1543,11 +1559,11 @@ func matchWindowShow() {
 
 func matchWindowRemove() {
 	mw := matchWindowGet()
-	if mw == nil || app.State.WindowCount <= 1 {
+	if mw == nil || len(app.State.WINDOWS) <= 1 {
 		return
 	}
 	idx := -1
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		if app.State.WINDOWS[i] == mw {
 			idx = i
 			break
@@ -1558,16 +1574,16 @@ func matchWindowRemove() {
 	}
 	if app.State.CurrentWindow == mw {
 		newCur := app.State.WINDOWS[0]
-		if idx == 0 && app.State.WindowCount > 1 {
+		if idx == 0 && len(app.State.WINDOWS) > 1 {
 			newCur = app.State.WINDOWS[1]
 		}
 		app.WindowSelect(newCur)
 	}
-	for i := idx; i < int(app.State.WindowCount)-1; i++ {
+	for i := idx; i < len(app.State.WINDOWS)-1; i++ {
 		app.State.WINDOWS[i] = app.State.WINDOWS[i+1]
 	}
-	app.State.WINDOWS[app.State.WindowCount-1] = nil
-	app.State.WindowCount--
+	app.State.WINDOWS[len(app.State.WINDOWS)-1] = nil
+	app.State.WINDOWS = app.State.WINDOWS[:len(app.State.WINDOWS)-1]
 	app.WindowRetile()
 }
 
@@ -1626,7 +1642,7 @@ func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize uint, listIdx 
 	out[n] = 0
 }
 
-func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, selected uint) {
+func writeMatchBufferGeneric(formatter app.MbMatchFormatter, ctx any, count uint, selected uint) {
 	if count == 0 {
 		if app.BufferFind("*match*") != nil {
 			minibufferHideMatchWindow()
@@ -1659,7 +1675,7 @@ func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, se
 			return
 		}
 		mbp.Name = "*match*"
-		mbp.LangMode = LModeNone
+		mbp.LangMode = buffer.LModeNone
 	}
 
 	prevRO := mbp.IsReadonly
@@ -1696,7 +1712,7 @@ func fuzzyMatchRefresh(matches []uint, sel int, ctx *fuzzyMatchCtx) {
 	}, ctx, count, uint(sel))
 }
 
-func fuzzyListRedraw(prompt string, state *MinibufferState, ctx *fuzzyMatchCtx, matches []uint, sel int) {
+func fuzzyListRedraw(prompt string, state *app.MinibufferState, ctx *fuzzyMatchCtx, matches []uint, sel int) {
 	fuzzyMatchRefresh(matches, sel, ctx)
 	mbWritePrompt(promptFormatWithCount(prompt, sel, len(matches)), state.Text, int(state.CursorPos))
 }
@@ -1757,7 +1773,7 @@ func fuzzyScore(name, query []byte) (bool, int) {
 
 // fuzzyMatches returns up to maxMatches indices from provider that best match
 // query, ordered by score descending.
-func fuzzyMatches(provider MbNameProviderFn, ctx any, count uint, query []byte, maxMatches int) []uint {
+func fuzzyMatches(provider app.MbNameProviderFn, ctx any, count uint, query []byte, maxMatches int) []uint {
 	if count == 0 || maxMatches <= 0 {
 		return nil
 	}
@@ -1799,14 +1815,12 @@ func fuzzyMatches(provider MbNameProviderFn, ctx any, count uint, query []byte, 
 
 // mbReadFuzzyListEx prompts the user with a live-filtering fuzzy list.
 // Full cursor-movement editing of the query is supported.
-func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter MbMatchFormatter, displayCtx any, buf []byte, nbuf int) PromptResult {
-	if PackageHooks.MacroPlayPrompt != nil {
-		if pr, played := PackageHooks.MacroPlayPrompt(buf); played {
-			return pr
-		}
+func mbReadFuzzyListEx(prompt string, provider app.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter app.MbMatchFormatter, displayCtx any, buf []byte, nbuf int) app.PromptResult {
+	if pr, played := macroPlayPrompt(buf); played {
+		return pr
 	}
 
-	state := MinibufferState{
+	state := app.MinibufferState{
 		Prompt:     prompt,
 		Text:       make([]byte, 0, nbuf),
 		Nbuf:       uint(nbuf),
@@ -1836,7 +1850,7 @@ func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any
 	for {
 		k, ok := <-GlobalMinibufKeyCh
 		if !ok {
-			return PromptResultAbort
+			return app.PromptResultAbort
 		}
 		if isPasteRedrawKey(k) {
 			DisplayUpdate()
@@ -1847,7 +1861,7 @@ func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any
 		changed := false
 
 		switch {
-		case k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J'):
+		case k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J'):
 			if len(matches) > 0 && sel >= 0 && sel < len(matches) {
 				label := provider(providerCtx, matches[sel])
 				if label != nil {
@@ -1860,23 +1874,23 @@ func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any
 					}
 				}
 				mbClear()
-				return PromptResultYes
+				return app.PromptResultYes
 			}
 			mbClear()
-			return PromptResultAbort
+			return app.PromptResultAbort
 
-		case k == (CTL|'G') || k == 0x07 || k == 0x1B:
+		case k == (term.CTL|'G') || k == 0x07 || k == 0x1B:
 			mbClear()
-			return PromptResultAbort
+			return app.PromptResultAbort
 
 		// Match-list navigation (no query change)
-		case k == KeyUp || k == (CTL|'P'):
+		case k == term.KeyUp || k == (term.CTL|'P'):
 			if len(matches) == 0 {
 				term.Beep()
 			} else {
 				sel = (sel + len(matches) - 1) % len(matches)
 			}
-		case k == KeyDown || k == (CTL|'N'):
+		case k == term.KeyDown || k == (term.CTL|'N'):
 			if len(matches) == 0 {
 				term.Beep()
 			} else {
@@ -1884,50 +1898,50 @@ func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any
 			}
 
 		// Cursor movement within query
-		case k == (CTL|'A') || k == KeyHome:
+		case k == (term.CTL|'A') || k == term.KeyHome:
 			if !mbGotoBol(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'E') || k == KeyEnd:
+		case k == (term.CTL|'E') || k == term.KeyEnd:
 			if !mbGotoEol(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'B') || k == KeyLeft:
+		case k == (term.CTL|'B') || k == term.KeyLeft:
 			if !mbBackwardChar(&state) {
 				term.Beep()
 			}
-		case k == (CTL|'F') || k == KeyRight:
+		case k == (term.CTL|'F') || k == term.KeyRight:
 			if !mbForwardChar(&state) {
 				term.Beep()
 			}
-		case k == (META|'B') || k == (SHIFT|KeyLeft):
+		case k == (term.META|'B') || k == (term.SHIFT|term.KeyLeft):
 			if !mbBackwardWord(&state) {
 				term.Beep()
 			}
-		case k == (META|'F') || k == (SHIFT|KeyRight):
+		case k == (term.META|'F') || k == (term.SHIFT|term.KeyRight):
 			if !mbForwardWord(&state) {
 				term.Beep()
 			}
 
 		// Query editing
-		case k == 0x7F || k == (CTL|'H'):
+		case k == 0x7F || k == (term.CTL|'H'):
 			changed = mbDeleteBackward(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (CTL | 'D'):
+		case k == (term.CTL | 'D'):
 			changed = mbDeleteForward(&state)
 			if !changed {
 				term.Beep()
 			}
-		case k == (CTL | 'U'):
+		case k == (term.CTL | 'U'):
 			changed = mbClearText(&state)
 			if !changed {
 				term.Beep()
 			}
 
 		default:
-			if k < UnicodeLimit && k >= 0x20 && (k&KeyMask) == 0 {
+			if k < term.UnicodeLimit && k >= 0x20 && (k&term.KeyMask) == 0 {
 				if mbInsertChar(&state, rune(k)) {
 					changed = true
 				} else {
@@ -1948,6 +1962,6 @@ func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any
 
 // mbReadFuzzyList is a convenience wrapper around mbReadFuzzyListEx with no
 // custom display formatter.
-func mbReadFuzzyList(prompt string, provider MbNameProviderFn, providerCtx any, providerCount uint, buf []byte, nbuf int) PromptResult {
+func mbReadFuzzyList(prompt string, provider app.MbNameProviderFn, providerCtx any, providerCount uint, buf []byte, nbuf int) app.PromptResult {
 	return mbReadFuzzyListEx(prompt, provider, providerCtx, providerCount, nil, nil, buf, nbuf)
 }

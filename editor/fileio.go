@@ -8,36 +8,39 @@ import (
 
 	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/fileio"
+	"github.com/jdpalmer/jem/ui"
 )
 
 // loadCommandLineFiles loads paths into buffers, mirroring src/main.c startup.
 // The first path replaces the initial buffer; each remaining path gets its own
 // buffer. On return the first file's buffer is current and shown in the window.
 func loadCommandLineFiles(paths []string) {
-	fileio.LoadCommandLineFiles(paths, bufferNameFromPath, fileLoad)
+	fileio.LoadCommandLineFiles(paths, bufferNameFromPath, func(path string) error {
+		return fileio.LoadCurrentBuffer(path, ui.MBWrite)
+	})
 }
 
 func fileLoad(fname string) bool {
-	return fileio.LoadCurrentBuffer(fname, mbWrite)
+	return fileio.LoadCurrentBuffer(fname, ui.MBWrite) == nil
 }
 
 func fileSaveBuffer(fn string) bool {
 	return fileio.SaveCurrentBuffer(fn, func(prompt string) bool {
-		return mbYesNo(prompt) == PromptResultYes
-	}, mbWrite)
+		return ui.MBYesNo(prompt) == app.PromptResultYes
+	}, ui.MBWrite) == nil
 }
 
 // fileReloadFromDisk reloads fname into the current buffer and restores lineNumber.
 func fileReloadFromDisk(fname string, lineNumber uint) bool {
-	return fileio.ReloadCurrentBufferFromDisk(fname, lineNumber, UndoNoteBufferSaved, mbWrite)
+	return fileio.ReloadCurrentBufferFromDisk(fname, lineNumber, UndoNoteBufferSaved, ui.MBWrite) == nil
 }
 
 // fileCheckReload mirrors src/file.c file_check_reload: silently reload unmodified
 // buffers when the on-disk file changes; prompt before reverting modified buffers.
 func fileCheckReload() {
 	fileio.CheckReloadCurrentBuffer(func(prompt string) bool {
-		return mbYesNo(prompt) == PromptResultYes
-	}, mbWrite, UndoNoteBufferSaved)
+		return ui.MBYesNo(prompt) == app.PromptResultYes
+	}, ui.MBWrite, UndoNoteBufferSaved)
 }
 
 // CmdFileSave saves the current buffer to its filename, or prompts for a
@@ -47,18 +50,18 @@ func CmdFileSave(f bool, n int) bool {
 	_ = n
 	bp := app.State.CurrentBuffer
 	if bp == nil {
-		mbWrite("[no buffer]")
+		ui.MBWrite("[no buffer]")
 		return false
 	}
 	if bp.FileName != "" {
 		if fileSaveBuffer(bp.FileName) {
-			mbWrite("[Saved]")
+			ui.MBWrite("[Saved]")
 			return true
 		}
 		return false
 	}
-	fname, res := mbReadStringCap("Write file: ", "", fileio.PromptPathCapacity)
-	if res != PromptResultYes {
+	fname, res := ui.MBReadStringCap("Write file: ", "", fileio.PromptPathCapacity)
+	if res != app.PromptResultYes {
 		return false
 	}
 	if fname == "" {
@@ -66,7 +69,7 @@ func CmdFileSave(f bool, n int) bool {
 	}
 	if fileSaveBuffer(fname) {
 		bp.FileName = fname
-		mbWrite("[Saved]")
+		ui.MBWrite("[Saved]")
 		return true
 	}
 	return false
@@ -79,8 +82,8 @@ func visitFilePath(path string) bool {
 	}
 	fileName := fileio.NormalizePath(path)
 
-	var buffer *Buffer
-	for i := 0; i < int(app.State.BufferCount); i++ {
+	var buffer *buffer.Buffer
+	for i := 0; i < int(len(app.State.Buffers)); i++ {
 		bp := app.State.Buffers[i]
 		if bp != nil && fileio.PathsEqual(bp.FileName, fileName) {
 			buffer = bp
@@ -95,13 +98,13 @@ func visitFilePath(path string) bool {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
 		}
-		mbWrite("[old buffer]")
+		ui.MBWrite("[old buffer]")
 		return true
 	}
 
 	buffer = app.BufferCreate(&app.State.EditorRuntimeState)
 	if buffer == nil {
-		mbWrite("[cannot create buffer]")
+		ui.MBWrite("[cannot create buffer]")
 		return false
 	}
 	app.MarkPushCurrent()
@@ -130,8 +133,8 @@ func CmdFileVisit(f bool, n int) bool {
 			initial = dir + string(filepath.Separator)
 		}
 	}
-	path, pr := mbReadFilenameString("Visit file: ", initial)
-	if pr != PromptResultYes {
+	path, pr := ui.MBReadFilenameString("Visit file: ", initial)
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if path == "" {
@@ -146,11 +149,11 @@ func CmdFileWrite(f bool, n int) bool {
 	_ = n
 	bp := app.State.CurrentBuffer
 	if bp == nil {
-		mbWrite("[no buffer]")
+		ui.MBWrite("[no buffer]")
 		return false
 	}
-	path, pr := mbReadFilenameString("Write file: ", bp.FileName)
-	if pr != PromptResultYes {
+	path, pr := ui.MBReadFilenameString("Write file: ", bp.FileName)
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if path == "" {
@@ -163,7 +166,7 @@ func CmdFileWrite(f bool, n int) bool {
 	bp.FileName = path
 	bp.LangMode = fileio.DetectLangMode(path)
 	UndoNoteBufferSaved(bp)
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil && wp.Buffer == bp {
 			wp.ShouldRedraw = true
@@ -181,17 +184,17 @@ func CmdRevertFile(f bool, n int) bool {
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
 	if bp == nil {
-		mbWrite("[no buffer]")
+		ui.MBWrite("[no buffer]")
 		return false
 	}
 	fname := bp.FileName
 	if fname == "" {
-		mbWrite("[no file associated with buffer]")
+		ui.MBWrite("[no file associated with buffer]")
 		return false
 	}
 	if bp.IsChanged {
-		if mbYesNo("Buffer modified; revert anyway") != PromptResultYes {
-			mbWrite("[not reverted]")
+		if ui.MBYesNo("Buffer modified; revert anyway") != app.PromptResultYes {
+			ui.MBWrite("[not reverted]")
 			return false
 		}
 	}
@@ -202,7 +205,7 @@ func CmdRevertFile(f bool, n int) bool {
 	if !fileReloadFromDisk(fname, lineNumber) {
 		return false
 	}
-	mbWrite("[Reverted]")
+	ui.MBWrite("[Reverted]")
 	return true
 }
 
@@ -220,7 +223,7 @@ func fileVisitLocation(path string, line, column uint32) bool {
 		return false
 	}
 	if uint(line) > wp.Buffer.LineCount {
-		mbWrite("[file line out of range]")
+		ui.MBWrite("[file line out of range]")
 		return false
 	}
 	lp := wp.Buffer.Line(uint(line))
@@ -243,8 +246,8 @@ func fileVisitLocation(path string, line, column uint32) bool {
 func CmdFileRead(f bool, n int) bool {
 	_ = f
 	_ = n
-	path, pr := mbReadFilenameString("Read file: ", "")
-	if pr != PromptResultYes {
+	path, pr := ui.MBReadFilenameString("Read file: ", "")
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if path == "" {
@@ -253,11 +256,11 @@ func CmdFileRead(f bool, n int) bool {
 	return fileLoad(fileio.NormalizePath(path))
 }
 
-func eolModeLabel(mode EolMode) string {
+func eolModeLabel(mode buffer.EolMode) string {
 	switch mode {
-	case EModeCRLF:
+	case buffer.EModeCRLF:
 		return "CRLF"
-	case EModeCR:
+	case buffer.EModeCR:
 		return "CR"
 	default:
 		return "LF"
@@ -270,15 +273,15 @@ func CmdSetEolMode(f bool, n int) bool {
 	_ = n
 	bp := app.State.CurrentBuffer
 	if bp == nil {
-		mbWrite("[no buffer]")
+		ui.MBWrite("[no buffer]")
 		return false
 	}
 	if bp.IsReadonly {
-		mbWrite("[read-only buffer]")
+		ui.MBWrite("[read-only buffer]")
 		return false
 	}
 	choices := []string{"LF", "CRLF", "CR"}
-	modes := []EolMode{EModeLF, EModeCRLF, EModeCR}
+	modes := []buffer.EolMode{buffer.EModeLF, buffer.EModeCRLF, buffer.EModeCR}
 	defaultIdx := uint8(0)
 	for i, mode := range modes {
 		if bp.EolMode == mode {
@@ -293,7 +296,7 @@ func CmdSetEolMode(f bool, n int) bool {
 		}
 		return nil
 	}
-	selected := mbChoose("EOL mode: ", choices, labelFn, 3, defaultIdx)
+	selected := ui.MBChoose("EOL mode: ", choices, labelFn, 3, defaultIdx)
 	if selected == -2 {
 		CmdAbort(false, 1)
 		return false
@@ -305,13 +308,13 @@ func CmdSetEolMode(f bool, n int) bool {
 	if bp.EolMode != chosen {
 		bp.EolMode = chosen
 		bp.IsChanged = true
-		for i := 0; i < int(app.State.WindowCount); i++ {
+		for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 			wp := app.State.WINDOWS[i]
 			if wp != nil && wp.Buffer == bp {
 				wp.ShouldUpdateModeLine = true
 			}
 		}
 	}
-	mbWrite("[EOL mode: %s]", eolModeLabel(chosen))
+	ui.MBWrite("[EOL mode: %s]", eolModeLabel(chosen))
 	return true
 }

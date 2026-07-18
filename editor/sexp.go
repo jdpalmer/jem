@@ -5,18 +5,19 @@ package editor
 import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
+	"github.com/jdpalmer/jem/ui"
 )
 
 import "github.com/jdpalmer/jem/app"
 
-func cursorAtEob(wp *Window) bool {
+func cursorAtEob(wp *app.Window) bool {
 	if wp == nil || wp.Buffer == nil {
 		return true
 	}
 	return wp.Cursor.Line >= wp.Buffer.EOF()
 }
 
-func cursorChar(wp *Window, bp *Buffer) int {
+func cursorChar(wp *app.Window, bp *buffer.Buffer) int {
 	if cursorAtEob(wp) {
 		return -1
 	}
@@ -31,7 +32,7 @@ func cursorChar(wp *Window, bp *Buffer) int {
 	return int(lp.Byte(loc.Offset))
 }
 
-func forwardSexpOnce(wp *Window, bp *Buffer) bool {
+func forwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
 	for {
 		ch := cursorChar(wp, bp)
 		if ch < 0 {
@@ -47,9 +48,9 @@ func forwardSexpOnce(wp *Window, bp *Buffer) bool {
 	loc := wp.Cursor
 	ch := cursorChar(wp, bp)
 	if ch == '(' || ch == '[' || ch == '{' {
-		var match Location
+		var match buffer.Location
 		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
-			mbWrite("[no matching delimiter]")
+			ui.MBWrite("[no matching delimiter]")
 			return false
 		}
 		mlp := bp.Line(match.Line)
@@ -65,7 +66,7 @@ func forwardSexpOnce(wp *Window, bp *Buffer) bool {
 	return CmdForwardWord(false, 1)
 }
 
-func backwardSexpOnce(wp *Window, bp *Buffer) bool {
+func backwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
 	orig := wp.Cursor
 	if !CmdBackwardChar(false, 1) {
 		return false
@@ -82,9 +83,9 @@ func backwardSexpOnce(wp *Window, bp *Buffer) bool {
 	loc := wp.Cursor
 	ch := cursorChar(wp, bp)
 	if ch == ')' || ch == ']' || ch == '}' {
-		var match Location
+		var match buffer.Location
 		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
-			mbWrite("[no matching delimiter]")
+			ui.MBWrite("[no matching delimiter]")
 			wp.SetCursor(orig)
 			return false
 		}

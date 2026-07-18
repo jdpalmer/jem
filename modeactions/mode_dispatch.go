@@ -1,19 +1,14 @@
-package modes
+package modeactions
 
 import (
 	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 )
 
 type Hooks struct {
-	UndoBeginCommand      func()
-	UndoEndCommand        func()
-	BufferSetText         func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location, kill bool) bool
-	WindowInsertNewline   func(wp *app.Window) bool
-	WindowInsertText      func(wp *app.Window, text []byte) bool
-	WindowInsertCodepoint func(wp *app.Window, c rune) bool
-	Message               func(msg string)
-	DefaultGotoMatch      func(f bool, n int) bool
+	Message          func(msg string)
+	DefaultGotoMatch func(f bool, n int) bool
 }
 
 var PackageHooks Hooks
@@ -21,7 +16,7 @@ var PackageHooks Hooks
 func CurrentModeInfo() *app.ModeInfo {
 	bp := app.State.CurrentBuffer
 	if bp == nil {
-		return LangModeInfo(app.LModeNone)
+		return LangModeInfo(buffer.LModeNone)
 	}
 	return LangModeInfo(bp.LangMode)
 }
@@ -56,13 +51,9 @@ func CmdModeGotoMatch(f bool, n int) bool {
 func CmdModeMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
+	edit.BeginCommand()
 	ok := ModeDispatch(CurrentModeInfo().MakeComment, false, 1)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	edit.EndCommand()
 	return ok
 }
 

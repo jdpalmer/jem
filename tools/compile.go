@@ -112,7 +112,7 @@ func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
 	return line, column, true
 }
 
-func compileAppendTextSection(bp *Buffer, title, text string, counts *compileDiagCounts) bool {
+func compileAppendTextSection(bp *buffer.Buffer, title, text string, counts *compileDiagCounts) bool {
 	heading := "## " + title
 	if bp.AppendLineBytes([]byte(heading)) == nil {
 		return false
@@ -146,13 +146,13 @@ type compileDiagCounts struct {
 	diag, errors, warnings uint32
 }
 
-func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int, outTrunc, errTrunc bool) (compileDiagCounts, bool) {
+func compileFillBuffer(bp *buffer.Buffer, command, stdout, stderr string, exitCode int, outTrunc, errTrunc bool) (compileDiagCounts, bool) {
 	counts := compileDiagCounts{}
 	bp.Clear()
 	bp.IsChanged = false
 	bp.FileName = ""
 	bp.FileMtime = time.Time{}
-	bp.LangMode = LModeMarkdown
+	bp.LangMode = buffer.LModeMarkdown
 
 	if bp.AppendLineBytes(nil) == nil {
 		return counts, false
@@ -191,17 +191,17 @@ func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int,
 	}
 	begin := buffer.MakeLocation(1, 0)
 	end := buffer.MakeLocation(1, summaryLine.Len())
-	if !bp.SetText(nil, begin, end, []byte(summary), nil) {
+	if err := bp.SetText(nil, begin, end, []byte(summary), nil); err != nil {
 		return counts, false
 	}
 
 	bp.IsChanged = false
-	bp.Cursor = Location{Line: 1, Offset: 0}
-	bp.Mark = Location{Line: 0, Offset: 0}
+	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
+	bp.Mark = buffer.Location{Line: 0, Offset: 0}
 	return counts, true
 }
 
-func compileEnsureBuffer() *Buffer {
+func compileEnsureBuffer() *buffer.Buffer {
 	if bp := app.BufferFind(CompileBufferName); bp != nil {
 		return bp
 	}
@@ -273,7 +273,7 @@ func readProcessStream(r io.Reader, max int) (string, bool) {
 // RunCompile runs a shell build command and captures output in *compile*.
 func RunCompile() bool {
 	command, pr := mbReadString("Compile: ", compileLastCommand)
-	if pr != PromptResultYes {
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if command == "" {

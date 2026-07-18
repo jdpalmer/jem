@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
 )
 
 const (
@@ -156,8 +157,8 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 	editorSwitchBuffer(grepBuf)
 	if wp := app.State.CurrentWindow; wp != nil {
 		wp.SetTopLine(1)
-		wp.SetCursor(Location{Line: 1, Offset: 0})
-		wp.Mark = Location{Line: 0, Offset: 0}
+		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
+		wp.Mark = buffer.Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
@@ -201,8 +202,8 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 	editorSwitchBuffer(compileBuf)
 	if wp := app.State.CurrentWindow; wp != nil {
 		wp.SetTopLine(1)
-		wp.SetCursor(Location{Line: 1, Offset: 0})
-		wp.Mark = Location{Line: 0, Offset: 0}
+		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
+		wp.Mark = buffer.Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true

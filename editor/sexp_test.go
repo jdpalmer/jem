@@ -7,24 +7,23 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func setupSexpTest(text string, lang LangMode, line, offset uint) (*Window, *Buffer) {
-	app.State = App{}
+func setupSexpTest(text string, lang buffer.LangMode, line, offset uint) (*app.Window, *buffer.Buffer) {
+	app.Reset()
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		return nil, nil
 	}
 	bp.AppendLineBytes([]byte(text))
 	bp.LangMode = lang
-	wp := &Window{Buffer: bp, Cursor: buffer.MakeLocation(line, offset)}
+	wp := &app.Window{Buffer: bp, Cursor: buffer.MakeLocation(line, offset)}
 	app.State.CurrentWindow = wp
 	app.State.CurrentBuffer = bp
-	app.State.WINDOWS[0] = wp
-	app.State.WindowCount = 1
+	app.State.WINDOWS = []*app.Window{wp}
 	return wp, bp
 }
 
 func TestForwardSexpPastParenGroup(t *testing.T) {
-	wp, _ := setupSexpTest("(abc)", LModeC, 1, 0)
+	wp, _ := setupSexpTest("(abc)", buffer.LModeC, 1, 0)
 	if wp == nil {
 		t.Fatal("setup failed")
 	}
@@ -37,7 +36,7 @@ func TestForwardSexpPastParenGroup(t *testing.T) {
 }
 
 func TestBackwardSexpToOpenParen(t *testing.T) {
-	wp, _ := setupSexpTest("(abc)", LModeC, 1, 5)
+	wp, _ := setupSexpTest("(abc)", buffer.LModeC, 1, 5)
 	if wp == nil {
 		t.Fatal("setup failed")
 	}
@@ -50,7 +49,7 @@ func TestBackwardSexpToOpenParen(t *testing.T) {
 }
 
 func TestForwardSexpFallsBackToWord(t *testing.T) {
-	wp, _ := setupSexpTest("foo bar", LModeC, 1, 0)
+	wp, _ := setupSexpTest("foo bar", buffer.LModeC, 1, 0)
 	if wp == nil {
 		t.Fatal("setup failed")
 	}
@@ -63,7 +62,7 @@ func TestForwardSexpFallsBackToWord(t *testing.T) {
 }
 
 func TestForwardSexpRepeat(t *testing.T) {
-	wp, _ := setupSexpTest("(a) (b)", LModeC, 1, 0)
+	wp, _ := setupSexpTest("(a) (b)", buffer.LModeC, 1, 0)
 	if wp == nil {
 		t.Fatal("setup failed")
 	}

@@ -9,44 +9,40 @@ func TruncateBufferName(name string) string {
 	return name
 }
 
-func BufferCreate(ed *EditorRuntimeState) *Buffer {
-	if ed.BufferCount >= MaxBuffers {
+func BufferCreate(ed *EditorRuntimeState) *buffer.Buffer {
+	if len(ed.Buffers) >= MaxBuffers {
 		return nil
 	}
 	bp := buffer.New()
 	bp.Serial = ed.NextBufferSerial
 	ed.NextBufferSerial++
-	ed.Buffers[ed.BufferCount] = bp
-	ed.BufferCount++
+	ed.Buffers = append(ed.Buffers, bp)
 	return bp
 }
 
-func BufferRelease(bp *Buffer) {
+func BufferRelease(bp *buffer.Buffer) {
 	if bp == nil {
 		return
 	}
 	idx := -1
-	for i := 0; i < int(State.BufferCount); i++ {
-		if State.Buffers[i] == bp {
+	for i, b := range State.Buffers {
+		if b == bp {
 			idx = i
 			break
 		}
 	}
 	if idx != -1 {
-		for i := idx; i < int(State.BufferCount)-1; i++ {
-			State.Buffers[i] = State.Buffers[i+1]
-		}
-		State.Buffers[State.BufferCount-1] = nil
-		State.BufferCount--
+		copy(State.Buffers[idx:], State.Buffers[idx+1:])
+		State.Buffers[len(State.Buffers)-1] = nil
+		State.Buffers = State.Buffers[:len(State.Buffers)-1]
 	}
 
-	replacement := (*Buffer)(nil)
-	if State.BufferCount > 0 {
+	replacement := (*buffer.Buffer)(nil)
+	if len(State.Buffers) > 0 {
 		replacement = State.Buffers[0]
 	}
 
-	for i := 0; i < int(State.WindowCount); i++ {
-		wp := State.WINDOWS[i]
+	for _, wp := range State.WINDOWS {
 		if wp == nil {
 			continue
 		}
@@ -62,7 +58,7 @@ func BufferRelease(bp *Buffer) {
 			if replacement.Cursor.Line >= 1 {
 				wp.Cursor = replacement.Cursor
 			} else {
-				wp.Cursor = Location{Line: 1, Offset: 0}
+				wp.Cursor = buffer.Location{Line: 1, Offset: 0}
 			}
 			wp.Mark = replacement.Mark
 			wp.TopLine = 1

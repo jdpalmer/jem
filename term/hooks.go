@@ -2,7 +2,7 @@ package term
 
 // Hooks connects terminal events to the editor shell.
 //
-// Set once during editor init via initTermHooks. Not safe for concurrent use.
+// Set once during editor init via editor.Services. Not safe for concurrent use.
 type Hooks struct {
 	OnMouse  func(col, row int)
 	OnPaste  func(text []byte)

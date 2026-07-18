@@ -7,38 +7,33 @@ import (
 
 	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 )
 
-var editorUndo buffer.UndoHistory
-
 func UndoBeginCommand() {
-	wp := app.State.CurrentWindow
-	if editorUndo.IsReplaying || app.State.CurrentBuffer == nil || wp == nil {
-		return
-	}
-	editorUndo.BeginCommand(app.State.CurrentBuffer, buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset))
+	edit.BeginCommand()
 }
 
 func UndoEndCommand() {
-	editorUndo.EndCommand()
+	edit.EndCommand()
 }
 
-func UndoForgetBuffer(bp *Buffer) {
-	editorUndo.ForgetBuffer(bp)
+func UndoForgetBuffer(bp *buffer.Buffer) {
+	edit.ForgetBuffer(bp)
 }
 
-func UndoNoteBufferSaved(bp *Buffer) {
-	editorUndo.NoteBufferSaved(bp)
+func UndoNoteBufferSaved(bp *buffer.Buffer) {
+	edit.NoteBufferSaved(bp)
 }
 
-func undoInsertText(wp *Window, lineNumber, offset uint, text []byte) bool {
+func undoInsertText(wp *app.Window, lineNumber, offset uint, text []byte) bool {
 	bp := wp.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
 	bp.NoteEdit(false)
-	return bp.ReplaceRaw(loc, loc, text, nil)
+	return bp.ReplaceRaw(loc, loc, text, nil) == nil
 }
 
-func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte) bool {
+func undoDeleteText(wp *app.Window, lineNumber, offset uint, text []byte) bool {
 	bp := wp.Buffer
 	begin := buffer.MakeLocation(lineNumber, offset)
 	endLine := lineNumber
@@ -52,7 +47,7 @@ func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte) bool {
 		}
 	}
 	bp.NoteEdit(endLine != lineNumber)
-	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
+	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil) == nil
 }
 
 func CmdUndo(f bool, n int) bool {
@@ -61,12 +56,12 @@ func CmdUndo(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if editorUndo.Count == 0 {
+		if edit.History.Count == 0 {
 			fmt.Println("[no undo]")
 			return false
 		}
 		wp := app.State.CurrentWindow
-		ok := editorUndo.Undo(buffer.UndoReplay{
+		ok := edit.History.Undo(buffer.UndoReplay{
 			InsertText: func(lineNumber, offset uint, text []byte) bool {
 				if wp == nil {
 					return false
@@ -79,19 +74,19 @@ func CmdUndo(f bool, n int) bool {
 				}
 				return undoDeleteText(wp, lineNumber, offset, text)
 			},
-			SetCursor: func(loc Location) {
+			SetCursor: func(loc buffer.Location) {
 				if wp != nil {
 					wp.SetCursor(loc)
 					wp.DidMove = true
 				}
 			},
-			SwitchBuffer: func(bp *Buffer) {
+			SwitchBuffer: func(bp *buffer.Buffer) {
 				editorSwitchBuffer(bp)
 			},
-			CurrentBuffer: func() *Buffer {
+			CurrentBuffer: func() *buffer.Buffer {
 				return app.State.CurrentBuffer
 			},
-			OnRestoredSave: func(bp *Buffer) {
+			OnRestoredSave: func(bp *buffer.Buffer) {
 				bp.IsChanged = false
 				if wp != nil {
 					wp.ShouldUpdateModeLine = true
@@ -107,7 +102,7 @@ func CmdUndo(f bool, n int) bool {
 	return true
 }
 
-func editorSwitchBuffer(bp *Buffer) {
+func editorSwitchBuffer(bp *buffer.Buffer) {
 	if bp == nil {
 		return
 	}
@@ -126,7 +121,7 @@ func editorSwitchBuffer(bp *Buffer) {
 	cw.SetTopLine(1)
 	cw.HScroll = 0
 
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil && wp != cw && wp.Buffer == bp {
 			cw.TopLine = wp.TopLine
@@ -140,66 +135,7 @@ func editorSwitchBuffer(bp *Buffer) {
 	if bp.Cursor.Line >= 1 {
 		cw.SetCursor(bp.Cursor)
 	} else {
-		cw.SetCursor(Location{Line: 1, Offset: 0})
+		cw.SetCursor(buffer.Location{Line: 1, Offset: 0})
 	}
 	cw.Mark = bp.Mark
-}
-
-var killRing [16][]byte
-var killRingCount uint8
-var killRingIdx uint8
-var killAggregate []byte
-
-func killBegin() {
-	if app.State.KillState == CmdStateNone {
-		killAggregate = nil
-	}
-	app.State.KillState = CmdStateCurrent
-}
-
-func killAppend(text []byte) bool {
-	if len(text) == 0 {
-		return true
-	}
-	killAggregate = append(killAggregate, text...)
-	entry := append([]byte(nil), text...)
-	killRing[killRingIdx] = entry
-	killRingIdx = (killRingIdx + 1) % 16
-	if killRingCount < 16 {
-		killRingCount++
-	}
-	return true
-}
-
-func killBytes() []byte {
-	return killAggregate
-}
-
-func killWriteClipboard() {
-	if len(killAggregate) == 0 && killRingCount > 0 {
-		idx := (killRingIdx + 15) % 16
-		_ = clipboardWriteText(killRing[idx])
-		return
-	}
-	if len(killAggregate) > 0 {
-		_ = clipboardWriteText(killAggregate)
-	}
-}
-
-func killReadClipboard() bool {
-	data, ok := clipboardReadText()
-	if !ok {
-		mbWrite("[clipboard read failed]")
-		return false
-	}
-	killAggregate = make([]byte, len(data))
-	copy(killAggregate, data)
-	entry := make([]byte, len(data))
-	copy(entry, data)
-	killRing[killRingIdx] = entry
-	killRingIdx = (killRingIdx + 1) % 16
-	if killRingCount < 16 {
-		killRingCount++
-	}
-	return true
 }

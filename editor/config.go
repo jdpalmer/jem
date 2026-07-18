@@ -3,6 +3,8 @@ package editor
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/ui"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,7 +33,7 @@ func ConfigLoad() {
 	}
 
 	VarsFromJSON(raw)
-	themeUpdate()
+	ui.ThemeUpdate()
 	keybindingsFromJSON(raw)
 }
 
@@ -42,14 +44,14 @@ func keybindingsFromJSON(raw map[string]json.RawMessage) {
 	}
 	var kb map[string]*json.RawMessage
 	if err := json.Unmarshal(kbRaw, &kb); err != nil {
-		mbWrite("invalid JSON keybindings object")
+		ui.MBWrite("invalid JSON keybindings object")
 		return
 	}
 
 	for key, valPtr := range kb {
 		code, ok := parseKeySequence(strings.TrimSpace(key))
 		if !ok {
-			mbWrite("invalid JSON keybinding code: %s", key)
+			ui.MBWrite("invalid JSON keybinding code: %s", key)
 			continue
 		}
 
@@ -59,14 +61,14 @@ func keybindingsFromJSON(raw map[string]json.RawMessage) {
 		}
 		var v string
 		if err := json.Unmarshal(*valPtr, &v); err != nil {
-			mbWrite("invalid JSON keybinding value for %s", key)
+			ui.MBWrite("invalid JSON keybinding value for %s", key)
 			continue
 		}
 		cmdName := strings.ToLower(v)
 		if cmdFn, ok := commandNameMap[cmdName]; ok {
 			keybindingsMap[code] = cmdFn
 		} else {
-			mbWrite("invalid JSON command name: %s", v)
+			ui.MBWrite("invalid JSON command name: %s", v)
 		}
 	}
 }
@@ -94,14 +96,14 @@ func parseKeySequence(s string) (uint32, bool) {
 	if !ok {
 		return 0, false
 	}
-	if prefix != (CTL | uint32('X')) {
+	if prefix != (term.CTL | uint32('X')) {
 		return 0, false
 	}
 	suffix, ok := parseKeyChord(suffixStr)
 	if !ok {
 		return 0, false
 	}
-	return CTLX | suffix, true
+	return term.CTLX | suffix, true
 }
 
 func parseKeyChord(s string) (uint32, bool) {
@@ -110,26 +112,26 @@ func parseKeyChord(s string) (uint32, bool) {
 	s = strings.TrimSpace(s)
 	for pos < len(s) {
 		if strings.HasPrefix(strings.ToUpper(s[pos:]), "M-") {
-			if (code & META) != 0 {
+			if (code & term.META) != 0 {
 				return 0, false
 			}
-			code |= META
+			code |= term.META
 			pos += 2
 			continue
 		}
 		if strings.HasPrefix(strings.ToUpper(s[pos:]), "C-") {
-			if (code & CTL) != 0 {
+			if (code & term.CTL) != 0 {
 				return 0, false
 			}
-			code |= CTL
+			code |= term.CTL
 			pos += 2
 			continue
 		}
 		if strings.HasPrefix(strings.ToUpper(s[pos:]), "S-") {
-			if (code & SHIFT) != 0 {
+			if (code & term.SHIFT) != 0 {
 				return 0, false
 			}
-			code |= SHIFT
+			code |= term.SHIFT
 			pos += 2
 			continue
 		}
@@ -137,11 +139,11 @@ func parseKeyChord(s string) (uint32, bool) {
 	}
 	token := strings.ToUpper(strings.TrimSpace(s[pos:]))
 	if token == "TAB" {
-		code |= KeyTab
+		code |= term.KeyTab
 		return code, true
 	}
 	if token == "ENTER" {
-		code |= KeyEnter
+		code |= term.KeyEnter
 		return code, true
 	}
 	if token == "SPACE" {
@@ -153,44 +155,44 @@ func parseKeyChord(s string) (uint32, bool) {
 		return code, true
 	}
 	if token == "UP" {
-		code |= KeyUp
+		code |= term.KeyUp
 		return code, true
 	}
 	if token == "DOWN" {
-		code |= KeyDown
+		code |= term.KeyDown
 		return code, true
 	}
 	if token == "LEFT" {
-		code |= KeyLeft
+		code |= term.KeyLeft
 		return code, true
 	}
 	if token == "RIGHT" {
-		code |= KeyRight
+		code |= term.KeyRight
 		return code, true
 	}
 	if token == "HOME" {
-		code |= KeyHome
+		code |= term.KeyHome
 		return code, true
 	}
 	if token == "END" {
-		code |= KeyEnd
+		code |= term.KeyEnd
 		return code, true
 	}
 	if token == "PAGEUP" || token == "PGUP" {
-		code |= KeyPageUp
+		code |= term.KeyPageUp
 		return code, true
 	}
 	if token == "PAGEDOWN" || token == "PGDOWN" {
-		code |= KeyPageDown
+		code |= term.KeyPageDown
 		return code, true
 	}
 	if token == "DELETE" || token == "DEL" {
-		code |= KeyDelete
+		code |= term.KeyDelete
 		return code, true
 	}
 	if len(token) > 0 {
 		b := s[pos]
-		if (code&(CTL|META)) != 0 && b >= 'a' && b <= 'z' {
+		if (code&(term.CTL|term.META)) != 0 && b >= 'a' && b <= 'z' {
 			b = b - ('a' - 'A')
 		}
 		code |= uint32(b)

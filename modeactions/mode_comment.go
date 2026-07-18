@@ -1,6 +1,11 @@
-package modes
+package modeactions
 
-import "github.com/jdpalmer/jem/app"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
+	"github.com/jdpalmer/jem/modesyntax"
+)
 
 func modeCommentLinePrefix(info *app.ModeInfo) []byte {
 	if info == nil {
@@ -11,14 +16,14 @@ func modeCommentLinePrefix(info *app.ModeInfo) []byte {
 	}
 	if info.CommentOpen != "" {
 		flags := info.SyntaxFlags
-		if (flags&(app.ModeFlagCommentHash|app.ModeFlagCommentSemi|app.ModeFlagCommentLua)) != 0 || len(info.CommentOpen) == 1 {
+		if (flags&(modesyntax.ModeFlagCommentHash|modesyntax.ModeFlagCommentSemi|modesyntax.ModeFlagCommentLua)) != 0 || len(info.CommentOpen) == 1 {
 			return []byte(info.CommentOpen)
 		}
 	}
 	return nil
 }
 
-func lineHasCommentPrefix(lp *Line, prefix []byte) bool {
+func lineHasCommentPrefix(lp *buffer.Line, prefix []byte) bool {
 	if lp == nil || len(prefix) == 0 {
 		return false
 	}
@@ -41,10 +46,7 @@ func modeSupportsComments(info *app.ModeInfo) bool {
 	return info.CommentOpen != "" || info.CommentAppend != ""
 }
 
-func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
-	if PackageHooks.BufferSetText == nil {
-		return false
-	}
+func modeToggleCommentRegion(wp *app.Window, bp *buffer.Buffer, info *app.ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
 	prefixLen := len(linePrefix)
 	allCommented := true
 	for line := startLine; line <= endLine; line++ {
@@ -55,9 +57,7 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 		}
 	}
 	if allCommented {
-		if PackageHooks.UndoBeginCommand != nil {
-			PackageHooks.UndoBeginCommand()
-		}
+		edit.BeginCommand()
 		savedCursor := wp.Cursor
 		savedMark := wp.Mark
 		for line := startLine; line <= endLine; line++ {
@@ -66,14 +66,12 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 				continue
 			}
 			pos := lp.FirstNonblank()
-			b := MakeLocation(line, pos)
-			e := MakeLocation(line, pos+uint(prefixLen))
-			if !PackageHooks.BufferSetText(bp, b, e, nil, nil, false) {
+			b := buffer.MakeLocation(line, pos)
+			e := buffer.MakeLocation(line, pos+uint(prefixLen))
+			if err := edit.SetText(bp, b, e, nil, nil); err != nil {
 				wp.Cursor = savedCursor
 				wp.Mark = savedMark
-				if PackageHooks.UndoEndCommand != nil {
-					PackageHooks.UndoEndCommand()
-				}
+				edit.EndCommand()
 				return false
 			}
 			if savedCursor.Line == line {
@@ -91,9 +89,7 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 				}
 			}
 		}
-		if PackageHooks.UndoEndCommand != nil {
-			PackageHooks.UndoEndCommand()
-		}
+		edit.EndCommand()
 		wp.Cursor = savedCursor
 		wp.Mark = savedMark
 		wp.DidEdit = true
@@ -101,13 +97,9 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 		return true
 	}
 
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
+	edit.BeginCommand()
 	ok := ModeDispatch(info.MakeComment, false, 1)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	edit.EndCommand()
 	return ok
 }
 
@@ -134,13 +126,9 @@ func CmdModeToggleComment(f bool, n int) bool {
 		if linePrefix != nil {
 			return modeToggleCommentRegion(wp, bp, info, linePrefix, startLine, endLine)
 		}
-		if PackageHooks.UndoBeginCommand != nil {
-			PackageHooks.UndoBeginCommand()
-		}
+		edit.BeginCommand()
 		ok := ModeDispatch(info.MakeComment, false, 1)
-		if PackageHooks.UndoEndCommand != nil {
-			PackageHooks.UndoEndCommand()
-		}
+		edit.EndCommand()
 		return ok
 	}
 
@@ -149,19 +137,15 @@ func CmdModeToggleComment(f bool, n int) bool {
 		if lineHasCommentPrefix(lp, linePrefix) {
 			pos := lp.FirstNonblank()
 			prefixLen := len(linePrefix)
-			if PackageHooks.UndoBeginCommand != nil {
-				PackageHooks.UndoBeginCommand()
-			}
+			edit.BeginCommand()
 			savedCursor := wp.Cursor
 			savedMark := wp.Mark
-			b := MakeLocation(wp.Cursor.Line, pos)
-			e := MakeLocation(wp.Cursor.Line, pos+uint(prefixLen))
-			if PackageHooks.BufferSetText == nil || !PackageHooks.BufferSetText(bp, b, e, nil, nil, false) {
+			b := buffer.MakeLocation(wp.Cursor.Line, pos)
+			e := buffer.MakeLocation(wp.Cursor.Line, pos+uint(prefixLen))
+			if err := edit.SetText(bp, b, e, nil, nil); err != nil {
 				wp.Cursor = savedCursor
 				wp.Mark = savedMark
-				if PackageHooks.UndoEndCommand != nil {
-					PackageHooks.UndoEndCommand()
-				}
+				edit.EndCommand()
 				return false
 			}
 			if savedCursor.Line == b.Line {
@@ -178,32 +162,22 @@ func CmdModeToggleComment(f bool, n int) bool {
 					savedMark.Offset = b.Offset
 				}
 			}
-			if PackageHooks.UndoEndCommand != nil {
-				PackageHooks.UndoEndCommand()
-			}
+			edit.EndCommand()
 			wp.Cursor = savedCursor
 			wp.Mark = savedMark
 			wp.DidEdit = true
 			wp.DidMove = true
 			return true
 		}
-		if PackageHooks.UndoBeginCommand != nil {
-			PackageHooks.UndoBeginCommand()
-		}
+		edit.BeginCommand()
 		ok := ModeDispatch(info.MakeComment, false, 1)
-		if PackageHooks.UndoEndCommand != nil {
-			PackageHooks.UndoEndCommand()
-		}
+		edit.EndCommand()
 		return ok
 	}
 
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
+	edit.BeginCommand()
 	ok := ModeDispatch(info.MakeComment, false, 1)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	edit.EndCommand()
 	return ok
 }
 

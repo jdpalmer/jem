@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/ui"
 	"os"
 	"strconv"
 	"strings"
@@ -17,8 +19,8 @@ type variable struct {
 	min      uint32
 	max      uint32
 	local    bool
-	read     func(bp *Buffer) uint32
-	write    func(bp *Buffer, value uint32)
+	read     func(bp *buffer.Buffer) uint32
+	write    func(bp *buffer.Buffer, value uint32)
 	onChange func()
 }
 
@@ -27,34 +29,34 @@ var varTable = []variable{
 		name: "fill-column",
 		doc:  "Wrap/fill column used by paragraph filling.",
 		min:  0, max: 1000, local: true,
-		read:  func(bp *Buffer) uint32 { return bp.FillCol },
-		write: func(bp *Buffer, v uint32) { bp.FillCol = v },
+		read:  func(bp *buffer.Buffer) uint32 { return bp.FillCol },
+		write: func(bp *buffer.Buffer, v uint32) { bp.FillCol = v },
 	},
 	{
 		name: "theme-mode",
 		doc:  "Editor palette mode: 0 dark, 1 light.",
-		min:  0, max: uint32(ThemeLight), local: false,
-		read: func(bp *Buffer) uint32 {
+		min:  0, max: uint32(app.ThemeLight), local: false,
+		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
 			return uint32(app.State.Theme.Mode)
 		},
-		write: func(bp *Buffer, v uint32) {
+		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
-			app.State.Theme.Mode = ThemeMode(v)
+			app.State.Theme.Mode = app.ThemeMode(v)
 		},
 		onChange: configThemeChanged,
 	},
 	{
 		name: "search-scope",
 		doc:  "Search scope: 0 current buffer, 1 all buffers.",
-		min:  0, max: uint32(SearchScopeAllBuffers), local: false,
-		read: func(bp *Buffer) uint32 {
+		min:  0, max: uint32(app.SearchScopeAllBuffers), local: false,
+		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
 			return uint32(app.State.SearchScopeSetting)
 		},
-		write: func(bp *Buffer, v uint32) {
+		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
-			app.State.SearchScopeSetting = SearchScopeMode(v)
+			app.State.SearchScopeSetting = app.SearchScopeMode(v)
 		},
 		onChange: configSearchScopeChanged,
 	},
@@ -62,18 +64,18 @@ var varTable = []variable{
 		name: "whitespace-cleanup",
 		doc:  "Trim trailing whitespace from every line before saving: 0 off, 1 on.",
 		min:  0, max: 1, local: true,
-		read:  func(bp *Buffer) uint32 { return boolToU32(bp.WhitespaceCleanup) },
-		write: func(bp *Buffer, v uint32) { bp.WhitespaceCleanup = v != 0 },
+		read:  func(bp *buffer.Buffer) uint32 { return boolToU32(bp.WhitespaceCleanup) },
+		write: func(bp *buffer.Buffer, v uint32) { bp.WhitespaceCleanup = v != 0 },
 	},
 	{
 		name: "startup-quote",
 		doc:  "Show a startup quote in the message line on launch: 0 off, 1 on.",
 		min:  0, max: 1, local: false,
-		read: func(bp *Buffer) uint32 {
+		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
 			return boolToU32(app.State.StartupQuote)
 		},
-		write: func(bp *Buffer, v uint32) {
+		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
 			app.State.StartupQuote = v != 0
 		},
@@ -82,11 +84,11 @@ var varTable = []variable{
 		name: "auto-revert-mode",
 		doc:  "Reload buffers from disk when the file changes externally: 0 prompt if modified, 1 always reload.",
 		min:  0, max: 1, local: false,
-		read: func(bp *Buffer) uint32 {
+		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
 			return boolToU32(app.State.AutoRevertMode)
 		},
-		write: func(bp *Buffer, v uint32) {
+		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
 			app.State.AutoRevertMode = v != 0
 		},
@@ -95,36 +97,36 @@ var varTable = []variable{
 		name: "c-indent",
 		doc:  "C-family block indent width in spaces.",
 		min:  0, max: 32, local: true,
-		read:  func(bp *Buffer) uint32 { return bp.CIndent },
-		write: func(bp *Buffer, v uint32) { bp.CIndent = v },
+		read:  func(bp *buffer.Buffer) uint32 { return bp.CIndent },
+		write: func(bp *buffer.Buffer, v uint32) { bp.CIndent = v },
 	},
 	{
 		name: "c-brace",
 		doc:  "Extra indent for a standalone opening brace line in C-like modes.",
 		min:  0, max: 32, local: true,
-		read:  func(bp *Buffer) uint32 { return bp.CBrace },
-		write: func(bp *Buffer, v uint32) { bp.CBrace = v },
+		read:  func(bp *buffer.Buffer) uint32 { return bp.CBrace },
+		write: func(bp *buffer.Buffer, v uint32) { bp.CBrace = v },
 	},
 	{
 		name: "c-colon-offset",
 		doc:  "Extra offset applied to C-family case/default labels.",
 		min:  0, max: 32, local: true,
-		read:  func(bp *Buffer) uint32 { return bp.CColonOffset },
-		write: func(bp *Buffer, v uint32) { bp.CColonOffset = v },
+		read:  func(bp *buffer.Buffer) uint32 { return bp.CColonOffset },
+		write: func(bp *buffer.Buffer, v uint32) { bp.CColonOffset = v },
 	},
 	{
 		name: "py-indent",
 		doc:  "Python block indent width in spaces.",
 		min:  0, max: 32, local: true,
-		read:  func(bp *Buffer) uint32 { return bp.PyIndent },
-		write: func(bp *Buffer, v uint32) { bp.PyIndent = v },
+		read:  func(bp *buffer.Buffer) uint32 { return bp.PyIndent },
+		write: func(bp *buffer.Buffer, v uint32) { bp.PyIndent = v },
 	},
 	{
 		name: "py-continued-offset",
 		doc:  "Extra indent for explicit Python continuation lines.",
 		min:  0, max: 32, local: true,
-		read:  func(bp *Buffer) uint32 { return bp.PyContinuedOffset },
-		write: func(bp *Buffer, v uint32) { bp.PyContinuedOffset = v },
+		read:  func(bp *buffer.Buffer) uint32 { return bp.PyContinuedOffset },
+		write: func(bp *buffer.Buffer, v uint32) { bp.PyContinuedOffset = v },
 	},
 }
 
@@ -136,9 +138,9 @@ func boolToU32(b bool) uint32 {
 }
 
 func configThemeChanged() {
-	themeUpdate()
+	ui.ThemeUpdate()
 	syncSyntaxPalette()
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldRedraw = true
@@ -148,7 +150,7 @@ func configThemeChanged() {
 }
 
 func configSearchScopeChanged() {
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldUpdateModeLine = true
@@ -159,8 +161,8 @@ func configSearchScopeChanged() {
 // VarsInit resets all editor variables to their defaults.
 func VarsInit() {
 	app.State.FillCol = 80
-	app.State.Theme.Mode = ThemeDark
-	app.State.SearchScopeSetting = SearchScopeBuffer
+	app.State.Theme.Mode = app.ThemeDark
+	app.State.SearchScopeSetting = app.SearchScopeBuffer
 	app.State.WhitespaceCleanup = true
 	app.State.StartupQuote = true
 	app.State.AutoRevertMode = false
@@ -173,7 +175,7 @@ func VarsInit() {
 	configSearchScopeChanged()
 }
 
-func bufferApplyVarDefaults(bp *Buffer) {
+func bufferApplyVarDefaults(bp *buffer.Buffer) {
 	if bp == nil {
 		return
 	}
@@ -228,14 +230,14 @@ func varGlobalRead(v *variable) uint32 {
 	}
 }
 
-func varStorageRead(v *variable, bp *Buffer) uint32 {
+func varStorageRead(v *variable, bp *buffer.Buffer) uint32 {
 	if v.local && bp != nil {
 		return v.read(bp)
 	}
 	return varGlobalRead(v)
 }
 
-func varStorageWrite(v *variable, bp *Buffer, value uint32, runOnChange bool) bool {
+func varStorageWrite(v *variable, bp *buffer.Buffer, value uint32, runOnChange bool) bool {
 	if value < v.min || value > v.max {
 		return false
 	}
@@ -329,7 +331,7 @@ func varTableProvider(ctx any, idx uint) []byte {
 	return []byte(varTable[idx].name)
 }
 
-func varFormat(v *variable, bp *Buffer) string {
+func varFormat(v *variable, bp *buffer.Buffer) string {
 	return strconv.FormatUint(uint64(varStorageRead(v, bp)), 10)
 }
 
@@ -338,12 +340,12 @@ func CmdSetVariable(f bool, n int) bool {
 	_ = f
 	_ = n
 	bp := app.State.CurrentBuffer
-	name, pr := mbReadFuzzyListString("Set variable: ", varTableProvider, nil, uint(len(varTable)))
-	if pr == PromptResultAbort {
+	name, pr := ui.MBReadFuzzyListString("Set variable: ", varTableProvider, nil, uint(len(varTable)))
+	if pr == app.PromptResultAbort {
 		CmdAbort(false, 1)
 		return false
 	}
-	if pr != PromptResultYes {
+	if pr != app.PromptResultYes {
 		return false
 	}
 	v := varFindByName(name)
@@ -352,16 +354,16 @@ func CmdSetVariable(f bool, n int) bool {
 	}
 	current := varFormat(v, bp)
 	prompt := fmt.Sprintf("Set %s (current %s): ", v.name, current)
-	response, pr := mbReadStringCap(prompt, "", 64)
-	if pr != PromptResultYes {
+	response, pr := ui.MBReadStringCap(prompt, "", 64)
+	if pr != app.PromptResultYes {
 		return true
 	}
 	parsed, ok := parseNumericText(response)
 	if !ok || !varStorageWrite(v, bp, parsed, !v.local) {
-		mbWrite("[invalid value for %s]", v.name)
+		ui.MBWrite("[invalid value for %s]", v.name)
 		return false
 	}
-	mbWrite("[%s = %s]", v.name, varFormat(v, bp))
+	ui.MBWrite("[%s = %s]", v.name, varFormat(v, bp))
 	return true
 }
 
@@ -369,16 +371,16 @@ func CmdSetVariable(f bool, n int) bool {
 func CmdDescribeVariable(f bool, n int) bool {
 	_ = f
 	_ = n
-	name, pr := mbReadFuzzyListString("Describe variable: ", varTableProvider, nil, uint(len(varTable)))
-	if pr != PromptResultYes {
+	name, pr := ui.MBReadFuzzyListString("Describe variable: ", varTableProvider, nil, uint(len(varTable)))
+	if pr != app.PromptResultYes {
 		return false
 	}
 	v := varFindByName(name)
 	if v == nil {
-		mbWrite("[unknown variable: %s]", name)
+		ui.MBWrite("[unknown variable: %s]", name)
 		return false
 	}
 	value := varFormat(v, app.State.CurrentBuffer)
-	mbWrite("[%s = %s] %s", v.name, value, v.doc)
+	ui.MBWrite("[%s = %s] %s", v.name, value, v.doc)
 	return true
 }

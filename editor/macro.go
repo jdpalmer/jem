@@ -2,19 +2,27 @@ package editor
 
 import (
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/completion"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/ui"
 )
 
 // macro.go - Macro recording/playback and command execution (translation of src/macro.c)
 
 func macroInit() {
-	app.State.Keys[0] = int32(CTLX | ')')
+	if len(app.State.Keys) < app.MacroCapacity {
+		app.State.Keys = make([]int32, app.MacroCapacity)
+	} else {
+		clear(app.State.Keys)
+	}
+	app.State.Keys[0] = int32(term.CTLX | ')')
 	app.State.RecordPos = -1
 	app.State.PlayPos = -1
 }
 
 func macroRefreshModelines() {
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		if wp := app.State.WINDOWS[i]; wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
@@ -25,7 +33,7 @@ func macroRecordAppend(k int32) bool {
 	if !app.State.IsRecording() {
 		return true
 	}
-	if app.State.RecordPos >= MacroCapacity {
+	if app.State.RecordPos >= app.MacroCapacity {
 		return CmdAbort(false, 1)
 	}
 	app.State.Keys[app.State.RecordPos] = k
@@ -38,7 +46,7 @@ func macroRecordBytes(data []byte) bool {
 	if !app.State.IsRecording() {
 		return true
 	}
-	if app.State.RecordPos+len(data) > MacroCapacity-3 {
+	if app.State.RecordPos+len(data) > app.MacroCapacity-3 {
 		return CmdAbort(false, 1)
 	}
 	for _, b := range data {
@@ -54,12 +62,12 @@ func macroRecordKey(c int, f bool, n int) bool {
 	if !app.State.IsRecording() {
 		return true
 	}
-	if c != int(CTLX|'E') && c != int(CTLX|')') && app.State.RecordPos > MacroCapacity-6 {
+	if c != int(term.CTLX|'E') && c != int(term.CTLX|')') && app.State.RecordPos > app.MacroCapacity-6 {
 		return CmdAbort(false, 1)
 	}
-	if c != int(CTLX|'E') {
+	if c != int(term.CTLX|'E') {
 		if f {
-			if !macroRecordAppend(int32(CTL | 'U')) {
+			if !macroRecordAppend(int32(term.CTL | 'U')) {
 				return false
 			}
 			if !macroRecordAppend(int32(n)) {
@@ -73,32 +81,6 @@ func macroRecordKey(c int, f bool, n int) bool {
 	return true
 }
 
-// macroPlayPrompt fills buf from the macro stream during playback (until a NUL byte).
-func macroPlayPrompt(buf []byte) (PromptResult, bool) {
-	if !app.State.IsPlaying() {
-		return PromptResultAbort, false
-	}
-	pos := 0
-	for app.State.PlayPos < MacroCapacity {
-		c := app.State.Keys[app.State.PlayPos]
-		app.State.PlayPos++
-		if c == 0 {
-			break
-		}
-		if pos+1 < len(buf) {
-			buf[pos] = byte(c)
-			pos++
-		}
-	}
-	if pos < len(buf) {
-		buf[pos] = 0
-	}
-	if pos > 0 && buf[0] != 0 {
-		return PromptResultYes, true
-	}
-	return PromptResultNo, true
-}
-
 // Execute dispatches a key through the command table or self-insert path.
 // Mirrors execute() in src/macro.c.
 func Execute(c int, f bool, n int) bool {
@@ -108,37 +90,37 @@ func Execute(c int, f bool, n int) bool {
 
 	if bp := app.State.CurrentBuffer; bp != nil && bp.Name == grepBufferName {
 		keycode := uint32(c)
-		if keycode == KeyEnter || keycode == '\r' || keycode == '\n' {
+		if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
 			return CmdGrepVisitMatch(f, n)
 		}
 	}
 	if bp := app.State.CurrentBuffer; bp != nil && bp.Name == compileBufferName {
 		keycode := uint32(c)
-		if keycode == KeyEnter || keycode == '\r' || keycode == '\n' {
+		if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
 			return CmdCompileVisitDiag(f, n)
 		}
 	}
 
-	if app.State.MovementState > CmdStateNone {
+	if app.State.MovementState > app.CmdStateNone {
 		app.State.MovementState--
 	}
-	if app.State.KillState > CmdStateNone {
+	if app.State.KillState > app.CmdStateNone {
 		app.State.KillState--
 	}
 
 	keycode := uint32(c)
 	var cmd CommandFunc
-	if (keycode&KeyMask) == 0 && c >= '!' && c <= '~' && c != '}' {
+	if (keycode&term.KeyMask) == 0 && c >= '!' && c <= '~' && c != '}' {
 		cmd = nil
 	} else if fn, ok := keybindingsMap[keycode]; ok {
 		cmd = fn
 	}
 
-	trackUndo := keycode != (CTL | 'Z')
+	trackUndo := keycode != (term.CTL | 'Z')
 
 	if cmd != nil {
 		if f && !commandAcceptsArgByKey[keycode] {
-			mbWrite("[command does not take an argument]")
+			ui.MBWrite("[command does not take an argument]")
 			return false
 		}
 		if trackUndo {
@@ -157,7 +139,7 @@ func Execute(c int, f bool, n int) bool {
 	}
 	clearCompletionPending()
 
-	if (keycode&KeyMask) == 0 && keycode >= 0x20 && keycode <= 0x10FFFF {
+	if (keycode&term.KeyMask) == 0 && keycode >= 0x20 && keycode <= 0x10FFFF {
 		if n <= 0 {
 			if trackUndo {
 				UndoEndCommand()
@@ -166,7 +148,7 @@ func Execute(c int, f bool, n int) bool {
 		}
 		ok := true
 		for i := 0; i < n && ok; i++ {
-			if keycode == KeyEnter || keycode == '\r' || keycode == '\n' {
+			if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
 				ok = CmdInsertChar('\n')
 			} else if keycode < 127 {
 				ok = CmdInsertChar(byte(keycode))
@@ -187,7 +169,7 @@ func Execute(c int, f bool, n int) bool {
 }
 
 func clearCompletionPending() {
-	completionPending = ""
+	completion.ClearPending()
 }
 
 // processEditorKey reads one key (with optional C-u prefix) and executes it.
@@ -199,21 +181,21 @@ func processEditorKey(k uint32) bool {
 	f := false
 	n := 1
 
-	if k == (CTL | 'U') {
+	if k == (term.CTL | 'U') {
 		f = true
 		n = 4
 		mflag := 0
-		mbWrite("Arg: 4")
+		ui.MBWrite("Arg: 4")
 		for {
 			next, ok := <-GlobalKeyCh
 			if !ok {
 				return true
 			}
-			if !((next >= '0' && next <= '9') || next == (CTL|'U') || next == '-') {
+			if !((next >= '0' && next <= '9') || next == (term.CTL|'U') || next == '-') {
 				k = next
 				break
 			}
-			if next == (CTL | 'U') {
+			if next == (term.CTL | 'U') {
 				n *= 4
 			} else if next == '-' {
 				if mflag != 0 {
@@ -237,7 +219,7 @@ func processEditorKey(k uint32) bool {
 					displayN = -n
 				}
 			}
-			mbWrite("Arg: %d", displayN)
+			ui.MBWrite("Arg: %d", displayN)
 		}
 		if mflag == -1 {
 			if n == 0 {
@@ -260,14 +242,14 @@ func CmdMacroStart(f bool, n int) bool {
 	_ = f
 	_ = n
 	if app.State.IsPlaying() {
-		mbWrite("Not now")
+		ui.MBWrite("Not now")
 		return false
 	}
 	if app.State.IsRecording() {
-		mbWrite("Not now")
+		ui.MBWrite("Not now")
 		return false
 	}
-	mbWrite("[start macro]")
+	ui.MBWrite("[start macro]")
 	app.State.RecordPos = 0
 	macroRefreshModelines()
 	return true
@@ -278,10 +260,10 @@ func CmdMacroEnd(f bool, n int) bool {
 	_ = f
 	_ = n
 	if !app.State.IsRecording() {
-		mbWrite("[not now]")
+		ui.MBWrite("[not now]")
 		return false
 	}
-	mbWrite("[end macro]")
+	ui.MBWrite("[end macro]")
 	app.State.RecordPos = -1
 	macroRefreshModelines()
 	return true
@@ -294,7 +276,7 @@ func CmdMacroExec(f bool, n int) bool {
 		repeat = n
 	}
 	if app.State.IsRecording() || app.State.IsPlaying() {
-		mbWrite("[not now]")
+		ui.MBWrite("[not now]")
 		return false
 	}
 	if repeat <= 0 {
@@ -307,27 +289,27 @@ func CmdMacroExec(f bool, n int) bool {
 		for {
 			af := false
 			an := 1
-			if app.State.PlayPos >= MacroCapacity {
+			if app.State.PlayPos >= app.MacroCapacity {
 				break
 			}
 			c := int(app.State.Keys[app.State.PlayPos])
 			app.State.PlayPos++
-			if c == int(CTL|'U') {
+			if c == int(term.CTL|'U') {
 				af = true
-				if app.State.PlayPos >= MacroCapacity {
+				if app.State.PlayPos >= app.MacroCapacity {
 					success = false
 					break
 				}
 				an = int(app.State.Keys[app.State.PlayPos])
 				app.State.PlayPos++
-				if app.State.PlayPos >= MacroCapacity {
+				if app.State.PlayPos >= app.MacroCapacity {
 					success = false
 					break
 				}
 				c = int(app.State.Keys[app.State.PlayPos])
 				app.State.PlayPos++
 			}
-			if c == int(CTLX|')') {
+			if c == int(term.CTLX|')') {
 				break
 			}
 			if !Execute(c, af, an) {
@@ -352,11 +334,11 @@ func CmdAbort(f bool, n int) bool {
 		return false
 	}
 	if app.State.IsRecording() {
-		app.State.Keys[0] = int32(CTLX | ')')
+		app.State.Keys[0] = int32(term.CTLX | ')')
 		app.State.RecordPos = -1
 	}
 	macroRefreshModelines()
-	mbWrite("[cancelled]")
+	ui.MBWrite("[cancelled]")
 	return false
 }
 
@@ -371,7 +353,7 @@ func macroRecordMinibufferResult(text []byte) {
 }
 
 // macroRecordBufferName records a buffer name (NUL-terminated) during macro recording.
-func macroRecordBufferName(bp *Buffer) {
+func macroRecordBufferName(bp *buffer.Buffer) {
 	if !app.State.IsRecording() || bp == nil {
 		return
 	}

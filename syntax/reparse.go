@@ -14,7 +14,7 @@ var SyntaxDebug = false
 // Incremental reparse utilities
 
 // synStateEqual compares two SynState values
-func synStateEqual(a, b SynState) bool {
+func synStateEqual(a, b buffer.SynState) bool {
 	return a.DFA == b.DFA && a.Paren == b.Paren && a.Bracket == b.Bracket && a.Curly == b.Curly
 }
 
@@ -44,16 +44,16 @@ func IncrementalReparse(bp *buffer.Buffer, startLine uint) {
 			continue
 		}
 		// determine start state from previous line
-		var start SynState
+		var start buffer.SynState
 		if ln > 1 {
-			prev := bp.Line(ln-1)
+			prev := bp.Line(ln - 1)
 			if prev != nil {
 				start = prev.SyntaxEndState
 			} else {
-				start = SynState{DFA: SS_NORMAL}
+				start = buffer.SynState{DFA: SynStateNormal}
 			}
 		} else {
-			start = SynState{DFA: SS_NORMAL}
+			start = buffer.SynState{DFA: SynStateNormal}
 		}
 		oldEnd := lp.SyntaxEndState
 		oldStyles := lp.SyntaxStyles

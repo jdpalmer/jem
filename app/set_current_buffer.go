@@ -1,14 +1,18 @@
 package app
 
-import "strings"
+import (
+	"strings"
 
-func SetCurrentBuffer(bp *Buffer) {
+	"github.com/jdpalmer/jem/buffer"
+)
+
+func SetCurrentBuffer(bp *buffer.Buffer) {
 	if bp == nil {
 		return
 	}
 	index := -1
-	for i := 0; i < int(State.BufferCount); i++ {
-		if State.Buffers[i] == bp {
+	for i, b := range State.Buffers {
+		if b == bp {
 			index = i
 			break
 		}
@@ -20,14 +24,10 @@ func SetCurrentBuffer(bp *Buffer) {
 		State.Buffers[0] = bp
 	}
 	State.CurrentBuffer = bp
-	if PackageHooks.SetCurrentBuffer != nil {
-		PackageHooks.SetCurrentBuffer(bp)
-	}
 }
 
-func BufferFind(name string) *Buffer {
-	for i := 0; i < int(State.BufferCount); i++ {
-		bp := State.Buffers[i]
+func BufferFind(name string) *buffer.Buffer {
+	for _, bp := range State.Buffers {
 		if bp != nil && strings.EqualFold(bp.Name, name) {
 			return bp
 		}

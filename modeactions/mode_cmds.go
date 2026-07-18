@@ -1,15 +1,18 @@
-package modes
+package modeactions
 
-import "github.com/jdpalmer/jem/app"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/edit"
+)
 
 func ModeNewlineAndIndent(f bool, n int) bool {
 	_ = f
 	wp := app.State.CurrentWindow
-	if wp == nil || PackageHooks.WindowInsertNewline == nil {
+	if wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !PackageHooks.WindowInsertNewline(wp) {
+		if !edit.InsertNewline(wp) {
 			return false
 		}
 	}
@@ -25,11 +28,11 @@ func ModeIndentLine(f bool, n int) bool {
 func ModeCloseBrace(f bool, n int) bool {
 	_ = f
 	wp := app.State.CurrentWindow
-	if wp == nil || PackageHooks.WindowInsertCodepoint == nil {
+	if wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !PackageHooks.WindowInsertCodepoint(wp, '}') {
+		if !edit.InsertCodepoint(wp, '}') {
 			return false
 		}
 	}

@@ -1,6 +1,9 @@
 package app
 
-import "github.com/jdpalmer/jem/buffer"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/modesyntax"
+)
 
 const (
 	Version               = "26.1"
@@ -60,16 +63,6 @@ const (
 	ModeWordAttrBuiltin ModeWordAttr = 2
 )
 
-type ModeSyntaxKind int
-
-const (
-	ModeSyntaxGeneral         ModeSyntaxKind = 0
-	ModeSyntaxNone            ModeSyntaxKind = 1
-	ModeSyntaxHashCommentOnly ModeSyntaxKind = 2
-	ModeSyntaxMarkdown        ModeSyntaxKind = 3
-	ModeSyntaxHTML            ModeSyntaxKind = 4
-)
-
 type ModeMiscIndentKind int
 
 const (
@@ -81,22 +74,6 @@ const (
 	ModeMiscIndentR       ModeMiscIndentKind = 5
 	ModeMiscIndentHTML    ModeMiscIndentKind = 6
 	ModeMiscIndentLisp    ModeMiscIndentKind = 7
-)
-
-const (
-	ModeFlagIdentDash          uint32 = 1 << 0
-	ModeFlagIdentLispExtra     uint32 = 1 << 1
-	ModeFlagIdentLispSigil     uint32 = 1 << 2
-	ModeFlagCommentSlashLine   uint32 = 1 << 3
-	ModeFlagCommentSlashBlock  uint32 = 1 << 4
-	ModeFlagPreprocHashAtBOL   uint32 = 1 << 5
-	ModeFlagCommentHash        uint32 = 1 << 6
-	ModeFlagCommentSemi        uint32 = 1 << 7
-	ModeFlagCommentLua         uint32 = 1 << 8
-	ModeFlagCommentPascalBrace uint32 = 1 << 9
-	ModeFlagCommentPascalParen uint32 = 1 << 10
-	ModeFlagAtRule             uint32 = 1 << 11
-	ModeFlagNoCurlyRainbow     uint32 = 1 << 12
 )
 
 type HookEvent int
@@ -127,10 +104,10 @@ type ScreenCoord struct {
 }
 
 type Window struct {
-	Buffer               *Buffer
+	Buffer               *buffer.Buffer
 	TopLine              uint
-	Cursor               Location
-	Mark                 Location
+	Cursor               buffer.Location
+	Mark                 buffer.Location
 	ScreenTopRow         uint32
 	Height               uint32
 	ForceReframe         bool
@@ -143,8 +120,8 @@ type Window struct {
 }
 
 type Region struct {
-	Start Location
-	End   Location
+	Start buffer.Location
+	End   buffer.Location
 }
 
 type KillRingEntry struct {
@@ -152,10 +129,10 @@ type KillRingEntry struct {
 }
 
 type ModeInfo struct {
-	Mode              LangMode
+	Mode              buffer.LangMode
 	DisplayName       string
 	CompletionName    string
-	SyntaxKind        ModeSyntaxKind
+	SyntaxKind        modesyntax.ModeSyntaxKind
 	SyntaxFlags       uint32
 	MiscIndentKind    ModeMiscIndentKind
 	FillColumnDefault uint16
@@ -178,12 +155,12 @@ type ModeInfo struct {
 }
 
 type ThemeState struct {
-	NormalStyle          TextStyle
-	CommentStyle         TextStyle
-	PickerSelectionStyle TextStyle
-	GutterStyle          TextStyle
-	SelectionBg          TermColor
-	ModelineNameColor    TermColor
+	NormalStyle          buffer.TextStyle
+	CommentStyle         buffer.TextStyle
+	PickerSelectionStyle buffer.TextStyle
+	GutterStyle          buffer.TextStyle
+	SelectionBg          buffer.TermColor
+	ModelineNameColor    buffer.TermColor
 	Mode                 ThemeMode
 }
 
@@ -192,7 +169,7 @@ type MinibufferState struct {
 	Text             []byte
 	CursorPos        uint
 	Nbuf             uint
-	Style            TextStyle
+	Style            buffer.TextStyle
 	HistoryPos       int16
 	HaveSavedEdit    bool
 	SavedEdit        []byte
@@ -219,13 +196,11 @@ type EditorRuntimeState struct {
 	MovementState      CommandState
 	KillState          CommandState
 	CurrentWindow      *Window
-	CurrentBuffer      *Buffer
+	CurrentBuffer      *buffer.Buffer
 	ActiveMinibuffer   *MinibufferState
 	Dispatching        bool
-	WINDOWS            [MaxWindows]*Window
-	Buffers            [MaxBuffers]*Buffer
-	WindowCount        uint8
-	BufferCount        uint8
+	WINDOWS            []*Window
+	Buffers            []*buffer.Buffer
 	NextBufferSerial   uint32
 	SearchScopeSetting SearchScopeMode
 	SearchPattern      string
@@ -242,12 +217,12 @@ type EditorDisplayState struct {
 	PhantomCursorValid bool
 	ShowPhantomCursor  bool
 	ScreenDirty        bool
-	PhantomStyle       TextStyle
-	ActiveStyle        TextStyle
+	PhantomStyle       buffer.TextStyle
+	ActiveStyle        buffer.TextStyle
 }
 
 type EditorMacroState struct {
-	Keys      [MacroCapacity]int32
+	Keys      []int32
 	RecordPos int
 	PlayPos   int
 }
@@ -268,9 +243,4 @@ type TransientAction int32
 type TransientBinding struct {
 	Code   uint32
 	Action TransientAction
-}
-
-type MarkRing struct {
-	Items [MaxBuffers]Location
-	Count uint8
 }

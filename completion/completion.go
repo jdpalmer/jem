@@ -1,10 +1,8 @@
-package editor
-
-// completion.go — Go-native identifier completion at point
+// Package completion provides identifier completion at point.
+package completion
 
 import (
 	"bytes"
-	"github.com/jdpalmer/jem/app"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -12,18 +10,28 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 	"github.com/jdpalmer/jem/syntax"
+	"github.com/jdpalmer/jem/ui"
 )
 
-const completionResultMax = 512
+const resultMax = 512
 
-var completionPending string
+var pending string
 
-func completionIsIdentByte(b byte) bool {
+// ClearPending clears any pending completion suggestion.
+func ClearPending() {
+	pending = ""
+}
+
+func isIdentByte(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_'
 }
 
-func completionPrefixAtPoint(wp *Window) string {
+// PrefixAtPoint returns the identifier prefix ending at the window cursor.
+func PrefixAtPoint(wp *app.Window) string {
 	if wp == nil || wp.Buffer == nil {
 		return ""
 	}
@@ -32,7 +40,7 @@ func completionPrefixAtPoint(wp *Window) string {
 		return ""
 	}
 	start := wp.Cursor.Offset
-	for start > 0 && completionIsIdentByte(lp.Data[start-1]) {
+	for start > 0 && isIdentByte(lp.Data[start-1]) {
 		start--
 	}
 	if start == wp.Cursor.Offset {
@@ -41,7 +49,7 @@ func completionPrefixAtPoint(wp *Window) string {
 	return string(lp.Data[start:wp.Cursor.Offset])
 }
 
-func bufferTextBytes(bp *Buffer) []byte {
+func bufferTextBytes(bp *buffer.Buffer) []byte {
 	if bp == nil {
 		return nil
 	}
@@ -58,62 +66,62 @@ func bufferTextBytes(bp *Buffer) []byte {
 	return buf.Bytes()
 }
 
-func completionKeywordsForLang(lang LangMode) []string {
+func keywordsForLang(lang buffer.LangMode) []string {
 	switch lang {
-	case LModeC:
+	case buffer.LModeC:
 		return append(append([]string{}, syntax.CKeywords...), syntax.CTypes...)
-	case LModeJava:
+	case buffer.LModeJava:
 		return append(append([]string{}, syntax.JavaKeywords...), syntax.JavaTypes...)
-	case LModeGo:
+	case buffer.LModeGo:
 		return append(append([]string{}, syntax.GoKeywords...), syntax.GoTypes...)
-	case LModeJavaScript, LModeActionScript:
+	case buffer.LModeJavaScript, buffer.LModeActionScript:
 		return append(append([]string{}, syntax.JSKeywords...), syntax.JSTypes...)
-	case LModeTypeScript:
+	case buffer.LModeTypeScript:
 		return append(append([]string{}, syntax.TSKeywords...), syntax.TSTypes...)
-	case LModeDart:
+	case buffer.LModeDart:
 		return append(append([]string{}, syntax.DartKeywords...), syntax.DartTypes...)
-	case LModePython:
+	case buffer.LModePython:
 		return append(append([]string{}, syntax.PyKeywords...), syntax.PyTypes...)
-	case LModeCSharp:
+	case buffer.LModeCSharp:
 		return append(append([]string{}, syntax.CSKeywords...), syntax.CSTypes...)
-	case LModeRust:
+	case buffer.LModeRust:
 		return append(append([]string{}, syntax.RustKeywords...), syntax.RustTypes...)
-	case LModeSwift:
+	case buffer.LModeSwift:
 		return append(append([]string{}, syntax.SwiftKeywords...), syntax.SwiftTypes...)
-	case LModeKotlin:
+	case buffer.LModeKotlin:
 		return append(append([]string{}, syntax.KTKeywords...), syntax.KTTypes...)
-	case LModeLua:
+	case buffer.LModeLua:
 		return syntax.LuaKeywords
-	case LModeLisp:
+	case buffer.LModeLisp:
 		return syntax.LispKeywords
-	case LModePascal:
+	case buffer.LModePascal:
 		return append(append([]string{}, syntax.PasKeywords...), syntax.PasTypes...)
-	case LModeVerilog:
+	case buffer.LModeVerilog:
 		return append(append([]string{}, syntax.VlgKeywords...), syntax.VlgTypes...)
-	case LModeHTML:
+	case buffer.LModeHTML:
 		return append(append([]string{}, syntax.HTMLKeywords...), syntax.HTMLAttrs...)
-	case LModeCSS:
+	case buffer.LModeCSS:
 		return append(append([]string{}, syntax.CSSKeywords...), syntax.CSSTypes...)
-	case LModeR:
+	case buffer.LModeR:
 		return append(append([]string{}, syntax.RKeywords...), syntax.RTypes...)
 	default:
 		return syntax.CommonKeywords
 	}
 }
 
-func completionScanLineWords(lp *Line, add func(string)) {
+func scanLineWords(lp *buffer.Line, add func(string)) {
 	if lp == nil {
 		return
 	}
 	i := 0
 	n := len(lp.Data)
 	for i < n {
-		if !completionIsIdentByte(lp.Data[i]) {
+		if !isIdentByte(lp.Data[i]) {
 			i++
 			continue
 		}
 		start := i
-		for i < n && completionIsIdentByte(lp.Data[i]) {
+		for i < n && isIdentByte(lp.Data[i]) {
 			i++
 		}
 		word := string(lp.Data[start:i])
@@ -123,7 +131,7 @@ func completionScanLineWords(lp *Line, add func(string)) {
 	}
 }
 
-func completionGoIdents(bp *Buffer) []string {
+func goIdents(bp *buffer.Buffer) []string {
 	src := bufferTextBytes(bp)
 	if len(src) == 0 {
 		return nil
@@ -147,7 +155,8 @@ func completionGoIdents(bp *Buffer) []string {
 	return out
 }
 
-func completionCollectCandidates(bp *Buffer, prefix string) []string {
+// CollectCandidates returns identifier completions for prefix in bp.
+func CollectCandidates(bp *buffer.Buffer, prefix string) []string {
 	if prefix == "" {
 		return nil
 	}
@@ -162,14 +171,14 @@ func completionCollectCandidates(bp *Buffer, prefix string) []string {
 			out = append(out, word)
 		}
 	}
-	for _, word := range completionKeywordsForLang(bp.LangMode) {
+	for _, word := range keywordsForLang(bp.LangMode) {
 		add(word)
 	}
 	for lineNum := uint(1); lineNum <= bp.LineCount; lineNum++ {
-		completionScanLineWords(bp.Line(lineNum), add)
+		scanLineWords(bp.Line(lineNum), add)
 	}
-	if bp.LangMode == LModeGo {
-		for _, word := range completionGoIdents(bp) {
+	if bp.LangMode == buffer.LModeGo {
+		for _, word := range goIdents(bp) {
 			add(word)
 		}
 	}
@@ -177,23 +186,31 @@ func completionCollectCandidates(bp *Buffer, prefix string) []string {
 	return out
 }
 
-func completionSetPending(fullWord, prefix string) {
+func setPending(fullWord, prefix string) {
 	suffix := strings.TrimPrefix(fullWord, prefix)
-	if len(suffix) > completionResultMax {
-		suffix = suffix[:completionResultMax]
+	if len(suffix) > resultMax {
+		suffix = suffix[:resultMax]
 	}
-	completionPending = suffix
+	pending = suffix
 }
 
-func completionPickMatch(candidates []string, prefix string) (string, bool) {
+func stringListProvider(ctx any, idx uint) []byte {
+	names, ok := ctx.([]string)
+	if !ok || int(idx) >= len(names) {
+		return nil
+	}
+	return []byte(names[idx])
+}
+
+func pickMatch(candidates []string, prefix string) (string, bool) {
 	if len(candidates) == 0 {
 		return "", false
 	}
 	if len(candidates) == 1 {
 		return candidates[0], true
 	}
-	label, pr := mbReadFuzzyListString("Complete: ", commandsProvider, candidates, uint(len(candidates)))
-	if pr != PromptResultYes {
+	label, pr := ui.MBReadFuzzyListString("Complete: ", stringListProvider, candidates, uint(len(candidates)))
+	if pr != app.PromptResultYes {
 		return "", false
 	}
 	if label == "" {
@@ -205,54 +222,54 @@ func completionPickMatch(candidates []string, prefix string) (string, bool) {
 	return "", false
 }
 
-// CmdCompletionComplete finds identifier completions at point (Shift-Tab).
-func CmdCompletionComplete(f bool, n int) bool {
+// CmdComplete finds identifier completions at point (Shift-Tab).
+func CmdComplete(f bool, n int) bool {
 	_ = f
 	_ = n
-	completionPending = ""
+	pending = ""
 
 	wp := app.State.CurrentWindow
 	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
-		mbWrite("[no buffer]")
+		ui.MBWrite("[no buffer]")
 		return false
 	}
 	if bp.IsReadonly {
-		mbWrite("[read-only buffer]")
+		ui.MBWrite("[read-only buffer]")
 		return false
 	}
 
-	prefix := completionPrefixAtPoint(wp)
+	prefix := PrefixAtPoint(wp)
 	if prefix == "" {
-		mbWrite("[completion: no prefix at point]")
+		ui.MBWrite("[completion: no prefix at point]")
 		return false
 	}
 
-	candidates := completionCollectCandidates(bp, prefix)
-	match, ok := completionPickMatch(candidates, prefix)
+	candidates := CollectCandidates(bp, prefix)
+	match, ok := pickMatch(candidates, prefix)
 	if !ok {
 		if len(candidates) == 0 {
-			mbWrite("[completion: no matches]")
+			ui.MBWrite("[completion: no matches]")
 		}
 		return false
 	}
 
-	completionSetPending(match, prefix)
-	if strings.Contains(completionPending, "\n") {
-		first := strings.SplitN(completionPending, "\n", 2)[0]
-		mbWrite("[completion] %s...  (Shift+Ret to accept)", first)
+	setPending(match, prefix)
+	if strings.Contains(pending, "\n") {
+		first := strings.SplitN(pending, "\n", 2)[0]
+		ui.MBWrite("[completion] %s...  (Shift+Ret to accept)", first)
 	} else {
-		mbWrite("[completion] %s  (Shift+Ret to accept)", completionPending)
+		ui.MBWrite("[completion] %s  (Shift+Ret to accept)", pending)
 	}
 	return true
 }
 
-// CmdCompletionAccept inserts the pending completion (Shift-Enter).
-func CmdCompletionAccept(f bool, n int) bool {
+// CmdAccept inserts the pending completion (Shift-Enter).
+func CmdAccept(f bool, n int) bool {
 	_ = f
 	_ = n
-	if completionPending == "" {
-		mbWrite("[completion: no pending suggestion]")
+	if pending == "" {
+		ui.MBWrite("[completion: no pending suggestion]")
 		return false
 	}
 	wp := app.State.CurrentWindow
@@ -260,8 +277,8 @@ func CmdCompletionAccept(f bool, n int) bool {
 		return false
 	}
 
-	text := completionPending
-	completionPending = ""
+	text := pending
+	pending = ""
 	for len(text) > 0 {
 		nl := strings.IndexByte(text, '\n')
 		seg := text
@@ -269,18 +286,18 @@ func CmdCompletionAccept(f bool, n int) bool {
 			seg = text[:nl]
 		}
 		if len(seg) > 0 {
-			if !windowInsertText(wp, []byte(seg)) {
+			if !edit.InsertText(wp, []byte(seg)) {
 				return false
 			}
 		}
 		if nl < 0 {
 			break
 		}
-		if !windowInsertNewline(wp) {
+		if !edit.InsertNewline(wp) {
 			return false
 		}
 		text = text[nl+1:]
 	}
-	mbClear()
+	ui.MBClear()
 	return true
 }

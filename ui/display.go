@@ -8,7 +8,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/modes"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/modeactions"
 	"github.com/jdpalmer/jem/syntax"
 	"github.com/jdpalmer/jem/term"
 	"github.com/mattn/go-runewidth"
@@ -19,14 +20,14 @@ import (
 // ---- Types -----------------------------------------------------------------------
 
 type RenderSpan struct {
-	Style TextStyle
+	Style buffer.TextStyle
 	Bytes []byte
 }
 
 type ScreenRow struct {
 	Dirty bool
 	Text  []rune
-	Style []TextStyle
+	Style []buffer.TextStyle
 	Spans []RenderSpan // kept for ScreenSync span-based emission; filled by renderRow
 }
 
@@ -63,7 +64,7 @@ var (
 
 // Virtual screen cursor and style
 var swCursorRow, swCursorCol int
-var drawStyle TextStyle
+var drawStyle buffer.TextStyle
 var tabOriginCol int
 var clipLeftCol int
 
@@ -94,36 +95,36 @@ func DisplayInitHeadless(rows, cols int) {
 	term.SetSize(rows, cols)
 	frontScreen = allocScreen(term.Rows())
 	backScreen = allocScreen(term.Rows())
-	app.State.Theme.Mode = ThemeDark
+	app.State.Theme.Mode = app.ThemeDark
 	themeUpdate()
 }
 
 // themeUpdate recomputes cached palette colors from the active theme mode (src/theme.c).
 func themeUpdate() {
 	theme := &app.State.Theme
-	if theme.Mode == ThemeLight {
-		theme.NormalStyle = MakeTextStyle(TermColorBase00, TermColorBase3, 0)
-		theme.CommentStyle = MakeTextStyle(TermColorBase1, TermColorBase3, 0)
-		theme.GutterStyle = MakeTextStyle(TermColorBase1, TermColorBase2, 0)
-		theme.SelectionBg = TermColorYellow
-		theme.ModelineNameColor = TermColorBase01
-		theme.PickerSelectionStyle = MakeTextStyle(TermColorBase03, TermColorBase2, 0)
+	if theme.Mode == app.ThemeLight {
+		theme.NormalStyle = buffer.MakeTextStyle(buffer.TermColorBase00, buffer.TermColorBase3, 0)
+		theme.CommentStyle = buffer.MakeTextStyle(buffer.TermColorBase1, buffer.TermColorBase3, 0)
+		theme.GutterStyle = buffer.MakeTextStyle(buffer.TermColorBase1, buffer.TermColorBase2, 0)
+		theme.SelectionBg = buffer.TermColorYellow
+		theme.ModelineNameColor = buffer.TermColorBase01
+		theme.PickerSelectionStyle = buffer.MakeTextStyle(buffer.TermColorBase03, buffer.TermColorBase2, 0)
 	} else {
-		theme.NormalStyle = MakeTextStyle(TermColorBase0, TermColorBase03, 0)
-		theme.CommentStyle = MakeTextStyle(TermColorBase01, TermColorBase03, 0)
-		theme.GutterStyle = TextStyleGutter
-		theme.SelectionBg = TermColorBlue
-		theme.ModelineNameColor = TermColorBase1
-		theme.PickerSelectionStyle = MakeTextStyle(TermColorBase3, TermColorBase02, 0)
+		theme.NormalStyle = buffer.MakeTextStyle(buffer.TermColorBase0, buffer.TermColorBase03, 0)
+		theme.CommentStyle = buffer.MakeTextStyle(buffer.TermColorBase01, buffer.TermColorBase03, 0)
+		theme.GutterStyle = buffer.TextStyleGutter
+		theme.SelectionBg = buffer.TermColorBlue
+		theme.ModelineNameColor = buffer.TermColorBase1
+		theme.PickerSelectionStyle = buffer.MakeTextStyle(buffer.TermColorBase3, buffer.TermColorBase02, 0)
 	}
 	term.ClearStyleCache()
-	for _, s := range []TextStyle{
+	for _, s := range []buffer.TextStyle{
 		theme.NormalStyle,
 		theme.CommentStyle,
 		theme.GutterStyle,
 		theme.PickerSelectionStyle,
-		MakeTextStyle(theme.ModelineNameColor, TextStyleBg(theme.GutterStyle), TextStyleBold),
-		MakeTextStyle(TermColorRed, TextStyleBg(theme.GutterStyle), TextStyleBold),
+		buffer.MakeTextStyle(theme.ModelineNameColor, theme.GutterStyle.Bg(), buffer.TextStyleBold),
+		buffer.MakeTextStyle(buffer.TermColorRed, theme.GutterStyle.Bg(), buffer.TextStyleBold),
 	} {
 		_ = term.StyleBytes(s)
 	}
@@ -137,7 +138,7 @@ func allocScreen(rows int) Screen {
 	}
 	for i := range s.Rows {
 		s.Rows[i].Text = make([]rune, cols)
-		s.Rows[i].Style = make([]TextStyle, cols)
+		s.Rows[i].Style = make([]buffer.TextStyle, cols)
 		s.Rows[i].Spans = nil
 		for j := 0; j < cols; j++ {
 			s.Rows[i].Text[j] = ' '
@@ -150,7 +151,7 @@ func allocScreen(rows int) Screen {
 // ---- Virtual screen style --------------------------------------------------------
 
 // displaySetStyle applies style to the terminal only when it differs from ActiveStyle.
-func displaySetStyle(style TextStyle) {
+func displaySetStyle(style buffer.TextStyle) {
 	if app.State.ActiveStyle != style {
 		term.SetStyle(style)
 		app.State.ActiveStyle = style
@@ -167,7 +168,7 @@ func screenMove(row, col int) {
 }
 
 // screenSetStyle sets drawStyle without moving the cursor.
-func screenSetStyle(style TextStyle) {
+func screenSetStyle(style buffer.TextStyle) {
 	drawStyle = style
 }
 
@@ -330,7 +331,7 @@ func screenFlushRow(row, cursorCol int) {
 }
 
 // displayPutBytesStyle writes bytes with a temporary drawStyle.
-func displayPutBytesStyle(s []byte, style TextStyle) {
+func displayPutBytesStyle(s []byte, style buffer.TextStyle) {
 	saved := drawStyle
 	drawStyle = style
 	screenPutBytes(s)
@@ -338,7 +339,7 @@ func displayPutBytesStyle(s []byte, style TextStyle) {
 }
 
 // displayPutGlyphStyle writes one codepoint with a temporary drawStyle.
-func displayPutGlyphStyle(c rune, style TextStyle) {
+func displayPutGlyphStyle(c rune, style buffer.TextStyle) {
 	saved := drawStyle
 	drawStyle = style
 	screenPutc(c)
@@ -498,13 +499,13 @@ func ScreenSync() {
 // ---- Selection -------------------------------------------------------------------
 
 // selectionStyle computes the highlight style for selected text.
-func selectionStyle(base TextStyle) TextStyle {
-	flags := base & TextStyleBold
-	return MakeTextStyle(TermColorBase03, app.State.Theme.SelectionBg, flags)
+func selectionStyle(base buffer.TextStyle) buffer.TextStyle {
+	flags := base & buffer.TextStyleBold
+	return buffer.MakeTextStyle(buffer.TermColorBase03, app.State.Theme.SelectionBg, flags)
 }
 
 // selInit initialises selection state from the window's mark and cursor.
-func selInit(ss *SelState, wp *Window) {
+func selInit(ss *SelState, wp *app.Window) {
 	ss.active = false
 	ss.phase = selectionBefore
 	if wp.Mark.Line == 0 {
@@ -554,7 +555,7 @@ func selInit(ss *SelState, wp *Window) {
 
 // selLine returns the byte range [s, e) to highlight for lineNumber.
 // Returns s==-1 if no selection on this line.
-func selLine(ss *SelState, lineNumber uint, lp *Line) (s, e int) {
+func selLine(ss *SelState, lineNumber uint, lp *buffer.Line) (s, e int) {
 	s = -1
 	e = 0
 	if !ss.active {
@@ -623,7 +624,7 @@ func overlayPhantomCursor() {
 	app.State.PhantomText = byte(backRow.Text[col])
 	app.State.PhantomStyle = backRow.Style[col]
 	app.State.PhantomCursorValid = true
-	backRow.Style[col] = selectionStyle(backRow.Style[col]) | TextStyleBold
+	backRow.Style[col] = selectionStyle(backRow.Style[col]) | buffer.TextStyleBold
 	backRow.Dirty = true
 }
 
@@ -631,7 +632,7 @@ func overlayPhantomCursor() {
 
 // screenPutLineno renders a line-number gutter of width columns.
 // Format: [git-marker][right-justified line number][left-clipped indicator]
-func screenPutLineno(width, lineno int, marker GitLineDiff, leftClipped bool) {
+func screenPutLineno(width, lineno int, marker app.GitLineDiff, leftClipped bool) {
 	// Save draw and active styles
 	savedActiveStyle := app.State.ActiveStyle
 	savedDrawStyle := drawStyle
@@ -641,20 +642,20 @@ func screenPutLineno(width, lineno int, marker GitLineDiff, leftClipped bool) {
 	drawStyle = gutterStyle
 
 	// Git marker glyph (first column)
-	if marker != GitLineDiffNone {
+	if marker != app.GitLineDiffNone {
 		var glyph rune = ' '
-		var glyphStyle TextStyle
-		bg := TextStyleBg(gutterStyle)
+		var glyphStyle buffer.TextStyle
+		bg := gutterStyle.Bg()
 		switch marker {
-		case GitLineDiffAdded:
+		case app.GitLineDiffAdded:
 			glyph = '+'
-			glyphStyle = MakeTextStyle(TermColorGreen, bg, TextStyleBold)
-		case GitLineDiffModified:
+			glyphStyle = buffer.MakeTextStyle(buffer.TermColorGreen, bg, buffer.TextStyleBold)
+		case app.GitLineDiffModified:
 			glyph = '~'
-			glyphStyle = MakeTextStyle(TermColorYellow, bg, TextStyleBold)
-		case GitLineDiffDeleted:
+			glyphStyle = buffer.MakeTextStyle(buffer.TermColorYellow, bg, buffer.TextStyleBold)
+		case app.GitLineDiffDeleted:
 			glyph = '-'
-			glyphStyle = MakeTextStyle(TermColorRed, bg, TextStyleBold)
+			glyphStyle = buffer.MakeTextStyle(buffer.TermColorRed, bg, buffer.TextStyleBold)
 		default:
 			glyphStyle = gutterStyle
 		}
@@ -712,14 +713,14 @@ func screenPutLineno(width, lineno int, marker GitLineDiff, leftClipped bool) {
 // renderBlankRow renders an empty row past the end of the buffer.
 func renderBlankRow(row, gutter int) {
 	screenMove(row, 0)
-	screenPutLineno(gutter, 0, GitLineDiffNone, false)
+	screenPutLineno(gutter, 0, app.GitLineDiffNone, false)
 	screenEraseEol()
 }
 
 // ---- Content rendering ----------------------------------------------------------
 
 // windowCursorScreenCol returns the screen column of the cursor in wp.
-func windowCursorScreenCol(wp *Window) int {
+func windowCursorScreenCol(wp *app.Window) int {
 	if wp == nil || wp.Buffer == nil {
 		return 0
 	}
@@ -731,7 +732,7 @@ func windowCursorScreenCol(wp *Window) int {
 }
 
 // screenPutPickerLine renders a full match-window row using the picker style.
-func screenPutPickerLine(lp *Line) {
+func screenPutPickerLine(lp *buffer.Line) {
 	style := app.State.Theme.PickerSelectionStyle
 	savedDrawStyle := drawStyle
 	drawStyle = style
@@ -754,7 +755,7 @@ func screenPutPickerLine(lp *Line) {
 }
 
 // screenPutLine renders line content with syntax highlight and selection overlay.
-func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
+func screenPutLine(lp *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selStart, selEnd int) {
 	syntax.SyntaxEnsureLine(lp)
 	n := len(lp.Data)
 
@@ -798,7 +799,7 @@ func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
 }
 
 // renderLine renders one buffer line (gutter + content + horizontal scroll) into row.
-func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *SelState) {
+func renderLine(wp *app.Window, lineNumber uint, row int, synSt *buffer.SynState, selSt *SelState) {
 	lp := wp.Buffer.Line(lineNumber)
 	if lp == nil {
 		return
@@ -841,7 +842,7 @@ func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *Se
 // ---- Modeline rendering ---------------------------------------------------------
 
 // renderModeline renders the modeline for window wp.
-func renderModeline(wp *Window) {
+func renderModeline(wp *app.Window) {
 	if wp == nil || wp.Buffer == nil {
 		return
 	}
@@ -859,14 +860,14 @@ func renderModeline(wp *Window) {
 	// EOL label
 	eolLabel := "LF"
 	switch bp.EolMode {
-	case EModeCRLF:
+	case buffer.EModeCRLF:
 		eolLabel = "CRLF"
-	case EModeCR:
+	case buffer.EModeCR:
 		eolLabel = "CR"
 	}
 
 	// Language label
-	langLabel := modes.LangModeInfo(bp.LangMode).DisplayName
+	langLabel := modeactions.LangModeInfo(bp.LangMode).DisplayName
 
 	// Position: percentage, line, column
 	lineno := wp.Cursor.Line
@@ -895,9 +896,9 @@ func renderModeline(wp *Window) {
 
 	// Styles
 	gutterStyle := app.State.Theme.GutterStyle
-	gutterBg := TextStyleBg(gutterStyle)
-	nameStyle := MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, TextStyleBold)
-	dirtyStyle := MakeTextStyle(TermColorRed, gutterBg, TextStyleBold)
+	gutterBg := gutterStyle.Bg()
+	nameStyle := buffer.MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, buffer.TextStyleBold)
+	dirtyStyle := buffer.MakeTextStyle(buffer.TermColorRed, gutterBg, buffer.TextStyleBold)
 
 	gutterW := int(wp.GutterWidth())
 	markerCol := gutterW + 79 - int(wp.HScroll)
@@ -923,15 +924,15 @@ func renderModeline(wp *Window) {
 
 	// Macro recording indicator
 	if app.State.IsRecording() {
-		displayPutGlyphStyle('m', MakeTextStyle(TermColorRed, gutterBg, TextStyleBold))
-	} else if int32(CTLX|')') != app.State.Keys[0] {
+		displayPutGlyphStyle('m', buffer.MakeTextStyle(buffer.TermColorRed, gutterBg, buffer.TextStyleBold))
+	} else if len(app.State.Keys) > 0 && int32(term.CTLX|')') != app.State.Keys[0] {
 		displayPutGlyphStyle('m', nameStyle)
 	} else {
 		screenPutc(' ')
 	}
 
 	// Spot/mark indicator
-	if marksState.Count > 0 {
+	if len(marksState.Marks) > 0 {
 		displayPutGlyphStyle('s', nameStyle)
 	} else {
 		screenPutc(' ')
@@ -941,7 +942,7 @@ func renderModeline(wp *Window) {
 	displayPutGlyphStyle('b', nameStyle)
 
 	// Editor version
-	screenPutBytes([]byte("  jem " + Version + " | "))
+	screenPutBytes([]byte("  jem " + app.Version + " | "))
 
 	// File name
 	if bp.Name != "" {
@@ -955,7 +956,7 @@ func renderModeline(wp *Window) {
 	screenPutBytes([]byte(" | "))
 	screenPutBytes([]byte(langLabel))
 	if gitText := gitModelineText(bp); gitText != "" {
-		gitStyle := MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, 0)
+		gitStyle := buffer.MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, 0)
 		screenPutBytes([]byte(" | "))
 		displayPutBytesStyle([]byte(gitText), gitStyle)
 	}
@@ -1016,7 +1017,7 @@ func DisplayUpdate() {
 	}
 
 	if app.State.ScreenDirty {
-		for i := 0; i < int(app.State.WindowCount); i++ {
+		for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 			wp := app.State.WINDOWS[i]
 			if wp != nil {
 				wp.ShouldRedraw = true
@@ -1033,7 +1034,7 @@ func DisplayUpdate() {
 		app.State.CurrentWindow.ShouldUpdateModeLine = true
 	}
 
-	for wi := 0; wi < int(app.State.WindowCount); wi++ {
+	for wi := 0; wi < int(len(app.State.WINDOWS)); wi++ {
 		wp := app.State.WINDOWS[wi]
 		if wp == nil || wp.Buffer == nil {
 			continue
@@ -1106,7 +1107,7 @@ func DisplayUpdate() {
 		if wp.DidEdit && !wp.DidMove && !wp.ShouldRedraw {
 			// Fast path: only re-render the cursor line
 			cursorRow := int(wp.ScreenTopRow) + int(wp.Cursor.Line-wp.TopLine)
-			var synSt SynState
+			var synSt buffer.SynState
 			var selSt SelState
 			selInit(&selSt, wp)
 			renderLine(wp, wp.Cursor.Line, cursorRow, &synSt, &selSt)
@@ -1171,7 +1172,7 @@ func DisplayUpdate() {
 			}
 
 			// Full render of all rows in this window
-			var synSt SynState
+			var synSt buffer.SynState
 			var selSt SelState
 			selInit(&selSt, wp)
 			lineNumber := wp.TopLine
@@ -1240,21 +1241,21 @@ func CmdThemeToggle(f bool, n int) bool {
 	_ = f
 	_ = n
 	theme := &app.State.Theme
-	if theme.Mode == ThemeDark {
-		theme.Mode = ThemeLight
+	if theme.Mode == app.ThemeDark {
+		theme.Mode = app.ThemeLight
 	} else {
-		theme.Mode = ThemeDark
+		theme.Mode = app.ThemeDark
 	}
 	themeUpdate()
 	app.State.ScreenDirty = true
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
 		}
 	}
-	if theme.Mode == ThemeLight {
+	if theme.Mode == app.ThemeLight {
 		mbWrite("[light mode]")
 	} else {
 		mbWrite("[dark mode]")
@@ -1284,7 +1285,7 @@ func reverseScreenRows(rows *[]ScreenRow, lo, hi int) {
 
 // ---- Line cache -----------------------------------------------------------------
 
-func ensureLineCache(lp *Line) {
+func ensureLineCache(lp *buffer.Line) {
 	if lp == nil || lp.CacheValid {
 		return
 	}
@@ -1354,7 +1355,7 @@ func lineMeasureAdvance(col int, c rune) int {
 }
 
 // lineColAtOffset returns the screen column corresponding to byte offset in lp.
-func lineColAtOffset(lp *Line, offset uint) int {
+func lineColAtOffset(lp *buffer.Line, offset uint) int {
 	if lp == nil {
 		return 0
 	}
@@ -1382,7 +1383,7 @@ func lineColAtOffset(lp *Line, offset uint) int {
 // ---- Debug/compatibility stubs --------------------------------------------------
 
 // RenderModeline is a public wrapper for renderModeline (called from minibuf.go etc.)
-func RenderModeline(wp *Window) {
+func RenderModeline(wp *app.Window) {
 	renderModeline(wp)
 }
 

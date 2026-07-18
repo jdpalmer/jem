@@ -5,7 +5,7 @@ import "github.com/jdpalmer/jem/buffer"
 const MarkCapacity = 32
 
 type Mark struct {
-	Buffer        *Buffer
+	Buffer        *buffer.Buffer
 	BufferSerial  uint32
 	LineNumber    uint
 	Offset        uint
@@ -14,15 +14,13 @@ type Mark struct {
 }
 
 type MarkState struct {
-	Marks [MarkCapacity]Mark
-	Count uint8
+	Marks []Mark
 }
 
 var MarksState MarkState
 
 func markUpdateModelines() {
-	for i := 0; i < int(State.WindowCount); i++ {
-		wp := State.WINDOWS[i]
+	for _, wp := range State.WINDOWS {
 		if wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
@@ -53,19 +51,16 @@ func markCaptureCurrent(m *Mark) bool {
 	return true
 }
 
-func marksPushEntry(stack []Mark, count *uint8, mark *Mark) []Mark {
-	if int(*count) == MarkCapacity {
-		copy(stack[0:], stack[1:])
-		*count = MarkCapacity - 1
+func marksPushEntry(mark *Mark) {
+	if len(MarksState.Marks) == MarkCapacity {
+		copy(MarksState.Marks[0:], MarksState.Marks[1:])
+		MarksState.Marks = MarksState.Marks[:MarkCapacity-1]
 	}
-	stack[*count] = *mark
-	*count++
-	return stack
+	MarksState.Marks = append(MarksState.Marks, *mark)
 }
 
-func markBufferIsActive(buf *Buffer, serial uint32) bool {
-	for i := 0; i < int(State.BufferCount); i++ {
-		bp := State.Buffers[i]
+func markBufferIsActive(buf *buffer.Buffer, serial uint32) bool {
+	for _, bp := range State.Buffers {
 		if bp == buf && bp.Serial == serial {
 			return true
 		}
@@ -78,10 +73,10 @@ func MarkPushCurrent() {
 	if !markCaptureCurrent(&mark) {
 		return
 	}
-	if MarksState.Count > 0 && markEquals(&MarksState.Marks[MarksState.Count-1], &mark) {
+	if n := len(MarksState.Marks); n > 0 && markEquals(&MarksState.Marks[n-1], &mark) {
 		return
 	}
-	marksPushEntry(MarksState.Marks[:], &MarksState.Count, &mark)
+	marksPushEntry(&mark)
 	markUpdateModelines()
 }
 
@@ -118,9 +113,10 @@ func markRestore(m *Mark) bool {
 }
 
 func MarkPopOnce() bool {
-	for MarksState.Count > 0 {
-		mark := MarksState.Marks[MarksState.Count-1]
-		MarksState.Count--
+	for len(MarksState.Marks) > 0 {
+		n := len(MarksState.Marks)
+		mark := MarksState.Marks[n-1]
+		MarksState.Marks = MarksState.Marks[:n-1]
 		if markRestore(&mark) {
 			markUpdateModelines()
 			return true

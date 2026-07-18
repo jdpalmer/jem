@@ -15,7 +15,7 @@ func makeLine(s string) *buffer.Line {
 func TestSyntaxLineComment(t *testing.T) {
 	old := PackagePalette.CommentStyle
 	defer func() { PackagePalette.CommentStyle = old }()
-	PackagePalette.CommentStyle = buffer.MakeTextStyle(TermColorRed, TermColorDefault, 0)
+	PackagePalette.CommentStyle = buffer.MakeTextStyle(buffer.TermColorRed, buffer.TermColorDefault, 0)
 
 	lp := makeLine("  // hello world")
 	lp.LangMode = buffer.LModeGo
@@ -52,7 +52,7 @@ func TestSyntaxString(t *testing.T) {
 	if len(lp.RuneCache) < 7 {
 		t.Fatalf("unexpected rune cache length: %d", len(lp.RuneCache))
 	}
-	strStyle := buffer.MakeTextStyle(TermColorCyan, TermColorDefault, 0)
+	strStyle := buffer.MakeTextStyle(buffer.TermColorCyan, buffer.TermColorDefault, 0)
 	// Opening quote, contents, and closing quote are all A_STRING.
 	for i := 0; i < 7; i++ {
 		if lp.SyntaxStyles[i] != strStyle {
@@ -71,7 +71,7 @@ func TestSyntaxSingleQuotedString(t *testing.T) {
 	if len(lp.RuneCache) < 7 {
 		t.Fatalf("unexpected rune cache length: %d", len(lp.RuneCache))
 	}
-	strStyle := buffer.MakeTextStyle(TermColorCyan, TermColorDefault, 0)
+	strStyle := buffer.MakeTextStyle(buffer.TermColorCyan, buffer.TermColorDefault, 0)
 	for i := 0; i < 7; i++ {
 		if lp.SyntaxStyles[i] != strStyle {
 			t.Fatalf("expected string style at %d got %v", i, lp.SyntaxStyles[i])
@@ -120,8 +120,8 @@ func TestRainbowParensIncremental(t *testing.T) {
 	if len(first.SyntaxStyles) == 0 || len(second.SyntaxStyles) == 0 {
 		t.Fatalf("syntax styles not produced")
 	}
-	style0 := parenStyleExported(TermColorMagenta, 0)
-	style1 := parenStyleExported(TermColorMagenta, 1)
+	style0 := parenStyleExported(buffer.TermColorMagenta, 0)
+	style1 := parenStyleExported(buffer.TermColorMagenta, 1)
 	if first.SyntaxStyles[0] != style0 {
 		t.Fatalf("expected depth0 style on first line, got %v", first.SyntaxStyles[0])
 	}
@@ -135,7 +135,7 @@ func TestRainbowParensSingleLine(t *testing.T) {
 	lp.LangMode = buffer.LModeGo
 	lp.EnsureCache()
 	// Tokenize the single line
-	syn, summary, styles := tokenizeLineFromStateExported(lp, SynState{DFA: SS_NORMAL})
+	syn, summary, styles := tokenizeLineFromStateExported(lp, buffer.SynState{DFA: SynStateNormal})
 	_ = syn
 	_ = summary
 	if styles == nil || len(styles) == 0 {
@@ -144,7 +144,7 @@ func TestRainbowParensSingleLine(t *testing.T) {
 	// expected colors: positions 0..5 -> depth 0,1,2,2,1,0
 	expectedDepths := []int{0, 1, 2, 2, 1, 0}
 	for i, d := range expectedDepths {
-		expStyle := parenStyleExported(TermColorMagenta, d)
+		expStyle := parenStyleExported(buffer.TermColorMagenta, d)
 		if styles[i] != expStyle {
 			t.Fatalf("paren at %d: expected depth %d style %v, got %v", i, d, expStyle, styles[i])
 		}

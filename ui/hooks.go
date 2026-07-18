@@ -1,30 +1,24 @@
 package ui
 
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+)
+
 type CommandFunc func(f bool, n int) bool
 
+// Hooks are editor-owned callbacks ui cannot import directly (cycle).
+// Kill ring, key decode/meta, paste, and macro play live in edit/ui/app;
+// git modeline stays hooked (tools↔ui cycle).
 type Hooks struct {
-	DecodeKeyChar               func(key uint32, controlContext bool) uint32
-	ApplyMetaPrefixToKey        func(k uint32) uint32
 	ApplyCtlxPrefix             func(second uint32) uint32
 	RunCommandByName            func(name string) bool
 	Abort                       func()
-	MBWrite                     func(format string, args ...any)
-	MarkPushCurrent             func()
-	TagsMaybeShowCallHint       func()
-	AnyUnsavedBuffers           func() bool
-	GitLineDiff                 func(bp *Buffer, lineNumber uint) GitLineDiff
-	GitModelineText             func(bp *Buffer) string
-	KillBegin                   func()
-	KillAppend                  func(text []byte) bool
-	KillWriteClipboard          func()
-	KillReadClipboard           func() bool
-	KillBytes                   func() []byte
-	MacroPlayPrompt             func(buf []byte) (PromptResult, bool)
+	GitLineDiff                 func(bp *buffer.Buffer, lineNumber uint) app.GitLineDiff
+	GitModelineText             func(bp *buffer.Buffer) string
 	MacroRecordMinibufferResult func(text []byte)
-	EditorInsertPaste           func(text []byte) bool
 	CommandsProvider            func(ctx any, idx uint) []byte
 	BuildCommandList            func() []string
-	RequestRefresh              func()
 }
 
 var PackageHooks Hooks

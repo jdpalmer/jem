@@ -1,10 +1,13 @@
 package editor
 
-import "testing"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"testing"
+)
 
 func TestCNewlineIndent(t *testing.T) {
 	te := NewTestEditor(t)
-	te.SetLangMode(LModeC)
+	te.SetLangMode(buffer.LModeC)
 	te.BP().CIndent = 2
 
 	te.LoadText("if (x) {")

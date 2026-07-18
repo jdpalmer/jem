@@ -1,12 +1,14 @@
-package modes
+package modeactions
 
 import (
 	"bytes"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 )
 
-func lpKeyword(lp *Line, i uint, kw string) bool {
+func lpKeyword(lp *buffer.Line, i uint, kw string) bool {
 	if lp == nil {
 		return false
 	}
@@ -25,7 +27,7 @@ func lpKeyword(lp *Line, i uint, kw string) bool {
 	return nc == ' ' || nc == '\t' || nc == ':' || nc == '(' || nc == '\r'
 }
 
-func prevCodeLineNumberPy(bp *Buffer, lineNumber uint) uint {
+func prevCodeLineNumberPy(bp *buffer.Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
 		p := bp.Line(lineNumber)
@@ -39,7 +41,7 @@ func prevCodeLineNumberPy(bp *Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func lineIsDeindentKw(lp *Line) bool {
+func lineIsDeindentKw(lp *buffer.Line) bool {
 	if lp == nil {
 		return false
 	}
@@ -47,7 +49,7 @@ func lineIsDeindentKw(lp *Line) bool {
 	return lpKeyword(lp, i, "elif") || lpKeyword(lp, i, "else") || lpKeyword(lp, i, "except") || lpKeyword(lp, i, "finally")
 }
 
-func lineIsDedentStmt(lp *Line) bool {
+func lineIsDedentStmt(lp *buffer.Line) bool {
 	if lp == nil {
 		return false
 	}
@@ -55,7 +57,7 @@ func lineIsDedentStmt(lp *Line) bool {
 	return lpKeyword(lp, i, "return") || lpKeyword(lp, i, "break") || lpKeyword(lp, i, "continue") || lpKeyword(lp, i, "raise") || lpKeyword(lp, i, "pass")
 }
 
-func calcIndentPy(bp *Buffer, lineNumber uint) int {
+func calcIndentPy(bp *buffer.Buffer, lineNumber uint) int {
 	lp := bp.Line(lineNumber)
 	pyIndentWidth := bp.PyIndent
 	pyContinuedOffset := bp.PyContinuedOffset
@@ -138,8 +140,8 @@ func calcIndentPy(bp *Buffer, lineNumber uint) int {
 	return refInd
 }
 
-func setLineIndentPy(wp *Window, col int) bool {
-	if wp == nil || wp.Buffer == nil || col < 0 || PackageHooks.BufferSetText == nil {
+func setLineIndentPy(wp *app.Window, col int) bool {
+	if wp == nil || wp.Buffer == nil || col < 0 {
 		return false
 	}
 	bp := wp.Buffer
@@ -153,22 +155,19 @@ func setLineIndentPy(wp *Window, col int) bool {
 	for i := range spaces {
 		spaces[i] = ' '
 	}
-	begin := MakeLocation(ln, 0)
-	end := MakeLocation(ln, oldFirst)
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, spaces, nil, false)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	begin := buffer.MakeLocation(ln, 0)
+	end := buffer.MakeLocation(ln, oldFirst)
+	edit.BeginCommand()
+	err := edit.SetText(bp, begin, end, spaces, nil)
+	ok := err == nil
+	edit.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
 	return ok
 }
 
-func findDefLineNumber(bp *Buffer, lineNumber uint) uint {
+func findDefLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
 	if bp.LineCount == 0 {
 		return 0
 	}
@@ -211,11 +210,11 @@ func cmdPyNewlineAndIndent(f bool, n int) bool {
 	}
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !PackageHooks.WindowInsertNewline(wp) {
+		if !edit.InsertNewline(wp) {
 			return false
 		}
 		indent := calcIndentPy(bp, wp.Cursor.Line)
@@ -245,7 +244,7 @@ func cmdPyMakeComment(f bool, n int) bool {
 	_ = n
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.WindowInsertText == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	lp := bp.Line(wp.Cursor.Line)
@@ -267,7 +266,7 @@ func cmdPyMakeComment(f bool, n int) bool {
 		wp.Cursor.Offset = 0
 	}
 	cmt := []byte("  # ")
-	if !PackageHooks.WindowInsertText(wp, cmt) {
+	if !edit.InsertText(wp, cmt) {
 		return false
 	}
 	wp.DidMove = true
@@ -289,7 +288,7 @@ func cmdPyTopOfFunction(f bool, n int) bool {
 		}
 		return false
 	}
-		wp.SetCursor(MakeLocation(defLine, 0))
+	wp.SetCursor(buffer.MakeLocation(defLine, 0))
 	wp.DidMove = true
 	return true
 }
@@ -335,7 +334,7 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 	if lp != nil {
 		off = lp.Len()
 	}
-		wp.SetCursor(MakeLocation(targetLine, off))
+	wp.SetCursor(buffer.MakeLocation(targetLine, off))
 	wp.DidMove = true
 	return true
 }
@@ -354,7 +353,7 @@ func cmdPyMarkFunction(f bool, n int) bool {
 	}
 	wp.Mark.Line = wp.Cursor.Line
 	wp.Mark.Offset = wp.Cursor.Offset
-		wp.SetCursor(MakeLocation(origLine, origOff))
+	wp.SetCursor(buffer.MakeLocation(origLine, origOff))
 	if !cmdPyTopOfFunction(false, 1) {
 		wp.Mark.Line = 0
 		return false
@@ -368,7 +367,7 @@ func cmdPyMarkFunction(f bool, n int) bool {
 
 func init() {
 	for i := range modeTable {
-		if modeTable[i].Mode == app.LModePython {
+		if modeTable[i].Mode == buffer.LModePython {
 			modeTable[i].NewlineAndIndent = cmdPyNewlineAndIndent
 			modeTable[i].IndentLine = cmdPyIndentLine
 			modeTable[i].MakeComment = cmdPyMakeComment

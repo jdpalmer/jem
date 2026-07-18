@@ -117,10 +117,10 @@ func initOperatorsByLang() {
 	}
 }
 
-func operatorStyleForLang(lang buffer.LangMode, op string) TextStyle {
+func operatorStyleForLang(lang buffer.LangMode, op string) buffer.TextStyle {
 	ops, ok := operatorsByLang[lang]
 	if !ok || !ops[op] {
-		return TextStyleDefault
+		return buffer.TextStyleDefault
 	}
 	return keywordStyle
 }

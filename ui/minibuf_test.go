@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/term"
 )
 
 func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	DisplayInit()
-	app.State = App{}
+	app.Reset()
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
@@ -20,7 +21,7 @@ func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	bp.Name = "alpha"
 
 	clipLeftCol = 10
-	mlChoiceRender("Buffer: ", []*Buffer{bp}, bufferChoiceLabel, 1, 0, 0, 0)
+	mlChoiceRender("Buffer: ", []*buffer.Buffer{bp}, bufferChoiceLabel, 1, 0, 0, 0)
 	clipLeftCol = 0
 
 	row := &backScreen.Rows[term.Rows()]

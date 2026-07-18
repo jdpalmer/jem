@@ -1,6 +1,10 @@
 package editor
 
-import "github.com/jdpalmer/jem/tools"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/tools"
+)
 
 const (
 	grepBufferName    = tools.GrepBufferName
@@ -64,10 +68,10 @@ func CmdSpawn(_ bool, _ int) bool {
 	return tools.RunSpawnCommand()
 }
 
-func gitModelineText(bp *Buffer) string {
+func gitModelineText(bp *buffer.Buffer) string {
 	return tools.GitModelineText(bp)
 }
 
-func gitLineDiff(bp *Buffer, lineNumber uint) GitLineDiff {
+func gitLineDiff(bp *buffer.Buffer, lineNumber uint) app.GitLineDiff {
 	return tools.GitLineDiffAt(bp, lineNumber)
 }

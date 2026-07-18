@@ -6,7 +6,7 @@ func testUndoReplay(bp *Buffer) UndoReplay {
 	return UndoReplay{
 		InsertText: func(lineNumber, offset uint, text []byte) bool {
 			loc := MakeLocation(lineNumber, offset)
-			return bp.ReplaceRaw(loc, loc, text, nil)
+			return bp.ReplaceRaw(loc, loc, text, nil) == nil
 		},
 		DeleteText: func(lineNumber, offset uint, text []byte) bool {
 			begin := MakeLocation(lineNumber, offset)
@@ -19,7 +19,7 @@ func testUndoReplay(bp *Buffer) UndoReplay {
 					endOffset++
 				}
 			}
-			return bp.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil)
+			return bp.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil) == nil
 		},
 	}
 }
@@ -30,10 +30,10 @@ func TestUndoMultiEditGroup(t *testing.T) {
 
 	var undo UndoHistory
 	undo.BeginCommand(bp, MakeLocation(1, 0))
-	if !bp.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil) {
+	if err := bp.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil); err != nil {
 		t.Fatal("first SetText failed")
 	}
-	if !bp.SetText(&undo, MakeLocation(1, 4), MakeLocation(1, 4), []byte("Y"), nil) {
+	if err := bp.SetText(&undo, MakeLocation(1, 4), MakeLocation(1, 4), []byte("Y"), nil); err != nil {
 		t.Fatal("second SetText failed")
 	}
 	undo.EndCommand()
@@ -64,13 +64,13 @@ func TestForgetBuffer(t *testing.T) {
 
 	var undo UndoHistory
 	undo.BeginCommand(bp1, MakeLocation(1, 0))
-	if !bp1.SetText(&undo, MakeLocation(1, 0), MakeLocation(1, 0), []byte("A"), nil) {
+	if err := bp1.SetText(&undo, MakeLocation(1, 0), MakeLocation(1, 0), []byte("A"), nil); err != nil {
 		t.Fatal("SetText bp1 failed")
 	}
 	undo.EndCommand()
 
 	undo.BeginCommand(bp2, MakeLocation(1, 0))
-	if !bp2.SetText(&undo, MakeLocation(1, 0), MakeLocation(1, 0), []byte("B"), nil) {
+	if err := bp2.SetText(&undo, MakeLocation(1, 0), MakeLocation(1, 0), []byte("B"), nil); err != nil {
 		t.Fatal("SetText bp2 failed")
 	}
 	undo.EndCommand()
@@ -97,14 +97,14 @@ func TestNoteBufferSavedOnRestoredSave(t *testing.T) {
 
 	var undo UndoHistory
 	undo.BeginCommand(bp, MakeLocation(1, 5))
-	if !bp.SetText(&undo, MakeLocation(1, 5), MakeLocation(1, 5), []byte("!"), nil) {
+	if err := bp.SetText(&undo, MakeLocation(1, 5), MakeLocation(1, 5), []byte("!"), nil); err != nil {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
 	undo.NoteBufferSaved(bp)
 
 	undo.BeginCommand(bp, MakeLocation(1, 6))
-	if !bp.SetText(&undo, MakeLocation(1, 6), MakeLocation(1, 6), []byte("?"), nil) {
+	if err := bp.SetText(&undo, MakeLocation(1, 6), MakeLocation(1, 6), []byte("?"), nil); err != nil {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
@@ -135,7 +135,7 @@ func TestUndoStaleSerial(t *testing.T) {
 
 	var undo UndoHistory
 	undo.BeginCommand(bp, MakeLocation(1, 0))
-	if !bp.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil) {
+	if err := bp.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil); err != nil {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
@@ -155,7 +155,7 @@ func TestRecordEditSkipsIdentityReplace(t *testing.T) {
 
 	var undo UndoHistory
 	undo.BeginCommand(bp, MakeLocation(1, 0))
-	if !bp.SetText(&undo, MakeLocation(1, 1), MakeLocation(1, 4), []byte("ell"), nil) {
+	if err := bp.SetText(&undo, MakeLocation(1, 1), MakeLocation(1, 4), []byte("ell"), nil); err != nil {
 		t.Fatal("identity SetText failed")
 	}
 	undo.EndCommand()

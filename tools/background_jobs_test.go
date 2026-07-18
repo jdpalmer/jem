@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
 )
 
 func TestGrepProjectSearchCancellation(t *testing.T) {
@@ -37,15 +38,14 @@ func TestGrepProjectSearchCancellation(t *testing.T) {
 func TestBackgroundJobGrepCompletion(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	app.State = app.AppState{}
+	app.Reset()
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	wp := app.WindowCreate()
 	app.WindowSelect(wp)
 	app.SetCurrentBuffer(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{
-		MBWrite: func(string, ...interface{}) {},
-		SwitchBuffer: func(next *app.Buffer) {
+		SwitchBuffer: func(next *buffer.Buffer) {
 			app.SetCurrentBuffer(next)
 			if cw := app.State.CurrentWindow; cw != nil {
 				cw.Buffer = next
@@ -83,15 +83,13 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 func TestBackgroundJobCancel(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	app.State = app.AppState{}
+	app.Reset()
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	wp := app.WindowCreate()
 	app.WindowSelect(wp)
 	app.SetCurrentBuffer(bp)
 	wp.Buffer = bp
-	PackageHooks = Hooks{
-		MBWrite: func(string, ...interface{}) {},
-	}
+	PackageHooks = Hooks{}
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "big.go")

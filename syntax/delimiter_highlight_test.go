@@ -12,9 +12,9 @@ func TestDelimiterHighlightAfterKeyword(t *testing.T) {
 	lp.LangMode = buffer.LModeGo
 	lp.EnsureCache()
 
-	start := SynState{DFA: SS_NORMAL}
+	start := buffer.SynState{DFA: SynStateNormal}
 	_, _, styles := tokenizeLineFromStateExported(lp, start)
-	if len(styles) == 0 || styles[len(styles)-1] == TextStyleDefault {
+	if len(styles) == 0 || styles[len(styles)-1] == buffer.TextStyleDefault {
 		t.Fatalf("expected '(' to be painted, styles=%v", styles)
 	}
 	if len(styles) != len(lp.RuneCache) {
@@ -27,9 +27,9 @@ func TestDelimiterHighlightViaEnterHook(t *testing.T) {
 	lp.Data = []byte("(")
 	lp.LangMode = buffer.LModeGo
 	lp.EnsureCache()
-	PackagePalette.CommentStyle = buffer.MakeTextStyle(TermColorBlue, TermColorDefault, 0)
+	PackagePalette.CommentStyle = buffer.MakeTextStyle(buffer.TermColorBlue, buffer.TermColorDefault, 0)
 
-	setOnEnterHook(SS_NORMAL, func(line *buffer.Line, syn *SynState, i *int, tokenStart *int, summary *SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int) {
+	setOnEnterHook(SynStateNormal, func(line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int) {
 		if *i != 0 {
 			return
 		}
@@ -37,12 +37,12 @@ func TestDelimiterHighlightViaEnterHook(t *testing.T) {
 	})
 	defer clearOnEnterHooks()
 
-	start := SynState{DFA: SS_NORMAL}
+	start := buffer.SynState{DFA: SynStateNormal}
 	end, _, styles := tokenizeLineFromStateExported(lp, start)
 	if len(styles) != 1 {
 		t.Fatalf("expected styles length 1, got %d", len(styles))
 	}
-	if styles[0] == TextStyleDefault {
+	if styles[0] == buffer.TextStyleDefault {
 		t.Fatalf("expected non-default style after hook pending paint")
 	}
 	if end.Paren == 0 {

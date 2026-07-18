@@ -4,17 +4,18 @@ import (
 	"github.com/jdpalmer/jem/app"
 	"testing"
 
+	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/term"
 )
 
 func TestTabWidth(t *testing.T) {
 	t.Run("lineColAtOffset", func(t *testing.T) {
-		lp := &Line{Data: []byte("\t")}
+		lp := &buffer.Line{Data: []byte("\t")}
 		if got := lineColAtOffset(lp, 1); got != 8 {
 			t.Fatalf("tab at col 0: got %d, want 8", got)
 		}
 
-		lp = &Line{Data: []byte("hello\t")}
+		lp = &buffer.Line{Data: []byte("hello\t")}
 		if got := lineColAtOffset(lp, 5); got != 5 {
 			t.Fatalf("before tab: got %d, want 5", got)
 		}
@@ -24,7 +25,7 @@ func TestTabWidth(t *testing.T) {
 	})
 
 	t.Run("lineOffsetAtCol", func(t *testing.T) {
-		lp := &Line{Data: []byte("\t")}
+		lp := &buffer.Line{Data: []byte("\t")}
 		if got := lineOffsetAtCol(lp, 8); got != 1 {
 			t.Fatalf("offset at col 8: got %d, want 1", got)
 		}
@@ -36,7 +37,7 @@ func TestTabWidth(t *testing.T) {
 	t.Run("screenPutGlyph", func(t *testing.T) {
 		backScreen.Rows = make([]ScreenRow, 1)
 		backScreen.Rows[0].Text = make([]rune, 80)
-		backScreen.Rows[0].Style = make([]TextStyle, 80)
+		backScreen.Rows[0].Style = make([]buffer.TextStyle, 80)
 		swCursorRow = 0
 		swCursorCol = 0
 		tabOriginCol = 0
@@ -82,7 +83,7 @@ func TestLineMeasureAdvanceWideRune(t *testing.T) {
 }
 
 func TestLineColAtOffsetWideRune(t *testing.T) {
-	lp := &Line{Data: []byte("a世b")}
+	lp := &buffer.Line{Data: []byte("a世b")}
 	if got := lineColAtOffset(lp, 1); got != 1 {
 		t.Fatalf("before wide rune: got %d, want 1", got)
 	}
@@ -93,7 +94,7 @@ func TestLineColAtOffsetWideRune(t *testing.T) {
 
 func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 	DisplayInit()
-	app.State = App{}
+	app.Reset()
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
@@ -103,7 +104,7 @@ func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 		t.Fatal("window create failed")
 	}
 	app.WindowSelect(wp)
-	wp.Cursor = Location{Line: 1, Offset: 3}
+	wp.Cursor = buffer.Location{Line: 1, Offset: 3}
 	wp.TopLine = 1
 	app.WindowRetile()
 

@@ -3,22 +3,21 @@ package editor
 // window.go - Window management and layout tiling (translation of window.c and part of display.c)
 
 import (
-	"bytes"
-	"github.com/jdpalmer/jem/buffer"
-	"unicode/utf8"
-
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/ui"
 )
 
 func CmdWindowDelete(f bool, n int) bool {
-	if app.State.WindowCount <= 1 {
-		mbWrite("[cannot remove only window]")
+	if len(app.State.WINDOWS) <= 1 {
+		ui.MBWrite("[cannot remove only window]")
 		return false
 	}
 
 	previousWindow := app.State.CurrentWindow
-	for i := int(app.State.WindowCount) - 1; i >= 0; i-- {
+	for i := len(app.State.WINDOWS) - 1; i >= 0; i-- {
 		swap := app.State.WINDOWS[i]
 		app.State.WINDOWS[i] = previousWindow
 		previousWindow = swap
@@ -26,7 +25,7 @@ func CmdWindowDelete(f bool, n int) bool {
 		if previousWindow == app.State.CurrentWindow {
 			previousWindow.SaveState()
 			app.State.CurrentWindow = app.State.WINDOWS[i]
-			app.State.WindowCount--
+			app.State.WINDOWS = app.State.WINDOWS[:len(app.State.WINDOWS)-1]
 			app.WindowSelect(app.State.CurrentWindow)
 			app.WindowRetile()
 			break
@@ -36,13 +35,13 @@ func CmdWindowDelete(f bool, n int) bool {
 }
 
 func CmdWindowNext(f bool, n int) bool {
-	if app.State.WindowCount <= 1 {
+	if len(app.State.WINDOWS) <= 1 {
 		return true
 	}
 	next := app.State.WINDOWS[0]
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < len(app.State.WINDOWS); i++ {
 		if app.State.WINDOWS[i] == app.State.CurrentWindow {
-			if i+1 < int(app.State.WindowCount) {
+			if i+1 < len(app.State.WINDOWS) {
 				next = app.State.WINDOWS[i+1]
 			}
 		}
@@ -52,7 +51,7 @@ func CmdWindowNext(f bool, n int) bool {
 }
 
 func CmdWindowOnly(f bool, n int) bool {
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < len(app.State.WINDOWS); i++ {
 		if app.State.WINDOWS[i] == app.State.CurrentWindow {
 			app.State.WINDOWS[i] = app.State.WINDOWS[0]
 			app.State.WINDOWS[0] = app.State.CurrentWindow
@@ -60,7 +59,7 @@ func CmdWindowOnly(f bool, n int) bool {
 		}
 		app.State.WINDOWS[i].SaveState()
 	}
-	app.State.WindowCount = 1
+	app.State.WINDOWS = app.State.WINDOWS[:1]
 	app.State.CurrentWindow = app.State.WINDOWS[0]
 	app.WindowSelect(app.State.CurrentWindow)
 	app.WindowRetile()
@@ -68,13 +67,13 @@ func CmdWindowOnly(f bool, n int) bool {
 }
 
 func CmdWindowSplit(f bool, n int) bool {
-	if term.Rows() < 4*(int(app.State.WindowCount)+1) {
-		mbWrite("[window is too small to split]")
+	if term.Rows() < 4*(len(app.State.WINDOWS)+1) {
+		ui.MBWrite("[window is too small to split]")
 		return false
 	}
 	wp := app.WindowCreate()
 	if wp == nil {
-		mbWrite("[maximum number of windows has been reached]")
+		ui.MBWrite("[maximum number of windows has been reached]")
 		return false
 	}
 
@@ -87,8 +86,8 @@ func CmdWindowSplit(f bool, n int) bool {
 	wp.Height = curr.Height
 	wp.HScroll = curr.HScroll
 
-	// Insert wp next to curr in WINDOWS array
-	for i := int(app.State.WindowCount) - 1; i > 0; i-- {
+	// Insert wp next to curr in WINDOWS slice
+	for i := len(app.State.WINDOWS) - 1; i > 0; i-- {
 		if app.State.WINDOWS[i-1] == curr {
 			app.State.WINDOWS[i] = wp
 			break
@@ -101,48 +100,22 @@ func CmdWindowSplit(f bool, n int) bool {
 }
 
 // windowInsertText inserts text at the window cursor. Returns true on success.
-func windowInsertText(wp *Window, text []byte) bool {
-	if wp == nil || wp.Buffer == nil {
-		return false
-	}
-	bp := wp.Buffer
-	UndoBeginCommand()
-	defer UndoEndCommand()
-	begin := wp.Cursor
-	var newEnd Location
-	if !bufferSetText(bp, begin, begin, text, &newEnd, false) {
-		return false
-	}
-	// Set cursor to the precise new end location returned by bufferSetText.
-	wp.Cursor = newEnd
-	wp.DidEdit = true
-	return true
+func windowInsertText(wp *app.Window, text []byte) bool {
+	return edit.InsertText(wp, text)
 }
 
 // windowInsertCodepoint inserts a Unicode codepoint at the window cursor.
-func windowInsertCodepoint(wp *Window, cp rune) bool {
-	if wp == nil || wp.Buffer == nil {
-		return false
-	}
-	if cp < 0 {
-		return false
-	}
-	// Fast path for ASCII
-	if cp < 0x80 {
-		return windowInsertText(wp, []byte{byte(cp)})
-	}
-	buf := make([]byte, utf8.RuneLen(cp))
-	n := utf8.EncodeRune(buf, cp)
-	return windowInsertText(wp, buf[:n])
+func windowInsertCodepoint(wp *app.Window, cp rune) bool {
+	return edit.InsertCodepoint(wp, cp)
 }
 
 // windowInsertNewline inserts a single newline at the window cursor.
-func windowInsertNewline(wp *Window) bool {
-	return windowInsertText(wp, []byte{'\n'})
+func windowInsertNewline(wp *app.Window) bool {
+	return edit.InsertNewline(wp)
 }
 
 // windowReplaceLineLeadingText replaces the leading whitespace on the current line with the given text.
-func windowReplaceLineLeadingText(wp *Window, text []byte) bool {
+func windowReplaceLineLeadingText(wp *app.Window, text []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -155,14 +128,14 @@ func windowReplaceLineLeadingText(wp *Window, text []byte) bool {
 	if oldWS == 0 && len(text) == 0 {
 		return true
 	}
-	begin := Location{Line: lineNumber, Offset: 0}
-	end := Location{Line: lineNumber, Offset: oldWS}
+	begin := buffer.Location{Line: lineNumber, Offset: 0}
+	end := buffer.Location{Line: lineNumber, Offset: oldWS}
 	return bufferSetText(wp.Buffer, begin, end, text, nil, false)
 }
 
 // windowSetLineIndent sets the indentation of the current line using a count of
 // leading tabs and spaces, mirroring the behavior of the original C helper.
-func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
+func windowSetLineIndent(wp *app.Window, tabs, spaces uint) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -212,7 +185,7 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 }
 
 // windowDeleteChars deletes up to count characters starting at the cursor.
-func windowDeleteChars(wp *Window, count int) bool {
+func windowDeleteChars(wp *app.Window, count int) bool {
 	if wp == nil || wp.Buffer == nil || count <= 0 {
 		return false
 	}
@@ -223,9 +196,9 @@ func windowDeleteChars(wp *Window, count int) bool {
 	for i := 0; i < count; i++ {
 		line := bp.Line(wp.Cursor.Line)
 		if line != nil && wp.Cursor.Offset < line.Len() {
-			begin := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
-			end := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset + 1}
-			var newEnd Location
+			begin := buffer.Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
+			end := buffer.Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset + 1}
+			var newEnd buffer.Location
 			if bufferSetText(bp, begin, end, nil, &newEnd, false) {
 				wp.Cursor = newEnd
 				deleted = true
@@ -233,9 +206,9 @@ func windowDeleteChars(wp *Window, count int) bool {
 			}
 			break
 		} else if wp.Cursor.Line < bp.LineCount {
-			begin := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
-			end := Location{Line: wp.Cursor.Line + 1, Offset: 0}
-			var newEnd Location
+			begin := buffer.Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
+			end := buffer.Location{Line: wp.Cursor.Line + 1, Offset: 0}
+			var newEnd buffer.Location
 			if bufferSetText(bp, begin, end, nil, &newEnd, false) {
 				wp.Cursor = newEnd
 				deleted = true
@@ -250,16 +223,4 @@ func windowDeleteChars(wp *Window, count int) bool {
 		wp.DidEdit = true
 	}
 	return deleted
-}
-
-// editorInsertPaste inserts pasted text into the current window, normalizing CR/CRLF to LF.
-func editorInsertPaste(text []byte) bool {
-	wp := app.State.CurrentWindow
-	if wp == nil || wp.Buffer == nil {
-		return false
-	}
-	p := text
-	// Normalize CRLF -> LF), []byte("\n"))
-	p = bytes.ReplaceAll(p, []byte("\r"), []byte("\n"))
-	return windowInsertText(wp, p)
 }

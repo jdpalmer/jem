@@ -2,6 +2,8 @@ package ui
 
 import (
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 )
 
 var (
@@ -10,46 +12,38 @@ var (
 	marksState         = &app.MarksState
 )
 
-func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newEndOut *Location, kill bool) bool {
+func bufferSetText(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location, kill bool) bool {
 	if kill {
 		oldText := bp.GetText(begin, end)
-		if len(oldText) > 0 {
-			if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(oldText) {
-				return false
-			}
+		if len(oldText) > 0 && !edit.KillAppend(oldText) {
+			return false
 		}
 	}
-	ok := bp.SetText(nil, begin, end, newText, newEndOut)
-	if kill && ok && PackageHooks.KillWriteClipboard != nil {
-		PackageHooks.KillWriteClipboard()
+	if err := bp.SetText(nil, begin, end, newText, newEndOut); err != nil {
+		return false
 	}
-	return ok
+	if kill {
+		edit.KillWriteClipboard()
+	}
+	return true
 }
 
-func gitLineDiff(bp *Buffer, lineNumber uint) GitLineDiff {
+func gitLineDiff(bp *buffer.Buffer, lineNumber uint) app.GitLineDiff {
 	if PackageHooks.GitLineDiff == nil {
-		return GitLineDiffNone
+		return app.GitLineDiffNone
 	}
 	return PackageHooks.GitLineDiff(bp, lineNumber)
 }
 
-func gitModelineText(bp *Buffer) string {
+func gitModelineText(bp *buffer.Buffer) string {
 	if PackageHooks.GitModelineText == nil {
 		return ""
 	}
 	return PackageHooks.GitModelineText(bp)
 }
 
-func mbWriteHook(format string, args ...any) {
-	if PackageHooks.MBWrite != nil {
-		PackageHooks.MBWrite(format, args...)
-		return
-	}
-	mbWrite(format, args...)
-}
-
 func bufferChoiceLabel(ctx any, idx uint8) []byte {
-	buffers := ctx.([]*Buffer)
+	buffers := ctx.([]*buffer.Buffer)
 	if int(idx) >= len(buffers) {
 		return nil
 	}
@@ -61,9 +55,6 @@ func bufferChoiceLabel(ctx any, idx uint8) []byte {
 }
 
 func editorInsertPaste(text []byte) bool {
-	if PackageHooks.EditorInsertPaste != nil {
-		return PackageHooks.EditorInsertPaste(text)
-	}
 	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
@@ -74,11 +65,5 @@ func editorInsertPaste(text []byte) bool {
 			paste[i] = '\n'
 		}
 	}
-	loc := wp.Cursor
-	var newEnd Location
-	if !bufferSetText(wp.Buffer, loc, loc, paste, &newEnd, false) {
-		return false
-	}
-	wp.SetCursor(newEnd)
-	return true
+	return edit.InsertText(wp, paste)
 }

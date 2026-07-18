@@ -1,6 +1,9 @@
 package app
 
-import "github.com/jdpalmer/jem/term"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/term"
+)
 
 func WindowSelect(wp *Window) {
 	old := State.CurrentWindow
@@ -17,14 +20,14 @@ func WindowSelect(wp *Window) {
 }
 
 func WindowCreate() *Window {
-	if State.WindowCount >= MaxWindows {
+	if len(State.WINDOWS) >= MaxWindows {
 		return nil
 	}
 	wp := &Window{
 		Buffer:               State.CurrentBuffer,
 		TopLine:              1,
-		Cursor:               Location{Line: 1, Offset: 0},
-		Mark:                 Location{Line: 1, Offset: 0},
+		Cursor:               buffer.Location{Line: 1, Offset: 0},
+		Mark:                 buffer.Location{Line: 1, Offset: 0},
 		ScreenTopRow:         0,
 		Height:               0,
 		ForceReframe:         false,
@@ -35,8 +38,7 @@ func WindowCreate() *Window {
 		ShouldUpdateModeLine: true,
 		HScroll:              0,
 	}
-	State.WINDOWS[State.WindowCount] = wp
-	State.WindowCount++
+	State.WINDOWS = append(State.WINDOWS, wp)
 	return wp
 }
 
@@ -47,13 +49,12 @@ func (wp *Window) SaveState() {
 	}
 }
 
-func BufferWindowCount(bp *Buffer) int {
+func BufferWindowCount(bp *buffer.Buffer) int {
 	if bp == nil {
-		return int(State.WindowCount)
+		return len(State.WINDOWS)
 	}
 	count := 0
-	for i := 0; i < int(State.WindowCount); i++ {
-		wp := State.WINDOWS[i]
+	for _, wp := range State.WINDOWS {
 		if wp != nil && wp.Buffer == bp {
 			count++
 		}
@@ -62,19 +63,19 @@ func BufferWindowCount(bp *Buffer) int {
 }
 
 func WindowRetile() {
-	if State.WindowCount == 0 {
+	n := len(State.WINDOWS)
+	if n == 0 {
 		return
 	}
-	usable := term.Rows() - int(State.WindowCount)
+	usable := term.Rows() - n
 	if usable < 0 {
 		usable = 0
 	}
-	baseRows := usable / int(State.WindowCount)
-	extraRows := usable % int(State.WindowCount)
+	baseRows := usable / n
+	extraRows := usable % n
 	top := 0
 
-	for i := 0; i < int(State.WindowCount); i++ {
-		wp := State.WINDOWS[i]
+	for _, wp := range State.WINDOWS {
 		if wp == nil {
 			continue
 		}
@@ -130,7 +131,7 @@ func (wp *Window) GutterWidth() uint32 {
 	return width
 }
 
-func (wp *Window) SetCursor(loc Location) {
+func (wp *Window) SetCursor(loc buffer.Location) {
 	if wp == nil {
 		return
 	}

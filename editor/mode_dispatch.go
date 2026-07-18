@@ -2,7 +2,7 @@ package editor
 
 import (
 	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/modes"
+	"github.com/jdpalmer/jem/modeactions"
 )
 
 func CmdModeNewlineAndIndent(f bool, n int) bool {
@@ -15,15 +15,15 @@ func CmdModeNewlineAndIndent(f bool, n int) bool {
 			return CmdCompileVisitDiag(false, 1)
 		}
 	}
-	return modes.CmdModeNewlineAndIndent(f, n)
+	return modeactions.CmdModeNewlineAndIndent(f, n)
 }
 
-func CmdModeIndentLine(f bool, n int) bool    { return modes.CmdModeIndentLine(f, n) }
-func CmdModeCloseBrace(f bool, n int) bool    { return modes.CmdModeCloseBrace(f, n) }
-func CmdModeGotoMatch(f bool, n int) bool     { return modes.CmdModeGotoMatch(f, n) }
-func CmdModeMakeComment(f bool, n int) bool   { return modes.CmdModeMakeComment(f, n) }
-func CmdModeTopOfFunction(f bool, n int) bool { return modes.CmdModeTopOfFunction(f, n) }
-func CmdModeEndOfFunction(f bool, n int) bool { return modes.CmdModeEndOfFunction(f, n) }
-func CmdModeMarkFunction(f bool, n int) bool  { return modes.CmdModeMarkFunction(f, n) }
-func CmdModeToggleComment(f bool, n int) bool { return modes.CmdModeToggleComment(f, n) }
-func CmdCommentDwim(f bool, n int) bool       { return modes.CmdCommentDwim(f, n) }
+func CmdModeIndentLine(f bool, n int) bool    { return modeactions.CmdModeIndentLine(f, n) }
+func CmdModeCloseBrace(f bool, n int) bool    { return modeactions.CmdModeCloseBrace(f, n) }
+func CmdModeGotoMatch(f bool, n int) bool     { return modeactions.CmdModeGotoMatch(f, n) }
+func CmdModeMakeComment(f bool, n int) bool   { return modeactions.CmdModeMakeComment(f, n) }
+func CmdModeTopOfFunction(f bool, n int) bool { return modeactions.CmdModeTopOfFunction(f, n) }
+func CmdModeEndOfFunction(f bool, n int) bool { return modeactions.CmdModeEndOfFunction(f, n) }
+func CmdModeMarkFunction(f bool, n int) bool  { return modeactions.CmdModeMarkFunction(f, n) }
+func CmdModeToggleComment(f bool, n int) bool { return modeactions.CmdModeToggleComment(f, n) }
+func CmdCommentDwim(f bool, n int) bool       { return modeactions.CmdCommentDwim(f, n) }

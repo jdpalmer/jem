@@ -226,7 +226,7 @@ func grepDisplayPath(root, abs string) string {
 	return abs
 }
 
-func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string, truncated bool) (uint, bool) {
+func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern string, truncated bool) (uint, bool) {
 	if bp == nil {
 		return 0, false
 	}
@@ -235,7 +235,7 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	bp.Clear()
 	bp.FileName = ""
 	bp.FileMtime = time.Time{}
-	bp.LangMode = LModeMarkdown
+	bp.LangMode = buffer.LModeMarkdown
 	if bp.AppendLineBytes(nil) == nil {
 		return 0, false
 	}
@@ -285,7 +285,7 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	if summaryLine := bp.Line(1); summaryLine != nil {
 		begin := buffer.MakeLocation(1, 0)
 		end := buffer.MakeLocation(1, summaryLine.Len())
-		if !bp.SetText(nil, begin, end, []byte(summary), nil) {
+		if err := bp.SetText(nil, begin, end, []byte(summary), nil); err != nil {
 			return 0, false
 		}
 	}
@@ -304,12 +304,12 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	}
 
 	bp.IsChanged = false
-	bp.Cursor = Location{Line: 1, Offset: 0}
-	bp.Mark = Location{Line: 0, Offset: 0}
+	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
+	bp.Mark = buffer.Location{Line: 0, Offset: 0}
 	return matchCount, true
 }
 
-func grepEnsureBuffer() *Buffer {
+func grepEnsureBuffer() *buffer.Buffer {
 	if bp := app.BufferFind(GrepBufferName); bp != nil {
 		return bp
 	}
@@ -324,7 +324,7 @@ func grepEnsureBuffer() *Buffer {
 // RunGrep searches the project and opens the *grep* results buffer.
 func RunGrep() bool {
 	pattern, pr := mbReadString("grep: ", "")
-	if pr != PromptResultYes {
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if pattern == "" {

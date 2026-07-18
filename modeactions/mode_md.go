@@ -1,8 +1,12 @@
-package modes
+package modeactions
 
-import "github.com/jdpalmer/jem/app"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
+)
 
-func prevNonblankLineNumber(bp *Buffer, lineNumber uint) uint {
+func prevNonblankLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
 		p := bp.Line(lineNumber)
@@ -13,8 +17,8 @@ func prevNonblankLineNumber(bp *Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func setLinePrefix(wp *Window, prefix []byte) bool {
-	if wp == nil || wp.Buffer == nil || PackageHooks.BufferSetText == nil {
+func setLinePrefix(wp *app.Window, prefix []byte) bool {
+	if wp == nil || wp.Buffer == nil {
 		return false
 	}
 	bp := wp.Buffer
@@ -24,22 +28,19 @@ func setLinePrefix(wp *Window, prefix []byte) bool {
 		return false
 	}
 	first := lp.FirstNonblank()
-	begin := MakeLocation(ln, 0)
-	end := MakeLocation(ln, first)
-	if PackageHooks.UndoBeginCommand != nil {
-		PackageHooks.UndoBeginCommand()
-	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, prefix, nil, false)
-	if PackageHooks.UndoEndCommand != nil {
-		PackageHooks.UndoEndCommand()
-	}
+	begin := buffer.MakeLocation(ln, 0)
+	end := buffer.MakeLocation(ln, first)
+	edit.BeginCommand()
+	err := edit.SetText(bp, begin, end, prefix, nil)
+	ok := err == nil
+	edit.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
 	return ok
 }
 
-func mdBuildPrefix(lp *Line) []byte {
+func mdBuildPrefix(lp *buffer.Line) []byte {
 	if lp == nil || lp.Len() == 0 {
 		return nil
 	}
@@ -110,16 +111,16 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 	}
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil || PackageHooks.WindowInsertText == nil {
+	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
 		lp := bp.Line(wp.Cursor.Line)
 		prefix := mdBuildPrefix(lp)
-		if !PackageHooks.WindowInsertNewline(wp) {
+		if !edit.InsertNewline(wp) {
 			return false
 		}
-		if len(prefix) > 0 && !PackageHooks.WindowInsertText(wp, prefix) {
+		if len(prefix) > 0 && !edit.InsertText(wp, prefix) {
 			return false
 		}
 	}
@@ -146,7 +147,7 @@ func cmdMdIndentLine(f bool, n int) bool {
 
 func init() {
 	for i := range modeTable {
-		if modeTable[i].Mode == app.LModeMarkdown {
+		if modeTable[i].Mode == buffer.LModeMarkdown {
 			modeTable[i].NewlineAndIndent = cmdMdNewlineAndIndent
 			modeTable[i].IndentLine = cmdMdIndentLine
 		}

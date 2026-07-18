@@ -89,16 +89,10 @@ func deliverDecodedKey(k uint32) {
 }
 
 func decodeAndDeliver(raw uint32) {
-	if PackageHooks.DecodeKeyChar == nil {
-		return
-	}
-	k := PackageHooks.DecodeKeyChar(raw, false)
+	k := DecodeKeyChar(raw, false)
 	if escapePending {
 		escapePending = false
-		if PackageHooks.ApplyMetaPrefixToKey == nil {
-			return
-		}
-		deliverDecodedKey(PackageHooks.ApplyMetaPrefixToKey(k))
+		deliverDecodedKey(ApplyMetaPrefixToKey(k))
 		return
 	}
 	if k == 0x1B {
@@ -113,7 +107,7 @@ func decodeAndDeliver(raw uint32) {
 		deliverDecodedKey(PackageHooks.ApplyCtlxPrefix(k))
 		return
 	}
-	if k == (CTL | 'X') {
+	if k == (term.CTL | 'X') {
 		ctlxPending = true
 		return
 	}
@@ -243,7 +237,7 @@ func markPasteDirty() {
 		return
 	}
 	app.State.ScreenDirty = true
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldRedraw = true

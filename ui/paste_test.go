@@ -13,10 +13,9 @@ func TestApplyPendingPasteOnMainThread(t *testing.T) {
 	pendingPasteCh = make(chan []byte, 4)
 
 	bp := buffer.New()
-	wp := &Window{Buffer: bp, Cursor: Location{Line: 1, Offset: 0}}
+	wp := &app.Window{Buffer: bp, Cursor: buffer.Location{Line: 1, Offset: 0}}
 	app.State.CurrentWindow = wp
-	app.State.WINDOWS[0] = wp
-	app.State.WindowCount = 1
+	app.State.WINDOWS = []*app.Window{wp}
 
 	queuePaste([]byte("hello"))
 	applyPendingPaste()

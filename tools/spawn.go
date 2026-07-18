@@ -114,7 +114,7 @@ func SpawnShell(command *string) int {
 				if !editorReadKey(&pauseKey) {
 					break
 				}
-				if pauseKey == KeyEnter {
+				if pauseKey == term.KeyEnter {
 					break
 				}
 				if runtime.GOOS != "windows" && pauseKey == ' ' {
@@ -125,7 +125,7 @@ func SpawnShell(command *string) int {
 		mbClear()
 	}
 
-	for i := 0; i < int(app.State.WindowCount); i++ {
+	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
 		if wp := app.State.WINDOWS[i]; wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
@@ -152,8 +152,14 @@ func RunSpawnCommand() bool {
 	if runtime.GOOS == "windows" {
 		prompt = "Command: "
 	}
-	command, pr := mbReadStringCap(prompt, "", CommandPromptCapacity)
-	if pr != PromptResultYes {
+	command, pr := mbReadStringCap(prompt, "", app.CommandPromptCapacity)
+	return runSpawnAfterPrompt(command, pr)
+}
+
+// runSpawnAfterPrompt finishes C-x ! after the minibuffer prompt.
+// Separated so tests can exercise empty/abort guards without interactive input.
+func runSpawnAfterPrompt(command string, pr app.PromptResult) bool {
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if command == "" {

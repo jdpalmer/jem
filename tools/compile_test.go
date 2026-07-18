@@ -66,7 +66,7 @@ func TestCompileParseColonDiag(t *testing.T) {
 
 func TestCompileFillBuffer(t *testing.T) {
 	bp := buffer.New()
-	wp := &Window{Buffer: bp}
+	wp := &app.Window{Buffer: bp}
 	app.State.CurrentWindow = wp
 	app.State.CurrentBuffer = bp
 	counts, ok := compileFillBuffer(bp, "make -k",

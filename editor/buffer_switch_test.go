@@ -7,7 +7,7 @@ import (
 )
 
 func TestPickBufferListNames(t *testing.T) {
-	app.State = App{}
+	app.Reset()
 	bp1 := app.BufferCreate(&app.State.EditorRuntimeState)
 	bp2 := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp1 == nil || bp2 == nil {
@@ -29,7 +29,7 @@ func TestPickBufferListNames(t *testing.T) {
 }
 
 func TestCmdUseBufferDirectIndex(t *testing.T) {
-	app.State = App{}
+	app.Reset()
 	bp1 := app.BufferCreate(&app.State.EditorRuntimeState)
 	bp2 := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp1 == nil || bp2 == nil {

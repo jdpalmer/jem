@@ -4,6 +4,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/modesyntax"
 )
 
 // Delimiter navigation (translation of syntax_find_matching_delimiter in src/syntax.c).
@@ -52,36 +53,36 @@ func byteOffsetToRuneLimit(lp *buffer.Line, byteOffset uint) int {
 	return limit
 }
 
-func syntaxContextFromState(st *SynState) SyntaxContext {
+func syntaxContextFromState(st *buffer.SynState) buffer.SyntaxContext {
 	if st == nil {
 		return buffer.SyntaxContextNone
 	}
 	switch st.DFA {
-	case SS_STRING_D, SS_STRING_D_ESC, SS_STRING_S, SS_STRING_S_ESC:
+	case SynStateStringD, SynStateStringDEsc, SynStateStringS, SynStateStringSEsc:
 		return buffer.SyntaxContextString
-	case SS_CMT_LINE, SS_CMT_BLOCK, SS_CMT_STAR, SS_CMT_BRACE, SS_CMT_PAREN, SS_CMT_PAREN2,
-		SS_LUA_BLOCK, SS_LUA_BLKEND, SS_HTML_CMT, SS_HTML_CMT_D1, SS_HTML_CMT_D2:
+	case SynStateCmtLine, SynStateCmtBlock, SynStateCmtStar, SynStateCmtBrace, SynStateCmtParen, SynStateCmtParen2,
+		SynStateLuaBlock, SynStateLuaBlkEnd, SynStateHTMLCmt, SynStateHTMLCmtD1, SynStateHTMLCmtD2:
 		return buffer.SyntaxContextComment
-	case SS_PREPROC:
+	case SynStatePreproc:
 		return buffer.SyntaxContextPreproc
 	default:
 		return buffer.SyntaxContextCode
 	}
 }
 
-func syntaxContextIsStructural(ctx SyntaxContext) bool {
+func syntaxContextIsStructural(ctx buffer.SyntaxContext) bool {
 	return ctx == buffer.SyntaxContextCode || ctx == buffer.SyntaxContextPreproc
 }
 
-func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *SynState) {
-	*st = SynState{DFA: SS_NORMAL}
+func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *buffer.SynState) {
+	*st = buffer.SynState{DFA: SynStateNormal}
 	if bp == nil {
 		return
 	}
-	info := langModeSpec(bp.LangMode)
-	if info.SyntaxKind == ModeSyntaxNone ||
-		info.SyntaxKind == ModeSyntaxMarkdown ||
-		info.SyntaxKind == ModeSyntaxHashCommentOnly {
+	info := modesyntax.For(bp.LangMode)
+	if info.Kind == modesyntax.ModeSyntaxNone ||
+		info.Kind == modesyntax.ModeSyntaxMarkdown ||
+		info.Kind == modesyntax.ModeSyntaxHashCommentOnly {
 		return
 	}
 	syncLine := uint(1)
@@ -108,9 +109,9 @@ func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *SynState) {
 	}
 }
 
-func syntaxStateAt(bp *buffer.Buffer, lineNumber, offset uint, st *SynState) bool {
+func syntaxStateAt(bp *buffer.Buffer, lineNumber, offset uint, st *buffer.SynState) bool {
 	if bp == nil || lineNumber == 0 || lineNumber > bp.EOF() {
-		*st = SynState{DFA: SS_NORMAL}
+		*st = buffer.SynState{DFA: SynStateNormal}
 		return false
 	}
 	bufferSyntaxFindStart(bp, lineNumber, st)
@@ -127,7 +128,7 @@ func syntaxStateAt(bp *buffer.Buffer, lineNumber, offset uint, st *SynState) boo
 }
 
 func syntaxCharIsStructural(bp *buffer.Buffer, lineNumber, offset uint) bool {
-	var before, after SynState
+	var before, after buffer.SynState
 	if !syntaxStateAt(bp, lineNumber, offset, &before) {
 		return false
 	}
@@ -140,7 +141,7 @@ func syntaxCharIsStructural(bp *buffer.Buffer, lineNumber, offset uint) bool {
 	return syntaxContextIsStructural(syntaxContextFromState(&after))
 }
 
-func syntaxGetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *SyntaxLineSummary) bool {
+func syntaxGetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *buffer.SyntaxLineSummary) bool {
 	if bp == nil || lineNumber == 0 || lineNumber >= bp.EOF() {
 		return false
 	}
@@ -149,7 +150,7 @@ func syntaxGetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *Syntax
 		return false
 	}
 	if !lp.SyntaxValid {
-		var st SynState
+		var st buffer.SynState
 		bufferSyntaxFindStart(bp, lineNumber, &st)
 		end, summary, styles := tokenizeLineFromState(lp, st)
 		lp.SyntaxEndState = end

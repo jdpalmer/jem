@@ -213,7 +213,7 @@ func tagIsSymbolChar(c byte) bool {
 		(c >= '0' && c <= '9') || c == '_'
 }
 
-func tagSymbolAtPoint(wp *Window, symbol []byte) bool {
+func tagSymbolAtPoint(wp *app.Window, symbol []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -247,7 +247,7 @@ func tagSymbolAtPoint(wp *Window, symbol []byte) bool {
 	return true
 }
 
-func tagMoveCursorToLine(wp *Window, target, offset uint32) bool {
+func tagMoveCursorToLine(wp *app.Window, target, offset uint32) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -325,7 +325,7 @@ func tagCollectMatches(name string, requireSignature bool) []*TagEntry {
 	return matches
 }
 
-func tagSignatureScore(bp *Buffer, entry *TagEntry) int {
+func tagSignatureScore(bp *buffer.Buffer, entry *TagEntry) int {
 	score := 0
 	if entry.Signature != "" {
 		score += 8
@@ -344,7 +344,7 @@ func tagSignatureScore(bp *Buffer, entry *TagEntry) int {
 	return score
 }
 
-func tagBestSignature(bp *Buffer, name string) *TagEntry {
+func tagBestSignature(bp *buffer.Buffer, name string) *TagEntry {
 	var best *TagEntry
 	bestScore := int(^uint(0)>>1) * -1
 	for i := range tagDb.entries {
@@ -408,11 +408,11 @@ func tagChooseMatch(matches []*TagEntry) int {
 	selected, r := mbReadFuzzyListExString("Tag: ", func(ctx any, idx uint) []byte {
 		return ctx.(*tagMatchList).provider(idx)
 	}, list, uint(count), tagDisplayFormatter, list)
-	if r == PromptResultAbort {
+	if r == app.PromptResultAbort {
 		CmdAbort(false, 1)
 		return -1
 	}
-	if r != PromptResultYes {
+	if r != app.PromptResultYes {
 		return -1
 	}
 
@@ -424,16 +424,16 @@ func tagChooseMatch(matches []*TagEntry) int {
 	return -1
 }
 
-func tagReadSymbolString(wp *Window) (string, bool) {
-	var buf [PatternCapacity]byte
+func tagReadSymbolString(wp *app.Window) (string, bool) {
+	var buf [app.PatternCapacity]byte
 	if tagSymbolAtPoint(wp, buf[:]) {
 		return promptStringFromBuf(buf[:]), true
 	}
 	symbol, pr := mbReadString("Goto tag: ", "")
-	return symbol, pr == PromptResultYes
+	return symbol, pr == app.PromptResultYes
 }
 
-func tagCollectHintContext(wp *Window, out []byte) int {
+func tagCollectHintContext(wp *app.Window, out []byte) int {
 	if wp == nil || wp.Buffer == nil || len(out) == 0 {
 		return 0
 	}
@@ -477,7 +477,7 @@ func tagCollectHintContext(wp *Window, out []byte) int {
 	return used
 }
 
-func tagFindCallHint(wp *Window, name []byte, argIndexOut *uint32) bool {
+func tagFindCallHint(wp *app.Window, name []byte, argIndexOut *uint32) bool {
 	if len(name) == 0 || argIndexOut == nil {
 		return false
 	}
@@ -603,7 +603,7 @@ func MaybeShowCallHint() {
 	if bp == nil || wp == nil {
 		return
 	}
-	var name [PatternCapacity]byte
+	var name [app.PatternCapacity]byte
 	var argIndex uint32
 	if !tagFindCallHint(wp, name[:], &argIndex) {
 		return

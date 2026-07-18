@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/jdpalmer/jem/buffer"
 	"unicode/utf8"
 )
 
@@ -15,19 +16,19 @@ var rowRenderer RowRenderer
 // RenderLine fills textOut and styleOut (both must have length >= maxCols)
 // with the per-cell rune and style values for the given line, and returns
 // the RenderSpan slice describing the bytes to emit for the row.
-func (r *RowRenderer) RenderLine(lp *Line, textOut []rune, styleOut []TextStyle, maxCols int) []RenderSpan {
+func (r *RowRenderer) RenderLine(lp *buffer.Line, textOut []rune, styleOut []buffer.TextStyle, maxCols int) []RenderSpan {
 	spans := make([]RenderSpan, 0, 4)
 	if lp == nil {
 		// fill with spaces
 		for i := 0; i < maxCols; i++ {
 			textOut[i] = ' '
-			styleOut[i] = TextStyleDefault
+			styleOut[i] = buffer.TextStyleDefault
 		}
 		space := make([]byte, maxCols)
 		for i := range space {
 			space[i] = ' '
 		}
-		spans = append(spans, RenderSpan{Style: TextStyleDefault, Bytes: space})
+		spans = append(spans, RenderSpan{Style: buffer.TextStyleDefault, Bytes: space})
 		return spans
 	}
 
@@ -41,14 +42,14 @@ func (r *RowRenderer) RenderLine(lp *Line, textOut []rune, styleOut []TextStyle,
 	}
 	defer func() { renderBufPool.Put(curBytes[:0]) }()
 
-	curStyle := TextStyleDefault
-	var style TextStyle
+	curStyle := buffer.TextStyleDefault
+	var style buffer.TextStyle
 	col := 0
 	rIdx := 0
 	// Ensure output slices have expected length
 	for i := 0; i < maxCols; i++ {
 		textOut[i] = ' '
-		styleOut[i] = TextStyleDefault
+		styleOut[i] = buffer.TextStyleDefault
 	}
 
 	// Walk runes and build spans
@@ -66,17 +67,17 @@ func (r *RowRenderer) RenderLine(lp *Line, textOut []rune, styleOut []TextStyle,
 			if tab <= 0 {
 				tab = 8
 			}
-			if curStyle != TextStyleDefault {
+			if curStyle != buffer.TextStyleDefault {
 				if len(curBytes) > 0 {
 					spans = append(spans, RenderSpan{Style: curStyle, Bytes: append([]byte(nil), curBytes...)})
 					curBytes = curBytes[:0]
 				}
-				curStyle = TextStyleDefault
+				curStyle = buffer.TextStyleDefault
 			}
 			for s := 0; s < tab && rIdx < maxCols; s++ {
 				curBytes = append(curBytes, ' ')
 				textOut[rIdx] = ' '
-				styleOut[rIdx] = TextStyleDefault
+				styleOut[rIdx] = buffer.TextStyleDefault
 				rIdx++
 				col++
 			}
@@ -87,23 +88,23 @@ func (r *RowRenderer) RenderLine(lp *Line, textOut []rune, styleOut []TextStyle,
 		if (r < 0x20 && r != '\n') || r == 0x7f {
 			ctl1 := byte('^')
 			ctl2 := byte(r) ^ 0x40
-			if curStyle != TextStyleDefault {
+			if curStyle != buffer.TextStyleDefault {
 				if len(curBytes) > 0 {
 					spans = append(spans, RenderSpan{Style: curStyle, Bytes: append([]byte(nil), curBytes...)})
 					curBytes = curBytes[:0]
 				}
-				curStyle = TextStyleDefault
+				curStyle = buffer.TextStyleDefault
 			}
 			if rIdx < maxCols {
 				curBytes = append(curBytes, ctl1)
 				textOut[rIdx] = rune(ctl1)
-				styleOut[rIdx] = TextStyleDefault
+				styleOut[rIdx] = buffer.TextStyleDefault
 				rIdx++
 			}
 			if rIdx < maxCols {
 				curBytes = append(curBytes, ctl2)
 				textOut[rIdx] = rune(ctl2)
-				styleOut[rIdx] = TextStyleDefault
+				styleOut[rIdx] = buffer.TextStyleDefault
 				rIdx++
 			}
 			col += 2
@@ -118,7 +119,7 @@ func (r *RowRenderer) RenderLine(lp *Line, textOut []rune, styleOut []TextStyle,
 		if ci < len(lp.SyntaxStyles) {
 			style = lp.SyntaxStyles[ci]
 		} else {
-			style = TextStyleDefault
+			style = buffer.TextStyleDefault
 		}
 		if style != curStyle {
 			if len(curBytes) > 0 {
@@ -156,9 +157,9 @@ func (r *RowRenderer) RenderLine(lp *Line, textOut []rune, styleOut []TextStyle,
 		for i := 0; i < rem; i++ {
 			spaceBytes[i] = ' '
 			textOut[rIdx+i] = ' '
-			styleOut[rIdx+i] = TextStyleDefault
+			styleOut[rIdx+i] = buffer.TextStyleDefault
 		}
-		spans = append(spans, RenderSpan{Style: TextStyleDefault, Bytes: spaceBytes})
+		spans = append(spans, RenderSpan{Style: buffer.TextStyleDefault, Bytes: spaceBytes})
 		rIdx = maxCols
 	}
 

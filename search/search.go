@@ -7,42 +7,15 @@ import (
 
 	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-)
-
-type (
-	Buffer           = app.Buffer
-	Window           = app.Window
-	Location         = app.Location
-	PromptResult     = app.PromptResult
-	TextStyle        = app.TextStyle
-	TransientAction  = app.TransientAction
-	TransientBinding = app.TransientBinding
-)
-
-const (
-	PatternCapacity       = app.PatternCapacity
-	PromptResultNo        = app.PromptResultNo
-	PromptResultYes       = app.PromptResultYes
-	PromptResultAbort     = app.PromptResultAbort
-	SearchScopeBuffer     = app.SearchScopeBuffer
-	SearchScopeAllBuffers = app.SearchScopeAllBuffers
-	MinibufEditUnhandled  = app.MinibufEditUnhandled
-	MinibufEditNoChange   = app.MinibufEditNoChange
-	CTL                   = app.CTL
-	KeyEnter              = app.KeyEnter
-	KeyMask               = app.KeyMask
-	TermColorRed          = app.TermColorRed
-)
-
-var (
-	MakeTextStyle = buffer.MakeTextStyle
-	TextStyleBg   = buffer.TextStyle.Bg
+	"github.com/jdpalmer/jem/edit"
+	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/ui"
 )
 
 type State struct {
 	SearchCaseSensitive bool
 	RegexSearchPattern  string
-	TransientBindings   []TransientBinding
+	TransientBindings   []app.TransientBinding
 }
 
 var DefaultState = &State{}
@@ -55,91 +28,66 @@ func currentState() *State {
 }
 
 func mbWrite(format string, args ...interface{}) {
-	if PackageHooks.MBWrite != nil {
-		PackageHooks.MBWrite(format, args...)
-	}
+	ui.MBWrite(format, args...)
 }
 
 func mbClear() {
-	if PackageHooks.MBClear != nil {
-		PackageHooks.MBClear()
-	}
+	ui.MBClear()
 }
 
-func mbReadString(prompt, initial string) (string, PromptResult) {
-	if PackageHooks.MBReadString == nil {
-		return "", PromptResultAbort
-	}
-	return PackageHooks.MBReadString(prompt, initial)
+func mbReadString(prompt, initial string) (string, app.PromptResult) {
+	return ui.MBReadString(prompt, initial)
 }
 
-func mbWritePromptStyle(prompt string, text []byte, cpos int, style TextStyle) {
-	if PackageHooks.MBWritePromptStyle != nil {
-		PackageHooks.MBWritePromptStyle(prompt, text, cpos, style)
-	}
+func mbWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextStyle) {
+	ui.MBWritePromptStyle(prompt, text, cpos, style)
 }
 
 func mbHistoryAdd(text string) {
-	if PackageHooks.MBHistoryAdd != nil {
-		PackageHooks.MBHistoryAdd(text)
-	}
+	ui.MBHistoryAdd(text)
 }
 
 func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) app.MinibufferEditResult {
-	if PackageHooks.MBEditKeyHistory == nil {
-		return MinibufEditUnhandled
-	}
-	return PackageHooks.MBEditKeyHistory(buf, cpos, nbuf, initial, historyPos, haveSavedEdit, savedEdit, k)
+	return ui.MBEditKeyHistory(buf, cpos, nbuf, initial, historyPos, haveSavedEdit, savedEdit, k)
 }
 
 func displayUpdate() {
-	if PackageHooks.DisplayUpdate != nil {
-		PackageHooks.DisplayUpdate()
-	}
+	ui.DisplayUpdate()
 }
 
 func markPushCurrent() {
-	if PackageHooks.MarkPushCurrent != nil {
-		PackageHooks.MarkPushCurrent()
-	}
+	app.MarkPushCurrent()
 }
 
 func isearchReadKey() (uint32, bool) {
-	if PackageHooks.ReadKey == nil {
+	if ui.GlobalMinibufKeyCh == nil {
 		return 0, false
 	}
-	return PackageHooks.ReadKey()
+	k, ok := <-ui.GlobalMinibufKeyCh
+	return k, ok
 }
 
 func isPasteRedrawKey(k uint32) bool {
-	if PackageHooks.IsPasteRedrawKey == nil {
-		return false
-	}
-	return PackageHooks.IsPasteRedrawKey(k)
+	return ui.IsPasteRedrawKey(k)
 }
 
 func doBeep() {
-	if PackageHooks.Beep != nil {
-		PackageHooks.Beep()
-	}
+	term.Beep()
 }
 
-func setText(bp *Buffer, begin, end Location, newText []byte, newEndOut *Location, kill bool) bool {
-	if PackageHooks.SetText != nil {
-		return PackageHooks.SetText(bp, begin, end, newText, newEndOut, kill)
-	}
-	return bp.SetText(nil, begin, end, newText, newEndOut)
+func setText(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
+	return edit.SetText(bp, begin, end, newText, newEndOut)
 }
 
 func truncatePattern(s string) string {
-	if len(s) >= PatternCapacity {
-		return s[:PatternCapacity-1]
+	if len(s) >= app.PatternCapacity {
+		return s[:app.PatternCapacity-1]
 	}
 	return s
 }
 
 type ISearchSnapshot struct {
-	Buffer     *Buffer
+	Buffer     *buffer.Buffer
 	Line       uint
 	Offset     uint
 	MarkLine   uint
@@ -148,18 +96,18 @@ type ISearchSnapshot struct {
 }
 
 type bufferSearchScope struct {
-	buffers    []*Buffer
+	buffers    []*buffer.Buffer
 	allBuffers bool
 }
 
 type RegexMatch struct {
-	Start Location
-	End   Location
+	Start buffer.Location
+	End   buffer.Location
 	Text  []byte
 	Index []int
 }
 
-type replaceAction TransientAction
+type replaceAction app.TransientAction
 
 const (
 	replaceActionNone    replaceAction = 0
@@ -170,21 +118,21 @@ const (
 	replaceActionYesQuit replaceAction = 5
 )
 
-var queryReplaceBindings = []TransientBinding{
-	{'y', TransientAction(replaceActionYes)},
-	{' ', TransientAction(replaceActionYes)},
-	{KeyEnter, TransientAction(replaceActionYes)},
-	{'n', TransientAction(replaceActionNo)},
-	{CTL | 'H', TransientAction(replaceActionNo)},
-	{0x7F, TransientAction(replaceActionNo)},
-	{'!', TransientAction(replaceActionAll)},
-	{'+', TransientAction(replaceActionYesQuit)},
-	{'q', TransientAction(replaceActionQuit)},
-	{CTL | 'G', TransientAction(replaceActionQuit)},
-	{0x1B, TransientAction(replaceActionQuit)},
+var queryReplaceBindings = []app.TransientBinding{
+	{'y', app.TransientAction(replaceActionYes)},
+	{' ', app.TransientAction(replaceActionYes)},
+	{term.KeyEnter, app.TransientAction(replaceActionYes)},
+	{'n', app.TransientAction(replaceActionNo)},
+	{term.CTL | 'H', app.TransientAction(replaceActionNo)},
+	{0x7F, app.TransientAction(replaceActionNo)},
+	{'!', app.TransientAction(replaceActionAll)},
+	{'+', app.TransientAction(replaceActionYesQuit)},
+	{'q', app.TransientAction(replaceActionQuit)},
+	{term.CTL | 'G', app.TransientAction(replaceActionQuit)},
+	{0x1B, app.TransientAction(replaceActionQuit)},
 }
 
-func transientSet(bindings []TransientBinding) {
+func transientSet(bindings []app.TransientBinding) {
 	currentState().TransientBindings = bindings
 }
 
@@ -202,7 +150,7 @@ func transientLookup(code uint32, defaultAction replaceAction) replaceAction {
 }
 
 func searchScopeIsAllBuffers() bool {
-	return app.State.SearchScopeSetting == SearchScopeAllBuffers
+	return app.State.SearchScopeSetting == app.SearchScopeAllBuffers
 }
 
 func buildSearchPrompt(label string) string {
@@ -228,24 +176,24 @@ func searchPatternBytes() []byte {
 	return []byte(app.State.SearchPattern)
 }
 
-func readPattern(label string) PromptResult {
+func readPattern(label string) app.PromptResult {
 	display := buildSearchPrompt(label)
 	pattern, pr := mbReadString(display, app.State.SearchPattern)
-	if pr == PromptResultYes {
+	if pr == app.PromptResultYes {
 		app.State.SearchPattern = truncatePattern(pattern)
-	} else if pr == PromptResultNo && app.State.SearchPattern != "" {
-		pr = PromptResultYes
+	} else if pr == app.PromptResultNo && app.State.SearchPattern != "" {
+		pr = app.PromptResultYes
 	}
-	if pr == PromptResultYes {
+	if pr == app.PromptResultYes {
 		updateSearchCase(app.State.SearchPattern)
 	}
 	return pr
 }
 
-func searchScopeInit(origin *Buffer) bufferSearchScope {
+func searchScopeInit(origin *buffer.Buffer) bufferSearchScope {
 	scope := bufferSearchScope{allBuffers: searchScopeIsAllBuffers()}
 	scope.buffers = append(scope.buffers, origin)
-	for i := 0; i < int(app.State.BufferCount); i++ {
+	for i := 0; i < int(len(app.State.Buffers)); i++ {
 		bp := app.State.Buffers[i]
 		if bp != nil && bp != origin {
 			scope.buffers = append(scope.buffers, bp)
@@ -254,7 +202,7 @@ func searchScopeInit(origin *Buffer) bufferSearchScope {
 	return scope
 }
 
-func searchScopeIndex(scope *bufferSearchScope, bp *Buffer) int {
+func searchScopeIndex(scope *bufferSearchScope, bp *buffer.Buffer) int {
 	for i, b := range scope.buffers {
 		if b == bp {
 			return i
@@ -263,7 +211,7 @@ func searchScopeIndex(scope *bufferSearchScope, bp *Buffer) int {
 	return 0
 }
 
-func saveSearchSnapshot(wp *Window, patternLen int) ISearchSnapshot {
+func saveSearchSnapshot(wp *app.Window, patternLen int) ISearchSnapshot {
 	s := ISearchSnapshot{Buffer: wp.Buffer, PatternLen: patternLen}
 	if wp.Buffer != nil {
 		s.Line = wp.Cursor.Line
@@ -274,7 +222,7 @@ func saveSearchSnapshot(wp *Window, patternLen int) ISearchSnapshot {
 	return s
 }
 
-func restoreSearchSnapshot(wp *Window, snap *ISearchSnapshot) {
+func restoreSearchSnapshot(wp *app.Window, snap *ISearchSnapshot) {
 	if snap == nil || snap.Buffer == nil || snap.Line == 0 {
 		return
 	}
@@ -289,13 +237,13 @@ func restoreSearchSnapshot(wp *Window, snap *ISearchSnapshot) {
 	if wp == nil {
 		return
 	}
-	wp.SetCursor(Location{Line: snap.Line, Offset: snap.Offset})
+	wp.SetCursor(buffer.Location{Line: snap.Line, Offset: snap.Offset})
 	wp.Mark.Line = snap.MarkLine
 	wp.Mark.Offset = snap.MarkOff
 	wp.DidMove = true
 }
 
-func isearchClearHighlight(wp *Window) {
+func isearchClearHighlight(wp *app.Window) {
 	if wp == nil {
 		return
 	}
@@ -306,7 +254,7 @@ func isearchClearHighlight(wp *Window) {
 	wp.Mark.Offset = 0
 }
 
-func searchSwitchBuffer(wp *Window, bp *Buffer, loc Location) {
+func searchSwitchBuffer(wp *app.Window, bp *buffer.Buffer, loc buffer.Location) {
 	if bp == nil || loc.Line == 0 {
 		return
 	}
@@ -324,8 +272,10 @@ func searchSwitchBuffer(wp *Window, bp *Buffer, loc Location) {
 	}
 }
 
-func bufferSearchStart(bp *Buffer) Location { return Location{Line: 1, Offset: 0} }
-func bufferSearchEnd(bp *Buffer) Location   { return Location{Line: bp.EOF(), Offset: 0} }
+func bufferSearchStart(bp *buffer.Buffer) buffer.Location { return buffer.Location{Line: 1, Offset: 0} }
+func bufferSearchEnd(bp *buffer.Buffer) buffer.Location {
+	return buffer.Location{Line: bp.EOF(), Offset: 0}
+}
 
 func searchCharsEqual(bc, pc int) bool {
 	if currentState().SearchCaseSensitive {
@@ -334,7 +284,7 @@ func searchCharsEqual(bc, pc int) bool {
 	return unicode.ToUpper(rune(bc)) == unicode.ToUpper(rune(pc))
 }
 
-func searchReadForward(bp *Buffer, line *uint, offset *uint) (int, bool) {
+func searchReadForward(bp *buffer.Buffer, line *uint, offset *uint) (int, bool) {
 	if bp == nil || line == nil || offset == nil {
 		return -1, false
 	}
@@ -355,7 +305,7 @@ func searchReadForward(bp *Buffer, line *uint, offset *uint) (int, bool) {
 	return c, true
 }
 
-func searchReadBackward(bp *Buffer, line *uint, offset *uint) (int, bool) {
+func searchReadBackward(bp *buffer.Buffer, line *uint, offset *uint) (int, bool) {
 	if bp == nil || line == nil || offset == nil {
 		return -1, false
 	}
@@ -381,7 +331,7 @@ func searchReadBackward(bp *Buffer, line *uint, offset *uint) (int, bool) {
 	return int(lp.Data[*offset]), true
 }
 
-func findNextPlain(wp *Window, pattern []byte) bool {
+func findNextPlain(wp *app.Window, pattern []byte) bool {
 	if wp == nil || wp.Buffer == nil || len(pattern) == 0 {
 		return false
 	}
@@ -412,7 +362,7 @@ func findNextPlain(wp *Window, pattern []byte) bool {
 			}
 		}
 		if matched {
-			wp.SetCursor(Location{Line: tline, Offset: tbo})
+			wp.SetCursor(buffer.Location{Line: tline, Offset: tbo})
 			wp.DidMove = true
 			return true
 		}
@@ -420,7 +370,7 @@ func findNextPlain(wp *Window, pattern []byte) bool {
 	return false
 }
 
-func findPrevPlain(wp *Window, pattern []byte) bool {
+func findPrevPlain(wp *app.Window, pattern []byte) bool {
 	if wp == nil || wp.Buffer == nil || len(pattern) == 0 {
 		return false
 	}
@@ -448,14 +398,14 @@ func findPrevPlain(wp *Window, pattern []byte) bool {
 			}
 		}
 		if matched {
-			wp.SetCursor(Location{Line: tline, Offset: tbo})
+			wp.SetCursor(buffer.Location{Line: tline, Offset: tbo})
 			wp.DidMove = true
 			return true
 		}
 	}
 }
 
-func findNextInScope(wp *Window, scope *bufferSearchScope, pattern []byte) bool {
+func findNextInScope(wp *app.Window, scope *bufferSearchScope, pattern []byte) bool {
 	if wp == nil || scope == nil {
 		return false
 	}
@@ -478,7 +428,7 @@ func findNextInScope(wp *Window, scope *bufferSearchScope, pattern []byte) bool 
 	return false
 }
 
-func findPrevInScope(wp *Window, scope *bufferSearchScope, pattern []byte) bool {
+func findPrevInScope(wp *app.Window, scope *bufferSearchScope, pattern []byte) bool {
 	if wp == nil || scope == nil {
 		return false
 	}
@@ -501,12 +451,12 @@ func findPrevInScope(wp *Window, scope *bufferSearchScope, pattern []byte) bool 
 	return false
 }
 
-func isearchHighlightPlain(wp *Window, patLen int, backward bool) {
+func isearchHighlightPlain(wp *app.Window, patLen int, backward bool) {
 	if wp == nil || patLen <= 0 {
 		return
 	}
 	cursor := wp.Cursor
-	var mark Location
+	var mark buffer.Location
 	if backward {
 		mark = cursor.AdvanceBytes(wp.Buffer, patLen)
 	} else {
@@ -517,7 +467,7 @@ func isearchHighlightPlain(wp *Window, patLen int, backward bool) {
 	wp.ShouldRedraw = true
 }
 
-func isearchHighlightMatch(wp *Window, start, end Location, backward bool) {
+func isearchHighlightMatch(wp *app.Window, start, end buffer.Location, backward bool) {
 	if wp == nil {
 		return
 	}
@@ -534,7 +484,7 @@ func isearchSetPlainPattern(pattern string) {
 	updateSearchCase(app.State.SearchPattern)
 }
 
-func isearchRunPlain(wp *Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
+func isearchRunPlain(wp *app.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
 	if wp == nil || scope == nil || start == nil || out == nil {
 		return false
 	}
@@ -560,7 +510,7 @@ func isearchRunPlain(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 	return true
 }
 
-func locationCompare(a, b Location) int {
+func locationCompare(a, b buffer.Location) int {
 	if a.Line != b.Line {
 		if a.Line < b.Line {
 			return -1
@@ -576,14 +526,14 @@ func locationCompare(a, b Location) int {
 	return 0
 }
 
-func bufferSliceFrom(bp *Buffer, start Location) []byte {
+func bufferSliceFrom(bp *buffer.Buffer, start buffer.Location) []byte {
 	if bp == nil || start.Line == 0 {
 		return nil
 	}
 	return bp.GetText(start, bufferSearchEnd(bp))
 }
 
-func findNextRegexMatchFrom(bp *Buffer, searchStart Location, pattern string) (RegexMatch, int) {
+func findNextRegexMatchFrom(bp *buffer.Buffer, searchStart buffer.Location, pattern string) (RegexMatch, int) {
 	text := bufferSliceFrom(bp, searchStart)
 	if len(text) == 0 {
 		return RegexMatch{}, 0
@@ -610,8 +560,8 @@ func findNextRegexMatchFrom(bp *Buffer, searchStart Location, pattern string) (R
 	return match, 1
 }
 
-func findPrevRegexMatchFrom(bp *Buffer, limit Location, pattern string) (RegexMatch, int) {
-	scan := Location{Line: 1, Offset: 0}
+func findPrevRegexMatchFrom(bp *buffer.Buffer, limit buffer.Location, pattern string) (RegexMatch, int) {
+	scan := buffer.Location{Line: 1, Offset: 0}
 	var best RegexMatch
 	haveBest := false
 	for {
@@ -635,7 +585,7 @@ func findPrevRegexMatchFrom(bp *Buffer, limit Location, pattern string) (RegexMa
 	return best, 1
 }
 
-func findNextRegexInScope(wp *Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
+func findNextRegexInScope(wp *app.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
 	if wp == nil || scope == nil {
 		return RegexMatch{}, 0
 	}
@@ -660,7 +610,7 @@ func findNextRegexInScope(wp *Window, scope *bufferSearchScope, pattern string) 
 	return RegexMatch{}, 0
 }
 
-func findPrevRegexInScope(wp *Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
+func findPrevRegexInScope(wp *app.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
 	if wp == nil || scope == nil {
 		return RegexMatch{}, 0
 	}
@@ -685,7 +635,7 @@ func findPrevRegexInScope(wp *Window, scope *bufferSearchScope, pattern string) 
 	return RegexMatch{}, 0
 }
 
-func isearchRunRegex(wp *Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
+func isearchRunRegex(wp *app.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
 	if wp == nil || scope == nil || start == nil || out == nil {
 		return false
 	}
@@ -722,7 +672,7 @@ func isearchRunRegex(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 	return true
 }
 
-func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp *Buffer) {
+func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp *buffer.Buffer) {
 	prompt := label
 	if searchScopeIsAllBuffers() && bp != nil {
 		prompt += "[all " + bp.Name + "]: "
@@ -731,7 +681,7 @@ func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp
 	}
 	style := app.State.Theme.NormalStyle
 	if failing {
-		style = MakeTextStyle(TermColorRed, TextStyleBg(app.State.Theme.NormalStyle), 0)
+		style = buffer.MakeTextStyle(buffer.TermColorRed, app.State.Theme.NormalStyle.Bg(), 0)
 	}
 	end := bytes.IndexByte(pattern, 0)
 	if end < 0 {
@@ -750,16 +700,16 @@ func isearchPlainLoop(backward bool) bool {
 	markPushCurrent()
 	origin := saveSearchSnapshot(wp, 0)
 	lastSuccess := origin
-	var pat [PatternCapacity]byte
-	var savedEdit [PatternCapacity]byte
+	var pat [app.PatternCapacity]byte
+	var savedEdit [app.PatternCapacity]byte
 	cpos := 0
 	var historyPos int16 = -1
 	haveSavedEdit := false
 	failing := false
-	repeatKey := CTL | 'S'
+	repeatKey := term.CTL | 'S'
 	label := "isearch forward"
 	if backward {
-		repeatKey = CTL | 'R'
+		repeatKey = term.CTL | 'R'
 		label = "isearch backward"
 	}
 
@@ -788,12 +738,12 @@ func isearchPlainLoop(backward bool) bool {
 		if isPasteRedrawKey(k) {
 			continue
 		}
-		if k == (CTL|'G') || k == 0x1B {
+		if k == (term.CTL|'G') || k == 0x1B {
 			restoreSearchSnapshot(wp, &origin)
 			mbWrite("[cancelled]")
 			return false
 		}
-		if k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J') {
+		if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
 			if plen > 0 {
 				isearchSetPlainPattern(string(pat[:plen]))
 				mbHistoryAdd(string(pat[:plen]))
@@ -827,8 +777,8 @@ func isearchPlainLoop(backward bool) bool {
 		}
 
 		oldPat := string(pat[:plen])
-		edit := mbEditKeyHistory(pat[:], &cpos, PatternCapacity, searchPatternBytes(), &historyPos, &haveSavedEdit, savedEdit[:], k)
-		if edit == MinibufEditUnhandled {
+		edit := mbEditKeyHistory(pat[:], &cpos, app.PatternCapacity, searchPatternBytes(), &historyPos, &haveSavedEdit, savedEdit[:], k)
+		if edit == app.MinibufEditUnhandled {
 			if plen > 0 {
 				isearchSetPlainPattern(string(pat[:plen]))
 				mbHistoryAdd(string(pat[:plen]))
@@ -836,7 +786,7 @@ func isearchPlainLoop(backward bool) bool {
 			mbClear()
 			return true
 		}
-		if edit == MinibufEditNoChange {
+		if edit == app.MinibufEditNoChange {
 			doBeep()
 			continue
 		}
@@ -874,16 +824,16 @@ func isearchRegexLoop(backward bool) bool {
 	scope := searchScopeInit(bp)
 	origin := saveSearchSnapshot(wp, 0)
 	lastSuccess := origin
-	var pat [PatternCapacity]byte
-	var savedEdit [PatternCapacity]byte
+	var pat [app.PatternCapacity]byte
+	var savedEdit [app.PatternCapacity]byte
 	cpos := 0
 	var historyPos int16 = -1
 	haveSavedEdit := false
 	failing := false
-	repeatKey := CTL | 'S'
+	repeatKey := term.CTL | 'S'
 	label := "RE isearch forward"
 	if backward {
-		repeatKey = CTL | 'R'
+		repeatKey = term.CTL | 'R'
 		label = "RE isearch backward"
 	}
 
@@ -912,12 +862,12 @@ func isearchRegexLoop(backward bool) bool {
 		if isPasteRedrawKey(k) {
 			continue
 		}
-		if k == (CTL|'G') || k == 0x1B {
+		if k == (term.CTL|'G') || k == 0x1B {
 			restoreSearchSnapshot(wp, &origin)
 			mbWrite("[cancelled]")
 			return false
 		}
-		if k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J') {
+		if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
 			if plen > 0 {
 				currentState().RegexSearchPattern = string(pat[:plen])
 				mbHistoryAdd(string(pat[:plen]))
@@ -951,8 +901,8 @@ func isearchRegexLoop(backward bool) bool {
 
 		oldPat := string(pat[:plen])
 		initial := []byte(currentState().RegexSearchPattern)
-		edit := mbEditKeyHistory(pat[:], &cpos, PatternCapacity, initial, &historyPos, &haveSavedEdit, savedEdit[:], k)
-		if edit == MinibufEditUnhandled {
+		edit := mbEditKeyHistory(pat[:], &cpos, app.PatternCapacity, initial, &historyPos, &haveSavedEdit, savedEdit[:], k)
+		if edit == app.MinibufEditUnhandled {
 			if plen > 0 {
 				currentState().RegexSearchPattern = string(pat[:plen])
 				mbHistoryAdd(string(pat[:plen]))
@@ -960,7 +910,7 @@ func isearchRegexLoop(backward bool) bool {
 			mbClear()
 			return true
 		}
-		if edit == MinibufEditNoChange {
+		if edit == app.MinibufEditNoChange {
 			doBeep()
 			continue
 		}
@@ -997,7 +947,7 @@ const (
 	matchCaseCapitalized
 )
 
-func markMatchStart(wp *Window, patLen int) {
+func markMatchStart(wp *app.Window, patLen int) {
 	if wp == nil || wp.Buffer == nil || patLen == 0 {
 		return
 	}
@@ -1014,16 +964,16 @@ func markMatchStart(wp *Window, patLen int) {
 			}
 		}
 	}
-	wp.Mark = Location{Line: line, Offset: off}
+	wp.Mark = buffer.Location{Line: line, Offset: off}
 }
 
-func markMatchLocation(wp *Window, start Location) {
+func markMatchLocation(wp *app.Window, start buffer.Location) {
 	if wp != nil {
 		wp.Mark = start
 	}
 }
 
-func checkMatchCase(wp *Window, patLen int) matchCase {
+func checkMatchCase(wp *app.Window, patLen int) matchCase {
 	if wp == nil || wp.Buffer == nil || patLen == 0 {
 		return matchCaseLower
 	}
@@ -1064,20 +1014,20 @@ func applyMatchCase(mc matchCase, repl []byte, out []byte) int {
 	return n
 }
 
-func doReplace(wp *Window, patLen int, repl []byte) bool {
+func doReplace(wp *app.Window, patLen int, repl []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
 	end := wp.Cursor
 	begin := end.RewindBytes(wp.Buffer, patLen)
-	return setText(wp.Buffer, begin, end, repl, nil, false)
+	return setText(wp.Buffer, begin, end, repl, nil) == nil
 }
 
-func doReplacePreservingCase(wp *Window, patLen int, repl []byte, preserve bool) bool {
+func doReplacePreservingCase(wp *app.Window, patLen int, repl []byte, preserve bool) bool {
 	if preserve {
 		mc := checkMatchCase(wp, patLen)
 		if mc != matchCaseLower {
-			var caseRepl [PatternCapacity]byte
+			var caseRepl [app.PatternCapacity]byte
 			n := applyMatchCase(mc, repl, caseRepl[:])
 			return doReplace(wp, patLen, caseRepl[:n])
 		}
@@ -1085,14 +1035,14 @@ func doReplacePreservingCase(wp *Window, patLen int, repl []byte, preserve bool)
 	return doReplace(wp, patLen, repl)
 }
 
-func doReplaceRange(wp *Window, start, end Location, repl []byte) bool {
+func doReplaceRange(wp *app.Window, start, end buffer.Location, repl []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	return setText(wp.Buffer, start, end, repl, nil, false)
+	return setText(wp.Buffer, start, end, repl, nil) == nil
 }
 
-func writeReplacePrompt(bp *Buffer, from, to string) {
+func writeReplacePrompt(bp *buffer.Buffer, from, to string) {
 	prompt := ""
 	if searchScopeIsAllBuffers() && bp != nil {
 		prompt = "[" + bp.Name + "] "
@@ -1157,7 +1107,7 @@ func SearchForward() bool {
 	if wp == nil || bp == nil {
 		return false
 	}
-	if readPattern("Search") != PromptResultYes {
+	if readPattern("Search") != app.PromptResultYes {
 		return false
 	}
 	pat := searchPatternBytes()
@@ -1178,7 +1128,7 @@ func SearchBackward() bool {
 	if wp == nil || bp == nil {
 		return false
 	}
-	if readPattern("Reverse search") != PromptResultYes {
+	if readPattern("Reverse search") != app.PromptResultYes {
 		return false
 	}
 	pat := searchPatternBytes()
@@ -1199,10 +1149,10 @@ func IsearchReForward() bool  { return isearchRegexLoop(false) }
 func IsearchReBackward() bool { return isearchRegexLoop(true) }
 
 func ToggleSearchScope() bool {
-	if app.State.SearchScopeSetting == SearchScopeBuffer {
-		app.State.SearchScopeSetting = SearchScopeAllBuffers
+	if app.State.SearchScopeSetting == app.SearchScopeBuffer {
+		app.State.SearchScopeSetting = app.SearchScopeAllBuffers
 	} else {
-		app.State.SearchScopeSetting = SearchScopeBuffer
+		app.State.SearchScopeSetting = app.SearchScopeBuffer
 	}
 	if searchScopeIsAllBuffers() {
 		mbWrite("[search scope: all buffers]")
@@ -1218,7 +1168,7 @@ func QueryReplace() bool {
 	if wp == nil || bp == nil {
 		return false
 	}
-	if readPattern("replace") != PromptResultYes {
+	if readPattern("replace") != app.PromptResultYes {
 		return false
 	}
 	pat := searchPatternBytes()
@@ -1229,7 +1179,7 @@ func QueryReplace() bool {
 	preserveCase := !currentState().SearchCaseSensitive
 
 	repl, pr := mbReadString("Replace '"+string(pat)+"' with: ", "")
-	if pr == PromptResultAbort {
+	if pr == app.PromptResultAbort {
 		return false
 	}
 	replBytes := []byte(repl)
@@ -1315,7 +1265,7 @@ func QueryReReplace() bool {
 		return false
 	}
 	pattern, pr := mbReadString(buildSearchPrompt("Query re-replace"), app.State.SearchPattern)
-	if pr != PromptResultYes {
+	if pr != app.PromptResultYes {
 		return false
 	}
 	if pattern == "" {
@@ -1323,7 +1273,7 @@ func QueryReReplace() bool {
 	}
 
 	replStr, pr := mbReadString("Replace '"+pattern+"' with (\\0..\\9): ", "")
-	if pr == PromptResultAbort {
+	if pr == app.PromptResultAbort {
 		return false
 	}
 

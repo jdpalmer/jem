@@ -9,7 +9,7 @@ import (
 
 func makeTestWindow(t *testing.T, text string) *app.Window {
 	t.Helper()
-	app.State = app.AppState{}
+	app.Reset()
 	DefaultState = &State{}
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
@@ -24,7 +24,7 @@ func makeTestWindow(t *testing.T, text string) *app.Window {
 	app.WindowSelect(wp)
 	eof := buffer.MakeLocation(bp.EOF(), 0)
 	data := []byte(text)
-	if !bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, nil) {
+	if err := bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, nil); err != nil {
 		t.Fatal("buffer.SetText failed")
 	}
 	return wp
@@ -32,7 +32,7 @@ func makeTestWindow(t *testing.T, text string) *app.Window {
 
 func TestFindNextPlain(t *testing.T) {
 	wp := makeTestWindow(t, "hello world\nfoo bar\n")
-	wp.SetCursor(app.Location{Line: 1, Offset: 0})
+	wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
 	DefaultState.SearchCaseSensitive = true
 	if !findNextPlain(wp, []byte("world")) {
 		t.Fatal("expected to find world")
@@ -50,7 +50,7 @@ func TestFindNextPlain(t *testing.T) {
 
 func TestFindPrevPlain(t *testing.T) {
 	wp := makeTestWindow(t, "abc abc\n")
-	wp.SetCursor(app.Location{Line: 1, Offset: 7})
+	wp.SetCursor(buffer.Location{Line: 1, Offset: 7})
 	DefaultState.SearchCaseSensitive = true
 	if !findPrevPlain(wp, []byte("abc")) {
 		t.Fatal("expected to find abc")
@@ -62,7 +62,7 @@ func TestFindPrevPlain(t *testing.T) {
 
 func TestRegexMatchForward(t *testing.T) {
 	wp := makeTestWindow(t, "foo123bar\n")
-	match, found := findNextRegexMatchFrom(wp.Buffer, app.Location{Line: 1, Offset: 0}, `[0-9]+`)
+	match, found := findNextRegexMatchFrom(wp.Buffer, buffer.Location{Line: 1, Offset: 0}, `[0-9]+`)
 	if found != 1 {
 		t.Fatalf("found=%d want 1", found)
 	}
@@ -75,8 +75,8 @@ func TestExpandRegexReplacement(t *testing.T) {
 	match := RegexMatch{
 		Text:  []byte("foo123bar"),
 		Index: []int{3, 6, 3, 6},
-		Start: app.Location{Line: 1, Offset: 3},
-		End:   app.Location{Line: 1, Offset: 6},
+		Start: buffer.Location{Line: 1, Offset: 3},
+		End:   buffer.Location{Line: 1, Offset: 6},
 	}
 	out, err := expandRegexReplacement("\\0!", match)
 	if err != nil {

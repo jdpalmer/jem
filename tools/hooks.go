@@ -1,24 +1,17 @@
 package tools
 
-import "github.com/jdpalmer/jem/app"
+import (
+	"github.com/jdpalmer/jem/buffer"
+)
 
+// Hooks are editor-owned callbacks that tools cannot import directly (cycle).
+// Minibuffer, mark push, window retile, and term freeze/thaw call ui/app/term
+// directly; only visit/switch/abort/key-read remain hooked.
 type Hooks struct {
-	MBWrite                 func(format string, args ...interface{})
-	MBClear                 func()
-	MBHistoryAdd            func(text string)
-	MBReadString            func(prompt, initial string) (string, app.PromptResult)
-	MBReadStringCap         func(prompt, initial string, capacity int) (string, app.PromptResult)
-	MBReadFuzzyListExString func(prompt string, provider app.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter app.MbMatchFormatter, displayCtx any) (string, app.PromptResult)
-
-	MarkPushCurrent func()
-	VisitLocation   func(path string, line, column uint32) bool
-	SwitchBuffer    func(bp *app.Buffer)
-	Abort           func()
-
-	TermFreezeInput func() bool
-	TermThawInput   func()
-	ReadKey         func() (uint32, bool)
-	WindowRetile    func()
+	VisitLocation func(path string, line, column uint32) bool
+	SwitchBuffer  func(bp *buffer.Buffer)
+	Abort         func()
+	ReadKey       func() (uint32, bool)
 }
 
 var PackageHooks Hooks

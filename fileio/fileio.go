@@ -3,6 +3,8 @@ package fileio
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,6 +13,13 @@ import (
 
 	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
+)
+
+var (
+	ErrNoBuffer   = errors.New("no current buffer")
+	ErrReadonly   = errors.New("read-only buffer")
+	ErrCancelled  = errors.New("cancelled")
+	ErrNoFilename = errors.New("no filename")
 )
 
 func writeMessage(writef func(string, ...any), format string, args ...any) {
@@ -30,7 +39,7 @@ func FileMtime(fname string) time.Time {
 	return fi.ModTime()
 }
 
-func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, loadFile func(string) bool) {
+func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, loadFile func(string) error) {
 	if len(paths) == 0 || loadFile == nil {
 		return
 	}
@@ -54,15 +63,15 @@ func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, load
 	}
 }
 
-func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
+func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	resolved := NormalizePath(fname)
 	bp := app.State.CurrentBuffer
 	if bp == nil {
-		return false
+		return ErrNoBuffer
 	}
 	if bp.IsReadonly {
 		writeMessage(writef, "[read-only buffer]")
-		return false
+		return ErrReadonly
 	}
 
 	bp.Clear()
@@ -73,10 +82,11 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 
 	fh, err := os.Open(resolved)
 	if err != nil {
+		// Missing path is a successful "new file" buffer, matching historical behavior.
 		writeMessage(writef, "[New file]")
-		bp.Cursor = app.Location{Line: 1, Offset: 0}
-		bp.Mark = app.Location{Line: 0, Offset: 0}
-		return true
+		bp.Cursor = buffer.Location{Line: 1, Offset: 0}
+		bp.Mark = buffer.Location{Line: 0, Offset: 0}
+		return nil
 	}
 	defer fh.Close()
 
@@ -98,7 +108,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 			}
 			writeMessage(writef, "File read error")
 			bp.Clear()
-			return false
+			return fmt.Errorf("file read: %w", err)
 		}
 
 		if b == '\r' {
@@ -134,31 +144,31 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 		writeMessage(writef, "[Read lines]")
 	}
 
-	bp.Cursor = app.Location{Line: 1, Offset: 0}
-	bp.Mark = app.Location{Line: 0, Offset: 0}
+	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
+	bp.Mark = buffer.Location{Line: 0, Offset: 0}
 
 	if wp := app.State.CurrentWindow; wp != nil && wp.Buffer == bp {
 		wp.TopLine = 1
-		wp.Cursor = app.Location{Line: 1, Offset: 0}
-		wp.Mark = app.Location{Line: 0, Offset: 0}
+		wp.Cursor = buffer.Location{Line: 1, Offset: 0}
+		wp.Mark = buffer.Location{Line: 0, Offset: 0}
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
 
 	bp.FileMtime = FileMtime(resolved)
 	bp.DiskChangeNotifiedMtime = time.Time{}
-	return true
+	return nil
 }
 
-func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef func(string, ...any)) bool {
+func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef func(string, ...any)) error {
 	bp := app.State.CurrentBuffer
 	if bp == nil {
-		return false
+		return ErrNoBuffer
 	}
 
 	if bp.WhitespaceCleanup {
 		for i := uint(1); i <= bp.LineCount; i++ {
-			bp.TrimTrailingWhitespace( i)
+			bp.TrimTrailingWhitespace(i)
 		}
 	}
 
@@ -166,7 +176,7 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 		curMtime := FileMtime(fn)
 		if !curMtime.IsZero() && !curMtime.Equal(bp.FileMtime) {
 			if confirmOverwrite == nil || !confirmOverwrite("file changed on disk. overwrite") {
-				return false
+				return ErrCancelled
 			}
 		}
 	}
@@ -174,7 +184,7 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 	fh, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
 		writeMessage(writef, "[cannot open file for writing]")
-		return false
+		return fmt.Errorf("open for write: %w", err)
 	}
 	defer fh.Close()
 
@@ -195,19 +205,19 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 		if len(line.Data) > 0 {
 			if _, err := writer.Write(line.Data); err != nil {
 				writeMessage(writef, "Write I/O error")
-				return false
+				return fmt.Errorf("write: %w", err)
 			}
 		}
 		if _, err := writer.Write(eol); err != nil {
 			writeMessage(writef, "Write I/O error")
-			return false
+			return fmt.Errorf("write eol: %w", err)
 		}
 		nline++
 	}
 
 	if err := writer.Flush(); err != nil {
 		writeMessage(writef, "Write I/O error")
-		return false
+		return fmt.Errorf("flush: %w", err)
 	}
 
 	if nline == 1 {
@@ -219,17 +229,20 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 	bp.FileMtime = FileMtime(fn)
 	bp.DiskChangeNotifiedMtime = time.Time{}
 	bp.IsChanged = false
-	return true
+	return nil
 }
 
-func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*app.Buffer), writef func(string, ...any)) bool {
+func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*buffer.Buffer), writef func(string, ...any)) error {
 	bp := app.State.CurrentBuffer
 	wp := app.State.CurrentWindow
-	if bp == nil || fname == "" {
-		return false
+	if bp == nil {
+		return ErrNoBuffer
 	}
-	if !LoadCurrentBuffer(fname, writef) {
-		return false
+	if fname == "" {
+		return ErrNoFilename
+	}
+	if err := LoadCurrentBuffer(fname, writef); err != nil {
+		return err
 	}
 	if noteBufferSaved != nil {
 		noteBufferSaved(bp)
@@ -240,18 +253,17 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
-	for i := 0; i < int(app.State.WindowCount); i++ {
-		w := app.State.WINDOWS[i]
+	for _, w := range app.State.WINDOWS {
 		if w != nil && w.Buffer == bp {
 			w.ShouldRedraw = true
 			w.ShouldUpdateModeLine = true
 		}
 	}
-	return true
+	return nil
 }
 
 // CheckReloadCurrentBuffer mirrors src/file.c file_check_reload behavior.
-func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...any), noteBufferSaved func(*app.Buffer)) {
+func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...any), noteBufferSaved func(*buffer.Buffer)) {
 	if app.State.ActiveMinibuffer != nil || app.State.Dispatching {
 		return
 	}
@@ -283,7 +295,7 @@ func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...
 
 	if bp.IsChanged {
 		if app.State.AutoRevertMode {
-			ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
+			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			return
 		}
 		if cur.Equal(bp.DiskChangeNotifiedMtime) {
@@ -294,7 +306,7 @@ func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...
 			wp.ShouldUpdateModeLine = true
 		}
 		if confirm != nil && confirm("File changed on disk; revert") {
-			ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
+			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			writeMessage(writef, "[Reverted]")
 		} else {
 			writeMessage(writef, "[keeping edited buffer]")
@@ -302,7 +314,7 @@ func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...
 		return
 	}
 
-	ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
+	_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 }
 
 func DetectLangMode(fname string) buffer.LangMode {

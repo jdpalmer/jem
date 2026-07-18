@@ -1,6 +1,7 @@
 package fileio
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,10 +11,10 @@ import (
 )
 
 func resetAppForFileIoTests() {
-	app.State = app.AppState{}
+	app.Reset()
 }
 
-func initBufferWindowForFileIoTests(t *testing.T) *app.Buffer {
+func initBufferWindowForFileIoTests(t *testing.T) *buffer.Buffer {
 	t.Helper()
 	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
@@ -31,7 +32,7 @@ func initBufferWindowForFileIoTests(t *testing.T) *app.Buffer {
 func TestReloadCurrentBufferFromDiskRequiresFilename(t *testing.T) {
 	resetAppForFileIoTests()
 	_ = initBufferWindowForFileIoTests(t)
-	if ReloadCurrentBufferFromDisk("", 1, nil, nil) {
+	if err := ReloadCurrentBufferFromDisk("", 1, nil, nil); err == nil {
 		t.Fatal("expected reload to fail without a filename")
 	}
 }
@@ -47,16 +48,16 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	bp := initBufferWindowForFileIoTests(t)
 	bp.FileName = path
 
-	if !LoadCurrentBuffer(path, nil) {
-		t.Fatal("LoadCurrentBuffer failed")
+	if err := LoadCurrentBuffer(path, nil); err != nil {
+		t.Fatal(err)
 	}
 
 	if err := os.WriteFile(path, []byte("second\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	if !ReloadCurrentBufferFromDisk(path, 1, nil, nil) {
-		t.Fatal("ReloadCurrentBufferFromDisk failed")
+	if err := ReloadCurrentBufferFromDisk(path, 1, nil, nil); err != nil {
+		t.Fatal(err)
 	}
 	if bp.IsChanged {
 		t.Fatal("buffer should be clean after reload")
@@ -82,8 +83,8 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	bp := initBufferWindowForFileIoTests(t)
 	bp.FileName = path
 
-	if !LoadCurrentBuffer(path, nil) {
-		t.Fatal("LoadCurrentBuffer failed")
+	if err := LoadCurrentBuffer(path, nil); err != nil {
+		t.Fatal(err)
 	}
 	app.State.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
 
@@ -128,12 +129,12 @@ func TestLoadCommandLineFiles(t *testing.T) {
 	resetAppForFileIoTests()
 	initial := initBufferWindowForFileIoTests(t)
 	initial.Name = filepath.Base(paths[0])
-	LoadCommandLineFiles(paths, filepath.Base, func(path string) bool {
+	LoadCommandLineFiles(paths, filepath.Base, func(path string) error {
 		return LoadCurrentBuffer(path, nil)
 	})
 
-	if app.State.BufferCount != 3 {
-		t.Fatalf("buffer_count = %d, want 3", app.State.BufferCount)
+	if len(app.State.Buffers) != 3 {
+		t.Fatalf("buffer_count = %d, want 3", len(app.State.Buffers))
 	}
 	wp := app.State.CurrentWindow
 	if wp == nil {
@@ -151,8 +152,7 @@ func TestLoadCommandLineFiles(t *testing.T) {
 		t.Fatalf("first buffer text = %q, want %q", got, "a.go")
 	}
 	names := map[string]bool{}
-	for i := 0; i < int(app.State.BufferCount); i++ {
-		bp := app.State.Buffers[i]
+	for _, bp := range app.State.Buffers {
 		if bp != nil {
 			names[bp.Name] = true
 		}
@@ -175,8 +175,8 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	bp := initBufferWindowForFileIoTests(t)
 	bp.FileName = path
 
-	if !LoadCurrentBuffer(path, nil) {
-		t.Fatal("LoadCurrentBuffer failed")
+	if err := LoadCurrentBuffer(path, nil); err != nil {
+		t.Fatal(err)
 	}
 	bp.IsChanged = true
 
@@ -196,5 +196,15 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 			got = string(line.Data)
 		}
 		t.Fatalf("buffer content = %q, want %q", got, "first")
+	}
+}
+
+func TestLoadCurrentBufferReadonly(t *testing.T) {
+	resetAppForFileIoTests()
+	bp := initBufferWindowForFileIoTests(t)
+	bp.IsReadonly = true
+	err := LoadCurrentBuffer("anything.txt", nil)
+	if !errors.Is(err, ErrReadonly) {
+		t.Fatalf("err = %v, want ErrReadonly", err)
 	}
 }

@@ -3,6 +3,8 @@ package tools
 import (
 	"runtime"
 	"testing"
+
+	"github.com/jdpalmer/jem/app"
 )
 
 func TestSpawnShellCommandBuilder(t *testing.T) {
@@ -19,19 +21,10 @@ func TestSpawnShellCommandBuilder(t *testing.T) {
 }
 
 func TestRunSpawnCommandRejectsEmptyInput(t *testing.T) {
-	wrote := false
-	PackageHooks = Hooks{
-		MBReadStringCap: func(prompt, initial string, capacity int) (string, PromptResult) {
-			return "", PromptResultYes
-		},
-		MBWrite: func(format string, args ...interface{}) {
-			wrote = true
-		},
-	}
-	if RunSpawnCommand() {
+	if runSpawnAfterPrompt("", app.PromptResultYes) {
 		t.Fatal("expected false for empty command")
 	}
-	if !wrote {
-		t.Fatal("expected minibuffer warning for empty command")
+	if runSpawnAfterPrompt("echo", app.PromptResultAbort) {
+		t.Fatal("expected false for abort")
 	}
 }

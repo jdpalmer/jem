@@ -4,6 +4,7 @@ import (
 	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
+	"github.com/jdpalmer/jem/ui"
 )
 
 // syntax_cmd.go — editor commands that depend on windows/minibuffer.
@@ -16,7 +17,7 @@ const (
 	syntaxMatchUnbalanced
 )
 
-func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
+func syntaxMatchTarget(wp *app.Window, matchOut *buffer.Location) syntaxMatchResult {
 	if wp == nil || wp.Buffer == nil {
 		return syntaxMatchNone
 	}
@@ -44,7 +45,7 @@ func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
 	return syntaxMatchNone
 }
 
-func syntaxLocationHasDelimiter(bp *Buffer, loc Location) bool {
+func syntaxLocationHasDelimiter(bp *buffer.Buffer, loc buffer.Location) bool {
 	if bp == nil || loc.Line == 0 || loc.Line >= bp.EOF() {
 		return false
 	}
@@ -66,13 +67,13 @@ func CmdSyntaxGotoMatch(f bool, n int) bool {
 	if wp == nil {
 		return false
 	}
-	var match Location
+	var match buffer.Location
 	switch syntaxMatchTarget(wp, &match) {
 	case syntaxMatchNone:
-		mbWrite("[No bracket here]")
+		ui.MBWrite("[No bracket here]")
 		return false
 	case syntaxMatchUnbalanced:
-		mbWrite("[No matching bracket]")
+		ui.MBWrite("[No matching bracket]")
 		return false
 	default:
 		wp.SetCursor(match)

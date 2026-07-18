@@ -1,4 +1,4 @@
-package editor
+package edit
 
 import (
 	"encoding/base64"
@@ -7,9 +7,9 @@ import (
 	"golang.design/x/clipboard"
 )
 
-var clipboardReady bool
+// ClipboardReady is set true after a successful clipboard.Init at editor startup.
+var ClipboardReady bool
 
-// clipboardWriteOSC52 sets the clipboard via the OSC 52 escape sequence.
 func clipboardWriteOSC52(data []byte) bool {
 	enc := base64.StdEncoding.EncodeToString(data)
 	osc52 := "\x1b]52;c;" + enc + "\x07"
@@ -17,12 +17,12 @@ func clipboardWriteOSC52(data []byte) bool {
 	return err == nil
 }
 
-// clipboardWriteText writes bytes to the system clipboard. Returns true on success.
-func clipboardWriteText(data []byte) bool {
+// ClipboardWrite writes bytes to the system clipboard (native or OSC 52).
+func ClipboardWrite(data []byte) bool {
 	if len(data) == 0 {
 		return true
 	}
-	if clipboardReady {
+	if ClipboardReady {
 		if err := clipboard.Write(clipboard.FmtText, data); err == nil {
 			return true
 		}
@@ -30,9 +30,9 @@ func clipboardWriteText(data []byte) bool {
 	return clipboardWriteOSC52(data)
 }
 
-// clipboardReadText attempts to read from the system clipboard. Returns data, ok.
-func clipboardReadText() ([]byte, bool) {
-	if !clipboardReady {
+// ClipboardRead attempts to read from the system clipboard.
+func ClipboardRead() ([]byte, bool) {
+	if !ClipboardReady {
 		return nil, false
 	}
 	data := clipboard.Read(clipboard.FmtText)

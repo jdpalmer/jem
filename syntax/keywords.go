@@ -5,8 +5,8 @@ import "github.com/jdpalmer/jem/buffer"
 // Keyword tables for syntax highlighting.
 
 var (
-	keywordStyle = MakeTextStyle(TermColorBlue, TermColorDefault, TextStyleBold)
-	typeStyle    = MakeTextStyle(TermColorMagenta, TermColorDefault, 0)
+	keywordStyle = buffer.MakeTextStyle(buffer.TermColorBlue, buffer.TermColorDefault, buffer.TextStyleBold)
+	typeStyle    = buffer.MakeTextStyle(buffer.TermColorMagenta, buffer.TermColorDefault, 0)
 )
 
 type identWordMaps struct {
@@ -24,10 +24,10 @@ func mkMap(sl []string) map[string]bool {
 	return m
 }
 
-func ident_color_for_lang(lang buffer.LangMode, ident string) TextStyle {
+func ident_color_for_lang(lang buffer.LangMode, ident string) buffer.TextStyle {
 	tables, ok := identWordsByLang[lang]
 	if !ok {
-		return TextStyleDefault
+		return buffer.TextStyleDefault
 	}
 	if tables.keywords[ident] {
 		return keywordStyle
@@ -35,7 +35,7 @@ func ident_color_for_lang(lang buffer.LangMode, ident string) TextStyle {
 	if tables.types != nil && tables.types[ident] {
 		return typeStyle
 	}
-	return TextStyleDefault
+	return buffer.TextStyleDefault
 }
 
 func initIdentWordsByLang() {

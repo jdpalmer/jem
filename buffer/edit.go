@@ -27,9 +27,12 @@ func makeBufferLine(bp *Buffer, data []byte) Line {
 	}
 }
 
-func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) bool {
-	if bp == nil || bp.IsReadonly {
-		return false
+func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) error {
+	if bp == nil {
+		return ErrNilBuffer
+	}
+	if bp.IsReadonly {
+		return ErrReadonly
 	}
 	insert := newText
 	if insert == nil {
@@ -37,14 +40,14 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 	}
 
 	if begin.Line > end.Line || (begin.Line == end.Line && begin.Offset > end.Offset) {
-		return false
+		return ErrBadRange
 	}
 
 	if begin == end && len(insert) == 0 {
 		if newEndOut != nil {
 			*newEndOut = begin
 		}
-		return true
+		return nil
 	}
 
 	if bp.LineCount == 0 {
@@ -65,7 +68,7 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 	if !beginIsEOF {
 		bline = bp.Line(begin.Line)
 		if bline == nil {
-			return false
+			return ErrBadRange
 		}
 		bOffset := int(begin.Offset)
 		if bOffset > len(bline.Data) {
@@ -81,7 +84,7 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 	if !endIsEOF {
 		eline = bp.Line(end.Line)
 		if eline == nil {
-			return false
+			return ErrBadRange
 		}
 		eOffset = int(end.Offset)
 		if eOffset > len(eline.Data) {
@@ -176,19 +179,19 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 	}
 
 	callAdjustLocations(bp, begin, normEnd, newEnd)
-	callInvalidateSyntax(bp, resultFirstLine)
+	bp.InvalidateSyntaxFrom(resultFirstLine)
 	callReparseFrom(bp, resultFirstLine)
 
-	return true
+	return nil
 }
 
 func callReparseFrom(bp *Buffer, lineNumber uint) {
-	if PackageHooks.ReparseFrom != nil {
-		PackageHooks.ReparseFrom(bp, lineNumber)
+	if editSession.ReparseFrom != nil {
+		editSession.ReparseFrom(bp, lineNumber)
 	}
 }
 
-// InvalidateSyntaxFromLine clears syntax validity from lineNumber through end of buffer.
+// InvalidateSyntaxFrom clears syntax validity from lineNumber through end of buffer.
 func (bp *Buffer) InvalidateSyntaxFrom(lineNumber uint) {
 	if bp == nil || lineNumber == 0 || lineNumber > bp.LineCount {
 		return
@@ -201,7 +204,7 @@ func (bp *Buffer) InvalidateSyntaxFrom(lineNumber uint) {
 	}
 }
 
-// NoteEdit marks the buffer changed and notifies the editor hook when installed.
+// NoteEdit marks the buffer changed and notifies the EditSession when installed.
 func (bp *Buffer) NoteEdit(isStructural bool) {
 	callNoteEdit(bp, isStructural)
 }
@@ -210,24 +213,17 @@ func callNoteEdit(bp *Buffer, isStructural bool) {
 	if bp == nil {
 		return
 	}
-	bp.IsChanged = true
-	if PackageHooks.NoteEdit != nil {
-		PackageHooks.NoteEdit(bp, isStructural)
+	// Session runs before IsChanged so NoteEdit can detect first-change.
+	if editSession.NoteEdit != nil {
+		editSession.NoteEdit(bp, isStructural)
 	}
+	bp.IsChanged = true
 }
 
 func callAdjustLocations(bp *Buffer, begin, end, newEnd Location) {
-	if PackageHooks.AdjustLocationsAfterReplace != nil {
-		PackageHooks.AdjustLocationsAfterReplace(bp, begin, end, newEnd)
+	if editSession.AdjustLocationsAfterReplace != nil {
+		editSession.AdjustLocationsAfterReplace(bp, begin, end, newEnd)
 	}
-}
-
-func callInvalidateSyntax(bp *Buffer, lineNumber uint) {
-	if PackageHooks.InvalidateSyntaxFrom != nil {
-		PackageHooks.InvalidateSyntaxFrom(bp, lineNumber)
-		return
-	}
-	bp.InvalidateSyntaxFrom(lineNumber)
 }
 
 // LocationAdjustAfterReplace updates a single Location in place to account for
@@ -404,9 +400,15 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 	return out
 }
 
-func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) bool {
-	if bp == nil || bp.IsReadonly {
-		return false
+// SetText is the interactive edit-session entry point: optional undo recording,
+// NoteEdit (session + IsChanged), then ReplaceRaw (location adjust, syntax
+// invalidate, reparse via the active EditSession).
+func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) error {
+	if bp == nil {
+		return ErrNilBuffer
+	}
+	if bp.IsReadonly {
+		return ErrReadonly
 	}
 	if undo != nil {
 		oldText := bp.GetText(begin, end)

@@ -1,16 +1,17 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/buffer"
-	"time"
-
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/edit"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/ui"
+	"time"
 )
 
 // cmd_edit.go — editing commands ported from src/cmd_edit.c
 
-func windowDeleteBytes(wp *Window, n int, kill bool) bool {
+func windowDeleteBytes(wp *app.Window, n int, kill bool) bool {
 	if wp == nil || wp.Buffer == nil || n <= 0 {
 		return n >= 0
 	}
@@ -40,7 +41,7 @@ func windowDeleteBytes(wp *Window, n int, kill bool) bool {
 			continue
 		}
 		if len(lp.Data) == 0 && beginLoc.Line == endLoc.Line && beginLoc.Line > 1 {
-			prev := bp.Line(beginLoc.Line-1)
+			prev := bp.Line(beginLoc.Line - 1)
 			if prev != nil {
 				beginLoc = buffer.MakeLocation(beginLoc.Line-1, prev.Len())
 			}
@@ -61,7 +62,7 @@ func CmdKill(f bool, n int) bool {
 		return false
 	}
 
-	killBegin()
+	edit.KillBegin()
 	chunk := 0
 	if !f {
 		lp := bp.Line(wp.Cursor.Line)
@@ -94,12 +95,12 @@ func CmdKill(f bool, n int) bool {
 			chunk += int(nlp.Len()) + 1
 		}
 	} else {
-		mbWrite("[neg kill]")
+		ui.MBWrite("[neg kill]")
 		return false
 	}
 	ok := windowDeleteBytes(wp, chunk, true)
 	if ok {
-		killWriteClipboard()
+		edit.KillWriteClipboard()
 		wp.DidEdit = true
 	}
 	return ok
@@ -147,7 +148,7 @@ func CmdQuote(f bool, n int) bool {
 	if wp == nil {
 		return false
 	}
-	if k == '\n' || k == '\r' || k == KeyEnter {
+	if k == '\n' || k == '\r' || k == term.KeyEnter {
 		for i := 0; i < n; i++ {
 			if !windowInsertNewline(wp) {
 				return false
@@ -277,7 +278,7 @@ func CmdTrimWhitespace(f bool, n int) bool {
 	length := lp.Len()
 	start := pos
 	for start > 0 {
-		c := lp.Byte(start-1)
+		c := lp.Byte(start - 1)
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -316,10 +317,10 @@ func CmdTransposeLines(f bool, n int) bool {
 	original := bp.GetText(p0, p2)
 	total := uint(len(original))
 	if original == nil && total > 0 {
-		mbWrite("[out of memory]")
+		ui.MBWrite("[out of memory]")
 		return false
 	}
-	prevLp := bp.Line(curr-1)
+	prevLp := bp.Line(curr - 1)
 	if prevLp == nil {
 		return false
 	}
@@ -338,7 +339,7 @@ func CmdTransposeLines(f bool, n int) bool {
 }
 
 // bufferCharStats returns the character under point, chars before point, and total chars.
-func bufferCharStats(bp *Buffer, wp *Window) (charAt int, before, total uint) {
+func bufferCharStats(bp *buffer.Buffer, wp *app.Window) (charAt int, before, total uint) {
 	if bp == nil || wp == nil {
 		return '\n', 0, 0
 	}
@@ -376,16 +377,16 @@ func CmdShowPosition(f bool, n int) bool {
 	wp := app.State.CurrentWindow
 	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
-		mbWrite("[no buffer]")
+		ui.MBWrite("[no buffer]")
 		return false
 	}
 	charAt, before, total := bufferCharStats(bp, wp)
-	col := windowCursorScreenCol(wp)
+	col := ui.WindowCursorScreenCol(wp)
 	ratio := uint(0)
 	if total > 0 {
 		ratio = (100 * before) / total
 	}
 	row := int(app.State.Cursor.Row) + 1
-	mbWrite("X=%d Y=%d CH=0x%x .=%d (%d%% of %d)", col+1, row, charAt, before, ratio, total)
+	ui.MBWrite("X=%d Y=%d CH=0x%x .=%d (%d%% of %d)", col+1, row, charAt, before, ratio, total)
 	return true
 }

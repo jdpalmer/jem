@@ -1,6 +1,9 @@
 package editor
 
-import "github.com/jdpalmer/jem/app"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/ui"
+)
 
 const MarkCapacity = app.MarkCapacity
 
@@ -11,7 +14,7 @@ var marksState = &app.MarksState
 
 func markPopOnce() bool {
 	if !app.MarkPopOnce() {
-		mbWrite("[no saved mark]")
+		ui.MBWrite("[no saved mark]")
 		return false
 	}
 	return true
@@ -22,7 +25,7 @@ func CmdMarkPush(f bool, n int) bool {
 	_ = f
 	_ = n
 	app.MarkPushCurrent()
-	mbWrite("[mark pushed]")
+	ui.MBWrite("[mark pushed]")
 	return true
 }
 
