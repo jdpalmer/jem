@@ -2,7 +2,11 @@ package ui
 
 // mouse.go - Mouse command implementations (translation of mouse.c)
 
-import "unicode/utf8"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	sess "github.com/jdpalmer/jem/session"
+	"unicode/utf8"
+)
 
 const wheelLines = 3
 
@@ -32,7 +36,7 @@ func lineOffsetAtCol(lp *Line, goal uint32) uint {
 	if goalCol > 0x7FFFFFFF {
 		goalCol = 0x7FFFFFFF
 	}
-	for dbo < LineLength(lp) {
+	for dbo < buffer.LineLength(lp) {
 		newCol := col
 		var used uint = 1
 		b := lp.Data[dbo]
@@ -65,8 +69,8 @@ func mouseLocationInWindow(wp *Window) Location {
 	}
 
 	loc := Location{Line: lineNumber, Offset: 0}
-	line := BufferGetLine(wp.Buffer, loc.Line)
-	textCol := int(session.App.Mouse.Col) - int(WindowGutterWidth(wp)) + int(wp.HScroll)
+	line := buffer.GetLine(wp.Buffer, loc.Line)
+	textCol := int(session.App.Mouse.Col) - int(sess.WindowGutterWidth(wp)) + int(wp.HScroll)
 	if textCol < 0 {
 		textCol = 0
 	}
@@ -132,7 +136,7 @@ func windowScroll(wp *Window, n int) {
 	if lineNumber > wp.Buffer.LineCount {
 		lineNumber = wp.Buffer.LineCount
 	}
-	windowSetTopLine(wp, lineNumber)
+	sess.WindowSetTopLine(wp, lineNumber)
 	wp.ShouldRedraw = true
 
 	if wp == session.App.CurrentWindow {
@@ -143,7 +147,7 @@ func windowScroll(wp *Window, n int) {
 			} else {
 				loc = Location{Line: wp.TopLine, Offset: 0}
 			}
-			windowSetCursor(wp, loc)
+			sess.WindowSetCursor(wp, loc)
 		}
 	}
 }
@@ -159,11 +163,11 @@ func CmdMouseLeft(f bool, n int) bool {
 	}
 
 	if wp != session.App.CurrentWindow {
-		windowSelect(wp)
+		sess.WindowSelect(wp)
 	}
 
 	loc := mouseLocationInWindow(wp)
-	windowSetCursor(session.App.CurrentWindow, loc)
+	sess.WindowSetCursor(session.App.CurrentWindow, loc)
 	session.App.CurrentWindow.Mark.Line = 0
 	session.App.CurrentWindow.Mark.Offset = 0
 	mouseAnchorWindow = session.App.CurrentWindow
@@ -187,7 +191,7 @@ func CmdMouseDrag(f bool, n int) bool {
 
 	session.App.CurrentWindow.Mark.Line = mouseAnchorLine
 	session.App.CurrentWindow.Mark.Offset = mouseAnchorOffset
-	windowSetCursor(session.App.CurrentWindow, loc)
+	sess.WindowSetCursor(session.App.CurrentWindow, loc)
 	session.App.CurrentWindow.ShouldRedraw = true
 	session.App.CurrentWindow.ShouldUpdateModeLine = true
 	return true

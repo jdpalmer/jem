@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"github.com/jdpalmer/jem/fileio"
+	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,7 @@ import (
 func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	DisplayInit()
 	*session.App = App{}
-	bp := bufferCreate(&session.App.EditorRuntimeState)
+	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
@@ -57,9 +59,9 @@ func TestCollectFuzzyPathsRootHasNoParent(t *testing.T) {
 }
 
 func TestApplyFilenameSelectionFile(t *testing.T) {
-	got := applyFilenameSelection("src/", "foo.go")
+	got := fileio.ApplyFilenameSelection("src/", "foo.go")
 	if got != "src/foo.go" {
-		t.Fatalf("applyFilenameSelection = %q, want src/foo.go", got)
+		t.Fatalf("fileio.ApplyFilenameSelection = %q, want src/foo.go", got)
 	}
 }
 
@@ -70,10 +72,10 @@ func TestApplyFilenameSelectionParent(t *testing.T) {
 		t.Fatal(err)
 	}
 	childPrefix := child + string(filepath.Separator)
-	got := applyFilenameSelection(childPrefix, "../")
+	got := fileio.ApplyFilenameSelection(childPrefix, "../")
 	want := dir + string(filepath.Separator)
 	if got != want {
-		t.Fatalf("applyFilenameSelection = %q, want %q", got, want)
+		t.Fatalf("fileio.ApplyFilenameSelection = %q, want %q", got, want)
 	}
 }
 

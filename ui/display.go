@@ -2,6 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/jdpalmer/jem/buffer"
+	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/syntax"
 	"os"
 	"sync"
 	"time"
@@ -558,7 +561,7 @@ func selLine(ss *SelState, lineNumber uint, lp *Line) (s, e int) {
 	if !ss.active {
 		return
 	}
-	length := int(LineLength(lp))
+	length := int(buffer.LineLength(lp))
 
 	if ss.phase == selectionBefore {
 		if lineNumber != ss.startLine {
@@ -721,7 +724,7 @@ func windowCursorScreenCol(wp *Window) int {
 	if wp == nil || wp.Buffer == nil {
 		return 0
 	}
-	lp := BufferGetLine(wp.Buffer, wp.Cursor.Line)
+	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
 	if lp == nil {
 		return 0
 	}
@@ -753,7 +756,7 @@ func screenPutPickerLine(lp *Line) {
 
 // screenPutLine renders line content with syntax highlight and selection overlay.
 func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
-	SyntaxEnsureLine(lp)
+	syntax.SyntaxEnsureLine(lp)
 	n := len(lp.Data)
 
 	if n == 0 {
@@ -797,11 +800,11 @@ func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
 
 // renderLine renders one buffer line (gutter + content + horizontal scroll) into row.
 func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *SelState) {
-	lp := BufferGetLine(wp.Buffer, lineNumber)
+	lp := buffer.GetLine(wp.Buffer, lineNumber)
 	if lp == nil {
 		return
 	}
-	gutter := int(WindowGutterWidth(wp))
+	gutter := int(sess.WindowGutterWidth(wp))
 	marker := gitLineDiff(wp.Buffer, lineNumber)
 
 	var ss, se int
@@ -818,7 +821,7 @@ func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *Se
 	oldClipLeft := clipLeftCol
 	clipLeftCol = gutter
 
-	if wp.Buffer != nil && wp.Buffer.Name == "*match*" && lp != nil && LineLength(lp) >= 2 && lp.Data[0] == '>' && lp.Data[1] == ' ' {
+	if wp.Buffer != nil && wp.Buffer.Name == "*match*" && lp != nil && buffer.LineLength(lp) >= 2 && lp.Data[0] == '>' && lp.Data[1] == ' ' {
 		screenPutPickerLine(lp)
 	} else {
 		screenPutLine(lp, wp.Buffer.LangMode, synSt, ss, se)
@@ -897,7 +900,7 @@ func renderModeline(wp *Window) {
 	nameStyle := MakeTextStyle(session.App.Theme.ModelineNameColor, gutterBg, TextStyleBold)
 	dirtyStyle := MakeTextStyle(TermColorRed, gutterBg, TextStyleBold)
 
-	gutterW := int(WindowGutterWidth(wp))
+	gutterW := int(sess.WindowGutterWidth(wp))
 	markerCol := gutterW + 79 - int(wp.HScroll)
 	hintCol := term.Cols() - len(modelineHint)
 
@@ -1001,7 +1004,7 @@ func DisplayUpdate() {
 	if term.RefreshSize() {
 		frontScreen = allocScreen(term.Rows())
 		backScreen = allocScreen(term.Rows())
-		windowRetile()
+		sess.WindowRetile()
 		swCursorRow = 0
 		swCursorCol = 0
 		session.App.ScreenDirty = true
@@ -1063,13 +1066,13 @@ func DisplayUpdate() {
 		}
 
 		if wp.ShouldReframe {
-			WindowCenterCursor(wp)
+			sess.WindowCenterCursor(wp)
 			wp.ShouldRedraw = true
 		}
 
 		// Adjust horizontal scroll for the current window to keep cursor visible
 		if wp == session.App.CurrentWindow {
-			gutterW := int(WindowGutterWidth(wp))
+			gutterW := int(sess.WindowGutterWidth(wp))
 			cc := windowCursorScreenCol(wp)
 			visible := term.Cols() - gutterW
 			margin := visible / 4
@@ -1092,7 +1095,7 @@ func DisplayUpdate() {
 			}
 		}
 
-		gutterW := int(WindowGutterWidth(wp))
+		gutterW := int(sess.WindowGutterWidth(wp))
 
 		// When region is active, force full redraw so selection highlights all affected lines
 		if wp.Mark.Line != 0 && !wp.ShouldRedraw {
@@ -1206,7 +1209,7 @@ func DisplayUpdate() {
 			cursorLineDelta := cw.Cursor.Line - cw.TopLine
 			session.App.Cursor.Row = cw.ScreenTopRow + uint32(cursorLineDelta)
 
-			gutterW := int(WindowGutterWidth(cw))
+			gutterW := int(sess.WindowGutterWidth(cw))
 			contentCol := windowCursorScreenCol(cw)
 			hscroll := int(cw.HScroll)
 			cursorCol := gutterW + contentCol - hscroll
@@ -1358,7 +1361,7 @@ func lineColAtOffset(lp *Line, offset uint) int {
 	}
 	col := 0
 	i := uint(0)
-	for i < offset && i < LineLength(lp) {
+	for i < offset && i < buffer.LineLength(lp) {
 		b := lp.Data[i]
 		if b < 0x80 {
 			col = lineMeasureAdvance(col, rune(b))

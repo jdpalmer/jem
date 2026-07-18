@@ -6,24 +6,11 @@ import (
 )
 
 var (
-	GlobalKeyCh      chan uint32
+	GlobalKeyCh        chan uint32
 	GlobalMinibufKeyCh chan uint32
-	marksState = &sesspkg.MarksState
+	marksState         = &sesspkg.MarksState
 )
 
-func windowCreate() *Window { return sesspkg.WindowCreate() }
-func windowRetile()         { sesspkg.WindowRetile() }
-func windowSelect(wp *Window) {
-	sesspkg.WindowSelect(wp)
-}
-func windowSetCursor(wp *Window, loc Location) { sesspkg.WindowSetCursor(wp, loc) }
-func windowSetTopLine(wp *Window, line uint)   { sesspkg.WindowSetTopLine(wp, line) }
-func WindowCenterCursor(wp *Window)            { sesspkg.WindowCenterCursor(wp) }
-func WindowGutterWidth(wp *Window) uint32      { return sesspkg.WindowGutterWidth(wp) }
-func bufferFind(name string) *Buffer           { return sesspkg.BufferFind(name) }
-func bufferCreate(ed *EditorRuntimeState) *Buffer {
-	return sesspkg.BufferCreate(ed)
-}
 func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
 	if kill {
 		var oldLen uint
@@ -40,12 +27,14 @@ func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint,
 	}
 	return ok
 }
+
 func gitLineDiff(bp *Buffer, lineNumber uint) GitLineDiff {
 	if PackageHooks.GitLineDiff == nil {
 		return GitLineDiffNone
 	}
 	return PackageHooks.GitLineDiff(bp, lineNumber)
 }
+
 func gitModelineText(bp *Buffer) string {
 	if PackageHooks.GitModelineText == nil {
 		return ""
@@ -95,7 +84,6 @@ func editorInsertPaste(text []byte, length int) bool {
 	if !bufferSetText(wp.Buffer, loc, loc, paste, uint(len(paste)), &newEnd, false) {
 		return false
 	}
-	windowSetCursor(wp, newEnd)
+	sesspkg.WindowSetCursor(wp, newEnd)
 	return true
 }
-

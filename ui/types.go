@@ -197,22 +197,22 @@ const (
 	TextStyleUnderline = sess.TextStyleUnderline
 	TextStyleReverse   = sess.TextStyleReverse
 
-	CTL   = sess.CTL
-	META  = sess.META
-	CTLX  = sess.CTLX
-	SHIFT = sess.SHIFT
-	KeyMask = sess.KeyMask
-	KeyUp       = sess.KeyUp
-	KeyDown     = sess.KeyDown
-	KeyLeft     = sess.KeyLeft
-	KeyRight    = sess.KeyRight
-	KeyTab      = sess.KeyTab
-	KeyEnter    = sess.KeyEnter
-	KeyHome     = sess.KeyHome
-	KeyEnd      = sess.KeyEnd
-	KeyPageUp   = sess.KeyPageUp
-	KeyPageDown = sess.KeyPageDown
-	KeyDelete   = sess.KeyDelete
+	CTL            = sess.CTL
+	META           = sess.META
+	CTLX           = sess.CTLX
+	SHIFT          = sess.SHIFT
+	KeyMask        = sess.KeyMask
+	KeyUp          = sess.KeyUp
+	KeyDown        = sess.KeyDown
+	KeyLeft        = sess.KeyLeft
+	KeyRight       = sess.KeyRight
+	KeyTab         = sess.KeyTab
+	KeyEnter       = sess.KeyEnter
+	KeyHome        = sess.KeyHome
+	KeyEnd         = sess.KeyEnd
+	KeyPageUp      = sess.KeyPageUp
+	KeyPageDown    = sess.KeyPageDown
+	KeyDelete      = sess.KeyDelete
 	MouseLeft      = sess.MouseLeft
 	MouseWheelUp   = sess.MouseWheelUp
 	MouseWheelDown = sess.MouseWheelDown
@@ -228,12 +228,3 @@ var (
 	TextStyleFg      = sess.TextStyleFg
 	TextStyleBg      = sess.TextStyleBg
 )
-
-func MakeLocation(line, offset uint) Location { return sess.MakeLocation(line, offset) }
-func BufferEOF(bp *Buffer) uint               { return sess.BufferEOF(bp) }
-func BufferGetLine(bp *Buffer, lineNumber uint) *Line {
-	return sess.BufferGetLine(bp, lineNumber)
-}
-func LineGetc(lp *Line, n uint) byte { return sess.LineGetc(lp, n) }
-func LineLength(lp *Line) uint       { return sess.LineLength(lp) }
-func SyntaxEnsureLine(lp *Line)      { sess.SyntaxEnsureLine(lp) }

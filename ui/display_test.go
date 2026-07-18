@@ -1,6 +1,7 @@
 package ui
 
 import (
+	sess "github.com/jdpalmer/jem/session"
 	"testing"
 
 	"github.com/jdpalmer/jem/term"
@@ -93,18 +94,18 @@ func TestLineColAtOffsetWideRune(t *testing.T) {
 func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 	DisplayInit()
 	*session.App = App{}
-	bp := bufferCreate(&session.App.EditorRuntimeState)
+	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
-	wp := windowCreate()
+	wp := sess.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
-	windowSelect(wp)
+	sess.WindowSelect(wp)
 	wp.Cursor = Location{Line: 1, Offset: 3}
 	wp.TopLine = 1
-	windowRetile()
+	sess.WindowRetile()
 
 	mbWrite("[region copied]")
 	if session.App.Cursor.Row != uint32(term.Rows()) {

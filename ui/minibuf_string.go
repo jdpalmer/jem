@@ -1,6 +1,9 @@
 package ui
 
-import "bytes"
+import (
+	"bytes"
+	"github.com/jdpalmer/jem/fileio"
+)
 
 func promptStringFromBuf(buf []byte) string {
 	n := bytes.IndexByte(buf, 0)
@@ -31,11 +34,11 @@ func mbReadStringCap(prompt, initial string, capacity int) (string, PromptResult
 
 // mbReadFilenameString prompts for a filename with tab completion.
 func mbReadFilenameString(prompt, initial string) (string, PromptResult) {
-	buf := make([]byte, PromptPathCapacity)
+	buf := make([]byte, fileio.PromptPathCapacity)
 	if initial != "" {
 		copy(buf, initial)
 	}
-	pr := mbReadFilename(prompt, buf, PromptPathCapacity)
+	pr := mbReadFilename(prompt, buf, fileio.PromptPathCapacity)
 	if pr != PromptResultYes {
 		return "", pr
 	}

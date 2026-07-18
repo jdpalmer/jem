@@ -4,6 +4,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/fileio"
+	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"sort"
@@ -971,7 +974,7 @@ func shouldSkipFuzzyFile(name string) bool {
 // fuzzy file picker.  Symlinks, hidden files/dirs, and binary artefacts are
 // skipped.  Directories are returned with a trailing separator.
 func collectFuzzyPaths(dirpath, prefix string) []string {
-	openDir := pathOpenDirFromPrompt(dirpath)
+	openDir := fileio.OpenDirFromPrompt(dirpath)
 	absDir, err := filepath.Abs(openDir)
 	if err != nil {
 		absDir = filepath.Clean(openDir)
@@ -1109,17 +1112,17 @@ func filenameFuzzyMatches(paths []string, query string, maxMatches int) []uint {
 // Returns true if the text was changed.
 func completePromptFilename(state *MinibufferState) bool {
 	typed := string(state.Text)
-	expanded := fileExpandPath(typed)
+	expanded := fileio.ExpandPath(typed)
 
 	if typed == "~" {
 		mbSetText(state, []byte("~/"))
 		return true
 	}
 
-	tdir, tprefix := pathPromptSplit(typed)
+	tdir, tprefix := fileio.PromptSplit(typed)
 	_ = tprefix
-	edir, eprefix := pathPromptSplit(expanded)
-	openDir := pathOpenDirFromPrompt(edir)
+	edir, eprefix := fileio.PromptSplit(expanded)
+	openDir := fileio.OpenDirFromPrompt(edir)
 
 	entries, err := os.ReadDir(openDir)
 	if err != nil {
@@ -1229,11 +1232,11 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 	}
 
 	parseDirPart := func(query string) (dirPart, pattern string) {
-		return pathPromptSplit(query)
+		return fileio.PromptSplit(query)
 	}
 
 	expandedDir := func(dirPart string) string {
-		return pathOpenDirFromPrompt(dirPart)
+		return fileio.OpenDirFromPrompt(dirPart)
 	}
 
 	// syncMatches recomputes matchIndices from the current query text.
@@ -1280,7 +1283,7 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 			return string(state.Text)
 		}
 		selected := filePaths[matchIndices[sel]]
-		return applyFilenameSelection(currentDirPart, selected)
+		return fileio.ApplyFilenameSelection(currentDirPart, selected)
 	}
 
 	setPromptText := func(text string) {
@@ -1504,7 +1507,7 @@ type fuzzyMatchCtx struct {
 }
 
 func matchWindowGet() *Window {
-	mbp := bufferFind("*match*")
+	mbp := sess.BufferFind("*match*")
 	if mbp == nil {
 		return nil
 	}
@@ -1518,14 +1521,14 @@ func matchWindowGet() *Window {
 }
 
 func matchWindowShow() {
-	mbp := bufferFind("*match*")
+	mbp := sess.BufferFind("*match*")
 	if mbp == nil {
 		return
 	}
 	if matchWindowGet() != nil {
 		return
 	}
-	wp := windowCreate()
+	wp := sess.WindowCreate()
 	if wp == nil {
 		return
 	}
@@ -1535,7 +1538,7 @@ func matchWindowShow() {
 	wp.Mark = Location{Line: 0, Offset: 0}
 	wp.ShouldRedraw = true
 	wp.ShouldUpdateModeLine = true
-	windowRetile()
+	sess.WindowRetile()
 }
 
 func matchWindowRemove() {
@@ -1558,14 +1561,14 @@ func matchWindowRemove() {
 		if idx == 0 && session.App.WindowCount > 1 {
 			newCur = session.App.WINDOWS[1]
 		}
-		windowSelect(newCur)
+		sess.WindowSelect(newCur)
 	}
 	for i := idx; i < int(session.App.WindowCount)-1; i++ {
 		session.App.WINDOWS[i] = session.App.WINDOWS[i+1]
 	}
 	session.App.WINDOWS[session.App.WindowCount-1] = nil
 	session.App.WindowCount--
-	windowRetile()
+	sess.WindowRetile()
 }
 
 func minibufferHideMatchWindow() {
@@ -1625,7 +1628,7 @@ func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize uint, listIdx 
 
 func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, selected uint) {
 	if count == 0 {
-		if bufferFind("*match*") != nil {
+		if sess.BufferFind("*match*") != nil {
 			minibufferHideMatchWindow()
 			DisplayUpdate()
 		}
@@ -1649,9 +1652,9 @@ func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, se
 		out.WriteByte('\n')
 	}
 
-	mbp := bufferFind("*match*")
+	mbp := sess.BufferFind("*match*")
 	if mbp == nil {
-		mbp = bufferCreate(&session.App.EditorRuntimeState)
+		mbp = sess.BufferCreate(&session.App.EditorRuntimeState)
 		if mbp == nil {
 			return
 		}
@@ -1662,8 +1665,8 @@ func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, se
 	prevRO := mbp.IsReadonly
 	mbp.IsReadonly = false
 	text := []byte(out.String())
-	eof := MakeLocation(BufferEOF(mbp), 0)
-	bufferSetText(mbp, MakeLocation(1, 0), eof, text, uint(len(text)), nil, false)
+	eof := buffer.MakeLocation(buffer.EOF(mbp), 0)
+	bufferSetText(mbp, buffer.MakeLocation(1, 0), eof, text, uint(len(text)), nil, false)
 	mbp.IsReadonly = prevRO
 	mbp.IsReadonly = true
 

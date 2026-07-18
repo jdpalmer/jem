@@ -20,7 +20,7 @@ func TestApplyPendingPasteOnMainThread(t *testing.T) {
 	queuePaste([]byte("hello"))
 	applyPendingPaste()
 
-	if got := string(BufferGetLine(bp, 1).Data); got != "hello" {
+	if got := string(buffer.GetLine(bp, 1).Data); got != "hello" {
 		t.Fatalf("buffer after paste = %q, want hello", got)
 	}
 	if !wp.ShouldRedraw {
