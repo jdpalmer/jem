@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"strings"
 	"testing"
@@ -23,14 +24,14 @@ func NewTestEditor(t *testing.T) *TestEditor {
 	KeybindingsInit()
 	backgroundJobsInit()
 	EditorInit("test")
-	if session.App.CurrentWindow != nil {
-		session.App.CurrentWindow.Height = uint32(term.Rows())
+	if app.State.CurrentWindow != nil {
+		app.State.CurrentWindow.Height = uint32(term.Rows())
 	}
 	return &TestEditor{t: t}
 }
 
 func resetTestEditorState() {
-	*session.App = App{}
+	app.State = App{}
 	editorUndo = UndoHistory{}
 	killRing = [16][]byte{}
 	killRingCount = 0
@@ -43,11 +44,11 @@ func resetTestEditorState() {
 }
 
 func (te *TestEditor) BP() *Buffer {
-	return session.App.CurrentBuffer
+	return app.State.CurrentBuffer
 }
 
 func (te *TestEditor) WP() *Window {
-	return session.App.CurrentWindow
+	return app.State.CurrentWindow
 }
 
 // LoadText replaces buffer content and parks the cursor at end-of-buffer.
@@ -129,8 +130,8 @@ func (te *TestEditor) Key(k uint32) bool {
 // Click sets screen mouse coordinates and dispatches a left-click command.
 func (te *TestEditor) Click(row, col uint32) {
 	te.t.Helper()
-	session.App.Mouse.Row = row
-	session.App.Mouse.Col = col
+	app.State.Mouse.Row = row
+	app.State.Mouse.Col = col
 	if !Execute(int(MouseLeft), false, 1) {
 		te.t.Fatalf("mouse left click at (%d,%d) failed", row, col)
 	}

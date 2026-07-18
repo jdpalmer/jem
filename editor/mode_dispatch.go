@@ -1,9 +1,12 @@
 package editor
 
-import "github.com/jdpalmer/jem/modes"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/modes"
+)
 
 func CmdModeNewlineAndIndent(f bool, n int) bool {
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp != nil {
 		switch bp.Name {
 		case grepBufferName:

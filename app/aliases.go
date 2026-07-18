@@ -1,4 +1,4 @@
-package session
+package app
 
 import (
 	"github.com/jdpalmer/jem/buffer"

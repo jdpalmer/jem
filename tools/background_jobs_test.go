@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 func TestGrepProjectSearchCancellation(t *testing.T) {
@@ -37,17 +37,17 @@ func TestGrepProjectSearchCancellation(t *testing.T) {
 func TestBackgroundJobGrepCompletion(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	sess.App = sess.AppState{}
-	bp := sess.BufferCreate(&sess.App.EditorRuntimeState)
-	wp := sess.WindowCreate()
-	sess.WindowSelect(wp)
-	sess.SetCurrentBuffer(bp)
+	app.State = app.AppState{}
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	wp := app.WindowCreate()
+	app.WindowSelect(wp)
+	app.SetCurrentBuffer(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{
 		MBWrite: func(string, ...interface{}) {},
-		SwitchBuffer: func(next *sess.Buffer) {
-			sess.SetCurrentBuffer(next)
-			if cw := sess.App.CurrentWindow; cw != nil {
+		SwitchBuffer: func(next *app.Buffer) {
+			app.SetCurrentBuffer(next)
+			if cw := app.State.CurrentWindow; cw != nil {
 				cw.Buffer = next
 			}
 		},
@@ -75,7 +75,7 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 	if BackgroundJobRunning() {
 		t.Fatal("job still marked active after completion")
 	}
-	if got := sess.BufferFind(GrepBufferName); got == nil {
+	if got := app.BufferFind(GrepBufferName); got == nil {
 		t.Fatal("grep buffer not created")
 	}
 }
@@ -83,11 +83,11 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 func TestBackgroundJobCancel(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	sess.App = sess.AppState{}
-	bp := sess.BufferCreate(&sess.App.EditorRuntimeState)
-	wp := sess.WindowCreate()
-	sess.WindowSelect(wp)
-	sess.SetCurrentBuffer(bp)
+	app.State = app.AppState{}
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	wp := app.WindowCreate()
+	app.WindowSelect(wp)
+	app.SetCurrentBuffer(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{
 		MBWrite: func(string, ...interface{}) {},

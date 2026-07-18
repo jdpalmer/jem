@@ -6,8 +6,8 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"path/filepath"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/fileio"
-	sess "github.com/jdpalmer/jem/session"
 )
 
 // loadCommandLineFiles loads paths into buffers, mirroring src/main.c startup.
@@ -45,7 +45,7 @@ func fileCheckReload() {
 func CmdFileSave(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp == nil {
 		mbWrite("[no buffer]")
 		return false
@@ -80,8 +80,8 @@ func visitFilePath(path string) bool {
 	fileName := fileio.NormalizePath(path)
 
 	var buffer *Buffer
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp != nil && fileio.PathsEqual(bp.FileName, fileName) {
 			buffer = bp
 			break
@@ -89,9 +89,9 @@ func visitFilePath(path string) bool {
 	}
 
 	if buffer != nil {
-		sess.MarkPushCurrent()
+		app.MarkPushCurrent()
 		editorSwitchBuffer(buffer)
-		if wp := session.App.CurrentWindow; wp != nil {
+		if wp := app.State.CurrentWindow; wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
 		}
@@ -99,19 +99,19 @@ func visitFilePath(path string) bool {
 		return true
 	}
 
-	buffer = sess.BufferCreate(&session.App.EditorRuntimeState)
+	buffer = app.BufferCreate(&app.State.EditorRuntimeState)
 	if buffer == nil {
 		mbWrite("[cannot create buffer]")
 		return false
 	}
-	sess.MarkPushCurrent()
+	app.MarkPushCurrent()
 	buffer.Name = bufferNameFromPath(fileName)
 	editorSwitchBuffer(buffer)
 	if !fileLoad(fileName) {
 		return false
 	}
-	if wp := session.App.CurrentWindow; wp != nil {
-		sess.WindowCenterCursor(wp)
+	if wp := app.State.CurrentWindow; wp != nil {
+		app.WindowCenterCursor(wp)
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
@@ -124,7 +124,7 @@ func CmdFileVisit(f bool, n int) bool {
 	_ = f
 	_ = n
 	initial := ""
-	if bp := session.App.CurrentBuffer; bp != nil {
+	if bp := app.State.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
 			dir := filepath.Dir(fileio.ExpandPath(fname))
 			initial = dir + string(filepath.Separator)
@@ -144,7 +144,7 @@ func CmdFileVisit(f bool, n int) bool {
 func CmdFileWrite(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp == nil {
 		mbWrite("[no buffer]")
 		return false
@@ -163,8 +163,8 @@ func CmdFileWrite(f bool, n int) bool {
 	bp.FileName = path
 	bp.LangMode = fileio.DetectLangMode(path)
 	UndoNoteBufferSaved(bp)
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil && wp.Buffer == bp {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
@@ -178,8 +178,8 @@ func CmdFileWrite(f bool, n int) bool {
 func CmdRevertFile(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil {
 		mbWrite("[no buffer]")
 		return false
@@ -215,7 +215,7 @@ func fileVisitLocation(path string, line, column uint32) bool {
 		return false
 	}
 
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -231,11 +231,11 @@ func fileVisitLocation(path string, line, column uint32) bool {
 	if off > buffer.LineLength(lp) {
 		off = buffer.LineLength(lp)
 	}
-	sess.WindowSetCursor(wp, buffer.MakeLocation(uint(line), off))
+	app.WindowSetCursor(wp, buffer.MakeLocation(uint(line), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true
-	sess.WindowCenterCursor(wp)
+	app.WindowCenterCursor(wp)
 	return true
 }
 
@@ -268,7 +268,7 @@ func eolModeLabel(mode EolMode) string {
 func CmdSetEolMode(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp == nil {
 		mbWrite("[no buffer]")
 		return false
@@ -305,8 +305,8 @@ func CmdSetEolMode(f bool, n int) bool {
 	if bp.EolMode != chosen {
 		bp.EolMode = chosen
 		bp.IsChanged = true
-		for i := 0; i < int(session.App.WindowCount); i++ {
-			wp := session.App.WINDOWS[i]
+		for i := 0; i < int(app.State.WindowCount); i++ {
+			wp := app.State.WINDOWS[i]
 			if wp != nil && wp.Buffer == bp {
 				wp.ShouldUpdateModeLine = true
 			}

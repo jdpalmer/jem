@@ -1,227 +1,227 @@
 package ui
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sess "github.com/jdpalmer/jem/session"
 )
 
 const (
-	Version               = sess.Version
-	BufferNameCapacity    = sess.BufferNameCapacity
-	CommandPromptCapacity = sess.CommandPromptCapacity
-	MacroCapacity         = sess.MacroCapacity
-	PatternCapacity       = sess.PatternCapacity
-	MaxBuffers            = sess.MaxBuffers
-	MaxWindows            = sess.MaxWindows
-	HookCapacity          = sess.HookCapacity
+	Version               = app.Version
+	BufferNameCapacity    = app.BufferNameCapacity
+	CommandPromptCapacity = app.CommandPromptCapacity
+	MacroCapacity         = app.MacroCapacity
+	PatternCapacity       = app.PatternCapacity
+	MaxBuffers            = app.MaxBuffers
+	MaxWindows            = app.MaxWindows
+	HookCapacity          = app.HookCapacity
 )
 
 const (
-	CmdStateNone    = sess.CmdStateNone
-	CmdStateChained = sess.CmdStateChained
-	CmdStateCurrent = sess.CmdStateCurrent
+	CmdStateNone    = app.CmdStateNone
+	CmdStateChained = app.CmdStateChained
+	CmdStateCurrent = app.CmdStateCurrent
 )
 
 const (
-	SearchScopeBuffer     = sess.SearchScopeBuffer
-	SearchScopeAllBuffers = sess.SearchScopeAllBuffers
+	SearchScopeBuffer     = app.SearchScopeBuffer
+	SearchScopeAllBuffers = app.SearchScopeAllBuffers
 )
 
 const (
-	PromptResultNo    = sess.PromptResultNo
-	PromptResultYes   = sess.PromptResultYes
-	PromptResultAbort = sess.PromptResultAbort
+	PromptResultNo    = app.PromptResultNo
+	PromptResultYes   = app.PromptResultYes
+	PromptResultAbort = app.PromptResultAbort
 )
 
 const (
-	FIOSuc = sess.FIOSuc
-	FIOFNF = sess.FIOFNF
-	FIOEOF = sess.FIOEOF
-	FIOErr = sess.FIOErr
+	FIOSuc = app.FIOSuc
+	FIOFNF = app.FIOFNF
+	FIOEOF = app.FIOEOF
+	FIOErr = app.FIOErr
 )
 
 const (
-	ThemeDark  = sess.ThemeDark
-	ThemeLight = sess.ThemeLight
+	ThemeDark  = app.ThemeDark
+	ThemeLight = app.ThemeLight
 )
 
 const (
-	GitLineDiffNone     = sess.GitLineDiffNone
-	GitLineDiffAdded    = sess.GitLineDiffAdded
-	GitLineDiffModified = sess.GitLineDiffModified
-	GitLineDiffDeleted  = sess.GitLineDiffDeleted
+	GitLineDiffNone     = app.GitLineDiffNone
+	GitLineDiffAdded    = app.GitLineDiffAdded
+	GitLineDiffModified = app.GitLineDiffModified
+	GitLineDiffDeleted  = app.GitLineDiffDeleted
 )
 
 const (
-	ModeWordAttrNone    = sess.ModeWordAttrNone
-	ModeWordAttrType    = sess.ModeWordAttrType
-	ModeWordAttrBuiltin = sess.ModeWordAttrBuiltin
+	ModeWordAttrNone    = app.ModeWordAttrNone
+	ModeWordAttrType    = app.ModeWordAttrType
+	ModeWordAttrBuiltin = app.ModeWordAttrBuiltin
 )
 
 const (
-	ModeSyntaxGeneral         = sess.ModeSyntaxGeneral
-	ModeSyntaxNone            = sess.ModeSyntaxNone
-	ModeSyntaxHashCommentOnly = sess.ModeSyntaxHashCommentOnly
-	ModeSyntaxMarkdown        = sess.ModeSyntaxMarkdown
-	ModeSyntaxHTML            = sess.ModeSyntaxHTML
+	ModeSyntaxGeneral         = app.ModeSyntaxGeneral
+	ModeSyntaxNone            = app.ModeSyntaxNone
+	ModeSyntaxHashCommentOnly = app.ModeSyntaxHashCommentOnly
+	ModeSyntaxMarkdown        = app.ModeSyntaxMarkdown
+	ModeSyntaxHTML            = app.ModeSyntaxHTML
 )
 
 const (
-	ModeMiscIndentNone    = sess.ModeMiscIndentNone
-	ModeMiscIndentMake    = sess.ModeMiscIndentMake
-	ModeMiscIndentLua     = sess.ModeMiscIndentLua
-	ModeMiscIndentPascal  = sess.ModeMiscIndentPascal
-	ModeMiscIndentVerilog = sess.ModeMiscIndentVerilog
-	ModeMiscIndentR       = sess.ModeMiscIndentR
-	ModeMiscIndentHTML    = sess.ModeMiscIndentHTML
-	ModeMiscIndentLisp    = sess.ModeMiscIndentLisp
+	ModeMiscIndentNone    = app.ModeMiscIndentNone
+	ModeMiscIndentMake    = app.ModeMiscIndentMake
+	ModeMiscIndentLua     = app.ModeMiscIndentLua
+	ModeMiscIndentPascal  = app.ModeMiscIndentPascal
+	ModeMiscIndentVerilog = app.ModeMiscIndentVerilog
+	ModeMiscIndentR       = app.ModeMiscIndentR
+	ModeMiscIndentHTML    = app.ModeMiscIndentHTML
+	ModeMiscIndentLisp    = app.ModeMiscIndentLisp
 )
 
 const (
-	ModeFlagIdentDash          = sess.ModeFlagIdentDash
-	ModeFlagIdentLispExtra     = sess.ModeFlagIdentLispExtra
-	ModeFlagIdentLispSigil     = sess.ModeFlagIdentLispSigil
-	ModeFlagCommentSlashLine   = sess.ModeFlagCommentSlashLine
-	ModeFlagCommentSlashBlock  = sess.ModeFlagCommentSlashBlock
-	ModeFlagPreprocHashAtBOL   = sess.ModeFlagPreprocHashAtBOL
-	ModeFlagCommentHash        = sess.ModeFlagCommentHash
-	ModeFlagCommentSemi        = sess.ModeFlagCommentSemi
-	ModeFlagCommentLua         = sess.ModeFlagCommentLua
-	ModeFlagCommentPascalBrace = sess.ModeFlagCommentPascalBrace
-	ModeFlagCommentPascalParen = sess.ModeFlagCommentPascalParen
-	ModeFlagAtRule             = sess.ModeFlagAtRule
-	ModeFlagNoCurlyRainbow     = sess.ModeFlagNoCurlyRainbow
+	ModeFlagIdentDash          = app.ModeFlagIdentDash
+	ModeFlagIdentLispExtra     = app.ModeFlagIdentLispExtra
+	ModeFlagIdentLispSigil     = app.ModeFlagIdentLispSigil
+	ModeFlagCommentSlashLine   = app.ModeFlagCommentSlashLine
+	ModeFlagCommentSlashBlock  = app.ModeFlagCommentSlashBlock
+	ModeFlagPreprocHashAtBOL   = app.ModeFlagPreprocHashAtBOL
+	ModeFlagCommentHash        = app.ModeFlagCommentHash
+	ModeFlagCommentSemi        = app.ModeFlagCommentSemi
+	ModeFlagCommentLua         = app.ModeFlagCommentLua
+	ModeFlagCommentPascalBrace = app.ModeFlagCommentPascalBrace
+	ModeFlagCommentPascalParen = app.ModeFlagCommentPascalParen
+	ModeFlagAtRule             = app.ModeFlagAtRule
+	ModeFlagNoCurlyRainbow     = app.ModeFlagNoCurlyRainbow
 )
 
 const (
-	HookBufferVisit  = sess.HookBufferVisit
-	HookModeChange   = sess.HookModeChange
-	HookBeforeSave   = sess.HookBeforeSave
-	HookAfterSave    = sess.HookAfterSave
-	HookWindowSwitch = sess.HookWindowSwitch
-	HookBufferCreate = sess.HookBufferCreate
-	HookBufferKill   = sess.HookBufferKill
-	HookSearchJump   = sess.HookSearchJump
-	HookEventCount   = sess.HookEventCount
+	HookBufferVisit  = app.HookBufferVisit
+	HookModeChange   = app.HookModeChange
+	HookBeforeSave   = app.HookBeforeSave
+	HookAfterSave    = app.HookAfterSave
+	HookWindowSwitch = app.HookWindowSwitch
+	HookBufferCreate = app.HookBufferCreate
+	HookBufferKill   = app.HookBufferKill
+	HookSearchJump   = app.HookSearchJump
+	HookEventCount   = app.HookEventCount
 )
 
 const (
-	MinibufEditUnhandled = sess.MinibufEditUnhandled
-	MinibufEditNoChange  = sess.MinibufEditNoChange
-	MinibufEditChanged   = sess.MinibufEditChanged
+	MinibufEditUnhandled = app.MinibufEditUnhandled
+	MinibufEditNoChange  = app.MinibufEditNoChange
+	MinibufEditChanged   = app.MinibufEditChanged
 )
 
 type (
-	Buffer               = sess.Buffer
-	Line                 = sess.Line
-	Location             = sess.Location
-	EolMode              = sess.EolMode
-	LangMode             = sess.LangMode
-	SynState             = sess.SynState
-	SyntaxLineSummary    = sess.SyntaxLineSummary
-	SyntaxContext        = sess.SyntaxContext
-	SyntaxDelimiterMask  = sess.SyntaxDelimiterMask
-	SyntaxBlock          = sess.SyntaxBlock
-	TextStyle            = sess.TextStyle
-	TermColor            = sess.TermColor
-	UndoHistory          = sess.UndoHistory
-	UndoKind             = sess.UndoKind
-	CommandState         = sess.CommandState
-	SearchScopeMode      = sess.SearchScopeMode
-	PromptResult         = sess.PromptResult
-	FileIoStatus         = sess.FileIoStatus
-	ThemeMode            = sess.ThemeMode
-	GitLineDiff          = sess.GitLineDiff
-	ModeWordAttr         = sess.ModeWordAttr
-	ModeSyntaxKind       = sess.ModeSyntaxKind
-	ModeMiscIndentKind   = sess.ModeMiscIndentKind
-	HookEvent            = sess.HookEvent
-	MinibufferEditResult = sess.MinibufferEditResult
-	ScreenCoord          = sess.ScreenCoord
-	Window               = sess.Window
-	Region               = sess.Region
-	KillRingEntry        = sess.KillRingEntry
-	ModeInfo             = sess.ModeInfo
-	ThemeState           = sess.ThemeState
-	MinibufferState      = sess.MinibufferState
-	MLChoiceLabelFn      = sess.MLChoiceLabelFn
-	MbNameProviderFn     = sess.MbNameProviderFn
-	MbMatchFormatter     = sess.MbMatchFormatter
-	EditorRuntimeState   = sess.EditorRuntimeState
-	EditorDisplayState   = sess.EditorDisplayState
-	EditorMacroState     = sess.EditorMacroState
-	EditorSettingsState  = sess.EditorSettingsState
-	TransientAction      = sess.TransientAction
-	TransientBinding     = sess.TransientBinding
-	MarkRing             = sess.MarkRing
+	Buffer               = app.Buffer
+	Line                 = app.Line
+	Location             = app.Location
+	EolMode              = app.EolMode
+	LangMode             = app.LangMode
+	SynState             = app.SynState
+	SyntaxLineSummary    = app.SyntaxLineSummary
+	SyntaxContext        = app.SyntaxContext
+	SyntaxDelimiterMask  = app.SyntaxDelimiterMask
+	SyntaxBlock          = app.SyntaxBlock
+	TextStyle            = app.TextStyle
+	TermColor            = app.TermColor
+	UndoHistory          = app.UndoHistory
+	UndoKind             = app.UndoKind
+	CommandState         = app.CommandState
+	SearchScopeMode      = app.SearchScopeMode
+	PromptResult         = app.PromptResult
+	FileIoStatus         = app.FileIoStatus
+	ThemeMode            = app.ThemeMode
+	GitLineDiff          = app.GitLineDiff
+	ModeWordAttr         = app.ModeWordAttr
+	ModeSyntaxKind       = app.ModeSyntaxKind
+	ModeMiscIndentKind   = app.ModeMiscIndentKind
+	HookEvent            = app.HookEvent
+	MinibufferEditResult = app.MinibufferEditResult
+	ScreenCoord          = app.ScreenCoord
+	Window               = app.Window
+	Region               = app.Region
+	KillRingEntry        = app.KillRingEntry
+	ModeInfo             = app.ModeInfo
+	ThemeState           = app.ThemeState
+	MinibufferState      = app.MinibufferState
+	MLChoiceLabelFn      = app.MLChoiceLabelFn
+	MbNameProviderFn     = app.MbNameProviderFn
+	MbMatchFormatter     = app.MbMatchFormatter
+	EditorRuntimeState   = app.EditorRuntimeState
+	EditorDisplayState   = app.EditorDisplayState
+	EditorMacroState     = app.EditorMacroState
+	EditorSettingsState  = app.EditorSettingsState
+	TransientAction      = app.TransientAction
+	TransientBinding     = app.TransientBinding
+	MarkRing             = app.MarkRing
 )
 
 const (
-	EModeLF   = sess.EModeLF
-	EModeCRLF = sess.EModeCRLF
-	EModeCR   = sess.EModeCR
+	EModeLF   = app.EModeLF
+	EModeCRLF = app.EModeCRLF
+	EModeCR   = app.EModeCR
 
-	SyntaxContextNone    = sess.SyntaxContextNone
-	SyntaxContextCode    = sess.SyntaxContextCode
-	SyntaxContextString  = sess.SyntaxContextString
-	SyntaxContextComment = sess.SyntaxContextComment
-	SyntaxContextPreproc = sess.SyntaxContextPreproc
+	SyntaxContextNone    = app.SyntaxContextNone
+	SyntaxContextCode    = app.SyntaxContextCode
+	SyntaxContextString  = app.SyntaxContextString
+	SyntaxContextComment = app.SyntaxContextComment
+	SyntaxContextPreproc = app.SyntaxContextPreproc
 
-	SyntaxDelimParen   = sess.SyntaxDelimParen
-	SyntaxDelimBracket = sess.SyntaxDelimBracket
-	SyntaxDelimCurly   = sess.SyntaxDelimCurly
-	SyntaxDelimAll     = sess.SyntaxDelimAll
+	SyntaxDelimParen   = app.SyntaxDelimParen
+	SyntaxDelimBracket = app.SyntaxDelimBracket
+	SyntaxDelimCurly   = app.SyntaxDelimCurly
+	SyntaxDelimAll     = app.SyntaxDelimAll
 
-	UndoDelete = sess.UndoDelete
-	UndoInsert = sess.UndoInsert
+	UndoDelete = app.UndoDelete
+	UndoInsert = app.UndoInsert
 
-	TermColorBlack   = sess.TermColorBlack
-	TermColorRed     = sess.TermColorRed
-	TermColorGreen   = sess.TermColorGreen
-	TermColorYellow  = sess.TermColorYellow
-	TermColorBlue    = sess.TermColorBlue
-	TermColorMagenta = sess.TermColorMagenta
-	TermColorCyan    = sess.TermColorCyan
-	TermColorWhite   = sess.TermColorWhite
-	TermColorDefault = sess.TermColorDefault
-	TermColorBase03  = sess.TermColorBase03
-	TermColorBase02  = sess.TermColorBase02
-	TermColorBase01  = sess.TermColorBase01
-	TermColorBase00  = sess.TermColorBase00
-	TermColorBase0   = sess.TermColorBase0
-	TermColorBase1   = sess.TermColorBase1
-	TermColorBase2   = sess.TermColorBase2
-	TermColorBase3   = sess.TermColorBase3
+	TermColorBlack   = app.TermColorBlack
+	TermColorRed     = app.TermColorRed
+	TermColorGreen   = app.TermColorGreen
+	TermColorYellow  = app.TermColorYellow
+	TermColorBlue    = app.TermColorBlue
+	TermColorMagenta = app.TermColorMagenta
+	TermColorCyan    = app.TermColorCyan
+	TermColorWhite   = app.TermColorWhite
+	TermColorDefault = app.TermColorDefault
+	TermColorBase03  = app.TermColorBase03
+	TermColorBase02  = app.TermColorBase02
+	TermColorBase01  = app.TermColorBase01
+	TermColorBase00  = app.TermColorBase00
+	TermColorBase0   = app.TermColorBase0
+	TermColorBase1   = app.TermColorBase1
+	TermColorBase2   = app.TermColorBase2
+	TermColorBase3   = app.TermColorBase3
 
 	TextStyleFgShift   = buffer.TextStyleFgShift
 	TextStyleBgShift   = buffer.TextStyleBgShift
-	TextStyleColorMask = sess.TextStyleColorMask
-	TextStyleBold      = sess.TextStyleBold
-	TextStyleUnderline = sess.TextStyleUnderline
-	TextStyleReverse   = sess.TextStyleReverse
+	TextStyleColorMask = app.TextStyleColorMask
+	TextStyleBold      = app.TextStyleBold
+	TextStyleUnderline = app.TextStyleUnderline
+	TextStyleReverse   = app.TextStyleReverse
 
-	CTL            = sess.CTL
-	META           = sess.META
-	CTLX           = sess.CTLX
-	SHIFT          = sess.SHIFT
-	KeyMask        = sess.KeyMask
-	KeyUp          = sess.KeyUp
-	KeyDown        = sess.KeyDown
-	KeyLeft        = sess.KeyLeft
-	KeyRight       = sess.KeyRight
-	KeyTab         = sess.KeyTab
-	KeyEnter       = sess.KeyEnter
-	KeyHome        = sess.KeyHome
-	KeyEnd         = sess.KeyEnd
-	KeyPageUp      = sess.KeyPageUp
-	KeyPageDown    = sess.KeyPageDown
-	KeyDelete      = sess.KeyDelete
-	MouseLeft      = sess.MouseLeft
-	MouseWheelUp   = sess.MouseWheelUp
-	MouseWheelDown = sess.MouseWheelDown
-	MouseDrag      = sess.MouseDrag
-	UnicodeLimit   = sess.UnicodeLimit
-	LModeNone      = sess.LModeNone
+	CTL            = app.CTL
+	META           = app.META
+	CTLX           = app.CTLX
+	SHIFT          = app.SHIFT
+	KeyMask        = app.KeyMask
+	KeyUp          = app.KeyUp
+	KeyDown        = app.KeyDown
+	KeyLeft        = app.KeyLeft
+	KeyRight       = app.KeyRight
+	KeyTab         = app.KeyTab
+	KeyEnter       = app.KeyEnter
+	KeyHome        = app.KeyHome
+	KeyEnd         = app.KeyEnd
+	KeyPageUp      = app.KeyPageUp
+	KeyPageDown    = app.KeyPageDown
+	KeyDelete      = app.KeyDelete
+	MouseLeft      = app.MouseLeft
+	MouseWheelUp   = app.MouseWheelUp
+	MouseWheelDown = app.MouseWheelDown
+	MouseDrag      = app.MouseDrag
+	UnicodeLimit   = app.UnicodeLimit
+	LModeNone      = app.LModeNone
 )
 
 var (

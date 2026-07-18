@@ -1,4 +1,4 @@
-package session
+package app
 
 import "github.com/jdpalmer/jem/buffer"
 
@@ -21,8 +21,8 @@ type MarkState struct {
 var MarksState MarkState
 
 func markUpdateModelines() {
-	for i := 0; i < int(App.WindowCount); i++ {
-		wp := App.WINDOWS[i]
+	for i := 0; i < int(State.WindowCount); i++ {
+		wp := State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
@@ -39,8 +39,8 @@ func markEquals(a, b *Mark) bool {
 }
 
 func markCaptureCurrent(m *Mark) bool {
-	wp := App.CurrentWindow
-	bp := App.CurrentBuffer
+	wp := State.CurrentWindow
+	bp := State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -64,8 +64,8 @@ func marksPushEntry(stack []Mark, count *uint8, mark *Mark) []Mark {
 }
 
 func markBufferIsActive(buf *Buffer, serial uint32) bool {
-	for i := 0; i < int(App.BufferCount); i++ {
-		bp := App.Buffers[i]
+	for i := 0; i < int(State.BufferCount); i++ {
+		bp := State.Buffers[i]
 		if bp == buf && bp.Serial == serial {
 			return true
 		}
@@ -89,17 +89,17 @@ func markRestore(m *Mark) bool {
 	if m.Buffer == nil || !markBufferIsActive(m.Buffer, m.BufferSerial) {
 		return false
 	}
-	if App.CurrentBuffer != m.Buffer {
+	if State.CurrentBuffer != m.Buffer {
 		if PackageHooks.SwitchBuffer != nil {
 			PackageHooks.SwitchBuffer(m.Buffer)
 		} else {
 			SetCurrentBuffer(m.Buffer)
-			if App.CurrentWindow != nil {
-				App.CurrentWindow.Buffer = m.Buffer
+			if State.CurrentWindow != nil {
+				State.CurrentWindow.Buffer = m.Buffer
 			}
 		}
 	}
-	wp := App.CurrentWindow
+	wp := State.CurrentWindow
 	if wp == nil {
 		return false
 	}

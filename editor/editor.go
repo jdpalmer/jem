@@ -2,28 +2,28 @@ package editor
 
 // editor.go - Editor state and initialization (translation of editor.c)
 
-import sess "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
 func EditorInit(firstBufferName string) {
-	sess.App.BufferCount = 0
-	sess.App.WindowCount = 0
+	app.State.BufferCount = 0
+	app.State.WindowCount = 0
 
-	bp := sess.BufferCreate(&sess.App.EditorRuntimeState)
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp != nil {
-		bp.Name = sess.TruncateBufferName(firstBufferName)
-		sess.SetCurrentBuffer(bp)
+		bp.Name = app.TruncateBufferName(firstBufferName)
+		app.SetCurrentBuffer(bp)
 	}
 
-	wp := sess.WindowCreate()
+	wp := app.WindowCreate()
 	if wp != nil {
-		sess.WindowSelect(wp)
+		app.WindowSelect(wp)
 	}
-	sess.WindowRetile()
+	app.WindowRetile()
 
-	sess.App.MovementState = CmdStateNone
-	sess.App.KillState = CmdStateNone
+	app.State.MovementState = CmdStateNone
+	app.State.KillState = CmdStateNone
 	macroInit()
-	sess.PackageHooks = sess.Hooks{
+	app.PackageHooks = app.Hooks{
 		UndoForgetBuffer: UndoForgetBuffer,
 		SwitchBuffer:     editorSwitchBuffer,
 	}

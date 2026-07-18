@@ -3,25 +3,25 @@ package search
 import (
 	"testing"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/session"
 )
 
-func makeTestWindow(t *testing.T, text string) *session.Window {
+func makeTestWindow(t *testing.T, text string) *app.Window {
 	t.Helper()
-	session.App = session.AppState{}
+	app.State = app.AppState{}
 	DefaultState = &State{}
-	bp := session.BufferCreate(&session.App.EditorRuntimeState)
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
 	bp.Name = "*test*"
-	wp := session.WindowCreate()
+	wp := app.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
 	wp.Buffer = bp
-	session.WindowSelect(wp)
+	app.WindowSelect(wp)
 	eof := buffer.MakeLocation(buffer.EOF(bp), 0)
 	data := []byte(text)
 	if !buffer.SetText(bp, nil, buffer.MakeLocation(1, 0), eof, data, uint(len(data)), nil) {
@@ -32,7 +32,7 @@ func makeTestWindow(t *testing.T, text string) *session.Window {
 
 func TestFindNextPlain(t *testing.T) {
 	wp := makeTestWindow(t, "hello world\nfoo bar\n")
-	session.WindowSetCursor(wp, session.Location{Line: 1, Offset: 0})
+	app.WindowSetCursor(wp, app.Location{Line: 1, Offset: 0})
 	DefaultState.SearchCaseSensitive = true
 	if !findNextPlain(wp, []byte("world")) {
 		t.Fatal("expected to find world")
@@ -50,7 +50,7 @@ func TestFindNextPlain(t *testing.T) {
 
 func TestFindPrevPlain(t *testing.T) {
 	wp := makeTestWindow(t, "abc abc\n")
-	session.WindowSetCursor(wp, session.Location{Line: 1, Offset: 7})
+	app.WindowSetCursor(wp, app.Location{Line: 1, Offset: 7})
 	DefaultState.SearchCaseSensitive = true
 	if !findPrevPlain(wp, []byte("abc")) {
 		t.Fatal("expected to find abc")
@@ -62,7 +62,7 @@ func TestFindPrevPlain(t *testing.T) {
 
 func TestRegexMatchForward(t *testing.T) {
 	wp := makeTestWindow(t, "foo123bar\n")
-	match, found := findNextRegexMatchFrom(wp.Buffer, session.Location{Line: 1, Offset: 0}, `[0-9]+`)
+	match, found := findNextRegexMatchFrom(wp.Buffer, app.Location{Line: 1, Offset: 0}, `[0-9]+`)
 	if found != 1 {
 		t.Fatalf("found=%d want 1", found)
 	}
@@ -75,8 +75,8 @@ func TestExpandRegexReplacement(t *testing.T) {
 	match := RegexMatch{
 		Text:  []byte("foo123bar"),
 		Index: []int{3, 6, 3, 6},
-		Start: session.Location{Line: 1, Offset: 3},
-		End:   session.Location{Line: 1, Offset: 6},
+		Start: app.Location{Line: 1, Offset: 3},
+		End:   app.Location{Line: 1, Offset: 6},
 	}
 	out, err := expandRegexReplacement("\\0!", match)
 	if err != nil {

@@ -1,27 +1,27 @@
-package session
+package app
 
 import "github.com/jdpalmer/jem/term"
 
 func WindowSelect(wp *Window) {
-	old := App.CurrentWindow
+	old := State.CurrentWindow
 	if wp == nil {
 		return
 	}
 	if old != nil && old != wp {
 		old.ShouldUpdateModeLine = true
 	}
-	App.CurrentWindow = wp
+	State.CurrentWindow = wp
 	SetCurrentBuffer(wp.Buffer)
 	wp.ShouldRedraw = true
 	wp.ShouldUpdateModeLine = true
 }
 
 func WindowCreate() *Window {
-	if App.WindowCount >= MaxWindows {
+	if State.WindowCount >= MaxWindows {
 		return nil
 	}
 	wp := &Window{
-		Buffer:               App.CurrentBuffer,
+		Buffer:               State.CurrentBuffer,
 		TopLine:              1,
 		Cursor:               Location{Line: 1, Offset: 0},
 		Mark:                 Location{Line: 1, Offset: 0},
@@ -35,8 +35,8 @@ func WindowCreate() *Window {
 		ShouldUpdateModeLine: true,
 		HScroll:              0,
 	}
-	App.WINDOWS[App.WindowCount] = wp
-	App.WindowCount++
+	State.WINDOWS[State.WindowCount] = wp
+	State.WindowCount++
 	return wp
 }
 
@@ -49,11 +49,11 @@ func WindowSaveState(wp *Window) {
 
 func BufferWindowCount(bp *Buffer) int {
 	if bp == nil {
-		return int(App.WindowCount)
+		return int(State.WindowCount)
 	}
 	count := 0
-	for i := 0; i < int(App.WindowCount); i++ {
-		wp := App.WINDOWS[i]
+	for i := 0; i < int(State.WindowCount); i++ {
+		wp := State.WINDOWS[i]
 		if wp != nil && wp.Buffer == bp {
 			count++
 		}
@@ -62,19 +62,19 @@ func BufferWindowCount(bp *Buffer) int {
 }
 
 func WindowRetile() {
-	if App.WindowCount == 0 {
+	if State.WindowCount == 0 {
 		return
 	}
-	usable := term.Rows() - int(App.WindowCount)
+	usable := term.Rows() - int(State.WindowCount)
 	if usable < 0 {
 		usable = 0
 	}
-	baseRows := usable / int(App.WindowCount)
-	extraRows := usable % int(App.WindowCount)
+	baseRows := usable / int(State.WindowCount)
+	extraRows := usable % int(State.WindowCount)
 	top := 0
 
-	for i := 0; i < int(App.WindowCount); i++ {
-		wp := App.WINDOWS[i]
+	for i := 0; i < int(State.WindowCount); i++ {
+		wp := State.WINDOWS[i]
 		if wp == nil {
 			continue
 		}

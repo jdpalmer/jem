@@ -1,15 +1,15 @@
 package modes
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/session"
 )
 
 type (
 	Buffer   = buffer.Buffer
 	Line     = buffer.Line
 	Location = buffer.Location
-	Window   = session.Window
+	Window   = app.Window
 )
 
 func MakeLocation(line, offset uint) Location { return buffer.MakeLocation(line, offset) }

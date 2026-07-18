@@ -5,18 +5,18 @@ package editor
 import (
 	"fmt"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sess "github.com/jdpalmer/jem/session"
 )
 
 var editorUndo buffer.UndoHistory
 
 func UndoBeginCommand() {
-	wp := session.App.CurrentWindow
-	if editorUndo.IsReplaying || session.App.CurrentBuffer == nil || wp == nil {
+	wp := app.State.CurrentWindow
+	if editorUndo.IsReplaying || app.State.CurrentBuffer == nil || wp == nil {
 		return
 	}
-	editorUndo.BeginCommand(session.App.CurrentBuffer, buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset))
+	editorUndo.BeginCommand(app.State.CurrentBuffer, buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset))
 }
 
 func UndoEndCommand() {
@@ -65,7 +65,7 @@ func CmdUndo(f bool, n int) bool {
 			fmt.Println("[no undo]")
 			return false
 		}
-		wp := session.App.CurrentWindow
+		wp := app.State.CurrentWindow
 		ok := editorUndo.Undo(buffer.UndoReplay{
 			InsertText: func(lineNumber, offset uint, text []byte, length uint) bool {
 				if wp == nil {
@@ -81,7 +81,7 @@ func CmdUndo(f bool, n int) bool {
 			},
 			SetCursor: func(loc Location) {
 				if wp != nil {
-					sess.WindowSetCursor(wp, loc)
+					app.WindowSetCursor(wp, loc)
 					wp.DidMove = true
 				}
 			},
@@ -89,7 +89,7 @@ func CmdUndo(f bool, n int) bool {
 				editorSwitchBuffer(bp)
 			},
 			CurrentBuffer: func() *Buffer {
-				return session.App.CurrentBuffer
+				return app.State.CurrentBuffer
 			},
 			OnRestoredSave: func(bp *Buffer) {
 				bp.IsChanged = false
@@ -111,23 +111,23 @@ func editorSwitchBuffer(bp *Buffer) {
 	if bp == nil {
 		return
 	}
-	cw := session.App.CurrentWindow
+	cw := app.State.CurrentWindow
 	if cw == nil {
 		return
 	}
 
-	sess.WindowSaveState(cw)
+	app.WindowSaveState(cw)
 
-	sess.SetCurrentBuffer(bp)
+	app.SetCurrentBuffer(bp)
 	cw.Buffer = bp
 	cw.ShouldUpdateModeLine = true
 	cw.ShouldReframe = true
 	cw.ShouldRedraw = true
-	sess.WindowSetTopLine(cw, 1)
+	app.WindowSetTopLine(cw, 1)
 	cw.HScroll = 0
 
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil && wp != cw && wp.Buffer == bp {
 			cw.TopLine = wp.TopLine
 			cw.Cursor = wp.Cursor
@@ -138,9 +138,9 @@ func editorSwitchBuffer(bp *Buffer) {
 	}
 
 	if bp.Cursor.Line >= 1 {
-		sess.WindowSetCursor(cw, bp.Cursor)
+		app.WindowSetCursor(cw, bp.Cursor)
 	} else {
-		sess.WindowSetCursor(cw, Location{Line: 1, Offset: 0})
+		app.WindowSetCursor(cw, Location{Line: 1, Offset: 0})
 	}
 	cw.Mark = bp.Mark
 }
@@ -151,10 +151,10 @@ var killRingIdx uint8
 var killAggregate []byte
 
 func killBegin() {
-	if session.App.KillState == CmdStateNone {
+	if app.State.KillState == CmdStateNone {
 		killAggregate = nil
 	}
-	session.App.KillState = CmdStateCurrent
+	app.State.KillState = CmdStateCurrent
 }
 
 func killAppend(text []byte, length uint) bool {

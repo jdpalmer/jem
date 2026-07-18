@@ -3,7 +3,7 @@ package modes
 import (
 	"bytes"
 
-	"github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 func lineColOfOffset(lp *Line, offset uint) int {
@@ -399,8 +399,8 @@ func cmdCNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil {
 		return false
 	}
@@ -419,8 +419,8 @@ func cmdCIndentLine(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -433,8 +433,8 @@ func cmdCIndentLine(f bool, n int) bool {
 func cmdCMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.BufferSetText == nil {
 		return false
 	}
@@ -507,8 +507,8 @@ func cmdCMakeComment(f bool, n int) bool {
 func cmdCTopOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -570,8 +570,8 @@ func cmdCTopOfFunction(f bool, n int) bool {
 func cmdCEndOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -617,7 +617,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 func cmdCMarkFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -647,8 +647,8 @@ func cmdCCloseBrace(f bool, n int) bool {
 	if n <= 0 {
 		n = 1
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.WindowInsertCodepoint == nil {
 		return false
 	}
@@ -674,7 +674,7 @@ func cmdCCloseBrace(f bool, n int) bool {
 func init() {
 	for i := range modeTable {
 		switch modeTable[i].Mode {
-		case session.LModeC, session.LModeJava, session.LModeCSharp, session.LModeGo, session.LModeKotlin, session.LModeSwift, session.LModeJavaScript, session.LModeTypeScript, session.LModeActionScript, session.LModeDart, session.LModeRust:
+		case app.LModeC, app.LModeJava, app.LModeCSharp, app.LModeGo, app.LModeKotlin, app.LModeSwift, app.LModeJavaScript, app.LModeTypeScript, app.LModeActionScript, app.LModeDart, app.LModeRust:
 			modeTable[i].NewlineAndIndent = cmdCNewlineAndIndent
 			modeTable[i].IndentLine = cmdCIndentLine
 			modeTable[i].CloseBrace = cmdCCloseBrace

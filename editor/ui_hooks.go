@@ -1,7 +1,7 @@
 package editor
 
 import (
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/ui"
 )
 
@@ -19,7 +19,7 @@ func initUIHooks() {
 		},
 		Abort:                       func() { CmdAbort(false, 1) },
 		MBWrite:                     mbWrite,
-		MarkPushCurrent:             sess.MarkPushCurrent,
+		MarkPushCurrent:             app.MarkPushCurrent,
 		TagsMaybeShowCallHint:       tagsMaybeShowCallHint,
 		AnyUnsavedBuffers:           anyUnsavedBuffers,
 		GitLineDiff:                 gitLineDiff,

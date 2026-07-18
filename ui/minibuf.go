@@ -4,9 +4,9 @@ package ui
 
 import (
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/fileio"
-	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"sort"
@@ -52,7 +52,7 @@ func mlBegin(style TextStyle) {
 func mlFinish(cursorCol int, messagePresent bool) {
 	screenEraseEol()
 	screenFlushRow(term.Rows(), cursorCol)
-	session.App.MessagePresent = messagePresent
+	app.State.MessagePresent = messagePresent
 }
 
 func mbWrite(format string, args ...interface{}) {
@@ -62,13 +62,13 @@ func mbWrite(format string, args ...interface{}) {
 	} else {
 		msg = fmt.Sprintf(format, args...)
 	}
-	mlBegin(session.App.Theme.NormalStyle)
+	mlBegin(app.State.Theme.NormalStyle)
 	screenPutBytes([]byte(msg))
 	mlFinish(0, len(msg) > 0)
 }
 
 func mbClear() {
-	mlBegin(session.App.Theme.NormalStyle)
+	mlBegin(app.State.Theme.NormalStyle)
 	mlFinish(0, false)
 }
 
@@ -106,7 +106,7 @@ func mbWritePromptStyle(prompt string, text []byte, cpos int, style TextStyle) {
 }
 
 func mbWritePrompt(prompt string, text []byte, cpos int) {
-	mbWritePromptStyle(prompt, text, cpos, session.App.Theme.NormalStyle)
+	mbWritePromptStyle(prompt, text, cpos, app.State.Theme.NormalStyle)
 }
 
 // ---- UTF-8 byte-offset helpers -----------------------------------------------
@@ -415,7 +415,7 @@ func mbYank(state *MinibufferState) bool {
 
 // editorMinibufferPaste inserts bracketed-paste text into the active minibuffer.
 func editorMinibufferPaste(text []byte) bool {
-	state := session.App.ActiveMinibuffer
+	state := app.State.ActiveMinibuffer
 	if state == nil {
 		return false
 	}
@@ -501,8 +501,8 @@ func mbEditKey(buf []byte, cpos *int, nbuf int, k uint32) MinibufferEditResult {
 	if k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J') {
 		return MinibufEditUnhandled
 	}
-	if session.App.KillState != CmdStateNone {
-		session.App.KillState--
+	if app.State.KillState != CmdStateNone {
+		app.State.KillState--
 	}
 	switch k {
 	case 0x7F, CTL | 'H':
@@ -552,8 +552,8 @@ func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPo
 	if k == KeyEnter || k == '\r' || k == '\n' || k == (CTL|'M') || k == (CTL|'J') {
 		return MinibufEditUnhandled
 	}
-	if session.App.KillState != CmdStateNone {
-		session.App.KillState--
+	if app.State.KillState != CmdStateNone {
+		app.State.KillState--
 	}
 	switch k {
 	case CTL | 'P', KeyUp:
@@ -615,8 +615,8 @@ func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) Prom
 		mbSetText(&state, initial)
 	}
 
-	session.App.ActiveMinibuffer = &state
-	defer func() { session.App.ActiveMinibuffer = nil }()
+	app.State.ActiveMinibuffer = &state
+	defer func() { app.State.ActiveMinibuffer = nil }()
 	drainGlobalMinibufKeys()
 	drainGlobalKeyCh()
 
@@ -831,8 +831,8 @@ func drainGlobalKeyCh() {
 // mlChoiceRender renders the visible choice window on the message line and
 // positions the cursor on the selected item.
 func mlChoiceRender(prompt string, ctx any, labelFn MLChoiceLabelFn, count, start, end, selected int) {
-	normalStyle := session.App.Theme.NormalStyle
-	selStyle := session.App.Theme.PickerSelectionStyle
+	normalStyle := app.State.Theme.NormalStyle
+	selStyle := app.State.Theme.PickerSelectionStyle
 	maxcol := term.Cols() - 1
 	col := 0
 	selectedCol := 0
@@ -891,8 +891,8 @@ func mbChoose(prompt string, ctx any, labelFn MLChoiceLabelFn, count uint8, defa
 		avail = 1
 	}
 
-	session.App.ActiveMinibuffer = &MinibufferState{}
-	defer func() { session.App.ActiveMinibuffer = nil }()
+	app.State.ActiveMinibuffer = &MinibufferState{}
+	defer func() { app.State.ActiveMinibuffer = nil }()
 	drainGlobalMinibufKeys()
 	drainGlobalKeyCh()
 
@@ -1305,9 +1305,9 @@ func mbReadFilename(prompt string, buf []byte, nbuf int) PromptResult {
 	refreshList(".")
 	syncMatches()
 
-	session.App.ActiveMinibuffer = &state
+	app.State.ActiveMinibuffer = &state
 	defer func() {
-		session.App.ActiveMinibuffer = nil
+		app.State.ActiveMinibuffer = nil
 		minibufferHideMatchWindow()
 		DisplayUpdate()
 	}()
@@ -1507,12 +1507,12 @@ type fuzzyMatchCtx struct {
 }
 
 func matchWindowGet() *Window {
-	mbp := sess.BufferFind("*match*")
+	mbp := app.BufferFind("*match*")
 	if mbp == nil {
 		return nil
 	}
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil && wp.Buffer == mbp {
 			return wp
 		}
@@ -1521,14 +1521,14 @@ func matchWindowGet() *Window {
 }
 
 func matchWindowShow() {
-	mbp := sess.BufferFind("*match*")
+	mbp := app.BufferFind("*match*")
 	if mbp == nil {
 		return
 	}
 	if matchWindowGet() != nil {
 		return
 	}
-	wp := sess.WindowCreate()
+	wp := app.WindowCreate()
 	if wp == nil {
 		return
 	}
@@ -1538,17 +1538,17 @@ func matchWindowShow() {
 	wp.Mark = Location{Line: 0, Offset: 0}
 	wp.ShouldRedraw = true
 	wp.ShouldUpdateModeLine = true
-	sess.WindowRetile()
+	app.WindowRetile()
 }
 
 func matchWindowRemove() {
 	mw := matchWindowGet()
-	if mw == nil || session.App.WindowCount <= 1 {
+	if mw == nil || app.State.WindowCount <= 1 {
 		return
 	}
 	idx := -1
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		if session.App.WINDOWS[i] == mw {
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		if app.State.WINDOWS[i] == mw {
 			idx = i
 			break
 		}
@@ -1556,19 +1556,19 @@ func matchWindowRemove() {
 	if idx < 0 {
 		return
 	}
-	if session.App.CurrentWindow == mw {
-		newCur := session.App.WINDOWS[0]
-		if idx == 0 && session.App.WindowCount > 1 {
-			newCur = session.App.WINDOWS[1]
+	if app.State.CurrentWindow == mw {
+		newCur := app.State.WINDOWS[0]
+		if idx == 0 && app.State.WindowCount > 1 {
+			newCur = app.State.WINDOWS[1]
 		}
-		sess.WindowSelect(newCur)
+		app.WindowSelect(newCur)
 	}
-	for i := idx; i < int(session.App.WindowCount)-1; i++ {
-		session.App.WINDOWS[i] = session.App.WINDOWS[i+1]
+	for i := idx; i < int(app.State.WindowCount)-1; i++ {
+		app.State.WINDOWS[i] = app.State.WINDOWS[i+1]
 	}
-	session.App.WINDOWS[session.App.WindowCount-1] = nil
-	session.App.WindowCount--
-	sess.WindowRetile()
+	app.State.WINDOWS[app.State.WindowCount-1] = nil
+	app.State.WindowCount--
+	app.WindowRetile()
 }
 
 func minibufferHideMatchWindow() {
@@ -1628,7 +1628,7 @@ func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize uint, listIdx 
 
 func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, selected uint) {
 	if count == 0 {
-		if sess.BufferFind("*match*") != nil {
+		if app.BufferFind("*match*") != nil {
 			minibufferHideMatchWindow()
 			DisplayUpdate()
 		}
@@ -1652,9 +1652,9 @@ func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, se
 		out.WriteByte('\n')
 	}
 
-	mbp := sess.BufferFind("*match*")
+	mbp := app.BufferFind("*match*")
 	if mbp == nil {
-		mbp = sess.BufferCreate(&session.App.EditorRuntimeState)
+		mbp = app.BufferCreate(&app.State.EditorRuntimeState)
 		if mbp == nil {
 			return
 		}
@@ -1822,9 +1822,9 @@ func mbReadFuzzyListEx(prompt string, provider MbNameProviderFn, providerCtx any
 
 	matches := fuzzyMatches(provider, providerCtx, providerCount, state.Text, fuzzyMaxMatches)
 
-	session.App.ActiveMinibuffer = &state
+	app.State.ActiveMinibuffer = &state
 	defer func() {
-		session.App.ActiveMinibuffer = nil
+		app.State.ActiveMinibuffer = nil
 		minibufferHideMatchWindow()
 		DisplayUpdate()
 	}()

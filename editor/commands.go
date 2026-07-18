@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 // commands.go - Editor text commands and movement (translation of cmd_move.c and cmd_edit.c)
@@ -141,8 +141,8 @@ func backwardWordLoc(bp *Buffer, loc Location) Location {
 
 // Move forward by a single codepoint, preserving UTF-8 boundaries.
 func CmdForwardChar(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -163,8 +163,8 @@ func CmdForwardChar(f bool, n int) bool {
 }
 
 func CmdBackwardChar(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -192,8 +192,8 @@ func CmdBackwardChar(f bool, n int) bool {
 // CmdForwardWord moves forward by words (ASCII words: letters, digits, underscore)
 func CmdForwardWord(f bool, n int) bool {
 	_ = f
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -207,8 +207,8 @@ func CmdForwardWord(f bool, n int) bool {
 // CmdBackwardWord moves backward by words
 func CmdBackwardWord(f bool, n int) bool {
 	_ = f
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -225,8 +225,8 @@ func CmdDeleteWordForward(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -251,8 +251,8 @@ func CmdDeleteWordBackward(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -303,8 +303,8 @@ func CmdLowerWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -333,8 +333,8 @@ func CmdUpperWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -362,8 +362,8 @@ func CmdCapWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -399,8 +399,8 @@ func CmdTransposeWords(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -442,8 +442,8 @@ func CmdTransposeWords(f bool, n int) bool {
 func CmdFillParagraph(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -523,7 +523,7 @@ func CmdFillParagraph(f bool, n int) bool {
 
 // Page-wise movement
 func CmdForwardPage(f bool, n int) bool {
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -537,7 +537,7 @@ func CmdForwardPage(f bool, n int) bool {
 }
 
 func CmdBackwardPage(f bool, n int) bool {
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -551,8 +551,8 @@ func CmdBackwardPage(f bool, n int) bool {
 }
 
 func CmdForwardLine(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -572,8 +572,8 @@ func CmdForwardLine(f bool, n int) bool {
 }
 
 func CmdBackwardLine(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -593,7 +593,7 @@ func CmdBackwardLine(f bool, n int) bool {
 }
 
 func CmdGotoBol(f bool, n int) bool {
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp != nil {
 		wp.Cursor.Offset = 0
 		wp.DidMove = true
@@ -602,8 +602,8 @@ func CmdGotoBol(f bool, n int) bool {
 }
 
 func CmdGotoEol(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp != nil && bp != nil {
 		line := buffer.GetLine(bp, wp.Cursor.Line)
 		if line != nil {
@@ -617,7 +617,7 @@ func CmdGotoEol(f bool, n int) bool {
 }
 
 func CmdGotoBof(f bool, n int) bool {
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp != nil {
 		wp.Cursor.Line = 1
 		wp.Cursor.Offset = 0
@@ -627,8 +627,8 @@ func CmdGotoBof(f bool, n int) bool {
 }
 
 func CmdGotoEof(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp != nil && bp != nil {
 		wp.Cursor.Line = bp.LineCount
 		line := buffer.GetLine(bp, wp.Cursor.Line)
@@ -646,8 +646,8 @@ func CmdDeleteBackward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteForward(f, -n)
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly || n == 0 {
 		return false
 	}
@@ -674,8 +674,8 @@ func CmdDeleteForward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteBackward(f, -n)
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly || n == 0 {
 		return false
 	}
@@ -698,8 +698,8 @@ func CmdDeleteForward(f bool, n int) bool {
 }
 
 func CmdInsertChar(c byte) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -787,8 +787,8 @@ func CmdKillBuffer(f bool, n int) bool {
 	_ = f
 	// If numeric argument provided, kill that buffer (1-based index)
 	if n > 0 {
-		if n <= int(session.App.BufferCount) {
-			bp := session.App.Buffers[n-1]
+		if n <= int(app.State.BufferCount) {
+			bp := app.State.Buffers[n-1]
 			if bp == nil {
 				mbWrite("[no such buffer]")
 				return false
@@ -798,7 +798,7 @@ func CmdKillBuffer(f bool, n int) bool {
 				mbWrite("[aborted]")
 				return false
 			}
-			sess.BufferRelease(bp)
+			app.BufferRelease(bp)
 			mbWrite("[buffer killed]")
 			return true
 		}
@@ -807,7 +807,7 @@ func CmdKillBuffer(f bool, n int) bool {
 	}
 
 	// default: kill current buffer with confirmation
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp == nil {
 		mbWrite("[no buffer to kill]")
 		return false
@@ -816,7 +816,7 @@ func CmdKillBuffer(f bool, n int) bool {
 		mbWrite("[aborted]")
 		return false
 	}
-	sess.BufferRelease(bp)
+	app.BufferRelease(bp)
 	mbWrite("[buffer killed]")
 	return true
 }
@@ -826,9 +826,9 @@ func CmdKillBuffer(f bool, n int) bool {
 func CmdKillBufferFuzzy(f bool, n int) bool {
 	_ = f
 	_ = n
-	names := make([]string, 0, session.App.BufferCount)
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	names := make([]string, 0, app.State.BufferCount)
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp == nil {
 			continue
 		}
@@ -846,8 +846,8 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 		return false
 	}
 	// find buffer by name
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp == nil {
 			continue
 		}
@@ -856,7 +856,7 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 				mbWrite("[aborted]")
 				return false
 			}
-			sess.BufferRelease(bp)
+			app.BufferRelease(bp)
 			mbWrite("[buffer killed]")
 			return true
 		}
@@ -867,9 +867,9 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 
 // pickBufferList returns the active buffers in editor order.
 func pickBufferList() []*Buffer {
-	list := make([]*Buffer, 0, session.App.BufferCount)
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		if bp := session.App.Buffers[i]; bp != nil {
+	list := make([]*Buffer, 0, app.State.BufferCount)
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		if bp := app.State.Buffers[i]; bp != nil {
 			list = append(list, bp)
 		}
 	}
@@ -885,8 +885,8 @@ func bufferChoiceLabel(ctx any, idx uint8) []byte {
 }
 
 func findBufferByLabel(label string) *Buffer {
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp == nil {
 			continue
 		}
@@ -901,8 +901,8 @@ func findBufferByLabel(label string) *Buffer {
 // select the nth buffer (1-based) directly. Otherwise show a horizontal picker (C-x b).
 func CmdUseBuffer(f bool, n int) bool {
 	if f && n > 0 {
-		if n <= int(session.App.BufferCount) {
-			bp := session.App.Buffers[n-1]
+		if n <= int(app.State.BufferCount) {
+			bp := app.State.Buffers[n-1]
 			if bp != nil {
 				editorSwitchBuffer(bp)
 				return true
@@ -918,7 +918,7 @@ func CmdUseBuffer(f bool, n int) bool {
 	}
 
 	var bp *Buffer
-	if session.App.IsPlaying() {
+	if app.State.IsPlaying() {
 		label, pr := mbReadStringCap("Buffer: ", "", BufferNameCapacity)
 		if pr != PromptResultYes {
 			return false
@@ -957,7 +957,7 @@ func CmdUseBuffer(f bool, n int) bool {
 func CmdBackToIndentation(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -973,8 +973,8 @@ func CmdBackToIndentation(f bool, n int) bool {
 
 // CmdGotoLine jumps to a specific line number.
 func CmdGotoLine(f bool, n int) bool {
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -1002,9 +1002,9 @@ func CmdGotoLine(f bool, n int) bool {
 		return false
 	}
 	if wp.Cursor.Line != target || wp.Cursor.Offset != 0 {
-		sess.MarkPushCurrent()
+		app.MarkPushCurrent()
 	}
-	sess.WindowSetCursor(wp, buffer.MakeLocation(target, 0))
+	app.WindowSetCursor(wp, buffer.MakeLocation(target, 0))
 	wp.ShouldRedraw = true
 	return true
 }

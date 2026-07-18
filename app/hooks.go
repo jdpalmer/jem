@@ -1,4 +1,4 @@
-package session
+package app
 
 type Hooks struct {
 	UndoForgetBuffer func(bp *Buffer)

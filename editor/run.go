@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -113,8 +114,8 @@ func editorReadKey(keyOut *uint32) bool {
 }
 
 func anyUnsavedBuffers() bool {
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp != nil && bp.IsChanged {
 			return true
 		}
@@ -124,7 +125,7 @@ func anyUnsavedBuffers() bool {
 
 // handleEditorKey dispatches one input event. Returns false when the loop should exit.
 func handleEditorKey(k uint32) bool {
-	if session.App.MessagePresent {
+	if app.State.MessagePresent {
 		mbClear()
 	}
 	if k == 0x03 { // Ctrl-C
@@ -135,10 +136,10 @@ func handleEditorKey(k uint32) bool {
 		}
 		return false
 	}
-	session.App.Dispatching = true
+	app.State.Dispatching = true
 	_ = DispatchCommand(k)
-	session.App.Dispatching = false
-	if !session.App.MessagePresent {
+	app.State.Dispatching = false
+	if !app.State.MessagePresent {
 		tagsMaybeShowCallHint()
 	}
 	if quitRequested {

@@ -1,8 +1,8 @@
 package modes
 
-import "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
-func modeCommentLinePrefix(info *session.ModeInfo) []byte {
+func modeCommentLinePrefix(info *app.ModeInfo) []byte {
 	if info == nil {
 		return nil
 	}
@@ -11,7 +11,7 @@ func modeCommentLinePrefix(info *session.ModeInfo) []byte {
 	}
 	if info.CommentOpen != "" {
 		flags := info.SyntaxFlags
-		if (flags&(session.ModeFlagCommentHash|session.ModeFlagCommentSemi|session.ModeFlagCommentLua)) != 0 || len(info.CommentOpen) == 1 {
+		if (flags&(app.ModeFlagCommentHash|app.ModeFlagCommentSemi|app.ModeFlagCommentLua)) != 0 || len(info.CommentOpen) == 1 {
 			return []byte(info.CommentOpen)
 		}
 	}
@@ -34,14 +34,14 @@ func lineHasCommentPrefix(lp *Line, prefix []byte) bool {
 	return true
 }
 
-func modeSupportsComments(info *session.ModeInfo) bool {
+func modeSupportsComments(info *app.ModeInfo) bool {
 	if info == nil {
 		return false
 	}
 	return info.CommentOpen != "" || info.CommentAppend != ""
 }
 
-func modeToggleCommentRegion(wp *Window, bp *Buffer, info *session.ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
+func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
 	if PackageHooks.BufferSetText == nil {
 		return false
 	}
@@ -114,8 +114,8 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *session.ModeInfo, lin
 func CmdModeToggleComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -210,8 +210,8 @@ func CmdModeToggleComment(f bool, n int) bool {
 func CmdCommentDwim(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}

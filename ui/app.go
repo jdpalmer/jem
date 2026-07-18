@@ -1,11 +1,6 @@
 package ui
 
-import sessionpkg "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
-type App = sessionpkg.AppState
-
-var session = struct {
-	App *sessionpkg.AppState
-}{
-	App: &sessionpkg.App,
-}
+// App is retained as an alias for test resets and local clarity.
+type App = app.AppState

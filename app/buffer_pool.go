@@ -1,4 +1,4 @@
-package session
+package app
 
 import "github.com/jdpalmer/jem/buffer"
 
@@ -26,33 +26,33 @@ func BufferRelease(bp *Buffer) {
 		return
 	}
 	idx := -1
-	for i := 0; i < int(App.BufferCount); i++ {
-		if App.Buffers[i] == bp {
+	for i := 0; i < int(State.BufferCount); i++ {
+		if State.Buffers[i] == bp {
 			idx = i
 			break
 		}
 	}
 	if idx != -1 {
-		for i := idx; i < int(App.BufferCount)-1; i++ {
-			App.Buffers[i] = App.Buffers[i+1]
+		for i := idx; i < int(State.BufferCount)-1; i++ {
+			State.Buffers[i] = State.Buffers[i+1]
 		}
-		App.Buffers[App.BufferCount-1] = nil
-		App.BufferCount--
+		State.Buffers[State.BufferCount-1] = nil
+		State.BufferCount--
 	}
 
 	replacement := (*Buffer)(nil)
-	if App.BufferCount > 0 {
-		replacement = App.Buffers[0]
+	if State.BufferCount > 0 {
+		replacement = State.Buffers[0]
 	}
 
-	for i := 0; i < int(App.WindowCount); i++ {
-		wp := App.WINDOWS[i]
+	for i := 0; i < int(State.WindowCount); i++ {
+		wp := State.WINDOWS[i]
 		if wp == nil {
 			continue
 		}
 		if wp.Buffer == bp {
 			if replacement == nil {
-				replacement = BufferCreate(&App.EditorRuntimeState)
+				replacement = BufferCreate(&State.EditorRuntimeState)
 				if replacement == nil {
 					wp.Buffer = nil
 					continue
@@ -71,11 +71,11 @@ func BufferRelease(bp *Buffer) {
 		}
 	}
 
-	if App.CurrentBuffer == bp {
+	if State.CurrentBuffer == bp {
 		if replacement != nil {
-			App.CurrentBuffer = replacement
+			State.CurrentBuffer = replacement
 		} else {
-			App.CurrentBuffer = nil
+			State.CurrentBuffer = nil
 		}
 	}
 

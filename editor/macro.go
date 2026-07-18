@@ -1,41 +1,44 @@
 package editor
 
-import "github.com/jdpalmer/jem/term"
+import (
+	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/term"
+)
 
 // macro.go - Macro recording/playback and command execution (translation of src/macro.c)
 
 func macroInit() {
-	session.App.Keys[0] = int32(CTLX | ')')
-	session.App.RecordPos = -1
-	session.App.PlayPos = -1
+	app.State.Keys[0] = int32(CTLX | ')')
+	app.State.RecordPos = -1
+	app.State.PlayPos = -1
 }
 
 func macroRefreshModelines() {
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		if wp := session.App.WINDOWS[i]; wp != nil {
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		if wp := app.State.WINDOWS[i]; wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
 	}
 }
 
 func macroRecordAppend(k int32) bool {
-	if !session.App.IsRecording() {
+	if !app.State.IsRecording() {
 		return true
 	}
-	if session.App.RecordPos >= MacroCapacity {
+	if app.State.RecordPos >= MacroCapacity {
 		return CmdAbort(false, 1)
 	}
-	session.App.Keys[session.App.RecordPos] = k
-	session.App.RecordPos++
+	app.State.Keys[app.State.RecordPos] = k
+	app.State.RecordPos++
 	return true
 }
 
 // macroRecordBytes appends raw bytes (e.g. buffer names, prompt input) to the macro.
 func macroRecordBytes(data []byte) bool {
-	if !session.App.IsRecording() {
+	if !app.State.IsRecording() {
 		return true
 	}
-	if session.App.RecordPos+len(data) > MacroCapacity-3 {
+	if app.State.RecordPos+len(data) > MacroCapacity-3 {
 		return CmdAbort(false, 1)
 	}
 	for _, b := range data {
@@ -48,10 +51,10 @@ func macroRecordBytes(data []byte) bool {
 
 // macroRecordKey records one key for the active macro, if any.
 func macroRecordKey(c int, f bool, n int) bool {
-	if !session.App.IsRecording() {
+	if !app.State.IsRecording() {
 		return true
 	}
-	if c != int(CTLX|'E') && c != int(CTLX|')') && session.App.RecordPos > MacroCapacity-6 {
+	if c != int(CTLX|'E') && c != int(CTLX|')') && app.State.RecordPos > MacroCapacity-6 {
 		return CmdAbort(false, 1)
 	}
 	if c != int(CTLX|'E') {
@@ -72,13 +75,13 @@ func macroRecordKey(c int, f bool, n int) bool {
 
 // macroPlayPrompt fills buf from the macro stream during playback (until a NUL byte).
 func macroPlayPrompt(buf []byte) (PromptResult, bool) {
-	if !session.App.IsPlaying() {
+	if !app.State.IsPlaying() {
 		return PromptResultAbort, false
 	}
 	pos := 0
-	for session.App.PlayPos < MacroCapacity {
-		c := session.App.Keys[session.App.PlayPos]
-		session.App.PlayPos++
+	for app.State.PlayPos < MacroCapacity {
+		c := app.State.Keys[app.State.PlayPos]
+		app.State.PlayPos++
 		if c == 0 {
 			break
 		}
@@ -99,28 +102,28 @@ func macroPlayPrompt(buf []byte) (PromptResult, bool) {
 // Execute dispatches a key through the command table or self-insert path.
 // Mirrors execute() in src/macro.c.
 func Execute(c int, f bool, n int) bool {
-	if session.App.CurrentBuffer == nil || session.App.CurrentWindow == nil {
+	if app.State.CurrentBuffer == nil || app.State.CurrentWindow == nil {
 		return false
 	}
 
-	if bp := session.App.CurrentBuffer; bp != nil && bp.Name == grepBufferName {
+	if bp := app.State.CurrentBuffer; bp != nil && bp.Name == grepBufferName {
 		keycode := uint32(c)
 		if keycode == KeyEnter || keycode == '\r' || keycode == '\n' {
 			return CmdGrepVisitMatch(f, n)
 		}
 	}
-	if bp := session.App.CurrentBuffer; bp != nil && bp.Name == compileBufferName {
+	if bp := app.State.CurrentBuffer; bp != nil && bp.Name == compileBufferName {
 		keycode := uint32(c)
 		if keycode == KeyEnter || keycode == '\r' || keycode == '\n' {
 			return CmdCompileVisitDiag(f, n)
 		}
 	}
 
-	if session.App.MovementState > CmdStateNone {
-		session.App.MovementState--
+	if app.State.MovementState > CmdStateNone {
+		app.State.MovementState--
 	}
-	if session.App.KillState > CmdStateNone {
-		session.App.KillState--
+	if app.State.KillState > CmdStateNone {
+		app.State.KillState--
 	}
 
 	keycode := uint32(c)
@@ -244,7 +247,7 @@ func processEditorKey(k uint32) bool {
 		}
 	}
 
-	if session.App.IsRecording() {
+	if app.State.IsRecording() {
 		if !macroRecordKey(int(k), f, n) {
 			return true
 		}
@@ -256,16 +259,16 @@ func processEditorKey(k uint32) bool {
 func CmdMacroStart(f bool, n int) bool {
 	_ = f
 	_ = n
-	if session.App.IsPlaying() {
+	if app.State.IsPlaying() {
 		mbWrite("Not now")
 		return false
 	}
-	if session.App.IsRecording() {
+	if app.State.IsRecording() {
 		mbWrite("Not now")
 		return false
 	}
 	mbWrite("[start macro]")
-	session.App.RecordPos = 0
+	app.State.RecordPos = 0
 	macroRefreshModelines()
 	return true
 }
@@ -274,12 +277,12 @@ func CmdMacroStart(f bool, n int) bool {
 func CmdMacroEnd(f bool, n int) bool {
 	_ = f
 	_ = n
-	if !session.App.IsRecording() {
+	if !app.State.IsRecording() {
 		mbWrite("[not now]")
 		return false
 	}
 	mbWrite("[end macro]")
-	session.App.RecordPos = -1
+	app.State.RecordPos = -1
 	macroRefreshModelines()
 	return true
 }
@@ -290,7 +293,7 @@ func CmdMacroExec(f bool, n int) bool {
 	if f {
 		repeat = n
 	}
-	if session.App.IsRecording() || session.App.IsPlaying() {
+	if app.State.IsRecording() || app.State.IsPlaying() {
 		mbWrite("[not now]")
 		return false
 	}
@@ -300,29 +303,29 @@ func CmdMacroExec(f bool, n int) bool {
 
 	success := true
 	for i := 0; i < repeat; i++ {
-		session.App.PlayPos = 0
+		app.State.PlayPos = 0
 		for {
 			af := false
 			an := 1
-			if session.App.PlayPos >= MacroCapacity {
+			if app.State.PlayPos >= MacroCapacity {
 				break
 			}
-			c := int(session.App.Keys[session.App.PlayPos])
-			session.App.PlayPos++
+			c := int(app.State.Keys[app.State.PlayPos])
+			app.State.PlayPos++
 			if c == int(CTL|'U') {
 				af = true
-				if session.App.PlayPos >= MacroCapacity {
+				if app.State.PlayPos >= MacroCapacity {
 					success = false
 					break
 				}
-				an = int(session.App.Keys[session.App.PlayPos])
-				session.App.PlayPos++
-				if session.App.PlayPos >= MacroCapacity {
+				an = int(app.State.Keys[app.State.PlayPos])
+				app.State.PlayPos++
+				if app.State.PlayPos >= MacroCapacity {
 					success = false
 					break
 				}
-				c = int(session.App.Keys[session.App.PlayPos])
-				session.App.PlayPos++
+				c = int(app.State.Keys[app.State.PlayPos])
+				app.State.PlayPos++
 			}
 			if c == int(CTLX|')') {
 				break
@@ -332,7 +335,7 @@ func CmdMacroExec(f bool, n int) bool {
 				break
 			}
 		}
-		session.App.PlayPos = -1
+		app.State.PlayPos = -1
 		if !success {
 			break
 		}
@@ -348,9 +351,9 @@ func CmdAbort(f bool, n int) bool {
 	if backgroundJobRequestCancel() {
 		return false
 	}
-	if session.App.IsRecording() {
-		session.App.Keys[0] = int32(CTLX | ')')
-		session.App.RecordPos = -1
+	if app.State.IsRecording() {
+		app.State.Keys[0] = int32(CTLX | ')')
+		app.State.RecordPos = -1
 	}
 	macroRefreshModelines()
 	mbWrite("[cancelled]")
@@ -359,7 +362,7 @@ func CmdAbort(f bool, n int) bool {
 
 // macroRecordMinibufferResult records accepted minibuffer text during macro recording.
 func macroRecordMinibufferResult(text []byte) {
-	if !session.App.IsRecording() || len(text) == 0 {
+	if !app.State.IsRecording() || len(text) == 0 {
 		return
 	}
 	data := make([]byte, len(text)+1)
@@ -369,7 +372,7 @@ func macroRecordMinibufferResult(text []byte) {
 
 // macroRecordBufferName records a buffer name (NUL-terminated) during macro recording.
 func macroRecordBufferName(bp *Buffer) {
-	if !session.App.IsRecording() || bp == nil {
+	if !app.State.IsRecording() || bp == nil {
 		return
 	}
 	data := append([]byte(bp.Name), 0)

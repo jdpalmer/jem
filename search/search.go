@@ -5,33 +5,33 @@ import (
 	"regexp"
 	"unicode"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/session"
 )
 
 type (
-	Buffer           = session.Buffer
-	Window           = session.Window
-	Location         = session.Location
-	PromptResult     = session.PromptResult
-	TextStyle        = session.TextStyle
-	TransientAction  = session.TransientAction
-	TransientBinding = session.TransientBinding
+	Buffer           = app.Buffer
+	Window           = app.Window
+	Location         = app.Location
+	PromptResult     = app.PromptResult
+	TextStyle        = app.TextStyle
+	TransientAction  = app.TransientAction
+	TransientBinding = app.TransientBinding
 )
 
 const (
-	PatternCapacity       = session.PatternCapacity
-	PromptResultNo        = session.PromptResultNo
-	PromptResultYes       = session.PromptResultYes
-	PromptResultAbort     = session.PromptResultAbort
-	SearchScopeBuffer     = session.SearchScopeBuffer
-	SearchScopeAllBuffers = session.SearchScopeAllBuffers
-	MinibufEditUnhandled  = session.MinibufEditUnhandled
-	MinibufEditNoChange   = session.MinibufEditNoChange
-	CTL                   = session.CTL
-	KeyEnter              = session.KeyEnter
-	KeyMask               = session.KeyMask
-	TermColorRed          = session.TermColorRed
+	PatternCapacity       = app.PatternCapacity
+	PromptResultNo        = app.PromptResultNo
+	PromptResultYes       = app.PromptResultYes
+	PromptResultAbort     = app.PromptResultAbort
+	SearchScopeBuffer     = app.SearchScopeBuffer
+	SearchScopeAllBuffers = app.SearchScopeAllBuffers
+	MinibufEditUnhandled  = app.MinibufEditUnhandled
+	MinibufEditNoChange   = app.MinibufEditNoChange
+	CTL                   = app.CTL
+	KeyEnter              = app.KeyEnter
+	KeyMask               = app.KeyMask
+	TermColorRed          = app.TermColorRed
 )
 
 var (
@@ -85,7 +85,7 @@ func mbHistoryAdd(text string) {
 	}
 }
 
-func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) session.MinibufferEditResult {
+func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) app.MinibufferEditResult {
 	if PackageHooks.MBEditKeyHistory == nil {
 		return MinibufEditUnhandled
 	}
@@ -202,7 +202,7 @@ func transientLookup(code uint32, defaultAction replaceAction) replaceAction {
 }
 
 func searchScopeIsAllBuffers() bool {
-	return session.App.SearchScopeSetting == SearchScopeAllBuffers
+	return app.State.SearchScopeSetting == SearchScopeAllBuffers
 }
 
 func buildSearchPrompt(label string) string {
@@ -225,19 +225,19 @@ func updateSearchCase(pattern string) {
 }
 
 func searchPatternBytes() []byte {
-	return []byte(session.App.SearchPattern)
+	return []byte(app.State.SearchPattern)
 }
 
 func readPattern(label string) PromptResult {
 	display := buildSearchPrompt(label)
-	pattern, pr := mbReadString(display, session.App.SearchPattern)
+	pattern, pr := mbReadString(display, app.State.SearchPattern)
 	if pr == PromptResultYes {
-		session.App.SearchPattern = truncatePattern(pattern)
-	} else if pr == PromptResultNo && session.App.SearchPattern != "" {
+		app.State.SearchPattern = truncatePattern(pattern)
+	} else if pr == PromptResultNo && app.State.SearchPattern != "" {
 		pr = PromptResultYes
 	}
 	if pr == PromptResultYes {
-		updateSearchCase(session.App.SearchPattern)
+		updateSearchCase(app.State.SearchPattern)
 	}
 	return pr
 }
@@ -245,8 +245,8 @@ func readPattern(label string) PromptResult {
 func searchScopeInit(origin *Buffer) bufferSearchScope {
 	scope := bufferSearchScope{allBuffers: searchScopeIsAllBuffers()}
 	scope.buffers = append(scope.buffers, origin)
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp != nil && bp != origin {
 			scope.buffers = append(scope.buffers, bp)
 		}
@@ -278,18 +278,18 @@ func restoreSearchSnapshot(wp *Window, snap *ISearchSnapshot) {
 	if snap == nil || snap.Buffer == nil || snap.Line == 0 {
 		return
 	}
-	if session.App.CurrentBuffer != snap.Buffer {
-		if session.PackageHooks.SwitchBuffer != nil {
-			session.PackageHooks.SwitchBuffer(snap.Buffer)
+	if app.State.CurrentBuffer != snap.Buffer {
+		if app.PackageHooks.SwitchBuffer != nil {
+			app.PackageHooks.SwitchBuffer(snap.Buffer)
 		} else {
-			session.SetCurrentBuffer(snap.Buffer)
+			app.SetCurrentBuffer(snap.Buffer)
 		}
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 	}
 	if wp == nil {
 		return
 	}
-	session.WindowSetCursor(wp, Location{Line: snap.Line, Offset: snap.Offset})
+	app.WindowSetCursor(wp, Location{Line: snap.Line, Offset: snap.Offset})
 	wp.Mark.Line = snap.MarkLine
 	wp.Mark.Offset = snap.MarkOff
 	wp.DidMove = true
@@ -310,16 +310,16 @@ func searchSwitchBuffer(wp *Window, bp *Buffer, loc Location) {
 	if bp == nil || loc.Line == 0 {
 		return
 	}
-	if session.App.CurrentBuffer != bp {
-		if session.PackageHooks.SwitchBuffer != nil {
-			session.PackageHooks.SwitchBuffer(bp)
+	if app.State.CurrentBuffer != bp {
+		if app.PackageHooks.SwitchBuffer != nil {
+			app.PackageHooks.SwitchBuffer(bp)
 		} else {
-			session.SetCurrentBuffer(bp)
+			app.SetCurrentBuffer(bp)
 		}
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 	}
 	if wp != nil {
-		session.WindowSetCursor(wp, loc)
+		app.WindowSetCursor(wp, loc)
 		wp.DidMove = true
 	}
 }
@@ -412,7 +412,7 @@ func findNextPlain(wp *Window, pattern []byte) bool {
 			}
 		}
 		if matched {
-			session.WindowSetCursor(wp, Location{Line: tline, Offset: tbo})
+			app.WindowSetCursor(wp, Location{Line: tline, Offset: tbo})
 			wp.DidMove = true
 			return true
 		}
@@ -448,7 +448,7 @@ func findPrevPlain(wp *Window, pattern []byte) bool {
 			}
 		}
 		if matched {
-			session.WindowSetCursor(wp, Location{Line: tline, Offset: tbo})
+			app.WindowSetCursor(wp, Location{Line: tline, Offset: tbo})
 			wp.DidMove = true
 			return true
 		}
@@ -470,7 +470,7 @@ func findNextInScope(wp *Window, scope *bufferSearchScope, pattern []byte) bool 
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchStart(bp))
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if wp != nil && findNextPlain(wp, pattern) {
 			return true
 		}
@@ -493,7 +493,7 @@ func findPrevInScope(wp *Window, scope *bufferSearchScope, pattern []byte) bool 
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchEnd(bp))
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if wp != nil && findPrevPlain(wp, pattern) {
 			return true
 		}
@@ -530,8 +530,8 @@ func isearchHighlightMatch(wp *Window, start, end Location, backward bool) {
 }
 
 func isearchSetPlainPattern(pattern string) {
-	session.App.SearchPattern = truncatePattern(pattern)
-	updateSearchCase(session.App.SearchPattern)
+	app.State.SearchPattern = truncatePattern(pattern)
+	updateSearchCase(app.State.SearchPattern)
 }
 
 func isearchRunPlain(wp *Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
@@ -539,7 +539,7 @@ func isearchRunPlain(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 		return false
 	}
 	restoreSearchSnapshot(wp, start)
-	wp = session.App.CurrentWindow
+	wp = app.State.CurrentWindow
 	if len(pattern) == 0 {
 		*out = saveSearchSnapshot(wp, 0)
 		return true
@@ -554,7 +554,7 @@ func isearchRunPlain(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 	if !ok {
 		return false
 	}
-	wp = session.App.CurrentWindow
+	wp = app.State.CurrentWindow
 	isearchHighlightPlain(wp, len(pattern), backward)
 	*out = saveSearchSnapshot(wp, len(pattern))
 	return true
@@ -649,7 +649,7 @@ func findNextRegexInScope(wp *Window, scope *bufferSearchScope, pattern string) 
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchStart(bp))
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if wp == nil {
 			continue
 		}
@@ -674,7 +674,7 @@ func findPrevRegexInScope(wp *Window, scope *bufferSearchScope, pattern string) 
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchEnd(bp))
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if wp == nil {
 			continue
 		}
@@ -691,7 +691,7 @@ func isearchRunRegex(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 		return false
 	}
 	restoreSearchSnapshot(wp, start)
-	wp = session.App.CurrentWindow
+	wp = app.State.CurrentWindow
 	if pattern == "" {
 		*out = saveSearchSnapshot(wp, 0)
 		return true
@@ -711,11 +711,11 @@ func isearchRunRegex(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 		isearchClearHighlight(wp)
 		return false
 	}
-	wp = session.App.CurrentWindow
+	wp = app.State.CurrentWindow
 	if backward {
-		session.WindowSetCursor(wp, match.Start)
+		app.WindowSetCursor(wp, match.Start)
 	} else {
-		session.WindowSetCursor(wp, match.End)
+		app.WindowSetCursor(wp, match.End)
 	}
 	wp.DidMove = true
 	isearchHighlightMatch(wp, match.Start, match.End, backward)
@@ -730,9 +730,9 @@ func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp
 	} else {
 		prompt += ": "
 	}
-	style := session.App.Theme.NormalStyle
+	style := app.State.Theme.NormalStyle
 	if failing {
-		style = MakeTextStyle(TermColorRed, TextStyleBg(session.App.Theme.NormalStyle), 0)
+		style = MakeTextStyle(TermColorRed, TextStyleBg(app.State.Theme.NormalStyle), 0)
 	}
 	end := bytes.IndexByte(pattern, 0)
 	if end < 0 {
@@ -742,8 +742,8 @@ func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp
 }
 
 func isearchPlainLoop(backward bool) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -764,14 +764,14 @@ func isearchPlainLoop(backward bool) bool {
 		label = "isearch backward"
 	}
 
-	mbState := session.MinibufferState{}
-	session.App.ActiveMinibuffer = &mbState
-	defer func() { session.App.ActiveMinibuffer = nil }()
+	mbState := app.MinibufferState{}
+	app.State.ActiveMinibuffer = &mbState
+	defer func() { app.State.ActiveMinibuffer = nil }()
 
-	session.App.ShowPhantomCursor = true
+	app.State.ShowPhantomCursor = true
 	defer func() {
-		session.App.ShowPhantomCursor = false
-		isearchClearHighlight(session.App.CurrentWindow)
+		app.State.ShowPhantomCursor = false
+		isearchClearHighlight(app.State.CurrentWindow)
 	}()
 
 	for {
@@ -816,7 +816,7 @@ func isearchPlainLoop(backward bool) bool {
 				continue
 			}
 			var next ISearchSnapshot
-			wp = session.App.CurrentWindow
+			wp = app.State.CurrentWindow
 			if isearchRunPlain(wp, &scope, &lastSuccess, pat[:plen], backward, &next) {
 				lastSuccess = next
 				failing = false
@@ -855,7 +855,7 @@ func isearchPlainLoop(backward bool) bool {
 			continue
 		}
 		var next ISearchSnapshot
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if isearchRunPlain(wp, &scope, &origin, pat[:plen], backward, &next) {
 			lastSuccess = next
 			failing = false
@@ -867,8 +867,8 @@ func isearchPlainLoop(backward bool) bool {
 }
 
 func isearchRegexLoop(backward bool) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -888,14 +888,14 @@ func isearchRegexLoop(backward bool) bool {
 		label = "RE isearch backward"
 	}
 
-	mbState := session.MinibufferState{}
-	session.App.ActiveMinibuffer = &mbState
-	defer func() { session.App.ActiveMinibuffer = nil }()
+	mbState := app.MinibufferState{}
+	app.State.ActiveMinibuffer = &mbState
+	defer func() { app.State.ActiveMinibuffer = nil }()
 
-	session.App.ShowPhantomCursor = true
+	app.State.ShowPhantomCursor = true
 	defer func() {
-		session.App.ShowPhantomCursor = false
-		isearchClearHighlight(session.App.CurrentWindow)
+		app.State.ShowPhantomCursor = false
+		isearchClearHighlight(app.State.CurrentWindow)
 	}()
 
 	for {
@@ -939,7 +939,7 @@ func isearchRegexLoop(backward bool) bool {
 				continue
 			}
 			var next ISearchSnapshot
-			wp = session.App.CurrentWindow
+			wp = app.State.CurrentWindow
 			if isearchRunRegex(wp, &scope, &lastSuccess, string(pat[:plen]), backward, &next) {
 				lastSuccess = next
 				failing = false
@@ -979,7 +979,7 @@ func isearchRegexLoop(backward bool) bool {
 			continue
 		}
 		var next ISearchSnapshot
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if isearchRunRegex(wp, &scope, &origin, string(pat[:plen]), backward, &next) {
 			lastSuccess = next
 			failing = false
@@ -1153,8 +1153,8 @@ func readReplaceKey() replaceAction {
 }
 
 func SearchForward() bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -1174,8 +1174,8 @@ func SearchForward() bool {
 }
 
 func SearchBackward() bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -1200,10 +1200,10 @@ func IsearchReForward() bool  { return isearchRegexLoop(false) }
 func IsearchReBackward() bool { return isearchRegexLoop(true) }
 
 func ToggleSearchScope() bool {
-	if session.App.SearchScopeSetting == SearchScopeBuffer {
-		session.App.SearchScopeSetting = SearchScopeAllBuffers
+	if app.State.SearchScopeSetting == SearchScopeBuffer {
+		app.State.SearchScopeSetting = SearchScopeAllBuffers
 	} else {
-		session.App.SearchScopeSetting = SearchScopeBuffer
+		app.State.SearchScopeSetting = SearchScopeBuffer
 	}
 	if searchScopeIsAllBuffers() {
 		mbWrite("[search scope: all buffers]")
@@ -1214,8 +1214,8 @@ func ToggleSearchScope() bool {
 }
 
 func QueryReplace() bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -1239,16 +1239,16 @@ func QueryReplace() bool {
 	transientSet(queryReplaceBindings)
 	defer transientClear()
 
-	mbState := session.MinibufferState{}
-	session.App.ActiveMinibuffer = &mbState
-	defer func() { session.App.ActiveMinibuffer = nil }()
+	mbState := app.MinibufferState{}
+	app.State.ActiveMinibuffer = &mbState
+	defer func() { app.State.ActiveMinibuffer = nil }()
 
 	nReplaced := 0
 	replaceAll := false
 	displayUpdate()
 
 	for {
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		if !findNextInScope(wp, &scope, pat) {
 			wp.Mark.Line = 0
 			wp.ShouldRedraw = true
@@ -1310,12 +1310,12 @@ func QueryReplace() bool {
 }
 
 func QueryReReplace() bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
-	pattern, pr := mbReadString(buildSearchPrompt("Query re-replace"), session.App.SearchPattern)
+	pattern, pr := mbReadString(buildSearchPrompt("Query re-replace"), app.State.SearchPattern)
 	if pr != PromptResultYes {
 		return false
 	}
@@ -1332,16 +1332,16 @@ func QueryReReplace() bool {
 	transientSet(queryReplaceBindings)
 	defer transientClear()
 
-	mbState := session.MinibufferState{}
-	session.App.ActiveMinibuffer = &mbState
-	defer func() { session.App.ActiveMinibuffer = nil }()
+	mbState := app.MinibufferState{}
+	app.State.ActiveMinibuffer = &mbState
+	defer func() { app.State.ActiveMinibuffer = nil }()
 
 	nReplaced := 0
 	replaceAll := false
 	displayUpdate()
 
 	for {
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 		match, found := findNextRegexInScope(wp, &scope, pattern)
 		if found < 0 {
 			wp.Mark.Line = 0

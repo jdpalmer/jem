@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
 	"github.com/jdpalmer/jem/term"
@@ -119,8 +120,8 @@ func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint,
 }
 
 func bufferAdjustLocationsAfterReplace(bp *Buffer, begin, end, newEnd Location) {
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp == nil || wp.Buffer != bp {
 			continue
 		}
@@ -149,8 +150,8 @@ func bufferNoteEdit(bp *Buffer, isStructural bool) {
 	firstChange := !bp.IsChanged
 	shouldRedraw := isStructural
 	count := 0
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil && wp.Buffer == bp {
 			count++
 		}
@@ -158,8 +159,8 @@ func bufferNoteEdit(bp *Buffer, isStructural bool) {
 	if count != 1 {
 		shouldRedraw = true
 	}
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp == nil || wp.Buffer != bp {
 			continue
 		}
@@ -177,8 +178,8 @@ func bufferNoteEdit(bp *Buffer, isStructural bool) {
 func initTermHooks() {
 	term.PackageHooks = term.Hooks{
 		OnMouse: func(col, row int) {
-			session.App.Mouse.Col = uint32(col)
-			session.App.Mouse.Row = uint32(row)
+			app.State.Mouse.Col = uint32(col)
+			app.State.Mouse.Row = uint32(row)
 		},
 		OnPaste: func(paste []byte) {
 			queuePaste(paste)
@@ -203,8 +204,8 @@ func initBufferSyntaxHooks() {
 
 func syncSyntaxPalette() {
 	syntax.PackagePalette = syntax.Palette{
-		NormalStyle:  session.App.Theme.NormalStyle,
-		CommentStyle: session.App.Theme.CommentStyle,
+		NormalStyle:  app.State.Theme.NormalStyle,
+		CommentStyle: app.State.Theme.CommentStyle,
 	}
 }
 

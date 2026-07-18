@@ -1,7 +1,7 @@
 package editor
 
 import (
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/tools"
 )
 
@@ -13,7 +13,7 @@ func initToolsHooks() {
 		MBReadString:            mbReadString,
 		MBReadStringCap:         mbReadStringCap,
 		MBReadFuzzyListExString: mbReadFuzzyListExString,
-		MarkPushCurrent:         sess.MarkPushCurrent,
+		MarkPushCurrent:         app.MarkPushCurrent,
 		VisitLocation:           fileVisitLocation,
 		SwitchBuffer:            editorSwitchBuffer,
 		Abort:                   func() { CmdAbort(false, 1) },
@@ -24,6 +24,6 @@ func initToolsHooks() {
 			ok := editorReadKey(&k)
 			return k, ok
 		},
-		WindowRetile: sess.WindowRetile,
+		WindowRetile: app.WindowRetile,
 	}
 }

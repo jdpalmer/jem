@@ -3,6 +3,7 @@ package editor
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"os"
 	"strconv"
 	"strings"
@@ -35,11 +36,11 @@ var varTable = []variable{
 		min:  0, max: uint32(ThemeLight), local: false,
 		read: func(bp *Buffer) uint32 {
 			_ = bp
-			return uint32(session.App.Theme.Mode)
+			return uint32(app.State.Theme.Mode)
 		},
 		write: func(bp *Buffer, v uint32) {
 			_ = bp
-			session.App.Theme.Mode = ThemeMode(v)
+			app.State.Theme.Mode = ThemeMode(v)
 		},
 		onChange: configThemeChanged,
 	},
@@ -49,11 +50,11 @@ var varTable = []variable{
 		min:  0, max: uint32(SearchScopeAllBuffers), local: false,
 		read: func(bp *Buffer) uint32 {
 			_ = bp
-			return uint32(session.App.SearchScopeSetting)
+			return uint32(app.State.SearchScopeSetting)
 		},
 		write: func(bp *Buffer, v uint32) {
 			_ = bp
-			session.App.SearchScopeSetting = SearchScopeMode(v)
+			app.State.SearchScopeSetting = SearchScopeMode(v)
 		},
 		onChange: configSearchScopeChanged,
 	},
@@ -70,11 +71,11 @@ var varTable = []variable{
 		min:  0, max: 1, local: false,
 		read: func(bp *Buffer) uint32 {
 			_ = bp
-			return boolToU32(session.App.StartupQuote)
+			return boolToU32(app.State.StartupQuote)
 		},
 		write: func(bp *Buffer, v uint32) {
 			_ = bp
-			session.App.StartupQuote = v != 0
+			app.State.StartupQuote = v != 0
 		},
 	},
 	{
@@ -83,11 +84,11 @@ var varTable = []variable{
 		min:  0, max: 1, local: false,
 		read: func(bp *Buffer) uint32 {
 			_ = bp
-			return boolToU32(session.App.AutoRevertMode)
+			return boolToU32(app.State.AutoRevertMode)
 		},
 		write: func(bp *Buffer, v uint32) {
 			_ = bp
-			session.App.AutoRevertMode = v != 0
+			app.State.AutoRevertMode = v != 0
 		},
 	},
 	{
@@ -137,8 +138,8 @@ func boolToU32(b bool) uint32 {
 func configThemeChanged() {
 	themeUpdate()
 	syncSyntaxPalette()
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
@@ -147,8 +148,8 @@ func configThemeChanged() {
 }
 
 func configSearchScopeChanged() {
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
@@ -157,17 +158,17 @@ func configSearchScopeChanged() {
 
 // VarsInit resets all editor variables to their defaults.
 func VarsInit() {
-	session.App.FillCol = 80
-	session.App.Theme.Mode = ThemeDark
-	session.App.SearchScopeSetting = SearchScopeBuffer
-	session.App.WhitespaceCleanup = true
-	session.App.StartupQuote = true
-	session.App.AutoRevertMode = false
-	session.App.CIndent = 2
-	session.App.CBrace = 0
-	session.App.CColonOffset = 0
-	session.App.PyIndent = 4
-	session.App.PyContinuedOffset = 4
+	app.State.FillCol = 80
+	app.State.Theme.Mode = ThemeDark
+	app.State.SearchScopeSetting = SearchScopeBuffer
+	app.State.WhitespaceCleanup = true
+	app.State.StartupQuote = true
+	app.State.AutoRevertMode = false
+	app.State.CIndent = 2
+	app.State.CBrace = 0
+	app.State.CColonOffset = 0
+	app.State.PyIndent = 4
+	app.State.PyContinuedOffset = 4
 	configThemeChanged()
 	configSearchScopeChanged()
 }
@@ -176,31 +177,31 @@ func bufferApplyVarDefaults(bp *Buffer) {
 	if bp == nil {
 		return
 	}
-	bp.FillCol = session.App.FillCol
-	bp.CIndent = session.App.CIndent
-	bp.CBrace = session.App.CBrace
-	bp.CColonOffset = session.App.CColonOffset
-	bp.PyIndent = session.App.PyIndent
-	bp.PyContinuedOffset = session.App.PyContinuedOffset
-	bp.WhitespaceCleanup = session.App.WhitespaceCleanup
+	bp.FillCol = app.State.FillCol
+	bp.CIndent = app.State.CIndent
+	bp.CBrace = app.State.CBrace
+	bp.CColonOffset = app.State.CColonOffset
+	bp.PyIndent = app.State.PyIndent
+	bp.PyContinuedOffset = app.State.PyContinuedOffset
+	bp.WhitespaceCleanup = app.State.WhitespaceCleanup
 }
 
 func varGlobalWrite(v *variable, value uint32) {
 	switch v.name {
 	case "fill-column":
-		session.App.FillCol = value
+		app.State.FillCol = value
 	case "c-indent":
-		session.App.CIndent = value
+		app.State.CIndent = value
 	case "c-brace":
-		session.App.CBrace = value
+		app.State.CBrace = value
 	case "c-colon-offset":
-		session.App.CColonOffset = value
+		app.State.CColonOffset = value
 	case "py-indent":
-		session.App.PyIndent = value
+		app.State.PyIndent = value
 	case "py-continued-offset":
-		session.App.PyContinuedOffset = value
+		app.State.PyContinuedOffset = value
 	case "whitespace-cleanup":
-		session.App.WhitespaceCleanup = value != 0
+		app.State.WhitespaceCleanup = value != 0
 	default:
 		v.write(nil, value)
 	}
@@ -209,19 +210,19 @@ func varGlobalWrite(v *variable, value uint32) {
 func varGlobalRead(v *variable) uint32 {
 	switch v.name {
 	case "fill-column":
-		return session.App.FillCol
+		return app.State.FillCol
 	case "c-indent":
-		return session.App.CIndent
+		return app.State.CIndent
 	case "c-brace":
-		return session.App.CBrace
+		return app.State.CBrace
 	case "c-colon-offset":
-		return session.App.CColonOffset
+		return app.State.CColonOffset
 	case "py-indent":
-		return session.App.PyIndent
+		return app.State.PyIndent
 	case "py-continued-offset":
-		return session.App.PyContinuedOffset
+		return app.State.PyContinuedOffset
 	case "whitespace-cleanup":
-		return boolToU32(session.App.WhitespaceCleanup)
+		return boolToU32(app.State.WhitespaceCleanup)
 	default:
 		return v.read(nil)
 	}
@@ -336,7 +337,7 @@ func varFormat(v *variable, bp *Buffer) string {
 func CmdSetVariable(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	name, pr := mbReadFuzzyListString("Set variable: ", varTableProvider, nil, uint(len(varTable)))
 	if pr == PromptResultAbort {
 		CmdAbort(false, 1)
@@ -377,7 +378,7 @@ func CmdDescribeVariable(f bool, n int) bool {
 		mbWrite("[unknown variable: %s]", name)
 		return false
 	}
-	value := varFormat(v, session.App.CurrentBuffer)
+	value := varFormat(v, app.State.CurrentBuffer)
 	mbWrite("[%s = %s] %s", v.name, value, v.doc)
 	return true
 }

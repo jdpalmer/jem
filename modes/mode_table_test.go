@@ -3,7 +3,7 @@ package modes
 import (
 	"testing"
 
-	"github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/syntax"
 )
 
@@ -20,7 +20,7 @@ func TestModeTableMatchesSyntaxSpec(t *testing.T) {
 }
 
 func TestModeTableUnknownModeFallback(t *testing.T) {
-	const unknown = session.LangMode(255)
+	const unknown = app.LangMode(255)
 	gotKind, gotFlags := syntax.LangModeSpecForTest(unknown)
 	wantKind := syntax.ModeSyntaxNone
 	wantFlags := syntax.ModeFlagCommentSlashLine | syntax.ModeFlagCommentSlashBlock

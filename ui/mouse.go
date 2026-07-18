@@ -3,8 +3,8 @@ package ui
 // mouse.go - Mouse command implementations (translation of mouse.c)
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sess "github.com/jdpalmer/jem/session"
 	"unicode/utf8"
 )
 
@@ -16,8 +16,8 @@ var mouseAnchorOffset uint
 
 // winAt returns the window that occupies screen row r, or nil.
 func winAt(r uint32) *Window {
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil && r >= wp.ScreenTopRow && r < wp.ScreenTopRow+wp.Height {
 			return wp
 		}
@@ -61,7 +61,7 @@ func mouseLocationInWindow(wp *Window) Location {
 	if wp == nil {
 		return Location{}
 	}
-	rowInWin := session.App.Mouse.Row - wp.ScreenTopRow
+	rowInWin := app.State.Mouse.Row - wp.ScreenTopRow
 	lineNumber := wp.TopLine
 	for rowInWin > 0 && lineNumber < wp.Buffer.LineCount {
 		lineNumber++
@@ -70,7 +70,7 @@ func mouseLocationInWindow(wp *Window) Location {
 
 	loc := Location{Line: lineNumber, Offset: 0}
 	line := buffer.GetLine(wp.Buffer, loc.Line)
-	textCol := int(session.App.Mouse.Col) - int(sess.WindowGutterWidth(wp)) + int(wp.HScroll)
+	textCol := int(app.State.Mouse.Col) - int(app.WindowGutterWidth(wp)) + int(wp.HScroll)
 	if textCol < 0 {
 		textCol = 0
 	}
@@ -136,10 +136,10 @@ func windowScroll(wp *Window, n int) {
 	if lineNumber > wp.Buffer.LineCount {
 		lineNumber = wp.Buffer.LineCount
 	}
-	sess.WindowSetTopLine(wp, lineNumber)
+	app.WindowSetTopLine(wp, lineNumber)
 	wp.ShouldRedraw = true
 
-	if wp == session.App.CurrentWindow {
+	if wp == app.State.CurrentWindow {
 		if !windowCursorIsVisible(wp) {
 			var loc Location
 			if n > 0 {
@@ -147,7 +147,7 @@ func windowScroll(wp *Window, n int) {
 			} else {
 				loc = Location{Line: wp.TopLine, Offset: 0}
 			}
-			sess.WindowSetCursor(wp, loc)
+			app.WindowSetCursor(wp, loc)
 		}
 	}
 }
@@ -157,24 +157,24 @@ func windowScroll(wp *Window, n int) {
 func CmdMouseLeft(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := winAt(session.App.Mouse.Row)
+	wp := winAt(app.State.Mouse.Row)
 	if wp == nil {
 		return false
 	}
 
-	if wp != session.App.CurrentWindow {
-		sess.WindowSelect(wp)
+	if wp != app.State.CurrentWindow {
+		app.WindowSelect(wp)
 	}
 
 	loc := mouseLocationInWindow(wp)
-	sess.WindowSetCursor(session.App.CurrentWindow, loc)
-	session.App.CurrentWindow.Mark.Line = 0
-	session.App.CurrentWindow.Mark.Offset = 0
-	mouseAnchorWindow = session.App.CurrentWindow
+	app.WindowSetCursor(app.State.CurrentWindow, loc)
+	app.State.CurrentWindow.Mark.Line = 0
+	app.State.CurrentWindow.Mark.Offset = 0
+	mouseAnchorWindow = app.State.CurrentWindow
 	mouseAnchorLine = loc.Line
 	mouseAnchorOffset = loc.Offset
-	session.App.CurrentWindow.ShouldRedraw = true
-	session.App.CurrentWindow.ShouldUpdateModeLine = true
+	app.State.CurrentWindow.ShouldRedraw = true
+	app.State.CurrentWindow.ShouldUpdateModeLine = true
 	return true
 }
 
@@ -182,18 +182,18 @@ func CmdMouseLeft(f bool, n int) bool {
 func CmdMouseDrag(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := winAt(session.App.Mouse.Row)
-	if wp == nil || wp != session.App.CurrentWindow || mouseAnchorWindow != session.App.CurrentWindow {
+	wp := winAt(app.State.Mouse.Row)
+	if wp == nil || wp != app.State.CurrentWindow || mouseAnchorWindow != app.State.CurrentWindow {
 		return false
 	}
 
 	loc := mouseLocationInWindow(wp)
 
-	session.App.CurrentWindow.Mark.Line = mouseAnchorLine
-	session.App.CurrentWindow.Mark.Offset = mouseAnchorOffset
-	sess.WindowSetCursor(session.App.CurrentWindow, loc)
-	session.App.CurrentWindow.ShouldRedraw = true
-	session.App.CurrentWindow.ShouldUpdateModeLine = true
+	app.State.CurrentWindow.Mark.Line = mouseAnchorLine
+	app.State.CurrentWindow.Mark.Offset = mouseAnchorOffset
+	app.WindowSetCursor(app.State.CurrentWindow, loc)
+	app.State.CurrentWindow.ShouldRedraw = true
+	app.State.CurrentWindow.ShouldUpdateModeLine = true
 	return true
 }
 
@@ -201,9 +201,9 @@ func CmdMouseDrag(f bool, n int) bool {
 func CmdMouseWheelUp(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := winAt(session.App.Mouse.Row)
+	wp := winAt(app.State.Mouse.Row)
 	if wp == nil {
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 	}
 	if wp == nil || wp.Buffer == nil {
 		return false
@@ -217,9 +217,9 @@ func CmdMouseWheelUp(f bool, n int) bool {
 func CmdMouseWheelDown(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := winAt(session.App.Mouse.Row)
+	wp := winAt(app.State.Mouse.Row)
 	if wp == nil {
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 	}
 	if wp == nil || wp.Buffer == nil {
 		return false
@@ -234,9 +234,9 @@ func applyWheelTicks(net int) {
 	if net == 0 {
 		return
 	}
-	wp := winAt(session.App.Mouse.Row)
+	wp := winAt(app.State.Mouse.Row)
 	if wp == nil {
-		wp = session.App.CurrentWindow
+		wp = app.State.CurrentWindow
 	}
 	if wp == nil || wp.Buffer == nil {
 		return

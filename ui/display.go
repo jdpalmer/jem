@@ -2,8 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sess "github.com/jdpalmer/jem/session"
 	"github.com/jdpalmer/jem/syntax"
 	"os"
 	"sync"
@@ -95,13 +95,13 @@ func DisplayInitHeadless(rows, cols int) {
 	term.SetSize(rows, cols)
 	frontScreen = allocScreen(term.Rows())
 	backScreen = allocScreen(term.Rows())
-	session.App.Theme.Mode = ThemeDark
+	app.State.Theme.Mode = ThemeDark
 	themeUpdate()
 }
 
 // themeUpdate recomputes cached palette colors from the active theme mode (src/theme.c).
 func themeUpdate() {
-	theme := &session.App.Theme
+	theme := &app.State.Theme
 	if theme.Mode == ThemeLight {
 		theme.NormalStyle = MakeTextStyle(TermColorBase00, TermColorBase3, 0)
 		theme.CommentStyle = MakeTextStyle(TermColorBase1, TermColorBase3, 0)
@@ -142,7 +142,7 @@ func allocScreen(rows int) Screen {
 		s.Rows[i].Spans = nil
 		for j := 0; j < cols; j++ {
 			s.Rows[i].Text[j] = ' '
-			s.Rows[i].Style[j] = session.App.Theme.NormalStyle
+			s.Rows[i].Style[j] = app.State.Theme.NormalStyle
 		}
 	}
 	return s
@@ -152,9 +152,9 @@ func allocScreen(rows int) Screen {
 
 // displaySetStyle applies style to the terminal only when it differs from ActiveStyle.
 func displaySetStyle(style TextStyle) {
-	if session.App.ActiveStyle != style {
+	if app.State.ActiveStyle != style {
 		term.SetStyle(style)
-		session.App.ActiveStyle = style
+		app.State.ActiveStyle = style
 	}
 }
 
@@ -164,7 +164,7 @@ func displaySetStyle(style TextStyle) {
 func screenMove(row, col int) {
 	swCursorRow = row
 	swCursorCol = col
-	drawStyle = session.App.Theme.NormalStyle
+	drawStyle = app.State.Theme.NormalStyle
 }
 
 // screenSetStyle sets drawStyle without moving the cursor.
@@ -323,8 +323,8 @@ func screenFlushRow(row, cursorCol int) {
 	}
 	rowSync(row)
 	if row == term.Rows() {
-		session.App.Cursor.Row = uint32(term.Rows())
-		session.App.Cursor.Col = uint32(cursorCol)
+		app.State.Cursor.Row = uint32(term.Rows())
+		app.State.Cursor.Col = uint32(cursorCol)
 	}
 	term.Move(row, cursorCol)
 	term.Flush()
@@ -429,7 +429,7 @@ func rowSync(row int) {
 	}
 
 	// Scan from right to find where trailing normal-style spaces begin
-	normalStyle := session.App.Theme.NormalStyle
+	normalStyle := app.State.Theme.NormalStyle
 	lastsp := term.Cols()
 	for lastsp > first && backRow.Text[lastsp-1] == ' ' && backRow.Style[lastsp-1] == normalStyle {
 		lastsp--
@@ -454,8 +454,8 @@ func rowSync(row int) {
 // ScreenSync synchronizes all dirty rows from backScreen to the terminal.
 func ScreenSync() {
 	// If screen is dirty (e.g. after resize): reset front screen and clear terminal
-	if session.App.ScreenDirty {
-		normalStyle := session.App.Theme.NormalStyle
+	if app.State.ScreenDirty {
+		normalStyle := app.State.Theme.NormalStyle
 		for i := range backScreen.Rows {
 			backScreen.Rows[i].Dirty = true
 			frontRow := &frontScreen.Rows[i]
@@ -467,13 +467,13 @@ func ScreenSync() {
 		term.Move(0, 0)
 		displaySetStyle(normalStyle)
 		term.EraseEos()
-		session.App.ScreenDirty = false
-		session.App.MessagePresent = false
+		app.State.ScreenDirty = false
+		app.State.MessagePresent = false
 	}
 
 	// Sync dirty body rows and the message line when active.
 	syncRows := term.Rows()
-	if session.App.MessagePresent && term.Rows() < len(backScreen.Rows) {
+	if app.State.MessagePresent && term.Rows() < len(backScreen.Rows) {
 		syncRows = term.Rows() + 1
 	}
 	for i := 0; i < syncRows; i++ {
@@ -486,8 +486,8 @@ func ScreenSync() {
 		}
 	}
 
-	displaySetStyle(session.App.Theme.NormalStyle)
-	term.Move(int(session.App.Cursor.Row), int(session.App.Cursor.Col))
+	displaySetStyle(app.State.Theme.NormalStyle)
+	term.Move(int(app.State.Cursor.Row), int(app.State.Cursor.Col))
 	term.Flush()
 
 	if pasteRepaintPending {
@@ -501,7 +501,7 @@ func ScreenSync() {
 // selectionStyle computes the highlight style for selected text.
 func selectionStyle(base TextStyle) TextStyle {
 	flags := base & TextStyleBold
-	return MakeTextStyle(TermColorBase03, session.App.Theme.SelectionBg, flags)
+	return MakeTextStyle(TermColorBase03, app.State.Theme.SelectionBg, flags)
 }
 
 // selInit initialises selection state from the window's mark and cursor.
@@ -593,37 +593,37 @@ func selLine(ss *SelState, lineNumber uint, lp *Line) (s, e int) {
 
 // restorePhantomCursor restores the back buffer cell overwritten by overlayPhantomCursor.
 func restorePhantomCursor() {
-	if !session.App.PhantomCursorValid {
+	if !app.State.PhantomCursorValid {
 		return
 	}
-	row := int(session.App.PhantomCursor.Row)
-	col := int(session.App.PhantomCursor.Col)
-	session.App.PhantomCursorValid = false
+	row := int(app.State.PhantomCursor.Row)
+	col := int(app.State.PhantomCursor.Col)
+	app.State.PhantomCursorValid = false
 	if row < 0 || row >= len(backScreen.Rows) || col < 0 || col >= term.Cols() {
 		return
 	}
 	backRow := &backScreen.Rows[row]
 	backRow.Text[col] = phantomTextRune
-	backRow.Style[col] = session.App.PhantomStyle
+	backRow.Style[col] = app.State.PhantomStyle
 	backRow.Dirty = true
 }
 
 // overlayPhantomCursor paints a block cursor at the editor cursor position.
 func overlayPhantomCursor() {
-	if !session.App.ShowPhantomCursor {
+	if !app.State.ShowPhantomCursor {
 		return
 	}
-	row := int(session.App.Cursor.Row)
-	col := int(session.App.Cursor.Col)
+	row := int(app.State.Cursor.Row)
+	col := int(app.State.Cursor.Col)
 	if row < 0 || row >= len(backScreen.Rows) || col < 0 || col >= term.Cols() {
 		return
 	}
 	backRow := &backScreen.Rows[row]
-	session.App.PhantomCursor = session.App.Cursor
+	app.State.PhantomCursor = app.State.Cursor
 	phantomTextRune = backRow.Text[col]
-	session.App.PhantomText = byte(backRow.Text[col])
-	session.App.PhantomStyle = backRow.Style[col]
-	session.App.PhantomCursorValid = true
+	app.State.PhantomText = byte(backRow.Text[col])
+	app.State.PhantomStyle = backRow.Style[col]
+	app.State.PhantomCursorValid = true
 	backRow.Style[col] = selectionStyle(backRow.Style[col]) | TextStyleBold
 	backRow.Dirty = true
 }
@@ -634,10 +634,10 @@ func overlayPhantomCursor() {
 // Format: [git-marker][right-justified line number][left-clipped indicator]
 func screenPutLineno(width, lineno int, marker GitLineDiff, leftClipped bool) {
 	// Save draw and active styles
-	savedActiveStyle := session.App.ActiveStyle
+	savedActiveStyle := app.State.ActiveStyle
 	savedDrawStyle := drawStyle
 
-	gutterStyle := session.App.Theme.GutterStyle
+	gutterStyle := app.State.Theme.GutterStyle
 	displaySetStyle(gutterStyle)
 	drawStyle = gutterStyle
 
@@ -733,7 +733,7 @@ func windowCursorScreenCol(wp *Window) int {
 
 // screenPutPickerLine renders a full match-window row using the picker style.
 func screenPutPickerLine(lp *Line) {
-	style := session.App.Theme.PickerSelectionStyle
+	style := app.State.Theme.PickerSelectionStyle
 	savedDrawStyle := drawStyle
 	drawStyle = style
 	n := len(lp.Data)
@@ -761,7 +761,7 @@ func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
 
 	if n == 0 {
 		if selStart >= 0 {
-			displayPutGlyphStyle(' ', selectionStyle(session.App.Theme.NormalStyle))
+			displayPutGlyphStyle(' ', selectionStyle(app.State.Theme.NormalStyle))
 		}
 		return
 	}
@@ -771,7 +771,7 @@ func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
 	ri := 0 // rune index
 	for i < n {
 		// Get syntax style for this rune
-		style := session.App.Theme.NormalStyle
+		style := app.State.Theme.NormalStyle
 		if ri < len(lp.SyntaxStyles) {
 			style = lp.SyntaxStyles[ri]
 		}
@@ -804,7 +804,7 @@ func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *Se
 	if lp == nil {
 		return
 	}
-	gutter := int(sess.WindowGutterWidth(wp))
+	gutter := int(app.WindowGutterWidth(wp))
 	marker := gitLineDiff(wp.Buffer, lineNumber)
 
 	var ss, se int
@@ -895,12 +895,12 @@ func renderModeline(wp *Window) {
 	positionText += fmt.Sprintf("%d%% L%d C%d", pct, lineno, colno)
 
 	// Styles
-	gutterStyle := session.App.Theme.GutterStyle
+	gutterStyle := app.State.Theme.GutterStyle
 	gutterBg := TextStyleBg(gutterStyle)
-	nameStyle := MakeTextStyle(session.App.Theme.ModelineNameColor, gutterBg, TextStyleBold)
+	nameStyle := MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, TextStyleBold)
 	dirtyStyle := MakeTextStyle(TermColorRed, gutterBg, TextStyleBold)
 
-	gutterW := int(sess.WindowGutterWidth(wp))
+	gutterW := int(app.WindowGutterWidth(wp))
 	markerCol := gutterW + 79 - int(wp.HScroll)
 	hintCol := term.Cols() - len(modelineHint)
 
@@ -923,9 +923,9 @@ func renderModeline(wp *Window) {
 	}
 
 	// Macro recording indicator
-	if session.App.IsRecording() {
+	if app.State.IsRecording() {
 		displayPutGlyphStyle('m', MakeTextStyle(TermColorRed, gutterBg, TextStyleBold))
-	} else if int32(CTLX|')') != session.App.Keys[0] {
+	} else if int32(CTLX|')') != app.State.Keys[0] {
 		displayPutGlyphStyle('m', nameStyle)
 	} else {
 		screenPutc(' ')
@@ -956,7 +956,7 @@ func renderModeline(wp *Window) {
 	screenPutBytes([]byte(" | "))
 	screenPutBytes([]byte(langLabel))
 	if gitText := gitModelineText(bp); gitText != "" {
-		gitStyle := MakeTextStyle(session.App.Theme.ModelineNameColor, gutterBg, 0)
+		gitStyle := MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, 0)
 		screenPutBytes([]byte(" | "))
 		displayPutBytesStyle([]byte(gitText), gitStyle)
 	}
@@ -1004,11 +1004,11 @@ func DisplayUpdate() {
 	if term.RefreshSize() {
 		frontScreen = allocScreen(term.Rows())
 		backScreen = allocScreen(term.Rows())
-		sess.WindowRetile()
+		app.WindowRetile()
 		swCursorRow = 0
 		swCursorCol = 0
-		session.App.ScreenDirty = true
-		session.App.MessagePresent = false
+		app.State.ScreenDirty = true
+		app.State.MessagePresent = false
 	}
 
 	if len(backScreen.Rows) < term.Rows() {
@@ -1016,26 +1016,26 @@ func DisplayUpdate() {
 		backScreen = allocScreen(term.Rows())
 	}
 
-	if session.App.ScreenDirty {
-		for i := 0; i < int(session.App.WindowCount); i++ {
-			wp := session.App.WINDOWS[i]
+	if app.State.ScreenDirty {
+		for i := 0; i < int(app.State.WindowCount); i++ {
+			wp := app.State.WINDOWS[i]
 			if wp != nil {
 				wp.ShouldRedraw = true
 				wp.ShouldUpdateModeLine = true
 			}
 		}
-		session.App.PhantomCursorValid = false
+		app.State.PhantomCursorValid = false
 	}
 
 	restorePhantomCursor()
 
 	// Keep current window's modeline live (updates L/C on cursor motion)
-	if session.App.CurrentWindow != nil {
-		session.App.CurrentWindow.ShouldUpdateModeLine = true
+	if app.State.CurrentWindow != nil {
+		app.State.CurrentWindow.ShouldUpdateModeLine = true
 	}
 
-	for wi := 0; wi < int(session.App.WindowCount); wi++ {
-		wp := session.App.WINDOWS[wi]
+	for wi := 0; wi < int(app.State.WindowCount); wi++ {
+		wp := app.State.WINDOWS[wi]
 		if wp == nil || wp.Buffer == nil {
 			continue
 		}
@@ -1066,13 +1066,13 @@ func DisplayUpdate() {
 		}
 
 		if wp.ShouldReframe {
-			sess.WindowCenterCursor(wp)
+			app.WindowCenterCursor(wp)
 			wp.ShouldRedraw = true
 		}
 
 		// Adjust horizontal scroll for the current window to keep cursor visible
-		if wp == session.App.CurrentWindow {
-			gutterW := int(sess.WindowGutterWidth(wp))
+		if wp == app.State.CurrentWindow {
+			gutterW := int(app.WindowGutterWidth(wp))
 			cc := windowCursorScreenCol(wp)
 			visible := term.Cols() - gutterW
 			margin := visible / 4
@@ -1095,7 +1095,7 @@ func DisplayUpdate() {
 			}
 		}
 
-		gutterW := int(sess.WindowGutterWidth(wp))
+		gutterW := int(app.WindowGutterWidth(wp))
 
 		// When region is active, force full redraw so selection highlights all affected lines
 		if wp.Mark.Line != 0 && !wp.ShouldRedraw {
@@ -1151,7 +1151,7 @@ func DisplayUpdate() {
 						screenRowsScrollDown(&frontScreen.Rows, top, height, absN)
 					}
 					// Clear the exposed rows on both screens
-					normalStyle := session.App.Theme.NormalStyle
+					normalStyle := app.State.Theme.NormalStyle
 					for clearRow := clearFrom; clearRow < clearTo; clearRow++ {
 						if clearRow < len(frontScreen.Rows) {
 							for j := 0; j < term.Cols(); j++ {
@@ -1161,7 +1161,7 @@ func DisplayUpdate() {
 						}
 					}
 					// Scroll the terminal
-					displaySetStyle(session.App.Theme.NormalStyle)
+					displaySetStyle(app.State.Theme.NormalStyle)
 					term.ScrollRows(top, top+height-1, scrollN)
 					// Repaint exposed rows explicitly
 					for clearRow := clearFrom; clearRow < clearTo; clearRow++ {
@@ -1203,13 +1203,13 @@ func DisplayUpdate() {
 	}
 
 	// Compute hardware cursor position (interactive minibuffer owns the cursor).
-	if session.App.ActiveMinibuffer == nil {
-		if session.App.CurrentWindow != nil {
-			cw := session.App.CurrentWindow
+	if app.State.ActiveMinibuffer == nil {
+		if app.State.CurrentWindow != nil {
+			cw := app.State.CurrentWindow
 			cursorLineDelta := cw.Cursor.Line - cw.TopLine
-			session.App.Cursor.Row = cw.ScreenTopRow + uint32(cursorLineDelta)
+			app.State.Cursor.Row = cw.ScreenTopRow + uint32(cursorLineDelta)
 
-			gutterW := int(sess.WindowGutterWidth(cw))
+			gutterW := int(app.WindowGutterWidth(cw))
 			contentCol := windowCursorScreenCol(cw)
 			hscroll := int(cw.HScroll)
 			cursorCol := gutterW + contentCol - hscroll
@@ -1223,7 +1223,7 @@ func DisplayUpdate() {
 					cursorCol = term.Cols() - 1
 				}
 			}
-			session.App.Cursor.Col = uint32(cursorCol)
+			app.State.Cursor.Col = uint32(cursorCol)
 		}
 		overlayPhantomCursor()
 	}
@@ -1232,7 +1232,7 @@ func DisplayUpdate() {
 
 // CmdRefresh forces a full screen refresh on the next DisplayUpdate.
 func CmdRefresh(f bool, n int) bool {
-	session.App.ScreenDirty = true
+	app.State.ScreenDirty = true
 	return true
 }
 
@@ -1240,16 +1240,16 @@ func CmdRefresh(f bool, n int) bool {
 func CmdThemeToggle(f bool, n int) bool {
 	_ = f
 	_ = n
-	theme := &session.App.Theme
+	theme := &app.State.Theme
 	if theme.Mode == ThemeDark {
 		theme.Mode = ThemeLight
 	} else {
 		theme.Mode = ThemeDark
 	}
 	themeUpdate()
-	session.App.ScreenDirty = true
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	app.State.ScreenDirty = true
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true

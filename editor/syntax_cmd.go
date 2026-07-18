@@ -1,8 +1,8 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sess "github.com/jdpalmer/jem/session"
 	"github.com/jdpalmer/jem/syntax"
 )
 
@@ -62,7 +62,7 @@ func syntaxLocationHasDelimiter(bp *Buffer, loc Location) bool {
 func CmdSyntaxGotoMatch(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -75,7 +75,7 @@ func CmdSyntaxGotoMatch(f bool, n int) bool {
 		mbWrite("[No matching bracket]")
 		return false
 	default:
-		sess.WindowSetCursor(wp, match)
+		app.WindowSetCursor(wp, match)
 		wp.DidMove = true
 		return true
 	}

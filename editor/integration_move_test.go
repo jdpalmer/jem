@@ -1,6 +1,9 @@
 package editor
 
-import "testing"
+import (
+	"github.com/jdpalmer/jem/app"
+	"testing"
+)
 
 func TestCmdMove(t *testing.T) {
 	te := NewTestEditor(t)
@@ -34,12 +37,12 @@ func TestCmdMove(t *testing.T) {
 
 	te.LoadText("aaa\nbbb\nccc")
 	te.SetCursor(1, 0)
-	session.App.MovementState = CmdStateNone
+	app.State.MovementState = CmdStateNone
 	te.Key(KeyDown)
 	te.ExpectCursor(2, 0)
 
 	te.SetCursor(3, 0)
-	session.App.MovementState = CmdStateNone
+	app.State.MovementState = CmdStateNone
 	te.Key(KeyUp)
 	te.ExpectCursor(2, 0)
 }

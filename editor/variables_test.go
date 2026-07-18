@@ -1,6 +1,9 @@
 package editor
 
-import "testing"
+import (
+	"github.com/jdpalmer/jem/app"
+	"testing"
+)
 
 func TestParseNumericText(t *testing.T) {
 	tests := []struct {
@@ -25,13 +28,13 @@ func TestParseNumericText(t *testing.T) {
 
 func TestVarsInitDefaults(t *testing.T) {
 	VarsInit()
-	if session.App.FillCol != 80 {
-		t.Fatalf("FillCol = %d, want 80", session.App.FillCol)
+	if app.State.FillCol != 80 {
+		t.Fatalf("FillCol = %d, want 80", app.State.FillCol)
 	}
-	if session.App.CIndent != 2 {
-		t.Fatalf("CIndent = %d, want 2", session.App.CIndent)
+	if app.State.CIndent != 2 {
+		t.Fatalf("CIndent = %d, want 2", app.State.CIndent)
 	}
-	if session.App.StartupQuote != true {
+	if app.State.StartupQuote != true {
 		t.Fatal("StartupQuote should default to true")
 	}
 }
@@ -45,7 +48,7 @@ func TestVarSetFromJSON(t *testing.T) {
 	if !varSetFromJSON(v, []byte("100")) {
 		t.Fatal("expected numeric JSON set to succeed")
 	}
-	if session.App.FillCol != 100 {
-		t.Fatalf("FillCol = %d, want 100", session.App.FillCol)
+	if app.State.FillCol != 100 {
+		t.Fatalf("FillCol = %d, want 100", app.State.FillCol)
 	}
 }

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/session"
 )
 
 func writeMessage(writef func(string, ...any), format string, args ...any) {
@@ -38,25 +38,25 @@ func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, load
 
 	for i := len(paths) - 1; i >= 1; i-- {
 		path := paths[i]
-		abp := session.BufferCreate(&session.App.EditorRuntimeState)
+		abp := app.BufferCreate(&app.State.EditorRuntimeState)
 		if abp == nil {
 			continue
 		}
 		if nameFromPath != nil {
 			abp.Name = nameFromPath(path)
 		}
-		session.SetCurrentBuffer(abp)
+		app.SetCurrentBuffer(abp)
 		_ = loadFile(path)
 	}
 
-	if cw := session.App.CurrentWindow; cw != nil && cw.Buffer != nil {
-		session.SetCurrentBuffer(cw.Buffer)
+	if cw := app.State.CurrentWindow; cw != nil && cw.Buffer != nil {
+		app.SetCurrentBuffer(cw.Buffer)
 	}
 }
 
 func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 	resolved := NormalizePath(fname)
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp == nil {
 		return false
 	}
@@ -74,8 +74,8 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 	fh, err := os.Open(resolved)
 	if err != nil {
 		writeMessage(writef, "[New file]")
-		bp.Cursor = session.Location{Line: 1, Offset: 0}
-		bp.Mark = session.Location{Line: 0, Offset: 0}
+		bp.Cursor = app.Location{Line: 1, Offset: 0}
+		bp.Mark = app.Location{Line: 0, Offset: 0}
 		return true
 	}
 	defer fh.Close()
@@ -134,13 +134,13 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 		writeMessage(writef, "[Read lines]")
 	}
 
-	bp.Cursor = session.Location{Line: 1, Offset: 0}
-	bp.Mark = session.Location{Line: 0, Offset: 0}
+	bp.Cursor = app.Location{Line: 1, Offset: 0}
+	bp.Mark = app.Location{Line: 0, Offset: 0}
 
-	if wp := session.App.CurrentWindow; wp != nil && wp.Buffer == bp {
+	if wp := app.State.CurrentWindow; wp != nil && wp.Buffer == bp {
 		wp.TopLine = 1
-		wp.Cursor = session.Location{Line: 1, Offset: 0}
-		wp.Mark = session.Location{Line: 0, Offset: 0}
+		wp.Cursor = app.Location{Line: 1, Offset: 0}
+		wp.Mark = app.Location{Line: 0, Offset: 0}
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
@@ -151,7 +151,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 }
 
 func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef func(string, ...any)) bool {
-	bp := session.App.CurrentBuffer
+	bp := app.State.CurrentBuffer
 	if bp == nil {
 		return false
 	}
@@ -222,9 +222,9 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 	return true
 }
 
-func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*session.Buffer), writef func(string, ...any)) bool {
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*app.Buffer), writef func(string, ...any)) bool {
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || fname == "" {
 		return false
 	}
@@ -240,8 +240,8 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		w := session.App.WINDOWS[i]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		w := app.State.WINDOWS[i]
 		if w != nil && w.Buffer == bp {
 			w.ShouldRedraw = true
 			w.ShouldUpdateModeLine = true
@@ -251,12 +251,12 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 }
 
 // CheckReloadCurrentBuffer mirrors src/file.c file_check_reload behavior.
-func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...any), noteBufferSaved func(*session.Buffer)) {
-	if session.App.ActiveMinibuffer != nil || session.App.Dispatching {
+func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...any), noteBufferSaved func(*app.Buffer)) {
+	if app.State.ActiveMinibuffer != nil || app.State.Dispatching {
 		return
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || bp.IsReadonly {
 		return
 	}
@@ -282,7 +282,7 @@ func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...
 	}
 
 	if bp.IsChanged {
-		if session.App.AutoRevertMode {
+		if app.State.AutoRevertMode {
 			ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			return
 		}

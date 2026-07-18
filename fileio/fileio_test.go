@@ -5,26 +5,26 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/session"
 )
 
 func resetAppForFileIoTests() {
-	session.App = session.AppState{}
+	app.State = app.AppState{}
 }
 
-func initBufferWindowForFileIoTests(t *testing.T) *session.Buffer {
+func initBufferWindowForFileIoTests(t *testing.T) *app.Buffer {
 	t.Helper()
-	bp := session.BufferCreate(&session.App.EditorRuntimeState)
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
-	session.SetCurrentBuffer(bp)
-	wp := session.WindowCreate()
+	app.SetCurrentBuffer(bp)
+	wp := app.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
-	session.WindowSelect(wp)
+	app.WindowSelect(wp)
 	return bp
 }
 
@@ -85,7 +85,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	if !LoadCurrentBuffer(path, nil) {
 		t.Fatal("LoadCurrentBuffer failed")
 	}
-	session.App.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
+	app.State.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
 
 	if err := os.WriteFile(path, []byte("alpha\nbeta\ngamma\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -104,8 +104,8 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	if bp.LineCount != 3 {
 		t.Fatalf("line_count = %d, want 3", bp.LineCount)
 	}
-	if session.App.CurrentWindow.Cursor.Line != 1 {
-		t.Fatalf("cursor line = %d, want 1", session.App.CurrentWindow.Cursor.Line)
+	if app.State.CurrentWindow.Cursor.Line != 1 {
+		t.Fatalf("cursor line = %d, want 1", app.State.CurrentWindow.Cursor.Line)
 	}
 	if bp.IsChanged {
 		t.Fatal("buffer should be clean after auto-reload")
@@ -132,17 +132,17 @@ func TestLoadCommandLineFiles(t *testing.T) {
 		return LoadCurrentBuffer(path, nil)
 	})
 
-	if session.App.BufferCount != 3 {
-		t.Fatalf("buffer_count = %d, want 3", session.App.BufferCount)
+	if app.State.BufferCount != 3 {
+		t.Fatalf("buffer_count = %d, want 3", app.State.BufferCount)
 	}
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		t.Fatal("no window")
 	}
-	if session.App.CurrentBuffer != wp.Buffer {
+	if app.State.CurrentBuffer != wp.Buffer {
 		t.Fatal("current buffer should be the first file's buffer")
 	}
-	line := buffer.GetLine(session.App.CurrentBuffer, 1)
+	line := buffer.GetLine(app.State.CurrentBuffer, 1)
 	if line == nil || string(line.Data) != "a.go" {
 		got := ""
 		if line != nil {
@@ -151,8 +151,8 @@ func TestLoadCommandLineFiles(t *testing.T) {
 		t.Fatalf("first buffer text = %q, want %q", got, "a.go")
 	}
 	names := map[string]bool{}
-	for i := 0; i < int(session.App.BufferCount); i++ {
-		bp := session.App.Buffers[i]
+	for i := 0; i < int(app.State.BufferCount); i++ {
+		bp := app.State.Buffers[i]
 		if bp != nil {
 			names[bp.Name] = true
 		}

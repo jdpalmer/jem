@@ -3,6 +3,7 @@ package ui
 // input.go — coordinates the background key reader with shell spawn.
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -74,7 +75,7 @@ func startKeyReader() {
 }
 
 func deliverDecodedKey(k uint32) {
-	if session.App.ActiveMinibuffer != nil || session.App.Dispatching {
+	if app.State.ActiveMinibuffer != nil || app.State.Dispatching {
 		select {
 		case GlobalMinibufKeyCh <- k:
 		default:
@@ -182,7 +183,7 @@ func isPasteRedrawKey(k uint32) bool {
 // RequestDisplayRefresh wakes the main or minibuffer input loop to redraw.
 func RequestDisplayRefresh() {
 	var ch chan uint32
-	if session.App.ActiveMinibuffer != nil {
+	if app.State.ActiveMinibuffer != nil {
 		ch = GlobalMinibufKeyCh
 	} else {
 		ch = GlobalKeyCh
@@ -222,7 +223,7 @@ func applyPendingPaste() {
 		select {
 		case data := <-pendingPasteCh:
 			var ok bool
-			if session.App.ActiveMinibuffer != nil {
+			if app.State.ActiveMinibuffer != nil {
 				ok = editorMinibufferPaste(data)
 			} else {
 				ok = editorInsertPaste(data, len(data))
@@ -238,12 +239,12 @@ func applyPendingPaste() {
 }
 
 func markPasteDirty() {
-	if session.App.ActiveMinibuffer != nil {
+	if app.State.ActiveMinibuffer != nil {
 		return
 	}
-	session.App.ScreenDirty = true
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		wp := session.App.WINDOWS[i]
+	app.State.ScreenDirty = true
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		wp := app.State.WINDOWS[i]
 		if wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true

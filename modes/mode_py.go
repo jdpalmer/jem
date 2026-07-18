@@ -3,7 +3,7 @@ package modes
 import (
 	"bytes"
 
-	"github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 func lpKeyword(lp *Line, i uint, kw string) bool {
@@ -209,8 +209,8 @@ func cmdPyNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil {
 		return false
 	}
@@ -229,8 +229,8 @@ func cmdPyIndentLine(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -243,8 +243,8 @@ func cmdPyIndentLine(f bool, n int) bool {
 func cmdPyMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.WindowInsertText == nil {
 		return false
 	}
@@ -277,8 +277,8 @@ func cmdPyMakeComment(f bool, n int) bool {
 func cmdPyTopOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -299,8 +299,8 @@ func cmdPyTopOfFunction(f bool, n int) bool {
 func cmdPyEndOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -347,7 +347,7 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 func cmdPyMarkFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -374,7 +374,7 @@ func cmdPyMarkFunction(f bool, n int) bool {
 
 func init() {
 	for i := range modeTable {
-		if modeTable[i].Mode == session.LModePython {
+		if modeTable[i].Mode == app.LModePython {
 			modeTable[i].NewlineAndIndent = cmdPyNewlineAndIndent
 			modeTable[i].IndentLine = cmdPyIndentLine
 			modeTable[i].MakeComment = cmdPyMakeComment

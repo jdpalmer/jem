@@ -7,28 +7,28 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"unicode/utf8"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/term"
 )
 
 func CmdWindowDelete(f bool, n int) bool {
-	if sess.App.WindowCount <= 1 {
+	if app.State.WindowCount <= 1 {
 		mbWrite("[cannot remove only window]")
 		return false
 	}
 
-	previousWindow := sess.App.CurrentWindow
-	for i := int(sess.App.WindowCount) - 1; i >= 0; i-- {
-		swap := sess.App.WINDOWS[i]
-		sess.App.WINDOWS[i] = previousWindow
+	previousWindow := app.State.CurrentWindow
+	for i := int(app.State.WindowCount) - 1; i >= 0; i-- {
+		swap := app.State.WINDOWS[i]
+		app.State.WINDOWS[i] = previousWindow
 		previousWindow = swap
 
-		if previousWindow == sess.App.CurrentWindow {
-			sess.WindowSaveState(previousWindow)
-			sess.App.CurrentWindow = sess.App.WINDOWS[i]
-			sess.App.WindowCount--
-			sess.WindowSelect(sess.App.CurrentWindow)
-			sess.WindowRetile()
+		if previousWindow == app.State.CurrentWindow {
+			app.WindowSaveState(previousWindow)
+			app.State.CurrentWindow = app.State.WINDOWS[i]
+			app.State.WindowCount--
+			app.WindowSelect(app.State.CurrentWindow)
+			app.WindowRetile()
 			break
 		}
 	}
@@ -36,50 +36,50 @@ func CmdWindowDelete(f bool, n int) bool {
 }
 
 func CmdWindowNext(f bool, n int) bool {
-	if sess.App.WindowCount <= 1 {
+	if app.State.WindowCount <= 1 {
 		return true
 	}
-	next := sess.App.WINDOWS[0]
-	for i := 0; i < int(sess.App.WindowCount); i++ {
-		if sess.App.WINDOWS[i] == sess.App.CurrentWindow {
-			if i+1 < int(sess.App.WindowCount) {
-				next = sess.App.WINDOWS[i+1]
+	next := app.State.WINDOWS[0]
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		if app.State.WINDOWS[i] == app.State.CurrentWindow {
+			if i+1 < int(app.State.WindowCount) {
+				next = app.State.WINDOWS[i+1]
 			}
 		}
 	}
-	sess.WindowSelect(next)
+	app.WindowSelect(next)
 	return true
 }
 
 func CmdWindowOnly(f bool, n int) bool {
-	for i := 0; i < int(sess.App.WindowCount); i++ {
-		if sess.App.WINDOWS[i] == sess.App.CurrentWindow {
-			sess.App.WINDOWS[i] = sess.App.WINDOWS[0]
-			sess.App.WINDOWS[0] = sess.App.CurrentWindow
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		if app.State.WINDOWS[i] == app.State.CurrentWindow {
+			app.State.WINDOWS[i] = app.State.WINDOWS[0]
+			app.State.WINDOWS[0] = app.State.CurrentWindow
 			continue
 		}
-		sess.WindowSaveState(sess.App.WINDOWS[i])
+		app.WindowSaveState(app.State.WINDOWS[i])
 	}
-	sess.App.WindowCount = 1
-	sess.App.CurrentWindow = sess.App.WINDOWS[0]
-	sess.WindowSelect(sess.App.CurrentWindow)
-	sess.WindowRetile()
+	app.State.WindowCount = 1
+	app.State.CurrentWindow = app.State.WINDOWS[0]
+	app.WindowSelect(app.State.CurrentWindow)
+	app.WindowRetile()
 	return true
 }
 
 func CmdWindowSplit(f bool, n int) bool {
-	if term.Rows() < 4*(int(sess.App.WindowCount)+1) {
+	if term.Rows() < 4*(int(app.State.WindowCount)+1) {
 		mbWrite("[window is too small to split]")
 		return false
 	}
-	wp := sess.WindowCreate()
+	wp := app.WindowCreate()
 	if wp == nil {
 		mbWrite("[maximum number of windows has been reached]")
 		return false
 	}
 
-	curr := sess.App.CurrentWindow
-	wp.Buffer = sess.App.CurrentBuffer
+	curr := app.State.CurrentWindow
+	wp.Buffer = app.State.CurrentBuffer
 	wp.TopLine = curr.TopLine
 	wp.Cursor = curr.Cursor
 	wp.Mark = curr.Mark
@@ -88,15 +88,15 @@ func CmdWindowSplit(f bool, n int) bool {
 	wp.HScroll = curr.HScroll
 
 	// Insert wp next to curr in WINDOWS array
-	for i := int(sess.App.WindowCount) - 1; i > 0; i-- {
-		if sess.App.WINDOWS[i-1] == curr {
-			sess.App.WINDOWS[i] = wp
+	for i := int(app.State.WindowCount) - 1; i > 0; i-- {
+		if app.State.WINDOWS[i-1] == curr {
+			app.State.WINDOWS[i] = wp
 			break
 		}
-		sess.App.WINDOWS[i] = sess.App.WINDOWS[i-1]
+		app.State.WINDOWS[i] = app.State.WINDOWS[i-1]
 	}
 
-	sess.WindowRetile()
+	app.WindowRetile()
 	return true
 }
 
@@ -254,7 +254,7 @@ func windowDeleteChars(wp *Window, count int) bool {
 
 // editorInsertPaste inserts pasted text into the current window, normalizing CR/CRLF to LF.
 func editorInsertPaste(text []byte, length int) bool {
-	wp := sess.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}

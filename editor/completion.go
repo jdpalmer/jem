@@ -4,6 +4,7 @@ package editor
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"go/ast"
 	"go/parser"
@@ -211,8 +212,8 @@ func CmdCompletionComplete(f bool, n int) bool {
 	_ = n
 	completionPending = ""
 
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		mbWrite("[no buffer]")
 		return false
@@ -255,7 +256,7 @@ func CmdCompletionAccept(f bool, n int) bool {
 		mbWrite("[completion: no pending suggestion]")
 		return false
 	}
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil || wp.Buffer.IsReadonly {
 		return false
 	}

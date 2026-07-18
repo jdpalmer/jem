@@ -1,28 +1,28 @@
 package modes
 
-import "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
-func GetModeFlags(lang session.LangMode) uint32 {
+func GetModeFlags(lang app.LangMode) uint32 {
 	switch lang {
-	case session.LModeNone:
-		return session.ModeFlagCommentSlashLine | session.ModeFlagCommentSlashBlock
-	case session.LModeC:
-		return session.ModeFlagCommentSlashLine | session.ModeFlagCommentSlashBlock | session.ModeFlagPreprocHashAtBOL
-	case session.LModeJava, session.LModeJavaScript, session.LModeActionScript, session.LModeTypeScript, session.LModeDart, session.LModeGo, session.LModeRust, session.LModeKotlin, session.LModeVerilog:
-		return session.ModeFlagCommentSlashLine | session.ModeFlagCommentSlashBlock
-	case session.LModeCSharp, session.LModeSwift:
-		return session.ModeFlagCommentSlashLine | session.ModeFlagCommentSlashBlock | session.ModeFlagPreprocHashAtBOL
-	case session.LModePython, session.LModeR, session.LModeMake:
-		return session.ModeFlagCommentHash
-	case session.LModeLua:
-		return session.ModeFlagCommentLua
-	case session.LModeLisp:
-		return session.ModeFlagIdentLispExtra | session.ModeFlagIdentLispSigil | session.ModeFlagCommentSemi
-	case session.LModePascal:
-		return session.ModeFlagCommentPascalBrace | session.ModeFlagCommentPascalParen | session.ModeFlagNoCurlyRainbow
-	case session.LModeCSS:
-		return session.ModeFlagIdentDash | session.ModeFlagCommentSlashBlock | session.ModeFlagAtRule
-	case session.LModeHTML, session.LModeMarkdown:
+	case app.LModeNone:
+		return app.ModeFlagCommentSlashLine | app.ModeFlagCommentSlashBlock
+	case app.LModeC:
+		return app.ModeFlagCommentSlashLine | app.ModeFlagCommentSlashBlock | app.ModeFlagPreprocHashAtBOL
+	case app.LModeJava, app.LModeJavaScript, app.LModeActionScript, app.LModeTypeScript, app.LModeDart, app.LModeGo, app.LModeRust, app.LModeKotlin, app.LModeVerilog:
+		return app.ModeFlagCommentSlashLine | app.ModeFlagCommentSlashBlock
+	case app.LModeCSharp, app.LModeSwift:
+		return app.ModeFlagCommentSlashLine | app.ModeFlagCommentSlashBlock | app.ModeFlagPreprocHashAtBOL
+	case app.LModePython, app.LModeR, app.LModeMake:
+		return app.ModeFlagCommentHash
+	case app.LModeLua:
+		return app.ModeFlagCommentLua
+	case app.LModeLisp:
+		return app.ModeFlagIdentLispExtra | app.ModeFlagIdentLispSigil | app.ModeFlagCommentSemi
+	case app.LModePascal:
+		return app.ModeFlagCommentPascalBrace | app.ModeFlagCommentPascalParen | app.ModeFlagNoCurlyRainbow
+	case app.LModeCSS:
+		return app.ModeFlagIdentDash | app.ModeFlagCommentSlashBlock | app.ModeFlagAtRule
+	case app.LModeHTML, app.LModeMarkdown:
 		return 0
 	default:
 		return 0

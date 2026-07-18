@@ -3,7 +3,7 @@ package editor
 import (
 	"testing"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 func TestBufferSwitchRestoresCursor(t *testing.T) {
@@ -12,7 +12,7 @@ func TestBufferSwitchRestoresCursor(t *testing.T) {
 	te.SetCursor(1, 3)
 	bp1 := te.BP()
 
-	bp2 := sess.BufferCreate(&session.App.EditorRuntimeState)
+	bp2 := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp2 == nil {
 		t.Fatal("buffer create failed")
 	}

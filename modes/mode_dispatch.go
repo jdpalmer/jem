@@ -1,28 +1,28 @@
 package modes
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/session"
 )
 
 type Hooks struct {
 	UndoBeginCommand      func()
 	UndoEndCommand        func()
 	BufferSetText         func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newLen uint, newEndOut *buffer.Location, kill bool) bool
-	WindowInsertNewline   func(wp *session.Window) bool
-	WindowInsertText      func(wp *session.Window, text []byte, length int) bool
-	WindowInsertCodepoint func(wp *session.Window, c rune) bool
-	WindowSetCursor       func(wp *session.Window, loc buffer.Location)
+	WindowInsertNewline   func(wp *app.Window) bool
+	WindowInsertText      func(wp *app.Window, text []byte, length int) bool
+	WindowInsertCodepoint func(wp *app.Window, c rune) bool
+	WindowSetCursor       func(wp *app.Window, loc buffer.Location)
 	Message               func(msg string)
 	DefaultGotoMatch      func(f bool, n int) bool
 }
 
 var PackageHooks Hooks
 
-func CurrentModeInfo() *session.ModeInfo {
-	bp := session.App.CurrentBuffer
+func CurrentModeInfo() *app.ModeInfo {
+	bp := app.State.CurrentBuffer
 	if bp == nil {
-		return LangModeInfo(session.LModeNone)
+		return LangModeInfo(app.LModeNone)
 	}
 	return LangModeInfo(bp.LangMode)
 }

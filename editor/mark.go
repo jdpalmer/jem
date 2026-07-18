@@ -1,16 +1,16 @@
 package editor
 
-import sess "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
-const MarkCapacity = sess.MarkCapacity
+const MarkCapacity = app.MarkCapacity
 
-type Mark = sess.Mark
-type MarkState = sess.MarkState
+type Mark = app.Mark
+type MarkState = app.MarkState
 
-var marksState = &sess.MarksState
+var marksState = &app.MarksState
 
 func markPopOnce() bool {
-	if !sess.MarkPopOnce() {
+	if !app.MarkPopOnce() {
 		mbWrite("[no saved mark]")
 		return false
 	}
@@ -21,7 +21,7 @@ func markPopOnce() bool {
 func CmdMarkPush(f bool, n int) bool {
 	_ = f
 	_ = n
-	sess.MarkPushCurrent()
+	app.MarkPushCurrent()
 	mbWrite("[mark pushed]")
 	return true
 }

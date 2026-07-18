@@ -1,6 +1,6 @@
 package modes
 
-import "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
 const (
 	SIMPLE_INDENT            = 2
@@ -255,21 +255,21 @@ func calcLispIndent(bp *Buffer, lineNumber uint) IndentSpec {
 func calcMiscIndent(bp *Buffer, lineNumber uint) IndentSpec {
 	kind := LangModeInfo(bp.LangMode).MiscIndentKind
 	switch kind {
-	case session.ModeMiscIndentNone:
+	case app.ModeMiscIndentNone:
 		return IndentSpec{0, false}
-	case session.ModeMiscIndentMake:
+	case app.ModeMiscIndentMake:
 		return calcMakeIndent(bp, lineNumber)
-	case session.ModeMiscIndentLua:
+	case app.ModeMiscIndentLua:
 		return calcBlockIndent(bp, lineNumber, luaIsCloser, luaIsOpener)
-	case session.ModeMiscIndentPascal:
+	case app.ModeMiscIndentPascal:
 		return calcBlockIndent(bp, lineNumber, pascalIsCloser, pascalIsOpener)
-	case session.ModeMiscIndentVerilog:
+	case app.ModeMiscIndentVerilog:
 		return calcBlockIndent(bp, lineNumber, verilogIsCloser, verilogIsOpener)
-	case session.ModeMiscIndentR:
+	case app.ModeMiscIndentR:
 		return calcBlockIndent(bp, lineNumber, nil, nil)
-	case session.ModeMiscIndentHTML:
+	case app.ModeMiscIndentHTML:
 		return calcBlockIndent(bp, lineNumber, htmlIsCloser, htmlIsOpener)
-	case session.ModeMiscIndentLisp:
+	case app.ModeMiscIndentLisp:
 		return calcLispIndent(bp, lineNumber)
 	default:
 		return IndentSpec{0, false}
@@ -316,8 +316,8 @@ func cmdMiscNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil {
 		return false
 	}
@@ -336,8 +336,8 @@ func cmdMiscNewlineAndIndent(f bool, n int) bool {
 func cmdMiscIndentLine(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -349,7 +349,7 @@ func cmdMiscIndentLine(f bool, n int) bool {
 
 func init() {
 	for i := range modeTable {
-		if modeTable[i].MiscIndentKind != session.ModeMiscIndentNone {
+		if modeTable[i].MiscIndentKind != app.ModeMiscIndentNone {
 			modeTable[i].NewlineAndIndent = cmdMiscNewlineAndIndent
 			modeTable[i].IndentLine = cmdMiscIndentLine
 		}

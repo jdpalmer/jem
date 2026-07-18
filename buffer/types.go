@@ -167,27 +167,27 @@ func LineLength(lp *Line) uint {
 }
 
 type Buffer struct {
-	Lines             []Line
-	LineCount         uint
-	Serial            uint32
-	SavedUndoSerial   uint32
-	IsChanged         bool
-	IsReadonly        bool
-	EolMode           EolMode
-	LangMode          LangMode
-	FillCol           uint32
-	CIndent           uint32
-	CBrace            uint32
-	CColonOffset      uint32
-	PyIndent          uint32
-	PyContinuedOffset uint32
-	WhitespaceCleanup bool
-	Name              string
-	FileName          string
-	FileMtime         time.Time
+	Lines                   []Line
+	LineCount               uint
+	Serial                  uint32
+	SavedUndoSerial         uint32
+	IsChanged               bool
+	IsReadonly              bool
+	EolMode                 EolMode
+	LangMode                LangMode
+	FillCol                 uint32
+	CIndent                 uint32
+	CBrace                  uint32
+	CColonOffset            uint32
+	PyIndent                uint32
+	PyContinuedOffset       uint32
+	WhitespaceCleanup       bool
+	Name                    string
+	FileName                string
+	FileMtime               time.Time
 	DiskChangeNotifiedMtime time.Time
-	Cursor            Location // last-known cursor; windows own live cursor state
-	Mark              Location // Line == 0 means unset; otherwise 1-based line index
+	Cursor                  Location // last-known cursor; windows own live cursor state
+	Mark                    Location // Line == 0 means unset; otherwise 1-based line index
 }
 
 // EOF returns the location just past the last line (1-based lines).

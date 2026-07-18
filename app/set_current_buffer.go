@@ -1,4 +1,4 @@
-package session
+package app
 
 import "strings"
 
@@ -7,27 +7,27 @@ func SetCurrentBuffer(bp *Buffer) {
 		return
 	}
 	index := -1
-	for i := 0; i < int(App.BufferCount); i++ {
-		if App.Buffers[i] == bp {
+	for i := 0; i < int(State.BufferCount); i++ {
+		if State.Buffers[i] == bp {
 			index = i
 			break
 		}
 	}
 	if index != -1 {
 		for i := index; i > 0; i-- {
-			App.Buffers[i] = App.Buffers[i-1]
+			State.Buffers[i] = State.Buffers[i-1]
 		}
-		App.Buffers[0] = bp
+		State.Buffers[0] = bp
 	}
-	App.CurrentBuffer = bp
+	State.CurrentBuffer = bp
 	if PackageHooks.SetCurrentBuffer != nil {
 		PackageHooks.SetCurrentBuffer(bp)
 	}
 }
 
 func BufferFind(name string) *Buffer {
-	for i := 0; i < int(App.BufferCount); i++ {
-		bp := App.Buffers[i]
+	for i := 0; i < int(State.BufferCount); i++ {
+		bp := State.Buffers[i]
 		if bp != nil && strings.EqualFold(bp.Name, name) {
 			return bp
 		}

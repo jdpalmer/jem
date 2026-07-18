@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"testing"
 
 	"github.com/jdpalmer/jem/buffer"
@@ -13,9 +14,9 @@ func TestApplyPendingPasteOnMainThread(t *testing.T) {
 
 	bp := buffer.New()
 	wp := &Window{Buffer: bp, Cursor: Location{Line: 1, Offset: 0}}
-	session.App.CurrentWindow = wp
-	session.App.WINDOWS[0] = wp
-	session.App.WindowCount = 1
+	app.State.CurrentWindow = wp
+	app.State.WINDOWS[0] = wp
+	app.State.WindowCount = 1
 
 	queuePaste([]byte("hello"))
 	applyPendingPaste()

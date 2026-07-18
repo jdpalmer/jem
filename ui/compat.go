@@ -1,14 +1,14 @@
 package ui
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sesspkg "github.com/jdpalmer/jem/session"
 )
 
 var (
 	GlobalKeyCh        chan uint32
 	GlobalMinibufKeyCh chan uint32
-	marksState         = &sesspkg.MarksState
+	marksState         = &app.MarksState
 )
 
 func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
@@ -66,7 +66,7 @@ func editorInsertPaste(text []byte, length int) bool {
 	if PackageHooks.EditorInsertPaste != nil {
 		return PackageHooks.EditorInsertPaste(text, length)
 	}
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -84,6 +84,6 @@ func editorInsertPaste(text []byte, length int) bool {
 	if !bufferSetText(wp.Buffer, loc, loc, paste, uint(len(paste)), &newEnd, false) {
 		return false
 	}
-	sesspkg.WindowSetCursor(wp, newEnd)
+	app.WindowSetCursor(wp, newEnd)
 	return true
 }

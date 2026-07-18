@@ -7,7 +7,7 @@ import (
 	"github.com/jdpalmer/jem/syntax"
 )
 
-import sess "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
 func cursorAtEob(wp *Window) bool {
 	if wp == nil || wp.Buffer == nil {
@@ -55,9 +55,9 @@ func forwardSexpOnce(wp *Window, bp *Buffer) bool {
 		mlp := buffer.GetLine(bp, match.Line)
 		after := match.Offset + 1
 		if mlp == nil || after > buffer.LineLength(mlp) {
-			sess.WindowSetCursor(wp, buffer.MakeLocation(match.Line+1, 0))
+			app.WindowSetCursor(wp, buffer.MakeLocation(match.Line+1, 0))
 		} else {
-			sess.WindowSetCursor(wp, buffer.MakeLocation(match.Line, after))
+			app.WindowSetCursor(wp, buffer.MakeLocation(match.Line, after))
 		}
 		wp.DidMove = true
 		return true
@@ -85,14 +85,14 @@ func backwardSexpOnce(wp *Window, bp *Buffer) bool {
 		var match Location
 		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
 			mbWrite("[no matching delimiter]")
-			sess.WindowSetCursor(wp, orig)
+			app.WindowSetCursor(wp, orig)
 			return false
 		}
-		sess.WindowSetCursor(wp, match)
+		app.WindowSetCursor(wp, match)
 		wp.DidMove = true
 		return true
 	}
-	sess.WindowSetCursor(wp, orig)
+	app.WindowSetCursor(wp, orig)
 	return CmdBackwardWord(false, 1)
 }
 
@@ -102,8 +102,8 @@ func CmdForwardSexp(f bool, n int) bool {
 	if n < 0 {
 		return CmdBackwardSexp(false, -n)
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -124,8 +124,8 @@ func CmdBackwardSexp(f bool, n int) bool {
 	if n < 0 {
 		return CmdForwardSexp(false, -n)
 	}
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}

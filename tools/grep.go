@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/fileio"
-	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,7 +52,7 @@ type grepSearchResult struct {
 
 func grepSearchRoot() (string, error) {
 	start := ""
-	if bp := session.App.CurrentBuffer; bp != nil {
+	if bp := app.State.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
 			start = filepath.Dir(fileio.NormalizePath(fname))
 		}
@@ -310,10 +310,10 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 }
 
 func grepEnsureBuffer() *Buffer {
-	if bp := sess.BufferFind(GrepBufferName); bp != nil {
+	if bp := app.BufferFind(GrepBufferName); bp != nil {
 		return bp
 	}
-	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		return nil
 	}
@@ -344,8 +344,8 @@ func RunGrep() bool {
 
 // VisitGrepMatch jumps to the match at the current line in the *grep* buffer.
 func VisitGrepMatch() bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.Name != GrepBufferName {
 		return false
 	}

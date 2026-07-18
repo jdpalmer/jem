@@ -1,6 +1,6 @@
 package modes
 
-import "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
 func prevNonblankLineNumber(bp *Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
@@ -108,8 +108,8 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil || PackageHooks.WindowInsertNewline == nil || PackageHooks.WindowInsertText == nil {
 		return false
 	}
@@ -129,8 +129,8 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 func cmdMdIndentLine(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -146,7 +146,7 @@ func cmdMdIndentLine(f bool, n int) bool {
 
 func init() {
 	for i := range modeTable {
-		if modeTable[i].Mode == session.LModeMarkdown {
+		if modeTable[i].Mode == app.LModeMarkdown {
 			modeTable[i].NewlineAndIndent = cmdMdNewlineAndIndent
 			modeTable[i].IndentLine = cmdMdIndentLine
 		}

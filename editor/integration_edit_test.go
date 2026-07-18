@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"testing"
 )
@@ -29,7 +30,7 @@ func TestCmdEdit(t *testing.T) {
 
 	te.LoadText("hello world")
 	te.SetCursor(1, 5)
-	session.App.KillState = CmdStateNone
+	app.State.KillState = CmdStateNone
 	te.Press("C-k")
 	te.ExpectText("hello")
 	te.Press("C-y")

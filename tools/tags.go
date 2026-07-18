@@ -5,9 +5,9 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/fileio"
-	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,7 +56,7 @@ func tagFindTagsFile() (string, bool) {
 	}
 
 	dir := ""
-	if bp := session.App.CurrentBuffer; bp != nil {
+	if bp := app.State.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
 			dir = filepath.Dir(fileio.NormalizePath(fname))
 		}
@@ -260,11 +260,11 @@ func tagMoveCursorToLine(wp *Window, target, offset uint32) bool {
 	if off > buffer.LineLength(lp) {
 		off = buffer.LineLength(lp)
 	}
-	sess.WindowSetCursor(wp, buffer.MakeLocation(uint(target), off))
+	app.WindowSetCursor(wp, buffer.MakeLocation(uint(target), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true
-	sess.WindowCenterCursor(wp)
+	app.WindowCenterCursor(wp)
 	return true
 }
 
@@ -273,13 +273,13 @@ func bufferNameFromPath(fname string) string {
 	if i := strings.IndexByte(base, ';'); i >= 0 {
 		base = base[:i]
 	}
-	if sess.BufferFind(base) == nil {
-		return sess.TruncateBufferName(base)
+	if app.BufferFind(base) == nil {
+		return app.TruncateBufferName(base)
 	}
 	for suffix := 2; ; suffix++ {
 		name := fmt.Sprintf("%s:%d", base, suffix)
-		if sess.BufferFind(name) == nil {
-			return sess.TruncateBufferName(name)
+		if app.BufferFind(name) == nil {
+			return app.TruncateBufferName(name)
 		}
 	}
 }
@@ -557,7 +557,7 @@ func tagFindCallHint(wp *Window, name []byte, argIndexOut *uint32) bool {
 
 // RunGotoTag jumps to the definition of the symbol at point (M-.).
 func RunGotoTag() bool {
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 
 	if !EnsureTagsLoaded(false) {
 		return false
@@ -591,15 +591,15 @@ func RunGotoTag() bool {
 
 // MaybeShowCallHint displays a signature hint for the function call at point.
 func MaybeShowCallHint() {
-	if session.App.IsRecording() || session.App.IsPlaying() {
+	if app.State.IsRecording() || app.State.IsPlaying() {
 		return
 	}
 	if !EnsureTagsLoaded(true) {
 		return
 	}
 
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return
 	}

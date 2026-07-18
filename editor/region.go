@@ -5,7 +5,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"sort"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 // region.go - port of cmd_region.c: mark/region related commands
@@ -35,7 +35,7 @@ func getRegion(wp *Window, rp *Region) bool {
 func CmdKillRegion(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -46,7 +46,7 @@ func CmdKillRegion(f bool, n int) bool {
 	killBegin()
 	// unset mark
 	wp.Mark = Location{Line: 0, Offset: 0}
-	sess.WindowSetCursor(wp, region.Start)
+	app.WindowSetCursor(wp, region.Start)
 	return bufferSetText(wp.Buffer, region.Start, region.End, nil, 0, nil, true)
 }
 
@@ -54,7 +54,7 @@ func CmdKillRegion(f bool, n int) bool {
 func CmdCopyRegion(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -89,7 +89,7 @@ func CmdYank(f bool, n int) bool {
 	}
 	// Prefer the system clipboard, but fall back to the in-process kill ring
 	// when yanking immediately after a kill in environments without clipboard access.
-	if !killReadClipboard() && session.App.KillState == CmdStateNone {
+	if !killReadClipboard() && app.State.KillState == CmdStateNone {
 		return false
 	}
 	var klen uint
@@ -103,10 +103,10 @@ func CmdYank(f bool, n int) bool {
 	}
 	for i := 0; i < n; i++ {
 		// insert kb at point.
-		if session.App.CurrentWindow == nil {
+		if app.State.CurrentWindow == nil {
 			return false
 		}
-		if !windowInsertText(session.App.CurrentWindow, kb, int(klen)) {
+		if !windowInsertText(app.State.CurrentWindow, kb, int(klen)) {
 			return false
 		}
 	}
@@ -117,7 +117,7 @@ func CmdYank(f bool, n int) bool {
 func CmdSetMark(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -137,7 +137,7 @@ func CmdSetMark(f bool, n int) bool {
 func CmdSwapMark(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -146,7 +146,7 @@ func CmdSwapMark(f bool, n int) bool {
 		return false
 	}
 	temp := wp.Cursor
-	sess.WindowSetCursor(wp, wp.Mark)
+	app.WindowSetCursor(wp, wp.Mark)
 	wp.Mark = temp
 	wp.DidMove = true
 	return true
@@ -156,21 +156,21 @@ func CmdSwapMark(f bool, n int) bool {
 func CmdMarkWholeBuffer(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
 	wp.Mark = buffer.MakeLocation(buffer.EOF(bp), 0)
-	sess.WindowSetCursor(wp, buffer.MakeLocation(1, 0))
+	app.WindowSetCursor(wp, buffer.MakeLocation(1, 0))
 	wp.ShouldRedraw = true
 	mbWrite("[mark set]")
 	return true
 }
 
 func transformRegionCase(upper bool) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -225,8 +225,8 @@ type sortLine struct {
 func CmdSortRegion(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -291,8 +291,8 @@ func CmdSortRegion(f bool, n int) bool {
 func CmdCopyRegister(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -323,7 +323,7 @@ func CmdCopyRegister(f bool, n int) bool {
 func CmdInsertRegister(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}

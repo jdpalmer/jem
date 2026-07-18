@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	sess "github.com/jdpalmer/jem/session"
 	"io"
 	"os"
 	"os/exec"
@@ -202,10 +202,10 @@ func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int,
 }
 
 func compileEnsureBuffer() *Buffer {
-	if bp := sess.BufferFind(CompileBufferName); bp != nil {
+	if bp := app.BufferFind(CompileBufferName); bp != nil {
 		return bp
 	}
-	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		return nil
 	}
@@ -288,8 +288,8 @@ func RunCompile() bool {
 
 // VisitCompileDiag jumps to the diagnostic at the current line in *compile*.
 func VisitCompileDiag() bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.Name != CompileBufferName {
 		return false
 	}

@@ -3,31 +3,31 @@ package tools
 import (
 	"bytes"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 type (
-	Buffer       = sess.Buffer
-	Line         = sess.Line
-	Location     = sess.Location
-	Window       = sess.Window
-	PromptResult = sess.PromptResult
-	GitLineDiff  = sess.GitLineDiff
+	Buffer       = app.Buffer
+	Line         = app.Line
+	Location     = app.Location
+	Window       = app.Window
+	PromptResult = app.PromptResult
+	GitLineDiff  = app.GitLineDiff
 )
 
 const (
-	MaxBuffers            = sess.MaxBuffers
-	PatternCapacity       = sess.PatternCapacity
-	CommandPromptCapacity = sess.CommandPromptCapacity
-	PromptResultYes       = sess.PromptResultYes
-	PromptResultAbort     = sess.PromptResultAbort
-	KeyEnter              = sess.KeyEnter
-	LModeMarkdown         = sess.LModeMarkdown
+	MaxBuffers            = app.MaxBuffers
+	PatternCapacity       = app.PatternCapacity
+	CommandPromptCapacity = app.CommandPromptCapacity
+	PromptResultYes       = app.PromptResultYes
+	PromptResultAbort     = app.PromptResultAbort
+	KeyEnter              = app.KeyEnter
+	LModeMarkdown         = app.LModeMarkdown
 
-	GitLineDiffNone     = sess.GitLineDiffNone
-	GitLineDiffAdded    = sess.GitLineDiffAdded
-	GitLineDiffModified = sess.GitLineDiffModified
-	GitLineDiffDeleted  = sess.GitLineDiffDeleted
+	GitLineDiffNone     = app.GitLineDiffNone
+	GitLineDiffAdded    = app.GitLineDiffAdded
+	GitLineDiffModified = app.GitLineDiffModified
+	GitLineDiffDeleted  = app.GitLineDiffDeleted
 )
 
 func promptStringFromBuf(buf []byte) string {
@@ -70,7 +70,7 @@ func mbReadStringCap(prompt, initial string, capacity int) (string, PromptResult
 	return mbReadString(prompt, initial)
 }
 
-func mbReadFuzzyListExString(prompt string, provider sess.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter sess.MbMatchFormatter, displayCtx any) (string, PromptResult) {
+func mbReadFuzzyListExString(prompt string, provider app.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter app.MbMatchFormatter, displayCtx any) (string, PromptResult) {
 	if PackageHooks.MBReadFuzzyListExString == nil {
 		return "", PromptResultAbort
 	}
@@ -95,8 +95,8 @@ func editorSwitchBuffer(bp *Buffer) {
 		PackageHooks.SwitchBuffer(bp)
 		return
 	}
-	sess.SetCurrentBuffer(bp)
-	if wp := sess.App.CurrentWindow; wp != nil {
+	app.SetCurrentBuffer(bp)
+	if wp := app.State.CurrentWindow; wp != nil {
 		wp.Buffer = bp
 	}
 }

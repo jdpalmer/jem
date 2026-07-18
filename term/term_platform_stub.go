@@ -2,6 +2,6 @@
 
 package term
 
-func termPlatformInitConsole() error  { return nil }
-func termPlatformCloseConsole()       {}
-func termPlatformAfterFlush()         {}
+func termPlatformInitConsole() error { return nil }
+func termPlatformCloseConsole()      {}
+func termPlatformAfterFlush()        {}

@@ -4,6 +4,7 @@ package tools
 
 import (
 	"fmt"
+	"github.com/jdpalmer/jem/app"
 	"os"
 	"os/exec"
 	"runtime"
@@ -55,7 +56,7 @@ func SpawnShell(command *string) int {
 	}
 
 	// Dispatching routes keys to GlobalMinibufKeyCh; clear it during spawn.
-	session.App.Dispatching = false
+	app.State.Dispatching = false
 
 	if !TermFreezeInput() {
 		mbWrite("[spawn unavailable: input reader did not pause]")
@@ -91,7 +92,7 @@ func SpawnShell(command *string) int {
 		}
 	}
 
-	session.App.ScreenDirty = true
+	app.State.ScreenDirty = true
 
 	if runtime.GOOS != "windows" {
 		time.Sleep(2 * time.Second)
@@ -124,8 +125,8 @@ func SpawnShell(command *string) int {
 		mbClear()
 	}
 
-	for i := 0; i < int(session.App.WindowCount); i++ {
-		if wp := session.App.WINDOWS[i]; wp != nil {
+	for i := 0; i < int(app.State.WindowCount); i++ {
+		if wp := app.State.WINDOWS[i]; wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
 		}
@@ -166,6 +167,6 @@ func RunSpawnCommand() bool {
 	}
 
 	rc := SpawnShell(&command)
-	session.App.ScreenDirty = true
+	app.State.ScreenDirty = true
 	return rc != -1
 }

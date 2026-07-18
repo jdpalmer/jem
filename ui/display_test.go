@@ -1,7 +1,7 @@
 package ui
 
 import (
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 	"testing"
 
 	"github.com/jdpalmer/jem/term"
@@ -93,30 +93,30 @@ func TestLineColAtOffsetWideRune(t *testing.T) {
 
 func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 	DisplayInit()
-	*session.App = App{}
-	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
+	app.State = App{}
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
-	wp := sess.WindowCreate()
+	wp := app.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
-	sess.WindowSelect(wp)
+	app.WindowSelect(wp)
 	wp.Cursor = Location{Line: 1, Offset: 3}
 	wp.TopLine = 1
-	sess.WindowRetile()
+	app.WindowRetile()
 
 	mbWrite("[region copied]")
-	if session.App.Cursor.Row != uint32(term.Rows()) {
-		t.Fatalf("mbWrite cursor row = %d, want message row %d", session.App.Cursor.Row, term.Rows())
+	if app.State.Cursor.Row != uint32(term.Rows()) {
+		t.Fatalf("mbWrite cursor row = %d, want message row %d", app.State.Cursor.Row, term.Rows())
 	}
 
 	DisplayUpdate()
-	if session.App.Cursor.Row == uint32(term.Rows()) {
+	if app.State.Cursor.Row == uint32(term.Rows()) {
 		t.Fatal("DisplayUpdate should move cursor back to the editor")
 	}
-	if !session.App.MessagePresent {
+	if !app.State.MessagePresent {
 		t.Fatal("message text should remain visible until the next key")
 	}
 }

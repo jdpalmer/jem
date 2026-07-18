@@ -1,10 +1,10 @@
 package modes
 
-import "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
 func ModeNewlineAndIndent(f bool, n int) bool {
 	_ = f
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || PackageHooks.WindowInsertNewline == nil {
 		return false
 	}
@@ -24,7 +24,7 @@ func ModeIndentLine(f bool, n int) bool {
 
 func ModeCloseBrace(f bool, n int) bool {
 	_ = f
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil || PackageHooks.WindowInsertCodepoint == nil {
 		return false
 	}

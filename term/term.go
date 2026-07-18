@@ -14,19 +14,19 @@ import (
 )
 
 var (
-	termRows         int = 24
-	termCols         int = 80
-	termOut              = bufio.NewWriter(os.Stdout)
-	termScrollTop    int = -1
-	termScrollBottom int = -1
-	termAnsiStyle    buffer.TextStyle
-	savedTermState   *xterm.State
-	termFile         *os.File
-	termFd           int
-	termReader       *bufio.Reader
-	termIsTTY        bool
-	termAltbuf       bool
-	termReadMu       sync.Mutex
+	termRows           int = 24
+	termCols           int = 80
+	termOut                = bufio.NewWriter(os.Stdout)
+	termScrollTop      int = -1
+	termScrollBottom   int = -1
+	termAnsiStyle      buffer.TextStyle
+	savedTermState     *xterm.State
+	termFile           *os.File
+	termFd             int
+	termReader         *bufio.Reader
+	termIsTTY          bool
+	termAltbuf         bool
+	termReadMu         sync.Mutex
 	termKittySupported bool
 
 	lastMouseCol int

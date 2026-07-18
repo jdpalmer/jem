@@ -1,18 +1,18 @@
 package tools
 
-import sess "github.com/jdpalmer/jem/session"
+import "github.com/jdpalmer/jem/app"
 
 type Hooks struct {
 	MBWrite                 func(format string, args ...interface{})
 	MBClear                 func()
 	MBHistoryAdd            func(text string)
-	MBReadString            func(prompt, initial string) (string, sess.PromptResult)
-	MBReadStringCap         func(prompt, initial string, capacity int) (string, sess.PromptResult)
-	MBReadFuzzyListExString func(prompt string, provider sess.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter sess.MbMatchFormatter, displayCtx any) (string, sess.PromptResult)
+	MBReadString            func(prompt, initial string) (string, app.PromptResult)
+	MBReadStringCap         func(prompt, initial string, capacity int) (string, app.PromptResult)
+	MBReadFuzzyListExString func(prompt string, provider app.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter app.MbMatchFormatter, displayCtx any) (string, app.PromptResult)
 
 	MarkPushCurrent func()
 	VisitLocation   func(path string, line, column uint32) bool
-	SwitchBuffer    func(bp *sess.Buffer)
+	SwitchBuffer    func(bp *app.Buffer)
 	Abort           func()
 
 	TermFreezeInput func() bool

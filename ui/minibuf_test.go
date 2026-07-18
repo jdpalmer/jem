@@ -1,8 +1,8 @@
 package ui
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/fileio"
-	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,8 +12,8 @@ import (
 
 func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	DisplayInit()
-	*session.App = App{}
-	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
+	app.State = App{}
+	bp := app.BufferCreate(&app.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}

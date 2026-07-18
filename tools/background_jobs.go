@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 	"errors"
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 const (
@@ -123,7 +123,7 @@ func HandleBackgroundJobDone(done BackgroundJobDone) {
 	case backgroundJobCompile:
 		handleBackgroundJobCompile(done)
 	}
-	session.App.ScreenDirty = true
+	app.State.ScreenDirty = true
 }
 
 func handleBackgroundJobGrep(done BackgroundJobDone) {
@@ -154,9 +154,9 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(grepBuf)
-	if wp := session.App.CurrentWindow; wp != nil {
-		sess.WindowSetTopLine(wp, 1)
-		sess.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
+	if wp := app.State.CurrentWindow; wp != nil {
+		app.WindowSetTopLine(wp, 1)
+		app.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
 		wp.Mark = Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true
@@ -199,9 +199,9 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(compileBuf)
-	if wp := session.App.CurrentWindow; wp != nil {
-		sess.WindowSetTopLine(wp, 1)
-		sess.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
+	if wp := app.State.CurrentWindow; wp != nil {
+		app.WindowSetTopLine(wp, 1)
+		app.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
 		wp.Mark = Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true

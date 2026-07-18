@@ -3,7 +3,7 @@ package editor
 import (
 	"testing"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 )
 
 func TestMouseLeftClick(t *testing.T) {
@@ -11,7 +11,7 @@ func TestMouseLeftClick(t *testing.T) {
 	te.LoadText("hello world")
 	te.SetCursor(1, 0)
 
-	gutter := sess.WindowGutterWidth(te.WP())
+	gutter := app.WindowGutterWidth(te.WP())
 	te.Click(0, gutter+5)
 	te.ExpectCursor(1, 5)
 }

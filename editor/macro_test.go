@@ -1,12 +1,13 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
 	"testing"
 )
 
 func resetMacroState() {
-	session.App.EditorMacroState = EditorMacroState{}
+	app.State.EditorMacroState = EditorMacroState{}
 	macroInit()
 }
 
@@ -32,31 +33,31 @@ func TestMacroRecording(t *testing.T) {
 		t.Fatal("macro end failed")
 	}
 
-	if session.App.Keys[0] != int32('x') {
-		t.Fatalf("keys[0] = %d, want %d", session.App.Keys[0], 'x')
+	if app.State.Keys[0] != int32('x') {
+		t.Fatalf("keys[0] = %d, want %d", app.State.Keys[0], 'x')
 	}
-	if session.App.Keys[1] != int32(CTL|'U') {
-		t.Fatalf("keys[1] = %d, want CTL|U", session.App.Keys[1])
+	if app.State.Keys[1] != int32(CTL|'U') {
+		t.Fatalf("keys[1] = %d, want CTL|U", app.State.Keys[1])
 	}
-	if session.App.Keys[2] != 3 {
-		t.Fatalf("keys[2] = %d, want 3", session.App.Keys[2])
+	if app.State.Keys[2] != 3 {
+		t.Fatalf("keys[2] = %d, want 3", app.State.Keys[2])
 	}
-	if session.App.Keys[3] != int32('y') {
-		t.Fatalf("keys[3] = %d, want %d", session.App.Keys[3], 'y')
+	if app.State.Keys[3] != int32('y') {
+		t.Fatalf("keys[3] = %d, want %d", app.State.Keys[3], 'y')
 	}
-	if session.App.Keys[4] != int32(CTLX|')') {
-		t.Fatalf("keys[4] = %d, want CTLX|)", session.App.Keys[4])
+	if app.State.Keys[4] != int32(CTLX|')') {
+		t.Fatalf("keys[4] = %d, want CTLX|)", app.State.Keys[4])
 	}
-	if session.App.Keys[5] != 0 {
-		t.Fatalf("keys[5] = %d, want 0", session.App.Keys[5])
+	if app.State.Keys[5] != 0 {
+		t.Fatalf("keys[5] = %d, want 0", app.State.Keys[5])
 	}
 }
 
 func TestMacroPlayback(t *testing.T) {
 	resetMacroState()
 	EditorInit("test")
-	bp := session.App.CurrentBuffer
-	wp := session.App.CurrentWindow
+	bp := app.State.CurrentBuffer
+	wp := app.State.CurrentWindow
 	if bp == nil || wp == nil {
 		t.Fatal("editor init failed")
 	}

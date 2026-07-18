@@ -4,7 +4,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"time"
 
-	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/term"
 )
 
@@ -55,8 +55,8 @@ func windowDeleteBytes(wp *Window, n int, kill bool) bool {
 
 // CmdKill kills text from point to end of line (Emacs kill-line semantics).
 func CmdKill(f bool, n int) bool {
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -113,7 +113,7 @@ func CmdOpenLine(f bool, n int) bool {
 	if n == 0 {
 		return true
 	}
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -143,7 +143,7 @@ func CmdQuote(f bool, n int) bool {
 	if !ok {
 		return false
 	}
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -171,8 +171,8 @@ func CmdQuote(f bool, n int) bool {
 func CmdTransposeChars(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -211,8 +211,8 @@ func CmdTransposeChars(f bool, n int) bool {
 func CmdDeleteBlankLines(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -251,7 +251,7 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 func CmdInsertDate(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
+	wp := app.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -264,8 +264,8 @@ func CmdInsertDate(f bool, n int) bool {
 func CmdTrimWhitespace(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -302,8 +302,8 @@ func CmdTrimWhitespace(f bool, n int) bool {
 func CmdTransposeLines(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -333,7 +333,7 @@ func CmdTransposeLines(f bool, n int) bool {
 	if !bufferSetText(bp, p0, p2, swapped, uint(len(swapped)), nil, false) {
 		return false
 	}
-	sess.WindowSetCursor(wp, buffer.MakeLocation(curr-1, 0))
+	app.WindowSetCursor(wp, buffer.MakeLocation(curr-1, 0))
 	return true
 }
 
@@ -373,8 +373,8 @@ func bufferCharStats(bp *Buffer, wp *Window) (charAt int, before, total uint) {
 func CmdShowPosition(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := session.App.CurrentWindow
-	bp := session.App.CurrentBuffer
+	wp := app.State.CurrentWindow
+	bp := app.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		mbWrite("[no buffer]")
 		return false
@@ -385,7 +385,7 @@ func CmdShowPosition(f bool, n int) bool {
 	if total > 0 {
 		ratio = (100 * before) / total
 	}
-	row := int(session.App.Cursor.Row) + 1
+	row := int(app.State.Cursor.Row) + 1
 	mbWrite("X=%d Y=%d CH=0x%x .=%d (%d%% of %d)", col+1, row, charAt, before, ratio, total)
 	return true
 }
