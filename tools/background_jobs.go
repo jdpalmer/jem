@@ -155,8 +155,8 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 	markPushCurrent()
 	editorSwitchBuffer(grepBuf)
 	if wp := app.State.CurrentWindow; wp != nil {
-		app.WindowSetTopLine(wp, 1)
-		app.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
+		wp.SetTopLine(1)
+		wp.SetCursor(Location{Line: 1, Offset: 0})
 		wp.Mark = Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true
@@ -200,8 +200,8 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 	markPushCurrent()
 	editorSwitchBuffer(compileBuf)
 	if wp := app.State.CurrentWindow; wp != nil {
-		app.WindowSetTopLine(wp, 1)
-		app.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
+		wp.SetTopLine(1)
+		wp.SetCursor(Location{Line: 1, Offset: 0})
 		wp.Mark = Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true

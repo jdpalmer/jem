@@ -22,9 +22,9 @@ func makeTestWindow(t *testing.T, text string) *app.Window {
 	}
 	wp.Buffer = bp
 	app.WindowSelect(wp)
-	eof := buffer.MakeLocation(buffer.EOF(bp), 0)
+	eof := buffer.MakeLocation(bp.EOF(), 0)
 	data := []byte(text)
-	if !buffer.SetText(bp, nil, buffer.MakeLocation(1, 0), eof, data, uint(len(data)), nil) {
+	if !bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, uint(len(data)), nil) {
 		t.Fatal("buffer.SetText failed")
 	}
 	return wp
@@ -32,7 +32,7 @@ func makeTestWindow(t *testing.T, text string) *app.Window {
 
 func TestFindNextPlain(t *testing.T) {
 	wp := makeTestWindow(t, "hello world\nfoo bar\n")
-	app.WindowSetCursor(wp, app.Location{Line: 1, Offset: 0})
+	wp.SetCursor(app.Location{Line: 1, Offset: 0})
 	DefaultState.SearchCaseSensitive = true
 	if !findNextPlain(wp, []byte("world")) {
 		t.Fatal("expected to find world")
@@ -50,7 +50,7 @@ func TestFindNextPlain(t *testing.T) {
 
 func TestFindPrevPlain(t *testing.T) {
 	wp := makeTestWindow(t, "abc abc\n")
-	app.WindowSetCursor(wp, app.Location{Line: 1, Offset: 7})
+	wp.SetCursor(app.Location{Line: 1, Offset: 7})
 	DefaultState.SearchCaseSensitive = true
 	if !findPrevPlain(wp, []byte("abc")) {
 		t.Fatal("expected to find abc")

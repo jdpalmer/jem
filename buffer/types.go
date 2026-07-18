@@ -99,11 +99,11 @@ func MakeTextStyle(fg, bg TermColor, flags TextStyle) TextStyle {
 		uint16(flags))
 }
 
-func TextStyleFg(style TextStyle) TermColor {
+func (style TextStyle) Fg() TermColor {
 	return TermColor((uint16(style) >> TextStyleFgShift) & TextStyleColorMask)
 }
 
-func TextStyleBg(style TextStyle) TermColor {
+func (style TextStyle) Bg() TermColor {
 	return TermColor((uint16(style) >> TextStyleBgShift) & TextStyleColorMask)
 }
 
@@ -152,14 +152,14 @@ type Line struct {
 	Buffer         *Buffer
 }
 
-func LineGetc(lp *Line, n uint) byte {
+func (lp *Line) Byte(n uint) byte {
 	if lp == nil || n >= uint(len(lp.Data)) {
 		return 0
 	}
 	return lp.Data[n]
 }
 
-func LineLength(lp *Line) uint {
+func (lp *Line) Len() uint {
 	if lp == nil {
 		return 0
 	}
@@ -192,16 +192,16 @@ type Buffer struct {
 
 // EOF returns the location just past the last line (1-based lines).
 // For an empty buffer this is line 1; with N lines it is line N+1.
-func EOF(bp *Buffer) uint {
+func (bp *Buffer) EOF() uint {
 	if bp == nil {
 		return 1
 	}
 	return bp.LineCount + 1
 }
 
-// GetLine returns line lineNumber (1-based). The pointer is invalidated if
+// Line returns line lineNumber (1-based). The pointer is invalidated if
 // bp.Lines is reallocated; prefer line numbers across edits.
-func GetLine(bp *Buffer, lineNumber uint) *Line {
+func (bp *Buffer) Line(lineNumber uint) *Line {
 	if bp == nil || lineNumber == 0 || lineNumber > bp.LineCount {
 		return nil
 	}

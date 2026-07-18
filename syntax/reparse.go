@@ -39,14 +39,14 @@ func IncrementalReparse(bp *buffer.Buffer, startLine uint) {
 		return
 	}
 	for ln := startLine; ln <= bp.LineCount; ln++ {
-		lp := buffer.GetLine(bp, ln)
+		lp := bp.Line(ln)
 		if lp == nil {
 			continue
 		}
 		// determine start state from previous line
 		var start SynState
 		if ln > 1 {
-			prev := buffer.GetLine(bp, ln-1)
+			prev := bp.Line(ln-1)
 			if prev != nil {
 				start = prev.SyntaxEndState
 			} else {
@@ -80,7 +80,7 @@ func IncrementalReparse(bp *buffer.Buffer, startLine uint) {
 				end = bp.LineCount
 			}
 			for ln := startLine; ln <= end; ln++ {
-				lp := buffer.GetLine(bp, ln)
+				lp := bp.Line(ln)
 				if lp == nil {
 					fmt.Fprintf(f, "%d: <nil>\n", ln)
 					continue

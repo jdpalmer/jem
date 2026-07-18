@@ -10,8 +10,8 @@ func lineColOfOffset(lp *Line, offset uint) int {
 	if lp == nil {
 		return 0
 	}
-	if offset > LineLength(lp) {
-		offset = LineLength(lp)
+	if offset > lp.Len() {
+		offset = lp.Len()
 	}
 	return int(offset)
 }
@@ -20,13 +20,13 @@ func lineFirstNonblankOffset(lp *Line) (uint, byte) {
 	if lp == nil {
 		return 0, 0
 	}
-	for i := uint(0); i < LineLength(lp); i++ {
+	for i := uint(0); i < lp.Len(); i++ {
 		c := lp.Data[i]
 		if c != ' ' && c != '\t' {
 			return i, c
 		}
 	}
-	return LineLength(lp), 0
+	return lp.Len(), 0
 }
 
 func lineStartsWith(lp *Line, text string) bool {
@@ -35,31 +35,31 @@ func lineStartsWith(lp *Line, text string) bool {
 	}
 	off, _ := lineFirstNonblankOffset(lp)
 	pat := []byte(text)
-	if off >= LineLength(lp) {
+	if off >= lp.Len() {
 		return false
 	}
-	if off+uint(len(pat)) > LineLength(lp) {
+	if off+uint(len(pat)) > lp.Len() {
 		return false
 	}
 	return bytes.Equal(lp.Data[off:off+uint(len(pat))], pat)
 }
 
 func lineIsCommentOrPreproc(bp *Buffer, lineNumber uint) bool {
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return false
 	}
-	if line_is_blank(lp) {
+	if lp.IsBlank() {
 		return false
 	}
 	off, ch := lineFirstNonblankOffset(lp)
-	if off >= LineLength(lp) {
+	if off >= lp.Len() {
 		return false
 	}
 	if ch == '*' || ch == '#' {
 		return true
 	}
-	if ch == '/' && off+1 < LineLength(lp) {
+	if ch == '/' && off+1 < lp.Len() {
 		next := lp.Data[off+1]
 		if next == '/' || next == '*' {
 			return true
@@ -69,8 +69,8 @@ func lineIsCommentOrPreproc(bp *Buffer, lineNumber uint) bool {
 }
 
 func lineIsPreproc(bp *Buffer, lineNumber uint) bool {
-	lp := BufferGetLine(bp, lineNumber)
-	if lp == nil || line_is_blank(lp) {
+	lp := bp.Line(lineNumber)
+	if lp == nil || lp.IsBlank() {
 		return false
 	}
 	_, ch := lineFirstNonblankOffset(lp)
@@ -80,11 +80,11 @@ func lineIsPreproc(bp *Buffer, lineNumber uint) bool {
 func prevCodeLineNumber(bp *Buffer, lineNumber uint) uint {
 	for ln := lineNumber; ln > 1; {
 		ln--
-		p := BufferGetLine(bp, ln)
+		p := bp.Line(ln)
 		if p == nil {
 			continue
 		}
-		if !line_is_blank(p) && !lineIsCommentOrPreproc(bp, ln) {
+		if !p.IsBlank() && !lineIsCommentOrPreproc(bp, ln) {
 			return ln
 		}
 	}
@@ -95,30 +95,30 @@ func lineIsCaseLabel(lp *Line) bool {
 	if lp == nil {
 		return false
 	}
-	off := line_first_nonblank(lp)
-	if off >= LineLength(lp) {
+	off := lp.FirstNonblank()
+	if off >= lp.Len() {
 		return false
 	}
-	if off+4 <= LineLength(lp) {
+	if off+4 <= lp.Len() {
 		if bytes.Equal(lp.Data[off:off+4], []byte("case")) {
-			if off+4 == LineLength(lp) {
+			if off+4 == lp.Len() {
 				return true
 			}
 			nc := lp.Data[off+4]
 			return nc == ' ' || nc == '\t' || nc == '('
 		}
 	}
-	if off+7 <= LineLength(lp) && bytes.Equal(lp.Data[off:off+7], []byte("default")) {
+	if off+7 <= lp.Len() && bytes.Equal(lp.Data[off:off+7], []byte("default")) {
 		return true
 	}
 	return false
 }
 
 func lineEndsWithContinuation(lp *Line) bool {
-	if lp == nil || LineLength(lp) == 0 {
+	if lp == nil || lp.Len() == 0 {
 		return false
 	}
-	last := lp.Data[LineLength(lp)-1]
+	last := lp.Data[lp.Len()-1]
 	switch last {
 	case ',', '\\', '?', ':', '+', '-', '*', '/', '%', '&', '|', '^', '=', '<', '>', '!':
 		return true
@@ -131,17 +131,17 @@ func calcCommentIndent(bp *Buffer, lineNumber uint) int {
 	prevLine := lineNumber
 	for prevLine > 1 {
 		prevLine--
-		prev := BufferGetLine(bp, prevLine)
-		if prev == nil || line_is_blank(prev) {
+		prev := bp.Line(prevLine)
+		if prev == nil || prev.IsBlank() {
 			continue
 		}
 		if lineStartsWith(prev, "/*") {
-			return int(line_indent_column(prev)) + 1
+			return int(prev.IndentColumn()) + 1
 		}
-		if line_first_nonblank(prev) < LineLength(prev) {
-			ch := prev.Data[line_first_nonblank(prev)]
+		if prev.FirstNonblank() < prev.Len() {
+			ch := prev.Data[prev.FirstNonblank()]
 			if ch == '*' || lineStartsWith(prev, "*/") {
-				return int(line_indent_column(prev))
+				return int(prev.IndentColumn())
 			}
 		}
 		break
@@ -153,12 +153,12 @@ func findCaseIndent(bp *Buffer, lineNumber uint, offset uint) int {
 	cIndent := bp.CIndent
 	cColonOffset := bp.CColonOffset
 	for ln := int(lineNumber); ln >= 1; ln-- {
-		line := BufferGetLine(bp, uint(ln))
+		line := bp.Line(uint(ln))
 		if line == nil {
 			continue
 		}
 		if bytes.IndexByte(line.Data, '{') != -1 {
-			base := int(line_indent_column(line)) + int(cIndent) + int(cColonOffset)
+			base := int(line.IndentColumn()) + int(cIndent) + int(cColonOffset)
 			if base < 0 {
 				return 0
 			}
@@ -169,8 +169,8 @@ func findCaseIndent(bp *Buffer, lineNumber uint, offset uint) int {
 }
 
 func findClosingDelimiterIndent(bp *Buffer, lineNumber uint, offset uint) int {
-	line := BufferGetLine(bp, lineNumber)
-	if line == nil || offset >= LineLength(line) {
+	line := bp.Line(lineNumber)
+	if line == nil || offset >= line.Len() {
 		return 0
 	}
 	ch := line.Data[offset]
@@ -187,7 +187,7 @@ func findClosingDelimiterIndent(bp *Buffer, lineNumber uint, offset uint) int {
 	}
 	depth := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
-		lp := BufferGetLine(bp, uint(ln))
+		lp := bp.Line(uint(ln))
 		if lp == nil {
 			continue
 		}
@@ -220,7 +220,7 @@ func findUnmatchedOpenDelim(bp *Buffer, lineNumber, offset uint) (Location, byte
 	depthParen := 0
 	depthBracket := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
-		lp := BufferGetLine(bp, uint(ln))
+		lp := bp.Line(uint(ln))
 		if lp == nil {
 			continue
 		}
@@ -257,19 +257,19 @@ func findDelimiterContinuationIndent(bp *Buffer, lineNumber uint, offset uint) i
 	if !ok {
 		return -1
 	}
-	lp := BufferGetLine(bp, open.Line)
+	lp := bp.Line(open.Line)
 	if lp == nil {
 		return -1
 	}
 	tail := open.Offset + 1
-	for tail < LineLength(lp) {
+	for tail < lp.Len() {
 		ch := lp.Data[tail]
 		if ch != ' ' && ch != '\t' {
 			return lineColOfOffset(lp, tail)
 		}
 		tail++
 	}
-	return int(line_indent_column(lp)) + int(bp.CIndent)
+	return int(lp.IndentColumn()) + int(bp.CIndent)
 }
 
 func findEnclosingBlockIndent(bp *Buffer, lineNumber uint, offset uint) int {
@@ -277,17 +277,17 @@ func findEnclosingBlockIndent(bp *Buffer, lineNumber uint, offset uint) int {
 	if !ok {
 		return -1
 	}
-	lp := BufferGetLine(bp, open.Line)
+	lp := bp.Line(open.Line)
 	if lp == nil {
 		return -1
 	}
-	return int(line_indent_column(lp)) + int(bp.CIndent)
+	return int(lp.IndentColumn()) + int(bp.CIndent)
 }
 
 func findUnmatchedOpenBrace(bp *Buffer, lineNumber, offset uint) (Location, bool) {
 	depth := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
-		lp := BufferGetLine(bp, uint(ln))
+		lp := bp.Line(uint(ln))
 		if lp == nil {
 			continue
 		}
@@ -312,7 +312,7 @@ func findUnmatchedOpenBrace(bp *Buffer, lineNumber, offset uint) (Location, bool
 }
 
 func calcIndent(bp *Buffer, lineNumber uint) int {
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return 0
 	}
@@ -322,7 +322,7 @@ func calcIndent(bp *Buffer, lineNumber uint) int {
 	if lineIsPreproc(bp, lineNumber) {
 		return 0
 	}
-	if !line_is_blank(lp) {
+	if !lp.IsBlank() {
 		if fc == '*' || fc == '/' {
 			return calcCommentIndent(bp, lineNumber)
 		}
@@ -345,12 +345,12 @@ func calcIndent(bp *Buffer, lineNumber uint) int {
 	if refLine == 0 {
 		return 0
 	}
-	ref := BufferGetLine(bp, refLine)
+	ref := bp.Line(refLine)
 	if ref == nil {
 		return 0
 	}
-	ind := int(line_indent_column(ref))
-	if line_last_byte(ref) == ':' && lineIsCaseLabel(ref) {
+	ind := int(ref.IndentColumn())
+	if ref.LastByte() == ':' && lineIsCaseLabel(ref) {
 		ind += int(cIndent)
 	} else if lineEndsWithContinuation(ref) {
 		ind += int(cIndent)
@@ -370,11 +370,11 @@ func setLineIndent(wp *Window, col int) bool {
 	}
 	bp := wp.Buffer
 	ln := wp.Cursor.Line
-	lp := BufferGetLine(bp, ln)
+	lp := bp.Line(ln)
 	if lp == nil {
 		return false
 	}
-	oldFirst := line_first_nonblank(lp)
+	oldFirst := lp.FirstNonblank()
 	spaces := make([]byte, col)
 	for i := range spaces {
 		spaces[i] = ' '
@@ -448,18 +448,18 @@ func cmdCMakeComment(f bool, n int) bool {
 		if wp.Mark.Line > wp.Cursor.Line {
 			endOffset = wp.Mark.Offset
 		} else {
-			endOffset = LineLength(BufferGetLine(bp, endLine))
+			endOffset = bp.Line(endLine).Len()
 		}
 		orig := wp.Cursor
 		if PackageHooks.UndoBeginCommand != nil {
 			PackageHooks.UndoBeginCommand()
 		}
 		for ln := startLine; ln <= endLine; ln++ {
-			lineLp := BufferGetLine(bp, ln)
+			lineLp := bp.Line(ln)
 			if lineLp == nil {
 				continue
 			}
-			start := line_first_nonblank(lineLp)
+			start := lineLp.FirstNonblank()
 			insLoc := MakeLocation(ln, start)
 			if !PackageHooks.BufferSetText(bp, insLoc, insLoc, []byte("/*"), 2, nil, false) {
 				wp.Cursor = orig
@@ -468,8 +468,8 @@ func cmdCMakeComment(f bool, n int) bool {
 				}
 				return false
 			}
-			lineLp = BufferGetLine(bp, ln)
-			closeLoc := MakeLocation(ln, LineLength(lineLp))
+			lineLp = bp.Line(ln)
+			closeLoc := MakeLocation(ln, lineLp.Len())
 			if !PackageHooks.BufferSetText(bp, closeLoc, closeLoc, []byte("*/"), 2, nil, false) {
 				wp.Cursor = orig
 				if PackageHooks.UndoEndCommand != nil {
@@ -491,14 +491,14 @@ func cmdCMakeComment(f bool, n int) bool {
 	if !PackageHooks.BufferSetText(bp, insLoc, insLoc, cmt, uint(len(cmt)), nil, false) {
 		return false
 	}
-	lp := BufferGetLine(bp, wp.Cursor.Line)
+	lp := bp.Line(wp.Cursor.Line)
 	if lp == nil {
 		return false
 	}
-	if LineLength(lp) < 3 {
-		wp.Cursor.Offset = LineLength(lp)
+	if lp.Len() < 3 {
+		wp.Cursor.Offset = lp.Len()
 	} else {
-		wp.Cursor.Offset = LineLength(lp) - 3
+		wp.Cursor.Offset = lp.Len() - 3
 	}
 	wp.DidMove = true
 	return true
@@ -519,12 +519,12 @@ func cmdCTopOfFunction(f bool, n int) bool {
 		}
 		return false
 	}
-	if lineNumber == BufferEOF(bp) {
+	if lineNumber == bp.EOF() {
 		lineNumber = bp.LineCount
 	}
 	depth := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
-		lp := BufferGetLine(bp, uint(ln))
+		lp := bp.Line(uint(ln))
 		if lp == nil {
 			continue
 		}
@@ -540,7 +540,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 					depth--
 					continue
 				}
-				if line_indent_column(lp) == 0 {
+				if lp.IndentColumn() == 0 {
 					found = true
 					break
 				}
@@ -548,7 +548,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 		}
 		if found {
 			sigLine := uint(ln)
-			for sigLine > 1 && line_is_blank(BufferGetLine(bp, sigLine-1)) {
+			for sigLine > 1 && bp.Line(sigLine-1).IsBlank() {
 				sigLine--
 			}
 			if sigLine > 1 {
@@ -582,12 +582,12 @@ func cmdCEndOfFunction(f bool, n int) bool {
 		}
 		return false
 	}
-	if lineNumber == BufferEOF(bp) {
+	if lineNumber == bp.EOF() {
 		lineNumber = bp.LineCount
 	}
 	depth := 0
 	for ln := int(lineNumber); ln <= int(bp.LineCount); ln++ {
-		lp := BufferGetLine(bp, uint(ln))
+		lp := bp.Line(uint(ln))
 		if lp == nil {
 			continue
 		}
@@ -659,13 +659,13 @@ func cmdCCloseBrace(f bool, n int) bool {
 			return false
 		}
 	}
-	lp := BufferGetLine(bp, wp.Cursor.Line)
+	lp := bp.Line(wp.Cursor.Line)
 	if lp == nil {
 		return false
 	}
 	wp.Cursor.Offset = uint(col + n)
-	if wp.Cursor.Offset > LineLength(lp) {
-		wp.Cursor.Offset = LineLength(lp)
+	if wp.Cursor.Offset > lp.Len() {
+		wp.Cursor.Offset = lp.Len()
 	}
 	wp.DidEdit = true
 	return true

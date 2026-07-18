@@ -5,7 +5,7 @@ import "testing"
 func linesOf(bp *Buffer) []string {
 	out := make([]string, 0, int(bp.LineCount))
 	for i := uint(1); i <= bp.LineCount; i++ {
-		lp := GetLine(bp, i)
+		lp := bp.Line(i)
 		if lp == nil {
 			out = append(out, "")
 			continue
@@ -17,12 +17,12 @@ func linesOf(bp *Buffer) []string {
 
 func TestReplaceRaw_SingleLineInsert(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("abcdef"), 6)
+	bp.AppendLineBytes([]byte("abcdef"), 6)
 
 	begin := MakeLocation(1, 3)
 	end := MakeLocation(1, 3)
 	var newEnd Location
-	ok := ReplaceRaw(bp, begin, end, []byte("X"), 1, &newEnd)
+	ok := bp.ReplaceRaw(begin, end, []byte("X"), 1, &newEnd)
 	if !ok {
 		t.Fatal("ReplaceRaw failed")
 	}
@@ -37,12 +37,12 @@ func TestReplaceRaw_SingleLineInsert(t *testing.T) {
 
 func TestReplaceRaw_MultiLineInsert(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("abcdef"), 6)
+	bp.AppendLineBytes([]byte("abcdef"), 6)
 
 	begin := MakeLocation(1, 3)
 	end := MakeLocation(1, 3)
 	var newEnd Location
-	ok := ReplaceRaw(bp, begin, end, []byte("X\nY"), 3, &newEnd)
+	ok := bp.ReplaceRaw(begin, end, []byte("X\nY"), 3, &newEnd)
 	if !ok {
 		t.Fatal("ReplaceRaw failed")
 	}
@@ -54,9 +54,9 @@ func TestReplaceRaw_MultiLineInsert(t *testing.T) {
 
 func TestReplaceRaw_DeleteToEOF(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("hello"), 5)
+	bp.AppendLineBytes([]byte("hello"), 5)
 
-	ok := ReplaceRaw(bp, MakeLocation(1, 3), MakeLocation(EOF(bp), 0), nil, 0, nil)
+	ok := bp.ReplaceRaw(MakeLocation(1, 3), MakeLocation(bp.EOF(), 0), nil, 0, nil)
 	if !ok {
 		t.Fatal("ReplaceRaw failed")
 	}
@@ -68,10 +68,10 @@ func TestReplaceRaw_DeleteToEOF(t *testing.T) {
 
 func TestReplaceRaw_InsertAtEOF(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("hello"), 5)
+	bp.AppendLineBytes([]byte("hello"), 5)
 
 	var newEnd Location
-	ok := ReplaceRaw(bp, MakeLocation(EOF(bp), 0), MakeLocation(EOF(bp), 0), []byte("world"), 5, &newEnd)
+	ok := bp.ReplaceRaw(MakeLocation(bp.EOF(), 0), MakeLocation(bp.EOF(), 0), []byte("world"), 5, &newEnd)
 	if !ok {
 		t.Fatal("ReplaceRaw failed")
 	}
@@ -86,10 +86,10 @@ func TestReplaceRaw_InsertAtEOF(t *testing.T) {
 
 func TestReplaceRaw_NoOp(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("hello"), 5)
+	bp.AppendLineBytes([]byte("hello"), 5)
 
 	var newEnd Location
-	ok := ReplaceRaw(bp, MakeLocation(1, 2), MakeLocation(1, 2), nil, 0, &newEnd)
+	ok := bp.ReplaceRaw(MakeLocation(1, 2), MakeLocation(1, 2), nil, 0, &newEnd)
 	if !ok {
 		t.Fatal("ReplaceRaw failed")
 	}
@@ -103,9 +103,9 @@ func TestReplaceRaw_NoOp(t *testing.T) {
 
 func TestReplaceRaw_HonorsNewLen(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("abcdef"), 6)
+	bp.AppendLineBytes([]byte("abcdef"), 6)
 
-	ok := ReplaceRaw(bp, MakeLocation(1, 3), MakeLocation(1, 3), []byte("XYZZ"), 1, nil)
+	ok := bp.ReplaceRaw(MakeLocation(1, 3), MakeLocation(1, 3), []byte("XYZZ"), 1, nil)
 	if !ok {
 		t.Fatal("ReplaceRaw failed")
 	}
@@ -116,21 +116,21 @@ func TestReplaceRaw_HonorsNewLen(t *testing.T) {
 
 func TestSetTextUndoDelete(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("hello world"), 11)
+	bp.AppendLineBytes([]byte("hello world"), 11)
 	var undo UndoHistory
 	undo.BeginCommand(bp, MakeLocation(1, 11))
-	ok := SetText(bp, &undo, MakeLocation(1, 5), MakeLocation(1, 11), nil, 0, nil)
+	ok := bp.SetText(&undo, MakeLocation(1, 5), MakeLocation(1, 11), nil, 0, nil)
 	undo.EndCommand()
 	if !ok {
 		t.Fatal("SetText failed")
 	}
-	if string(GetLine(bp, 1).Data) != "hello" {
-		t.Fatalf("after delete: %q", GetLine(bp, 1).Data)
+	if string(bp.Line(1).Data) != "hello" {
+		t.Fatalf("after delete: %q", bp.Line(1).Data)
 	}
 	replay := UndoReplay{
 		InsertText: func(lineNumber, offset uint, text []byte, length uint) bool {
 			loc := MakeLocation(lineNumber, offset)
-			return ReplaceRaw(bp, loc, loc, text, length, nil)
+			return bp.ReplaceRaw(loc, loc, text, length, nil)
 		},
 		DeleteText: func(lineNumber, offset uint, text []byte, length uint) bool {
 			begin := MakeLocation(lineNumber, offset)
@@ -143,13 +143,13 @@ func TestSetTextUndoDelete(t *testing.T) {
 					endOffset++
 				}
 			}
-			return ReplaceRaw(bp, begin, MakeLocation(endLine, endOffset), nil, 0, nil)
+			return bp.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, 0, nil)
 		},
 	}
 	if !undo.Undo(replay) {
 		t.Fatal("undo failed")
 	}
-	if string(GetLine(bp, 1).Data) != "hello world" {
-		t.Fatalf("after undo: %q", GetLine(bp, 1).Data)
+	if string(bp.Line(1).Data) != "hello world" {
+		t.Fatalf("after undo: %q", bp.Line(1).Data)
 	}
 }

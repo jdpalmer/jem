@@ -2,15 +2,14 @@ package ui
 
 import (
 	"fmt"
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/syntax"
 	"os"
 	"sync"
 	"time"
 	"unicode/utf8"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/modes"
+	"github.com/jdpalmer/jem/syntax"
 	"github.com/jdpalmer/jem/term"
 	"github.com/mattn/go-runewidth"
 )
@@ -561,7 +560,7 @@ func selLine(ss *SelState, lineNumber uint, lp *Line) (s, e int) {
 	if !ss.active {
 		return
 	}
-	length := int(buffer.LineLength(lp))
+	length := int(lp.Len())
 
 	if ss.phase == selectionBefore {
 		if lineNumber != ss.startLine {
@@ -724,7 +723,7 @@ func windowCursorScreenCol(wp *Window) int {
 	if wp == nil || wp.Buffer == nil {
 		return 0
 	}
-	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
+	lp := wp.Buffer.Line(wp.Cursor.Line)
 	if lp == nil {
 		return 0
 	}
@@ -800,11 +799,11 @@ func screenPutLine(lp *Line, _ LangMode, _ *SynState, selStart, selEnd int) {
 
 // renderLine renders one buffer line (gutter + content + horizontal scroll) into row.
 func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *SelState) {
-	lp := buffer.GetLine(wp.Buffer, lineNumber)
+	lp := wp.Buffer.Line(lineNumber)
 	if lp == nil {
 		return
 	}
-	gutter := int(app.WindowGutterWidth(wp))
+	gutter := int(wp.GutterWidth())
 	marker := gitLineDiff(wp.Buffer, lineNumber)
 
 	var ss, se int
@@ -821,7 +820,7 @@ func renderLine(wp *Window, lineNumber uint, row int, synSt *SynState, selSt *Se
 	oldClipLeft := clipLeftCol
 	clipLeftCol = gutter
 
-	if wp.Buffer != nil && wp.Buffer.Name == "*match*" && lp != nil && buffer.LineLength(lp) >= 2 && lp.Data[0] == '>' && lp.Data[1] == ' ' {
+	if wp.Buffer != nil && wp.Buffer.Name == "*match*" && lp != nil && lp.Len() >= 2 && lp.Data[0] == '>' && lp.Data[1] == ' ' {
 		screenPutPickerLine(lp)
 	} else {
 		screenPutLine(lp, wp.Buffer.LangMode, synSt, ss, se)
@@ -900,7 +899,7 @@ func renderModeline(wp *Window) {
 	nameStyle := MakeTextStyle(app.State.Theme.ModelineNameColor, gutterBg, TextStyleBold)
 	dirtyStyle := MakeTextStyle(TermColorRed, gutterBg, TextStyleBold)
 
-	gutterW := int(app.WindowGutterWidth(wp))
+	gutterW := int(wp.GutterWidth())
 	markerCol := gutterW + 79 - int(wp.HScroll)
 	hintCol := term.Cols() - len(modelineHint)
 
@@ -1066,13 +1065,13 @@ func DisplayUpdate() {
 		}
 
 		if wp.ShouldReframe {
-			app.WindowCenterCursor(wp)
+			wp.CenterCursor()
 			wp.ShouldRedraw = true
 		}
 
 		// Adjust horizontal scroll for the current window to keep cursor visible
 		if wp == app.State.CurrentWindow {
-			gutterW := int(app.WindowGutterWidth(wp))
+			gutterW := int(wp.GutterWidth())
 			cc := windowCursorScreenCol(wp)
 			visible := term.Cols() - gutterW
 			margin := visible / 4
@@ -1095,7 +1094,7 @@ func DisplayUpdate() {
 			}
 		}
 
-		gutterW := int(app.WindowGutterWidth(wp))
+		gutterW := int(wp.GutterWidth())
 
 		// When region is active, force full redraw so selection highlights all affected lines
 		if wp.Mark.Line != 0 && !wp.ShouldRedraw {
@@ -1209,7 +1208,7 @@ func DisplayUpdate() {
 			cursorLineDelta := cw.Cursor.Line - cw.TopLine
 			app.State.Cursor.Row = cw.ScreenTopRow + uint32(cursorLineDelta)
 
-			gutterW := int(app.WindowGutterWidth(cw))
+			gutterW := int(cw.GutterWidth())
 			contentCol := windowCursorScreenCol(cw)
 			hscroll := int(cw.HScroll)
 			cursorCol := gutterW + contentCol - hscroll
@@ -1361,7 +1360,7 @@ func lineColAtOffset(lp *Line, offset uint) int {
 	}
 	col := 0
 	i := uint(0)
-	for i < offset && i < buffer.LineLength(lp) {
+	for i < offset && i < lp.Len() {
 		b := lp.Data[i]
 		if b < 0x80 {
 			col = lineMeasureAdvance(col, rune(b))

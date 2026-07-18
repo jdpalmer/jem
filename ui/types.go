@@ -228,6 +228,6 @@ var (
 	TextStyleDefault = buffer.TextStyleDefault
 	TextStyleGutter  = buffer.TextStyleGutter
 	MakeTextStyle    = buffer.MakeTextStyle
-	TextStyleFg      = buffer.TextStyleFg
-	TextStyleBg      = buffer.TextStyleBg
+	TextStyleFg      = buffer.TextStyle.Fg
+	TextStyleBg      = buffer.TextStyle.Bg
 )

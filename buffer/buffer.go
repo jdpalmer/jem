@@ -14,7 +14,7 @@ func New() *Buffer {
 	}
 }
 
-func Destroy(bp *Buffer) {
+func (bp *Buffer) Destroy() {
 	if bp == nil {
 		return
 	}
@@ -32,7 +32,7 @@ func Destroy(bp *Buffer) {
 	bp.FileMtime = time.Time{}
 }
 
-func Clear(bp *Buffer) bool {
+func (bp *Buffer) Clear() bool {
 	if bp == nil {
 		return false
 	}
@@ -44,22 +44,22 @@ func Clear(bp *Buffer) bool {
 	return true
 }
 
-func LocationAdvanceBytes(bp *Buffer, loc Location, bytes int) Location {
+func (loc Location) AdvanceBytes(bp *Buffer, bytes int) Location {
 	if bp == nil || bytes <= 0 {
 		return loc
 	}
-	if loc.Line == EOF(bp) {
+	if loc.Line == bp.EOF() {
 		return loc
 	}
 	curLine := loc.Line
 	offset := int(loc.Offset)
 	for bytes > 0 {
 		if curLine == 0 || curLine > bp.LineCount {
-			return Location{Line: EOF(bp), Offset: 0}
+			return Location{Line: bp.EOF(), Offset: 0}
 		}
-		lp := GetLine(bp, curLine)
+		lp := bp.Line(curLine)
 		if lp == nil {
-			return Location{Line: EOF(bp), Offset: 0}
+			return Location{Line: bp.EOF(), Offset: 0}
 		}
 		avail := len(lp.Data) - offset
 		if avail >= bytes {
@@ -75,12 +75,12 @@ func LocationAdvanceBytes(bp *Buffer, loc Location, bytes int) Location {
 			offset = 0
 			continue
 		}
-		return Location{Line: EOF(bp), Offset: 0}
+		return Location{Line: bp.EOF(), Offset: 0}
 	}
 	return Location{Line: curLine, Offset: uint(offset)}
 }
 
-func LocationRewindBytes(bp *Buffer, loc Location, bytes int) Location {
+func (loc Location) RewindBytes(bp *Buffer, bytes int) Location {
 	if bp == nil || bytes <= 0 {
 		return loc
 	}
@@ -100,7 +100,7 @@ func LocationRewindBytes(bp *Buffer, loc Location, bytes int) Location {
 			break
 		}
 		curLine--
-		lp := GetLine(bp, curLine)
+		lp := bp.Line(curLine)
 		if lp == nil {
 			break
 		}
@@ -111,7 +111,7 @@ func LocationRewindBytes(bp *Buffer, loc Location, bytes int) Location {
 }
 
 // EnsureLineCache decodes UTF-8 runes for syntax and display helpers.
-func EnsureLineCache(lp *Line) {
+func (lp *Line) EnsureCache() {
 	if lp == nil || lp.CacheValid {
 		return
 	}
@@ -141,7 +141,7 @@ func EnsureLineCache(lp *Line) {
 
 // Line helpers exported for language modes and search.
 
-func LineFirstNonblank(lp *Line) uint {
+func (lp *Line) FirstNonblank() uint {
 	if lp == nil {
 		return 0
 	}
@@ -154,7 +154,7 @@ func LineFirstNonblank(lp *Line) uint {
 	return uint(len(lp.Data))
 }
 
-func LineIndentColumn(lp *Line) uint {
+func (lp *Line) IndentColumn() uint {
 	if lp == nil {
 		return 0
 	}
@@ -172,21 +172,21 @@ func LineIndentColumn(lp *Line) uint {
 	return col
 }
 
-func LineFirstByte(lp *Line) byte {
+func (lp *Line) FirstByte() byte {
 	if lp == nil || len(lp.Data) == 0 {
 		return 0
 	}
 	return lp.Data[0]
 }
 
-func LineLastByte(lp *Line) byte {
+func (lp *Line) LastByte() byte {
 	if lp == nil || len(lp.Data) == 0 {
 		return 0
 	}
 	return lp.Data[len(lp.Data)-1]
 }
 
-func LineIsBlank(lp *Line) bool {
+func (lp *Line) IsBlank() bool {
 	if lp == nil || len(lp.Data) == 0 {
 		return true
 	}
@@ -199,7 +199,7 @@ func LineIsBlank(lp *Line) bool {
 	return true
 }
 
-func TrimLineTrailingWhitespace(bp *Buffer, lineNumber uint) bool {
+func (bp *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
 	if lineNumber == 0 || lineNumber > bp.LineCount {
 		return false
 	}
@@ -217,5 +217,5 @@ func TrimLineTrailingWhitespace(bp *Buffer, lineNumber uint) bool {
 	}
 	begin := Location{Line: lineNumber, Offset: newLen}
 	end := Location{Line: lineNumber, Offset: uint(len(line.Data))}
-	return SetText(bp, nil, begin, end, nil, 0, nil)
+	return bp.SetText(nil, begin, end, nil, 0, nil)
 }

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
 )
 
 var (
@@ -14,14 +13,14 @@ var (
 func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
 	if kill {
 		var oldLen uint
-		oldText := buffer.GetText(bp, begin, end, &oldLen)
+		oldText := bp.GetText(begin, end, &oldLen)
 		if oldLen > 0 {
 			if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(oldText, oldLen) {
 				return false
 			}
 		}
 	}
-	ok := buffer.SetText(bp, nil, begin, end, newText, newLen, newEndOut)
+	ok := bp.SetText(nil, begin, end, newText, newLen, newEndOut)
 	if kill && ok && PackageHooks.KillWriteClipboard != nil {
 		PackageHooks.KillWriteClipboard()
 	}
@@ -84,6 +83,6 @@ func editorInsertPaste(text []byte, length int) bool {
 	if !bufferSetText(wp.Buffer, loc, loc, paste, uint(len(paste)), &newEnd, false) {
 		return false
 	}
-	app.WindowSetCursor(wp, newEnd)
+	wp.SetCursor(newEnd)
 	return true
 }

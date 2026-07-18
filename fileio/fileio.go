@@ -65,7 +65,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 		return false
 	}
 
-	buffer.Clear(bp)
+	bp.Clear()
 	bp.IsChanged = false
 	bp.EolMode = buffer.EModeLF
 	bp.FileName = resolved
@@ -91,13 +91,13 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 		if err != nil {
 			if err == io.EOF {
 				if lineBuf.Len() > 0 {
-					buffer.AppendLineBytes(bp, lineBuf.Bytes(), uint(lineBuf.Len()))
+					bp.AppendLineBytes(lineBuf.Bytes(), uint(lineBuf.Len()))
 					nline++
 				}
 				break
 			}
 			writeMessage(writef, "File read error")
-			buffer.Clear(bp)
+			bp.Clear()
 			return false
 		}
 
@@ -111,14 +111,14 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 			} else if eolMode == buffer.EModeLF {
 				eolMode = buffer.EModeCR
 			}
-			buffer.AppendLineBytes(bp, lineBuf.Bytes(), uint(lineBuf.Len()))
+			bp.AppendLineBytes(lineBuf.Bytes(), uint(lineBuf.Len()))
 			lineBuf.Reset()
 			nline++
 			continue
 		}
 
 		if b == '\n' {
-			buffer.AppendLineBytes(bp, lineBuf.Bytes(), uint(lineBuf.Len()))
+			bp.AppendLineBytes(lineBuf.Bytes(), uint(lineBuf.Len()))
 			lineBuf.Reset()
 			nline++
 			continue
@@ -158,7 +158,7 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 
 	if bp.WhitespaceCleanup {
 		for i := uint(1); i <= bp.LineCount; i++ {
-			buffer.TrimLineTrailingWhitespace(bp, i)
+			bp.TrimTrailingWhitespace( i)
 		}
 	}
 
@@ -188,7 +188,7 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 	writer := bufio.NewWriter(fh)
 	nline := 0
 	for i := uint(1); i <= bp.LineCount; i++ {
-		line := buffer.GetLine(bp, i)
+		line := bp.Line(i)
 		if line == nil {
 			continue
 		}

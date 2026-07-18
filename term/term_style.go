@@ -84,8 +84,8 @@ func termAppendColorSgr(buf []byte, colorIndex buffer.TermColor, baseSgr, bright
 }
 
 func termWriteStyle(buf []byte, style buffer.TextStyle) int {
-	fg := buffer.TextStyleFg(style)
-	bg := buffer.TextStyleBg(style)
+	fg := style.Fg()
+	bg := style.Bg()
 	if style&buffer.TextStyleReverse != 0 {
 		fg, bg = bg, fg
 	}

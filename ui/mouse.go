@@ -3,9 +3,9 @@ package ui
 // mouse.go - Mouse command implementations (translation of mouse.c)
 
 import (
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
 	"unicode/utf8"
+
+	"github.com/jdpalmer/jem/app"
 )
 
 const wheelLines = 3
@@ -36,7 +36,7 @@ func lineOffsetAtCol(lp *Line, goal uint32) uint {
 	if goalCol > 0x7FFFFFFF {
 		goalCol = 0x7FFFFFFF
 	}
-	for dbo < buffer.LineLength(lp) {
+	for dbo < lp.Len() {
 		newCol := col
 		var used uint = 1
 		b := lp.Data[dbo]
@@ -69,8 +69,8 @@ func mouseLocationInWindow(wp *Window) Location {
 	}
 
 	loc := Location{Line: lineNumber, Offset: 0}
-	line := buffer.GetLine(wp.Buffer, loc.Line)
-	textCol := int(app.State.Mouse.Col) - int(app.WindowGutterWidth(wp)) + int(wp.HScroll)
+	line := wp.Buffer.Line(loc.Line)
+	textCol := int(app.State.Mouse.Col) - int(wp.GutterWidth()) + int(wp.HScroll)
 	if textCol < 0 {
 		textCol = 0
 	}
@@ -136,7 +136,7 @@ func windowScroll(wp *Window, n int) {
 	if lineNumber > wp.Buffer.LineCount {
 		lineNumber = wp.Buffer.LineCount
 	}
-	app.WindowSetTopLine(wp, lineNumber)
+	wp.SetTopLine(lineNumber)
 	wp.ShouldRedraw = true
 
 	if wp == app.State.CurrentWindow {
@@ -147,7 +147,7 @@ func windowScroll(wp *Window, n int) {
 			} else {
 				loc = Location{Line: wp.TopLine, Offset: 0}
 			}
-			app.WindowSetCursor(wp, loc)
+			wp.SetCursor(loc)
 		}
 	}
 }
@@ -167,7 +167,7 @@ func CmdMouseLeft(f bool, n int) bool {
 	}
 
 	loc := mouseLocationInWindow(wp)
-	app.WindowSetCursor(app.State.CurrentWindow, loc)
+	app.State.CurrentWindow.SetCursor(loc)
 	app.State.CurrentWindow.Mark.Line = 0
 	app.State.CurrentWindow.Mark.Offset = 0
 	mouseAnchorWindow = app.State.CurrentWindow
@@ -191,7 +191,7 @@ func CmdMouseDrag(f bool, n int) bool {
 
 	app.State.CurrentWindow.Mark.Line = mouseAnchorLine
 	app.State.CurrentWindow.Mark.Offset = mouseAnchorOffset
-	app.WindowSetCursor(app.State.CurrentWindow, loc)
+	app.State.CurrentWindow.SetCursor(loc)
 	app.State.CurrentWindow.ShouldRedraw = true
 	app.State.CurrentWindow.ShouldUpdateModeLine = true
 	return true

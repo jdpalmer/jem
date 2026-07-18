@@ -19,7 +19,7 @@ func windowDeleteBytes(wp *Window, n int, kill bool) bool {
 	endLoc := beginLoc
 	remaining := n
 	for remaining > 0 {
-		lp := buffer.GetLine(bp, endLoc.Line)
+		lp := bp.Line(endLoc.Line)
 		if lp == nil {
 			break
 		}
@@ -40,9 +40,9 @@ func windowDeleteBytes(wp *Window, n int, kill bool) bool {
 			continue
 		}
 		if len(lp.Data) == 0 && beginLoc.Line == endLoc.Line && beginLoc.Line > 1 {
-			prev := buffer.GetLine(bp, beginLoc.Line-1)
+			prev := bp.Line(beginLoc.Line-1)
 			if prev != nil {
-				beginLoc = buffer.MakeLocation(beginLoc.Line-1, buffer.LineLength(prev))
+				beginLoc = buffer.MakeLocation(beginLoc.Line-1, prev.Len())
 			}
 		}
 		break
@@ -64,11 +64,11 @@ func CmdKill(f bool, n int) bool {
 	killBegin()
 	chunk := 0
 	if !f {
-		lp := buffer.GetLine(bp, wp.Cursor.Line)
+		lp := bp.Line(wp.Cursor.Line)
 		if lp == nil {
 			return false
 		}
-		chunk = int(buffer.LineLength(lp) - wp.Cursor.Offset)
+		chunk = int(lp.Len() - wp.Cursor.Offset)
 		if chunk == 0 {
 			chunk = 1
 		}
@@ -77,21 +77,21 @@ func CmdKill(f bool, n int) bool {
 		wp.Cursor.Offset = 0
 	} else if n > 0 {
 		lineNumber := wp.Cursor.Line
-		lp := buffer.GetLine(bp, lineNumber)
+		lp := bp.Line(lineNumber)
 		if lp == nil {
 			return false
 		}
-		chunk = int(buffer.LineLength(lp)-wp.Cursor.Offset) + 1
+		chunk = int(lp.Len()-wp.Cursor.Offset) + 1
 		for i := 1; i < n; i++ {
 			lineNumber++
 			if lineNumber > bp.LineCount {
 				return false
 			}
-			nlp := buffer.GetLine(bp, lineNumber)
+			nlp := bp.Line(lineNumber)
 			if nlp == nil {
 				return false
 			}
-			chunk += int(buffer.LineLength(nlp)) + 1
+			chunk += int(nlp.Len()) + 1
 		}
 	} else {
 		mbWrite("[neg kill]")
@@ -176,13 +176,13 @@ func CmdTransposeChars(f bool, n int) bool {
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
-	lp := buffer.GetLine(bp, wp.Cursor.Line)
+	lp := bp.Line(wp.Cursor.Line)
 	if lp == nil {
 		return false
 	}
 	offset := wp.Cursor.Offset
 	var rightStart, rightEnd uint
-	if offset == buffer.LineLength(lp) {
+	if offset == lp.Len() {
 		rightEnd = offset
 		rightStart = utf8PrevOffset(lp.Data, rightEnd)
 	} else {
@@ -220,14 +220,14 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 	if cur > bp.LineCount {
 		return true
 	}
-	lp := buffer.GetLine(bp, cur)
-	if lp != nil && buffer.LineLength(lp) == 0 {
+	lp := bp.Line(cur)
+	if lp != nil && lp.Len() == 0 {
 		start := cur
-		for start > 1 && buffer.LineLength(buffer.GetLine(bp, start-1)) == 0 {
+		for start > 1 && bp.Line(start-1).Len() == 0 {
 			start--
 		}
 		end := cur
-		for end < bp.LineCount && buffer.LineLength(buffer.GetLine(bp, end+1)) == 0 {
+		for end < bp.LineCount && bp.Line(end+1).Len() == 0 {
 			end++
 		}
 		if end-start+1 <= 1 {
@@ -237,7 +237,7 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 	}
 	nld := uint(0)
 	line := cur
-	for line < bp.LineCount && buffer.LineLength(buffer.GetLine(bp, line+1)) == 0 {
+	for line < bp.LineCount && bp.Line(line+1).Len() == 0 {
 		line++
 		nld++
 	}
@@ -269,15 +269,15 @@ func CmdTrimWhitespace(f bool, n int) bool {
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
-	lp := buffer.GetLine(bp, wp.Cursor.Line)
+	lp := bp.Line(wp.Cursor.Line)
 	if lp == nil {
 		return false
 	}
 	pos := wp.Cursor.Offset
-	length := buffer.LineLength(lp)
+	length := lp.Len()
 	start := pos
 	for start > 0 {
-		c := buffer.LineGetc(lp, start-1)
+		c := lp.Byte(start-1)
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -285,7 +285,7 @@ func CmdTrimWhitespace(f bool, n int) bool {
 	}
 	end := pos
 	for end < length {
-		c := buffer.LineGetc(lp, end)
+		c := lp.Byte(end)
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -308,22 +308,22 @@ func CmdTransposeLines(f bool, n int) bool {
 		return false
 	}
 	curr := wp.Cursor.Line
-	if curr <= 1 || curr == buffer.EOF(bp) {
+	if curr <= 1 || curr == bp.EOF() {
 		return false
 	}
 	p0 := buffer.MakeLocation(curr-1, 0)
 	p2 := buffer.MakeLocation(curr+1, 0)
 	var total uint
-	original := buffer.GetText(bp, p0, p2, &total)
+	original := bp.GetText(p0, p2, &total)
 	if original == nil && total > 0 {
 		mbWrite("[out of memory]")
 		return false
 	}
-	prevLp := buffer.GetLine(bp, curr-1)
+	prevLp := bp.Line(curr-1)
 	if prevLp == nil {
 		return false
 	}
-	len1 := buffer.LineLength(prevLp) + 1
+	len1 := prevLp.Len() + 1
 	if uint(len(original)) < len1 {
 		return false
 	}
@@ -333,7 +333,7 @@ func CmdTransposeLines(f bool, n int) bool {
 	if !bufferSetText(bp, p0, p2, swapped, uint(len(swapped)), nil, false) {
 		return false
 	}
-	app.WindowSetCursor(wp, buffer.MakeLocation(curr-1, 0))
+	wp.SetCursor(buffer.MakeLocation(curr-1, 0))
 	return true
 }
 
@@ -346,16 +346,16 @@ func bufferCharStats(bp *Buffer, wp *Window) (charAt int, before, total uint) {
 	cbo := uint(0)
 	var nch uint
 	for {
-		lp := buffer.GetLine(bp, cline)
+		lp := bp.Line(cline)
 		if cline == wp.Cursor.Line && cbo == wp.Cursor.Offset {
 			before = nch
-			if lp == nil || cbo == buffer.LineLength(lp) {
+			if lp == nil || cbo == lp.Len() {
 				charAt = '\n'
 			} else {
-				charAt = int(buffer.LineGetc(lp, cbo))
+				charAt = int(lp.Byte(cbo))
 			}
 		}
-		if lp == nil || cbo == buffer.LineLength(lp) {
+		if lp == nil || cbo == lp.Len() {
 			if cline >= bp.LineCount {
 				break
 			}

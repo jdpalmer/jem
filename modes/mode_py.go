@@ -11,14 +11,14 @@ func lpKeyword(lp *Line, i uint, kw string) bool {
 		return false
 	}
 	klen := uint(len(kw))
-	if i+klen > LineLength(lp) {
+	if i+klen > lp.Len() {
 		return false
 	}
 	if !bytes.Equal(lp.Data[i:i+klen], []byte(kw)) {
 		return false
 	}
 	after := i + klen
-	if after >= LineLength(lp) {
+	if after >= lp.Len() {
 		return true
 	}
 	nc := lp.Data[after]
@@ -28,11 +28,11 @@ func lpKeyword(lp *Line, i uint, kw string) bool {
 func prevCodeLineNumberPy(bp *Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
-		p := BufferGetLine(bp, lineNumber)
+		p := bp.Line(lineNumber)
 		if p == nil {
 			continue
 		}
-		if !line_is_blank(p) && line_first_byte(p) != '#' {
+		if !p.IsBlank() && p.FirstByte() != '#' {
 			return lineNumber
 		}
 	}
@@ -43,7 +43,7 @@ func lineIsDeindentKw(lp *Line) bool {
 	if lp == nil {
 		return false
 	}
-	i := line_first_nonblank(lp)
+	i := lp.FirstNonblank()
 	return lpKeyword(lp, i, "elif") || lpKeyword(lp, i, "else") || lpKeyword(lp, i, "except") || lpKeyword(lp, i, "finally")
 }
 
@@ -51,12 +51,12 @@ func lineIsDedentStmt(lp *Line) bool {
 	if lp == nil {
 		return false
 	}
-	i := line_first_nonblank(lp)
+	i := lp.FirstNonblank()
 	return lpKeyword(lp, i, "return") || lpKeyword(lp, i, "break") || lpKeyword(lp, i, "continue") || lpKeyword(lp, i, "raise") || lpKeyword(lp, i, "pass")
 }
 
 func calcIndentPy(bp *Buffer, lineNumber uint) int {
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	pyIndentWidth := bp.PyIndent
 	pyContinuedOffset := bp.PyContinuedOffset
 
@@ -65,11 +65,11 @@ func calcIndentPy(bp *Buffer, lineNumber uint) int {
 		if refLine == 0 {
 			return 0
 		}
-		ref := BufferGetLine(bp, refLine)
+		ref := bp.Line(refLine)
 		if ref == nil {
 			return 0
 		}
-		ind := int(line_indent_column(ref)) - int(pyIndentWidth)
+		ind := int(ref.IndentColumn()) - int(pyIndentWidth)
 		if ind < 0 {
 			return 0
 		}
@@ -83,11 +83,11 @@ func calcIndentPy(bp *Buffer, lineNumber uint) int {
 
 	baseLine := refLine
 	for baseLine > 1 {
-		l := BufferGetLine(bp, baseLine)
+		l := bp.Line(baseLine)
 		if l == nil {
 			break
 		}
-		if line_last_byte(l) != '\\' {
+		if l.LastByte() != '\\' {
 			break
 		}
 		nextRef := prevCodeLineNumberPy(bp, baseLine)
@@ -97,12 +97,12 @@ func calcIndentPy(bp *Buffer, lineNumber uint) int {
 		baseLine = nextRef
 	}
 
-	ref := BufferGetLine(bp, baseLine)
+	ref := bp.Line(baseLine)
 	if ref == nil {
 		return 0
 	}
-	refInd := int(line_indent_column(ref))
-	last := line_last_byte(BufferGetLine(bp, refLine))
+	refInd := int(ref.IndentColumn())
+	last := bp.Line(refLine).LastByte()
 
 	if last == '\\' {
 		return refInd + int(pyContinuedOffset)
@@ -114,17 +114,17 @@ func calcIndentPy(bp *Buffer, lineNumber uint) int {
 		return refInd + int(pyIndentWidth)
 	}
 
-	prev := BufferGetLine(bp, refLine)
+	prev := bp.Line(refLine)
 	if prev != nil && lineIsDedentStmt(prev) {
-		curInd := int(line_indent_column(prev))
+		curInd := int(prev.IndentColumn())
 		ln := prevCodeLineNumberPy(bp, refLine)
 		for ln != 0 {
-			p := BufferGetLine(bp, ln)
+			p := bp.Line(ln)
 			if p == nil {
 				ln = prevCodeLineNumberPy(bp, ln)
 				continue
 			}
-			ind := int(line_indent_column(p))
+			ind := int(p.IndentColumn())
 			if ind < curInd {
 				if ind < 0 {
 					return 0
@@ -144,11 +144,11 @@ func setLineIndentPy(wp *Window, col int) bool {
 	}
 	bp := wp.Buffer
 	ln := wp.Cursor.Line
-	lp := BufferGetLine(bp, ln)
+	lp := bp.Line(ln)
 	if lp == nil {
 		return false
 	}
-	oldFirst := line_first_nonblank(lp)
+	oldFirst := lp.FirstNonblank()
 	spaces := make([]byte, col)
 	for i := range spaces {
 		spaces[i] = ' '
@@ -172,28 +172,28 @@ func findDefLineNumber(bp *Buffer, lineNumber uint) uint {
 	if bp.LineCount == 0 {
 		return 0
 	}
-	if lineNumber == BufferEOF(bp) {
+	if lineNumber == bp.EOF() {
 		lineNumber = bp.LineCount
 	}
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return 0
 	}
-	i := line_first_nonblank(lp)
+	i := lp.FirstNonblank()
 	if lpKeyword(lp, i, "def") || lpKeyword(lp, i, "class") {
 		return lineNumber
 	}
-	curInd := int(line_indent_column(lp))
+	curInd := int(lp.IndentColumn())
 	for lineNumber > 1 {
 		lineNumber--
-		lp = BufferGetLine(bp, lineNumber)
+		lp = bp.Line(lineNumber)
 		if lp == nil {
 			continue
 		}
-		if !line_is_blank(lp) {
-			ind := int(line_indent_column(lp))
+		if !lp.IsBlank() {
+			ind := int(lp.IndentColumn())
 			if ind < curInd {
-				j := line_first_nonblank(lp)
+				j := lp.FirstNonblank()
 				if lpKeyword(lp, j, "def") || lpKeyword(lp, j, "class") {
 					return lineNumber
 				}
@@ -248,12 +248,12 @@ func cmdPyMakeComment(f bool, n int) bool {
 	if bp == nil || wp == nil || PackageHooks.WindowInsertText == nil {
 		return false
 	}
-	lp := BufferGetLine(bp, wp.Cursor.Line)
+	lp := bp.Line(wp.Cursor.Line)
 	if lp != nil {
-		for i := uint(0); i < LineLength(lp); i++ {
-			if LineGetc(lp, i) == '#' {
+		for i := uint(0); i < lp.Len(); i++ {
+			if lp.Byte(i) == '#' {
 				wp.Cursor.Offset = i + 1
-				if wp.Cursor.Offset < LineLength(lp) && LineGetc(lp, wp.Cursor.Offset) == ' ' {
+				if wp.Cursor.Offset < lp.Len() && lp.Byte(wp.Cursor.Offset) == ' ' {
 					wp.Cursor.Offset++
 				}
 				wp.DidMove = true
@@ -262,7 +262,7 @@ func cmdPyMakeComment(f bool, n int) bool {
 		}
 	}
 	if lp != nil {
-		wp.Cursor.Offset = LineLength(lp)
+		wp.Cursor.Offset = lp.Len()
 	} else {
 		wp.Cursor.Offset = 0
 	}
@@ -311,17 +311,17 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 		}
 		return false
 	}
-	def := BufferGetLine(bp, defLine)
+	def := bp.Line(defLine)
 	if def == nil {
 		return false
 	}
-	defInd := int(line_indent_column(def))
+	defInd := int(def.IndentColumn())
 	lineNumber := defLine + 1
 	lastLine := defLine
 	for lineNumber <= bp.LineCount {
-		lp := BufferGetLine(bp, lineNumber)
-		if !line_is_blank(lp) {
-			if int(line_indent_column(lp)) <= defInd {
+		lp := bp.Line(lineNumber)
+		if !lp.IsBlank() {
+			if int(lp.IndentColumn()) <= defInd {
 				break
 			}
 			lastLine = lineNumber
@@ -332,10 +332,10 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 	if targetLine == 0 {
 		targetLine = defLine
 	}
-	lp := BufferGetLine(bp, targetLine)
+	lp := bp.Line(targetLine)
 	off := uint(0)
 	if lp != nil {
-		off = LineLength(lp)
+		off = lp.Len()
 	}
 	if PackageHooks.WindowSetCursor != nil {
 		PackageHooks.WindowSetCursor(wp, MakeLocation(targetLine, off))

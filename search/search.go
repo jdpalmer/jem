@@ -36,7 +36,7 @@ const (
 
 var (
 	MakeTextStyle = buffer.MakeTextStyle
-	TextStyleBg   = buffer.TextStyleBg
+	TextStyleBg   = buffer.TextStyle.Bg
 )
 
 type State struct {
@@ -128,7 +128,7 @@ func setText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEn
 	if PackageHooks.SetText != nil {
 		return PackageHooks.SetText(bp, begin, end, newText, newLen, newEndOut, kill)
 	}
-	return buffer.SetText(bp, nil, begin, end, newText, newLen, newEndOut)
+	return bp.SetText(nil, begin, end, newText, newLen, newEndOut)
 }
 
 func truncatePattern(s string) string {
@@ -289,7 +289,7 @@ func restoreSearchSnapshot(wp *Window, snap *ISearchSnapshot) {
 	if wp == nil {
 		return
 	}
-	app.WindowSetCursor(wp, Location{Line: snap.Line, Offset: snap.Offset})
+	wp.SetCursor(Location{Line: snap.Line, Offset: snap.Offset})
 	wp.Mark.Line = snap.MarkLine
 	wp.Mark.Offset = snap.MarkOff
 	wp.DidMove = true
@@ -319,13 +319,13 @@ func searchSwitchBuffer(wp *Window, bp *Buffer, loc Location) {
 		wp = app.State.CurrentWindow
 	}
 	if wp != nil {
-		app.WindowSetCursor(wp, loc)
+		wp.SetCursor(loc)
 		wp.DidMove = true
 	}
 }
 
 func bufferSearchStart(bp *Buffer) Location { return Location{Line: 1, Offset: 0} }
-func bufferSearchEnd(bp *Buffer) Location   { return Location{Line: buffer.EOF(bp), Offset: 0} }
+func bufferSearchEnd(bp *Buffer) Location   { return Location{Line: bp.EOF(), Offset: 0} }
 
 func searchCharsEqual(bc, pc int) bool {
 	if currentState().SearchCaseSensitive {
@@ -341,11 +341,11 @@ func searchReadForward(bp *Buffer, line *uint, offset *uint) (int, bool) {
 	if *line > bp.LineCount {
 		return -1, false
 	}
-	lp := buffer.GetLine(bp, *line)
+	lp := bp.Line(*line)
 	if lp == nil {
 		return -1, false
 	}
-	if *offset >= buffer.LineLength(lp) {
+	if *offset >= lp.Len() {
 		*line++
 		*offset = 0
 		return '\n', true
@@ -364,18 +364,18 @@ func searchReadBackward(bp *Buffer, line *uint, offset *uint) (int, bool) {
 			return -1, false
 		}
 		*line--
-		lp := buffer.GetLine(bp, *line)
+		lp := bp.Line(*line)
 		if lp == nil {
 			return -1, false
 		}
-		*offset = buffer.LineLength(lp) + 1
+		*offset = lp.Len() + 1
 	}
 	*offset--
-	lp := buffer.GetLine(bp, *line)
+	lp := bp.Line(*line)
 	if lp == nil {
 		return -1, false
 	}
-	if *offset == buffer.LineLength(lp) {
+	if *offset == lp.Len() {
 		return '\n', true
 	}
 	return int(lp.Data[*offset]), true
@@ -412,7 +412,7 @@ func findNextPlain(wp *Window, pattern []byte) bool {
 			}
 		}
 		if matched {
-			app.WindowSetCursor(wp, Location{Line: tline, Offset: tbo})
+			wp.SetCursor(Location{Line: tline, Offset: tbo})
 			wp.DidMove = true
 			return true
 		}
@@ -448,7 +448,7 @@ func findPrevPlain(wp *Window, pattern []byte) bool {
 			}
 		}
 		if matched {
-			app.WindowSetCursor(wp, Location{Line: tline, Offset: tbo})
+			wp.SetCursor(Location{Line: tline, Offset: tbo})
 			wp.DidMove = true
 			return true
 		}
@@ -508,9 +508,9 @@ func isearchHighlightPlain(wp *Window, patLen int, backward bool) {
 	cursor := wp.Cursor
 	var mark Location
 	if backward {
-		mark = buffer.LocationAdvanceBytes(wp.Buffer, cursor, patLen)
+		mark = cursor.AdvanceBytes(wp.Buffer, patLen)
 	} else {
-		mark = buffer.LocationRewindBytes(wp.Buffer, cursor, patLen)
+		mark = cursor.RewindBytes(wp.Buffer, patLen)
 	}
 	wp.Mark.Line = mark.Line
 	wp.Mark.Offset = mark.Offset
@@ -581,7 +581,7 @@ func bufferSliceFrom(bp *Buffer, start Location) []byte {
 		return nil
 	}
 	var length uint
-	return buffer.GetText(bp, start, bufferSearchEnd(bp), &length)
+	return bp.GetText(start, bufferSearchEnd(bp), &length)
 }
 
 func findNextRegexMatchFrom(bp *Buffer, searchStart Location, pattern string) (RegexMatch, int) {
@@ -605,8 +605,8 @@ func findNextRegexMatchFrom(bp *Buffer, searchStart Location, pattern string) (R
 	match := RegexMatch{
 		Text:  text,
 		Index: re.FindSubmatchIndex(text),
-		Start: buffer.LocationAdvanceBytes(bp, searchStart, loc[0]),
-		End:   buffer.LocationAdvanceBytes(bp, searchStart, loc[1]),
+		Start: searchStart.AdvanceBytes(bp, loc[0]),
+		End:   searchStart.AdvanceBytes(bp, loc[1]),
 	}
 	return match, 1
 }
@@ -628,7 +628,7 @@ func findPrevRegexMatchFrom(bp *Buffer, limit Location, pattern string) (RegexMa
 		}
 		best = candidate
 		haveBest = true
-		scan = buffer.LocationAdvanceBytes(bp, candidate.Start, 1)
+		scan = candidate.Start.AdvanceBytes(bp, 1)
 	}
 	if !haveBest {
 		return RegexMatch{}, 0
@@ -713,9 +713,9 @@ func isearchRunRegex(wp *Window, scope *bufferSearchScope, start *ISearchSnapsho
 	}
 	wp = app.State.CurrentWindow
 	if backward {
-		app.WindowSetCursor(wp, match.Start)
+		wp.SetCursor(match.Start)
 	} else {
-		app.WindowSetCursor(wp, match.End)
+		wp.SetCursor(match.End)
 	}
 	wp.DidMove = true
 	isearchHighlightMatch(wp, match.Start, match.End, backward)
@@ -1009,9 +1009,9 @@ func markMatchStart(wp *Window, patLen int) {
 			off--
 		} else if line > 1 {
 			line--
-			lp := buffer.GetLine(wp.Buffer, line)
+			lp := wp.Buffer.Line(line)
 			if lp != nil {
-				off = buffer.LineLength(lp)
+				off = lp.Len()
 			}
 		}
 	}
@@ -1028,7 +1028,7 @@ func checkMatchCase(wp *Window, patLen int) matchCase {
 	if wp == nil || wp.Buffer == nil || patLen == 0 {
 		return matchCaseLower
 	}
-	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
+	lp := wp.Buffer.Line(wp.Cursor.Line)
 	if lp == nil || wp.Cursor.Offset < uint(patLen) {
 		return matchCaseLower
 	}
@@ -1070,7 +1070,7 @@ func doReplace(wp *Window, patLen int, repl []byte) bool {
 		return false
 	}
 	end := wp.Cursor
-	begin := buffer.LocationRewindBytes(wp.Buffer, end, patLen)
+	begin := end.RewindBytes(wp.Buffer, patLen)
 	return setText(wp.Buffer, begin, end, repl, uint(len(repl)), nil, false)
 }
 

@@ -30,7 +30,7 @@ func byteOffsetToRuneLimit(lp *buffer.Line, byteOffset uint) int {
 		return 0
 	}
 	if byteOffset >= uint(n) {
-		buffer.EnsureLineCache(lp)
+		lp.EnsureCache()
 		return len(lp.RuneCache)
 	}
 	limit := 0
@@ -87,7 +87,7 @@ func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *SynState) {
 	syncLine := uint(1)
 	if lineNumber > 1 {
 		for q := lineNumber - 1; q > 0; q-- {
-			lp := buffer.GetLine(bp, q)
+			lp := bp.Line(q)
 			if lp != nil && lp.SyntaxValid {
 				*st = lp.SyntaxEndState
 				syncLine = q + 1
@@ -96,7 +96,7 @@ func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *SynState) {
 		}
 	}
 	for q := syncLine; q < lineNumber; q++ {
-		lp := buffer.GetLine(bp, q)
+		lp := bp.Line(q)
 		if lp == nil {
 			continue
 		}
@@ -109,15 +109,15 @@ func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *SynState) {
 }
 
 func syntaxStateAt(bp *buffer.Buffer, lineNumber, offset uint, st *SynState) bool {
-	if bp == nil || lineNumber == 0 || lineNumber > buffer.EOF(bp) {
+	if bp == nil || lineNumber == 0 || lineNumber > bp.EOF() {
 		*st = SynState{DFA: SS_NORMAL}
 		return false
 	}
 	bufferSyntaxFindStart(bp, lineNumber, st)
-	if lineNumber >= buffer.EOF(bp) {
+	if lineNumber >= bp.EOF() {
 		return true
 	}
-	lp := buffer.GetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return false
 	}
@@ -141,10 +141,10 @@ func syntaxCharIsStructural(bp *buffer.Buffer, lineNumber, offset uint) bool {
 }
 
 func syntaxGetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *SyntaxLineSummary) bool {
-	if bp == nil || lineNumber == 0 || lineNumber >= buffer.EOF(bp) {
+	if bp == nil || lineNumber == 0 || lineNumber >= bp.EOF() {
 		return false
 	}
-	lp := buffer.GetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	if lp == nil {
 		return false
 	}
@@ -162,14 +162,14 @@ func syntaxGetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *Syntax
 }
 
 func syntaxFindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, matchOut *buffer.Location) bool {
-	if bp == nil || start.Line == 0 || start.Line >= buffer.EOF(bp) {
+	if bp == nil || start.Line == 0 || start.Line >= bp.EOF() {
 		return false
 	}
-	lp := buffer.GetLine(bp, start.Line)
-	if lp == nil || start.Offset >= buffer.LineLength(lp) {
+	lp := bp.Line(start.Line)
+	if lp == nil || start.Offset >= lp.Len() {
 		return false
 	}
-	ch := int(buffer.LineGetc(lp, start.Offset))
+	ch := int(lp.Byte(start.Offset))
 	open, close, forward, ok := DelimiterPair(ch)
 	if !ok {
 		return false
@@ -183,12 +183,12 @@ func syntaxFindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, match
 		lineNum := start.Line
 		off := start.Offset + 1
 		for lineNum <= bp.LineCount {
-			line := buffer.GetLine(bp, lineNum)
+			line := bp.Line(lineNum)
 			if line == nil {
 				return false
 			}
-			for off < buffer.LineLength(line) {
-				c := int(buffer.LineGetc(line, off))
+			for off < line.Len() {
+				c := int(line.Byte(off))
 				if (c == open || c == close) && syntaxCharIsStructural(bp, lineNum, off) {
 					if c == open {
 						depth++
@@ -206,12 +206,12 @@ func syntaxFindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, match
 		lineNum := start.Line
 		off := int(start.Offset) - 1
 		for lineNum >= 1 {
-			line := buffer.GetLine(bp, lineNum)
+			line := bp.Line(lineNum)
 			if line == nil {
 				return false
 			}
 			for off >= 0 {
-				c := int(buffer.LineGetc(line, uint(off)))
+				c := int(line.Byte(uint(off)))
 				if (c == open || c == close) && syntaxCharIsStructural(bp, lineNum, uint(off)) {
 					if c == close {
 						depth++
@@ -226,25 +226,25 @@ func syntaxFindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, match
 				break
 			}
 			lineNum--
-			prev := buffer.GetLine(bp, lineNum)
+			prev := bp.Line(lineNum)
 			if prev == nil {
 				return false
 			}
-			off = int(buffer.LineLength(prev)) - 1
+			off = int(prev.Len()) - 1
 		}
 	}
 	return false
 }
 
 func syntaxLocationHasDelimiter(bp *buffer.Buffer, loc buffer.Location) bool {
-	if bp == nil || loc.Line == 0 || loc.Line >= buffer.EOF(bp) {
+	if bp == nil || loc.Line == 0 || loc.Line >= bp.EOF() {
 		return false
 	}
-	lp := buffer.GetLine(bp, loc.Line)
-	if lp == nil || loc.Offset >= buffer.LineLength(lp) {
+	lp := bp.Line(loc.Line)
+	if lp == nil || loc.Offset >= lp.Len() {
 		return false
 	}
-	if _, _, _, ok := DelimiterPair(int(buffer.LineGetc(lp, loc.Offset))); !ok {
+	if _, _, _, ok := DelimiterPair(int(lp.Byte(loc.Offset))); !ok {
 		return false
 	}
 	return syntaxCharIsStructural(bp, loc.Line, loc.Offset)

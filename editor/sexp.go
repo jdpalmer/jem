@@ -13,7 +13,7 @@ func cursorAtEob(wp *Window) bool {
 	if wp == nil || wp.Buffer == nil {
 		return true
 	}
-	return wp.Cursor.Line >= buffer.EOF(wp.Buffer)
+	return wp.Cursor.Line >= wp.Buffer.EOF()
 }
 
 func cursorChar(wp *Window, bp *Buffer) int {
@@ -21,14 +21,14 @@ func cursorChar(wp *Window, bp *Buffer) int {
 		return -1
 	}
 	loc := wp.Cursor
-	lp := buffer.GetLine(bp, loc.Line)
+	lp := bp.Line(loc.Line)
 	if lp == nil {
 		return -1
 	}
-	if loc.Offset >= buffer.LineLength(lp) {
+	if loc.Offset >= lp.Len() {
 		return '\n'
 	}
-	return int(buffer.LineGetc(lp, loc.Offset))
+	return int(lp.Byte(loc.Offset))
 }
 
 func forwardSexpOnce(wp *Window, bp *Buffer) bool {
@@ -52,12 +52,12 @@ func forwardSexpOnce(wp *Window, bp *Buffer) bool {
 			mbWrite("[no matching delimiter]")
 			return false
 		}
-		mlp := buffer.GetLine(bp, match.Line)
+		mlp := bp.Line(match.Line)
 		after := match.Offset + 1
-		if mlp == nil || after > buffer.LineLength(mlp) {
-			app.WindowSetCursor(wp, buffer.MakeLocation(match.Line+1, 0))
+		if mlp == nil || after > mlp.Len() {
+			wp.SetCursor(buffer.MakeLocation(match.Line+1, 0))
 		} else {
-			app.WindowSetCursor(wp, buffer.MakeLocation(match.Line, after))
+			wp.SetCursor(buffer.MakeLocation(match.Line, after))
 		}
 		wp.DidMove = true
 		return true
@@ -85,14 +85,14 @@ func backwardSexpOnce(wp *Window, bp *Buffer) bool {
 		var match Location
 		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
 			mbWrite("[no matching delimiter]")
-			app.WindowSetCursor(wp, orig)
+			wp.SetCursor(orig)
 			return false
 		}
-		app.WindowSetCursor(wp, match)
+		wp.SetCursor(match)
 		wp.DidMove = true
 		return true
 	}
-	app.WindowSetCursor(wp, orig)
+	wp.SetCursor(orig)
 	return CmdBackwardWord(false, 1)
 }
 

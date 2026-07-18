@@ -114,15 +114,15 @@ func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
 
 func compileAppendTextSection(bp *Buffer, title, text string, counts *compileDiagCounts) bool {
 	heading := "## " + title
-	if buffer.AppendLineBytes(bp, []byte(heading), uint(len(heading))) == nil {
+	if bp.AppendLineBytes([]byte(heading), uint(len(heading))) == nil {
 		return false
 	}
 	if text == "" {
-		return buffer.AppendLineBytes(bp, nil, 0) != nil
+		return bp.AppendLineBytes(nil, 0) != nil
 	}
 	for _, raw := range strings.Split(text, "\n") {
 		line := strings.TrimSuffix(raw, "\r")
-		lp := buffer.AppendLineBytes(bp, []byte(line), uint(len(line)))
+		lp := bp.AppendLineBytes([]byte(line), uint(len(line)))
 		if lp == nil {
 			return false
 		}
@@ -148,50 +148,50 @@ type compileDiagCounts struct {
 
 func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int, outTrunc, errTrunc bool) (compileDiagCounts, bool) {
 	counts := compileDiagCounts{}
-	buffer.Clear(bp)
+	bp.Clear()
 	bp.IsChanged = false
 	bp.FileName = ""
 	bp.FileMtime = time.Time{}
 	bp.LangMode = LModeMarkdown
 
-	if buffer.AppendLineBytes(bp, nil, 0) == nil {
+	if bp.AppendLineBytes(nil, 0) == nil {
 		return counts, false
 	}
 	cmdLine := "$ " + command
-	if buffer.AppendLineBytes(bp, []byte(cmdLine), uint(len(cmdLine))) == nil {
+	if bp.AppendLineBytes([]byte(cmdLine), uint(len(cmdLine))) == nil {
 		return counts, false
 	}
-	if buffer.AppendLineBytes(bp, nil, 0) == nil {
+	if bp.AppendLineBytes(nil, 0) == nil {
 		return counts, false
 	}
 	if !compileAppendTextSection(bp, "stdout", stdout, &counts) {
 		return counts, false
 	}
-	if buffer.AppendLineBytes(bp, nil, 0) == nil {
+	if bp.AppendLineBytes(nil, 0) == nil {
 		return counts, false
 	}
 	if !compileAppendTextSection(bp, "stderr", stderr, &counts) {
 		return counts, false
 	}
 	if outTrunc || errTrunc {
-		if buffer.AppendLineBytes(bp, nil, 0) == nil {
+		if bp.AppendLineBytes(nil, 0) == nil {
 			return counts, false
 		}
 		msg := "[output truncated]"
-		if buffer.AppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
+		if bp.AppendLineBytes([]byte(msg), uint(len(msg))) == nil {
 			return counts, false
 		}
 	}
 
 	summary := fmt.Sprintf("# compile exit=%d, diagnostics=%d, errors=%d, warnings=%d",
 		exitCode, counts.diag, counts.errors, counts.warnings)
-	summaryLine := buffer.GetLine(bp, 1)
+	summaryLine := bp.Line(1)
 	if summaryLine == nil {
 		return counts, false
 	}
 	begin := buffer.MakeLocation(1, 0)
-	end := buffer.MakeLocation(1, buffer.LineLength(summaryLine))
-	if !buffer.SetText(bp, nil, begin, end, []byte(summary), uint(len(summary)), nil) {
+	end := buffer.MakeLocation(1, summaryLine.Len())
+	if !bp.SetText(nil, begin, end, []byte(summary), uint(len(summary)), nil) {
 		return counts, false
 	}
 
@@ -293,8 +293,8 @@ func VisitCompileDiag() bool {
 	if wp == nil || bp == nil || bp.Name != CompileBufferName {
 		return false
 	}
-	lp := buffer.GetLine(bp, wp.Cursor.Line)
-	if lp == nil || buffer.LineLength(lp) == 0 || lp.Metadata == nil {
+	lp := bp.Line(wp.Cursor.Line)
+	if lp == nil || lp.Len() == 0 || lp.Metadata == nil {
 		return false
 	}
 	data, ok := lp.Metadata.(*CompileLineData)

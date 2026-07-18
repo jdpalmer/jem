@@ -34,8 +34,8 @@ func UndoNoteBufferSaved(bp *Buffer) {
 func undoInsertText(wp *Window, lineNumber, offset uint, text []byte, length uint) bool {
 	bp := wp.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
-	buffer.NoteEdit(bp, false)
-	return buffer.ReplaceRaw(bp, loc, loc, text, length, nil)
+	bp.NoteEdit(false)
+	return bp.ReplaceRaw(loc, loc, text, length, nil)
 }
 
 func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte, length uint) bool {
@@ -51,8 +51,8 @@ func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte, length uin
 			endOffset++
 		}
 	}
-	buffer.NoteEdit(bp, endLine != lineNumber)
-	return buffer.ReplaceRaw(bp, begin, buffer.MakeLocation(endLine, endOffset), nil, 0, nil)
+	bp.NoteEdit(endLine != lineNumber)
+	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, 0, nil)
 }
 
 func CmdUndo(f bool, n int) bool {
@@ -81,7 +81,7 @@ func CmdUndo(f bool, n int) bool {
 			},
 			SetCursor: func(loc Location) {
 				if wp != nil {
-					app.WindowSetCursor(wp, loc)
+					wp.SetCursor(loc)
 					wp.DidMove = true
 				}
 			},
@@ -116,14 +116,14 @@ func editorSwitchBuffer(bp *Buffer) {
 		return
 	}
 
-	app.WindowSaveState(cw)
+	cw.SaveState()
 
 	app.SetCurrentBuffer(bp)
 	cw.Buffer = bp
 	cw.ShouldUpdateModeLine = true
 	cw.ShouldReframe = true
 	cw.ShouldRedraw = true
-	app.WindowSetTopLine(cw, 1)
+	cw.SetTopLine(1)
 	cw.HScroll = 0
 
 	for i := 0; i < int(app.State.WindowCount); i++ {
@@ -138,9 +138,9 @@ func editorSwitchBuffer(bp *Buffer) {
 	}
 
 	if bp.Cursor.Line >= 1 {
-		app.WindowSetCursor(cw, bp.Cursor)
+		cw.SetCursor(bp.Cursor)
 	} else {
-		app.WindowSetCursor(cw, Location{Line: 1, Offset: 0})
+		cw.SetCursor(Location{Line: 1, Offset: 0})
 	}
 	cw.Mark = bp.Mark
 }

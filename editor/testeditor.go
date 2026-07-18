@@ -1,11 +1,10 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
 	"strings"
 	"testing"
 
+	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
 )
@@ -60,20 +59,20 @@ func (te *TestEditor) LoadText(text string) {
 		te.t.Fatal("no buffer/window")
 	}
 	bp.IsChanged = false
-	buffer.Clear(bp)
+	bp.Clear()
 	for line := range strings.SplitSeq(text, "\n") {
-		buffer.AppendLineBytes(bp, []byte(line), uint(len(line)))
+		bp.AppendLineBytes([]byte(line), uint(len(line)))
 	}
 	if bp.LineCount > 0 {
 		wp.Cursor.Line = bp.LineCount
-		last := buffer.GetLine(bp, bp.LineCount)
+		last := bp.Line(bp.LineCount)
 		if last != nil {
-			wp.Cursor.Offset = buffer.LineLength(last)
+			wp.Cursor.Offset = last.Len()
 		} else {
 			wp.Cursor.Offset = 0
 		}
 	} else {
-		wp.Cursor = Location{Line: buffer.EOF(bp), Offset: 0}
+		wp.Cursor = Location{Line: bp.EOF(), Offset: 0}
 	}
 	wp.Mark = wp.Cursor
 	bp.IsChanged = false
@@ -87,7 +86,7 @@ func (te *TestEditor) BufferText() string {
 	}
 	lines := make([]string, 0, int(bp.LineCount))
 	for i := uint(1); i <= bp.LineCount; i++ {
-		lp := buffer.GetLine(bp, i)
+		lp := bp.Line(i)
 		if lp == nil {
 			lines = append(lines, "")
 			continue

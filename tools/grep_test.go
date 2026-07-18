@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"github.com/jdpalmer/jem/buffer"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,7 +70,7 @@ func TestGrepFillBuffer(t *testing.T) {
 	if bp.Name != "" {
 		// unnamed buffer is fine
 	}
-	line := buffer.GetLine(bp, 3)
+	line := bp.Line(3)
 	if line == nil || line.Metadata == nil {
 		t.Fatal("expected metadata on match line")
 	}

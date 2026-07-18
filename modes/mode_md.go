@@ -5,8 +5,8 @@ import "github.com/jdpalmer/jem/app"
 func prevNonblankLineNumber(bp *Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
-		p := BufferGetLine(bp, lineNumber)
-		if p != nil && !line_is_blank(p) {
+		p := bp.Line(lineNumber)
+		if p != nil && !p.IsBlank() {
 			return lineNumber
 		}
 	}
@@ -19,11 +19,11 @@ func setLinePrefix(wp *Window, prefix []byte) bool {
 	}
 	bp := wp.Buffer
 	ln := wp.Cursor.Line
-	lp := BufferGetLine(bp, ln)
+	lp := bp.Line(ln)
 	if lp == nil {
 		return false
 	}
-	first := line_first_nonblank(lp)
+	first := lp.FirstNonblank()
 	begin := MakeLocation(ln, 0)
 	end := MakeLocation(ln, first)
 	if PackageHooks.UndoBeginCommand != nil {
@@ -40,7 +40,7 @@ func setLinePrefix(wp *Window, prefix []byte) bool {
 }
 
 func mdBuildPrefix(lp *Line) []byte {
-	if lp == nil || LineLength(lp) == 0 {
+	if lp == nil || lp.Len() == 0 {
 		return nil
 	}
 	p := lp.Data
@@ -114,7 +114,7 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		lp := BufferGetLine(bp, wp.Cursor.Line)
+		lp := bp.Line(wp.Cursor.Line)
 		prefix := mdBuildPrefix(lp)
 		if !PackageHooks.WindowInsertNewline(wp) {
 			return false
@@ -138,7 +138,7 @@ func cmdMdIndentLine(f bool, n int) bool {
 	if refLine == 0 {
 		return true
 	}
-	prefix := mdBuildPrefix(BufferGetLine(bp, refLine))
+	prefix := mdBuildPrefix(bp.Line(refLine))
 	setLinePrefix(wp, prefix)
 	wp.DidEdit = true
 	return true

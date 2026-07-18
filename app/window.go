@@ -40,7 +40,7 @@ func WindowCreate() *Window {
 	return wp
 }
 
-func WindowSaveState(wp *Window) {
+func (wp *Window) SaveState() {
 	if wp != nil && wp.Buffer != nil {
 		wp.Buffer.Cursor = wp.Cursor
 		wp.Buffer.Mark = wp.Mark
@@ -91,7 +91,7 @@ func WindowRetile() {
 	}
 }
 
-func WindowCenterCursor(wp *Window) {
+func (wp *Window) CenterCursor() {
 	if wp == nil {
 		return
 	}
@@ -99,10 +99,10 @@ func WindowCenterCursor(wp *Window) {
 	for i := wp.Height / 2; i > 0 && top > 1; i-- {
 		top--
 	}
-	WindowSetTopLine(wp, top)
+	wp.SetTopLine(top)
 }
 
-func WindowSetTopLine(wp *Window, line uint) {
+func (wp *Window) SetTopLine(line uint) {
 	if wp == nil {
 		return
 	}
@@ -110,7 +110,7 @@ func WindowSetTopLine(wp *Window, line uint) {
 	wp.ShouldRedraw = true
 }
 
-func WindowGutterWidth(wp *Window) uint32 {
+func (wp *Window) GutterWidth() uint32 {
 	if wp == nil || wp.Buffer == nil {
 		return 3
 	}
@@ -130,7 +130,7 @@ func WindowGutterWidth(wp *Window) uint32 {
 	return width
 }
 
-func WindowSetCursor(wp *Window, loc Location) {
+func (wp *Window) SetCursor(loc Location) {
 	if wp == nil {
 		return
 	}

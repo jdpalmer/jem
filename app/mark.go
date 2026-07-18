@@ -103,13 +103,13 @@ func markRestore(m *Mark) bool {
 	if wp == nil {
 		return false
 	}
-	lp := buffer.GetLine(m.Buffer, m.LineNumber)
+	lp := m.Buffer.Line(m.LineNumber)
 	offset := m.Offset
-	if lp != nil && offset > buffer.LineLength(lp) {
-		offset = buffer.LineLength(lp)
+	if lp != nil && offset > lp.Len() {
+		offset = lp.Len()
 	}
-	WindowSetCursor(wp, buffer.MakeLocation(m.LineNumber, offset))
-	WindowSetTopLine(wp, m.TopLineNumber)
+	wp.SetCursor(buffer.MakeLocation(m.LineNumber, offset))
+	wp.SetTopLine(m.TopLineNumber)
 	wp.HScroll = m.HScroll
 	wp.DidMove = true
 	wp.ShouldRedraw = true

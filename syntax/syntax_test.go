@@ -106,14 +106,14 @@ func TestRainbowParensIncremental(t *testing.T) {
 	bp := makeBufferFromLines([]string{"(", "("})
 	// ensure rune caches
 	for i := 1; i <= int(bp.LineCount); i++ {
-		lp := buffer.GetLine(bp, uint(i))
-		buffer.EnsureLineCache(lp)
+		lp := bp.Line(uint(i))
+		lp.EnsureCache()
 	}
 	// incremental reparse from first line
 	IncrementalReparse(bp, 1)
 	// check styles
-	first := buffer.GetLine(bp, 1)
-	second := buffer.GetLine(bp, 2)
+	first := bp.Line(1)
+	second := bp.Line(2)
 	if first == nil || second == nil {
 		t.Fatalf("buffer lines missing")
 	}
@@ -133,7 +133,7 @@ func TestRainbowParensIncremental(t *testing.T) {
 func TestRainbowParensSingleLine(t *testing.T) {
 	lp := makeLine("((()))")
 	lp.LangMode = buffer.LModeGo
-	buffer.EnsureLineCache(lp)
+	lp.EnsureCache()
 	// Tokenize the single line
 	syn, summary, styles := tokenizeLineFromStateExported(lp, SynState{DFA: SS_NORMAL})
 	_ = syn

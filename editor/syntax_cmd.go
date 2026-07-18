@@ -22,7 +22,7 @@ func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
 	}
 	bp := wp.Buffer
 	cursor := buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset)
-	if cursor.Line == 0 || cursor.Line >= buffer.EOF(bp) {
+	if cursor.Line == 0 || cursor.Line >= bp.EOF() {
 		return syntaxMatchNone
 	}
 	if syntaxLocationHasDelimiter(bp, cursor) {
@@ -45,14 +45,14 @@ func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
 }
 
 func syntaxLocationHasDelimiter(bp *Buffer, loc Location) bool {
-	if bp == nil || loc.Line == 0 || loc.Line >= buffer.EOF(bp) {
+	if bp == nil || loc.Line == 0 || loc.Line >= bp.EOF() {
 		return false
 	}
-	lp := buffer.GetLine(bp, loc.Line)
-	if lp == nil || loc.Offset >= buffer.LineLength(lp) {
+	lp := bp.Line(loc.Line)
+	if lp == nil || loc.Offset >= lp.Len() {
 		return false
 	}
-	ch := int(buffer.LineGetc(lp, loc.Offset))
+	ch := int(lp.Byte(loc.Offset))
 	if _, _, _, ok := syntax.DelimiterPair(ch); !ok {
 		return false
 	}
@@ -75,7 +75,7 @@ func CmdSyntaxGotoMatch(f bool, n int) bool {
 		mbWrite("[No matching bracket]")
 		return false
 	default:
-		app.WindowSetCursor(wp, match)
+		wp.SetCursor(match)
 		wp.DidMove = true
 		return true
 	}

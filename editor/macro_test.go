@@ -1,9 +1,9 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
 	"testing"
+
+	"github.com/jdpalmer/jem/app"
 )
 
 func resetMacroState() {
@@ -79,7 +79,7 @@ func TestMacroPlayback(t *testing.T) {
 	if !CmdMacroExec(false, 1) {
 		t.Fatal("macro playback failed")
 	}
-	line := buffer.GetLine(bp, 1)
+	line := bp.Line(1)
 	if line == nil || string(line.Data) != "a" {
 		t.Fatalf("after one playback got %q, want %q", string(line.Data), "a")
 	}
@@ -87,7 +87,7 @@ func TestMacroPlayback(t *testing.T) {
 	if !CmdMacroExec(true, 3) {
 		t.Fatal("macro repeat playback failed")
 	}
-	line = buffer.GetLine(bp, 1)
+	line = bp.Line(1)
 	if line == nil || string(line.Data) != "aaaa" {
 		t.Fatalf("after repeat playback got %q, want %q", string(line.Data), "aaaa")
 	}

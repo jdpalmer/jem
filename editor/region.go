@@ -46,7 +46,7 @@ func CmdKillRegion(f bool, n int) bool {
 	killBegin()
 	// unset mark
 	wp.Mark = Location{Line: 0, Offset: 0}
-	app.WindowSetCursor(wp, region.Start)
+	wp.SetCursor(region.Start)
 	return bufferSetText(wp.Buffer, region.Start, region.End, nil, 0, nil, true)
 }
 
@@ -64,7 +64,7 @@ func CmdCopyRegion(f bool, n int) bool {
 	}
 	killBegin()
 	var length uint
-	text := buffer.GetText(wp.Buffer, region.Start, region.End, &length)
+	text := wp.Buffer.GetText(region.Start, region.End, &length)
 	if length > 0 && text == nil {
 		mbWrite("[out of memory]")
 		return false
@@ -146,7 +146,7 @@ func CmdSwapMark(f bool, n int) bool {
 		return false
 	}
 	temp := wp.Cursor
-	app.WindowSetCursor(wp, wp.Mark)
+	wp.SetCursor(wp.Mark)
 	wp.Mark = temp
 	wp.DidMove = true
 	return true
@@ -161,8 +161,8 @@ func CmdMarkWholeBuffer(f bool, n int) bool {
 	if wp == nil || bp == nil {
 		return false
 	}
-	wp.Mark = buffer.MakeLocation(buffer.EOF(bp), 0)
-	app.WindowSetCursor(wp, buffer.MakeLocation(1, 0))
+	wp.Mark = buffer.MakeLocation(bp.EOF(), 0)
+	wp.SetCursor(buffer.MakeLocation(1, 0))
 	wp.ShouldRedraw = true
 	mbWrite("[mark set]")
 	return true
@@ -179,7 +179,7 @@ func transformRegionCase(upper bool) bool {
 		return false
 	}
 	var length uint
-	text := buffer.GetText(bp, region.Start, region.End, &length)
+	text := bp.GetText(region.Start, region.End, &length)
 	if text == nil && length > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -243,7 +243,7 @@ func CmdSortRegion(f bool, n int) bool {
 	start := buffer.MakeLocation(region.Start.Line, 0)
 	end := buffer.MakeLocation(lastLine+1, 0)
 	var total uint
-	text := buffer.GetText(bp, start, end, &total)
+	text := bp.GetText(start, end, &total)
 	if text == nil && total > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -305,7 +305,7 @@ func CmdCopyRegister(f bool, n int) bool {
 		return false
 	}
 	var length uint
-	text := buffer.GetText(bp, region.Start, region.End, &length)
+	text := bp.GetText(region.Start, region.End, &length)
 	if text == nil && length > 0 {
 		mbWrite("[out of memory]")
 		return false

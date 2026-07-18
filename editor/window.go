@@ -24,7 +24,7 @@ func CmdWindowDelete(f bool, n int) bool {
 		previousWindow = swap
 
 		if previousWindow == app.State.CurrentWindow {
-			app.WindowSaveState(previousWindow)
+			previousWindow.SaveState()
 			app.State.CurrentWindow = app.State.WINDOWS[i]
 			app.State.WindowCount--
 			app.WindowSelect(app.State.CurrentWindow)
@@ -58,7 +58,7 @@ func CmdWindowOnly(f bool, n int) bool {
 			app.State.WINDOWS[0] = app.State.CurrentWindow
 			continue
 		}
-		app.WindowSaveState(app.State.WINDOWS[i])
+		app.State.WINDOWS[i].SaveState()
 	}
 	app.State.WindowCount = 1
 	app.State.CurrentWindow = app.State.WINDOWS[0]
@@ -147,10 +147,10 @@ func windowReplaceLineLeadingText(wp *Window, text []byte, length int) bool {
 		return false
 	}
 	lineNumber := wp.Cursor.Line
-	lp := buffer.GetLine(wp.Buffer, lineNumber)
+	lp := wp.Buffer.Line(lineNumber)
 	var oldWS uint = 0
 	if lp != nil {
-		oldWS = buffer.LineFirstNonblank(lp)
+		oldWS = lp.FirstNonblank()
 	}
 	if oldWS == 0 && length == 0 {
 		return true
@@ -170,11 +170,11 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 	tot := tabs + spaces
 	if tot == 0 {
 		// No-op if line already has no leading whitespace; otherwise clear it.
-		lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
+		lp := wp.Buffer.Line(wp.Cursor.Line)
 		if lp == nil {
 			return false
 		}
-		old := buffer.LineFirstNonblank(lp)
+		old := lp.FirstNonblank()
 		if old == 0 {
 			return true
 		}
@@ -195,11 +195,11 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 	for i := uint(0); i < spaces; i++ {
 		indent = append(indent, ' ')
 	}
-	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
+	lp := wp.Buffer.Line(wp.Cursor.Line)
 	if lp == nil {
 		return false
 	}
-	old := buffer.LineFirstNonblank(lp)
+	old := lp.FirstNonblank()
 	begin := buffer.MakeLocation(wp.Cursor.Line, 0)
 	end := buffer.MakeLocation(wp.Cursor.Line, old)
 	UndoBeginCommand()
@@ -221,8 +221,8 @@ func windowDeleteChars(wp *Window, count int) bool {
 	defer UndoEndCommand()
 	deleted := false
 	for i := 0; i < count; i++ {
-		line := buffer.GetLine(bp, wp.Cursor.Line)
-		if line != nil && wp.Cursor.Offset < buffer.LineLength(line) {
+		line := bp.Line(wp.Cursor.Line)
+		if line != nil && wp.Cursor.Offset < line.Len() {
 			begin := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
 			end := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset + 1}
 			var newEnd Location

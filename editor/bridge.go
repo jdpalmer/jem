@@ -100,19 +100,19 @@ var (
 	TextStyleDefault = buffer.TextStyleDefault
 	TextStyleGutter  = buffer.TextStyleGutter
 	MakeTextStyle    = buffer.MakeTextStyle
-	TextStyleFg      = buffer.TextStyleFg
-	TextStyleBg      = buffer.TextStyleBg
+	TextStyleFg      = buffer.TextStyle.Fg
+	TextStyleBg      = buffer.TextStyle.Bg
 )
 
 func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
 	if kill {
 		var oldLen uint
-		oldText := buffer.GetText(bp, begin, end, &oldLen)
+		oldText := bp.GetText(begin, end, &oldLen)
 		if oldLen > 0 && !killAppend(oldText, oldLen) {
 			return false
 		}
 	}
-	ok := buffer.SetText(bp, &editorUndo, begin, end, newText, newLen, newEndOut)
+	ok := bp.SetText(&editorUndo, begin, end, newText, newLen, newEndOut)
 	if kill && ok {
 		killWriteClipboard()
 	}
@@ -125,8 +125,8 @@ func bufferAdjustLocationsAfterReplace(bp *Buffer, begin, end, newEnd Location) 
 		if wp == nil || wp.Buffer != bp {
 			continue
 		}
-		buffer.LocationAdjustAfterReplace(&wp.Cursor, begin, end, newEnd)
-		buffer.LocationAdjustAfterReplace(&wp.Mark, begin, end, newEnd)
+		wp.Cursor.AdjustAfterReplace(begin, end, newEnd)
+		wp.Mark.AdjustAfterReplace(begin, end, newEnd)
 		if wp.TopLine >= begin.Line {
 			if wp.TopLine > end.Line {
 				if newEnd.Line >= end.Line {
@@ -196,7 +196,7 @@ func initBufferSyntaxHooks() {
 	buffer.PackageHooks = buffer.Hooks{
 		NoteEdit:                    bufferNoteEdit,
 		AdjustLocationsAfterReplace: bufferAdjustLocationsAfterReplace,
-		InvalidateSyntaxFrom:        buffer.InvalidateSyntaxFromLine,
+		InvalidateSyntaxFrom:        (*buffer.Buffer).InvalidateSyntaxFrom,
 		ReparseFrom:                 syntax.IncrementalReparse,
 	}
 	syncSyntaxPalette()

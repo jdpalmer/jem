@@ -22,12 +22,12 @@ func lineHasCommentPrefix(lp *Line, prefix []byte) bool {
 	if lp == nil || len(prefix) == 0 {
 		return false
 	}
-	pos := line_first_nonblank(lp)
-	if LineLength(lp) < pos+uint(len(prefix)) {
+	pos := lp.FirstNonblank()
+	if lp.Len() < pos+uint(len(prefix)) {
 		return false
 	}
 	for k := range prefix {
-		if LineGetc(lp, pos+uint(k)) != prefix[k] {
+		if lp.Byte(pos+uint(k)) != prefix[k] {
 			return false
 		}
 	}
@@ -48,7 +48,7 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 	prefixLen := len(linePrefix)
 	allCommented := true
 	for line := startLine; line <= endLine; line++ {
-		lp := BufferGetLine(bp, line)
+		lp := bp.Line(line)
 		if !lineHasCommentPrefix(lp, linePrefix) {
 			allCommented = false
 			break
@@ -61,11 +61,11 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 		savedCursor := wp.Cursor
 		savedMark := wp.Mark
 		for line := startLine; line <= endLine; line++ {
-			lp := BufferGetLine(bp, line)
+			lp := bp.Line(line)
 			if lp == nil {
 				continue
 			}
-			pos := line_first_nonblank(lp)
+			pos := lp.FirstNonblank()
 			b := MakeLocation(line, pos)
 			e := MakeLocation(line, pos+uint(prefixLen))
 			if !PackageHooks.BufferSetText(bp, b, e, nil, 0, nil, false) {
@@ -145,9 +145,9 @@ func CmdModeToggleComment(f bool, n int) bool {
 	}
 
 	if linePrefix != nil {
-		lp := BufferGetLine(bp, wp.Cursor.Line)
+		lp := bp.Line(wp.Cursor.Line)
 		if lineHasCommentPrefix(lp, linePrefix) {
-			pos := line_first_nonblank(lp)
+			pos := lp.FirstNonblank()
 			prefixLen := len(linePrefix)
 			if PackageHooks.UndoBeginCommand != nil {
 				PackageHooks.UndoBeginCommand()
@@ -223,7 +223,7 @@ func CmdCommentDwim(f bool, n int) bool {
 		return CmdModeToggleComment(false, 1)
 	}
 	linePrefix := modeCommentLinePrefix(info)
-	lp := BufferGetLine(bp, wp.Cursor.Line)
+	lp := bp.Line(wp.Cursor.Line)
 	if linePrefix != nil && lp != nil && lineHasCommentPrefix(lp, linePrefix) {
 		return CmdModeToggleComment(false, 1)
 	}

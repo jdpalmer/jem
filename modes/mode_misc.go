@@ -26,8 +26,8 @@ func u8isalnum(b byte) bool {
 func prevNonblankLineNumberBuf(bp *Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
-		p := BufferGetLine(bp, lineNumber)
-		if p != nil && !line_is_blank(p) {
+		p := bp.Line(lineNumber)
+		if p != nil && !p.IsBlank() {
 			return lineNumber
 		}
 	}
@@ -41,34 +41,34 @@ func wordMatchCI(lp *Line, start uint, word string) bool {
 	i := start
 	j := 0
 	for j < len(word) {
-		if i >= LineLength(lp) {
+		if i >= lp.Len() {
 			return false
 		}
-		if u8lower(LineGetc(lp, i)) != u8lower(word[j]) {
+		if u8lower(lp.Byte(i)) != u8lower(word[j]) {
 			return false
 		}
 		i++
 		j++
 	}
-	if i >= LineLength(lp) {
+	if i >= lp.Len() {
 		return true
 	}
-	c := LineGetc(lp, i)
+	c := lp.Byte(i)
 	return !(u8isalnum(c) || c == '_')
 }
 
 func lineStartsWordCI(lp *Line, word string) bool {
-	return wordMatchCI(lp, line_first_nonblank(lp), word)
+	return wordMatchCI(lp, lp.FirstNonblank(), word)
 }
 
 func lineEndsWithWordCI(lp *Line, word string) bool {
 	if lp == nil {
 		return false
 	}
-	end := int(LineLength(lp))
+	end := int(lp.Len())
 	wlen := len(word)
 	for end > 0 {
-		c := LineGetc(lp, uint(end-1))
+		c := lp.Byte(uint(end-1))
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -78,14 +78,14 @@ func lineEndsWithWordCI(lp *Line, word string) bool {
 		return false
 	}
 	for i := 0; i < wlen; i++ {
-		if u8lower(LineGetc(lp, uint(end-wlen+i))) != u8lower(word[i]) {
+		if u8lower(lp.Byte(uint(end-wlen+i))) != u8lower(word[i]) {
 			return false
 		}
 	}
 	if end == wlen {
 		return true
 	}
-	c := LineGetc(lp, uint(end-wlen-1))
+	c := lp.Byte(uint(end-wlen-1))
 	return !(u8isalnum(c) || c == '_')
 }
 
@@ -93,17 +93,17 @@ func isMakeTargetLine(lp *Line) bool {
 	if lp == nil {
 		return false
 	}
-	i := line_first_nonblank(lp)
-	if i >= LineLength(lp) || LineGetc(lp, i) == '\t' {
+	i := lp.FirstNonblank()
+	if i >= lp.Len() || lp.Byte(i) == '\t' {
 		return false
 	}
 	seenColon := false
-	for k := i; k < LineLength(lp); k++ {
-		c := LineGetc(lp, k)
+	for k := i; k < lp.Len(); k++ {
+		c := lp.Byte(k)
 		if c == '#' {
 			break
 		}
-		if c == ':' && k+1 < LineLength(lp) && LineGetc(lp, k+1) == '=' {
+		if c == ':' && k+1 < lp.Len() && lp.Byte(k+1) == '=' {
 			return false
 		}
 		if c == ':' && !seenColon {
@@ -117,23 +117,23 @@ func isMakeTargetLine(lp *Line) bool {
 }
 
 func calcMakeIndent(bp *Buffer, lineNumber uint) IndentSpec {
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	refLine := prevNonblankLineNumberBuf(bp, lineNumber)
 	var ref *Line
 	if refLine != 0 {
-		ref = BufferGetLine(bp, refLine)
+		ref = bp.Line(refLine)
 	}
-	if lp != nil && line_first_byte(lp) == '\t' {
+	if lp != nil && lp.FirstByte() == '\t' {
 		return IndentSpec{0, true}
 	}
 	if ref == nil {
 		return IndentSpec{0, false}
 	}
-	if isMakeTargetLine(ref) || line_first_byte(ref) == '\t' {
+	if isMakeTargetLine(ref) || ref.FirstByte() == '\t' {
 		return IndentSpec{0, true}
 	}
-	if line_last_byte(ref) == '\\' {
-		return IndentSpec{uint(line_indent_column(ref) + MAKE_CONTINUATION_INDENT), false}
+	if ref.LastByte() == '\\' {
+		return IndentSpec{uint(ref.IndentColumn() + MAKE_CONTINUATION_INDENT), false}
 	}
 	return IndentSpec{0, false}
 }
@@ -158,47 +158,47 @@ func verilogIsOpener(lp *Line) bool {
 }
 
 func htmlIsCloser(lp *Line) bool {
-	i := line_first_nonblank(lp)
-	if i >= LineLength(lp) || LineGetc(lp, i) != '<' {
+	i := lp.FirstNonblank()
+	if i >= lp.Len() || lp.Byte(i) != '<' {
 		return false
 	}
 	i++
-	return i < LineLength(lp) && LineGetc(lp, i) == '/'
+	return i < lp.Len() && lp.Byte(i) == '/'
 }
 
 func htmlIsOpener(lp *Line) bool {
-	i := line_first_nonblank(lp)
-	end := LineLength(lp)
+	i := lp.FirstNonblank()
+	end := lp.Len()
 	for end > i {
-		c := LineGetc(lp, uint(end-1))
+		c := lp.Byte(uint(end-1))
 		if c != ' ' && c != '\t' {
 			break
 		}
 		end--
 	}
-	if i >= end || LineGetc(lp, i) != '<' || i+1 >= end {
+	if i >= end || lp.Byte(i) != '<' || i+1 >= end {
 		return false
 	}
-	c := LineGetc(lp, uint(i+1))
+	c := lp.Byte(uint(i+1))
 	if c == '/' || c == '!' || c == '?' {
 		return false
 	}
-	if end-i >= 2 && LineGetc(lp, uint(end-2)) == '/' && LineGetc(lp, uint(end-1)) == '>' {
+	if end-i >= 2 && lp.Byte(uint(end-2)) == '/' && lp.Byte(uint(end-1)) == '>' {
 		return false
 	}
-	return LineGetc(lp, uint(end-1)) == '>'
+	return lp.Byte(uint(end-1)) == '>'
 }
 
 func calcBlockIndent(bp *Buffer, lineNumber uint, isCloser func(*Line) bool, isOpener func(*Line) bool) IndentSpec {
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	refLine := prevNonblankLineNumberBuf(bp, lineNumber)
 	var ref *Line
 	if refLine != 0 {
-		ref = BufferGetLine(bp, refLine)
+		ref = bp.Line(refLine)
 	}
 	base := 0
 	if ref != nil {
-		base = int(line_indent_column(ref))
+		base = int(ref.IndentColumn())
 	}
 	if lp != nil && isCloser != nil && isCloser(lp) {
 		ind := base - SIMPLE_INDENT
@@ -214,17 +214,17 @@ func calcBlockIndent(bp *Buffer, lineNumber uint, isCloser func(*Line) bool, isO
 }
 
 func calcLispIndent(bp *Buffer, lineNumber uint) IndentSpec {
-	lp := BufferGetLine(bp, lineNumber)
+	lp := bp.Line(lineNumber)
 	depth := 0
-	closeAlign := lp != nil && line_first_byte(lp) == ')'
+	closeAlign := lp != nil && lp.FirstByte() == ')'
 	for lineNumber > 1 {
 		lineNumber--
-		p := BufferGetLine(bp, lineNumber)
+		p := bp.Line(lineNumber)
 		if p == nil {
 			continue
 		}
-		for i := int(LineLength(p)); i > 0; i-- {
-			c := LineGetc(p, uint(i-1))
+		for i := int(p.Len()); i > 0; i-- {
+			c := p.Byte(uint(i-1))
 			if c == ')' {
 				depth++
 			} else if c == '(' {
@@ -233,8 +233,8 @@ func calcLispIndent(bp *Buffer, lineNumber uint) IndentSpec {
 					if closeAlign {
 						return IndentSpec{uint(openCol), false}
 					}
-					for j := i; j < int(LineLength(p)); j++ {
-						nc := LineGetc(p, uint(j))
+					for j := i; j < int(p.Len()); j++ {
+						nc := p.Byte(uint(j))
 						if nc == ' ' || nc == '\t' {
 							continue
 						}
@@ -282,11 +282,11 @@ func setLineIndentMisc(wp *Window, spec IndentSpec) bool {
 	}
 	bp := wp.Buffer
 	ln := wp.Cursor.Line
-	lp := BufferGetLine(bp, ln)
+	lp := bp.Line(ln)
 	if lp == nil {
 		return false
 	}
-	first := line_first_nonblank(lp)
+	first := lp.FirstNonblank()
 	var prefix []byte
 	if spec.LeadingTab {
 		prefix = []byte{'\t'}

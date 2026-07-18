@@ -10,7 +10,7 @@ func TestDelimiterHighlightAfterKeyword(t *testing.T) {
 	lp := &buffer.Line{}
 	lp.Data = []byte("if(")
 	lp.LangMode = buffer.LModeGo
-	buffer.EnsureLineCache(lp)
+	lp.EnsureCache()
 
 	start := SynState{DFA: SS_NORMAL}
 	_, _, styles := tokenizeLineFromStateExported(lp, start)
@@ -26,7 +26,7 @@ func TestDelimiterHighlightViaEnterHook(t *testing.T) {
 	lp := &buffer.Line{}
 	lp.Data = []byte("(")
 	lp.LangMode = buffer.LModeGo
-	buffer.EnsureLineCache(lp)
+	lp.EnsureCache()
 	PackagePalette.CommentStyle = buffer.MakeTextStyle(TermColorBlue, TermColorDefault, 0)
 
 	setOnEnterHook(SS_NORMAL, func(line *buffer.Line, syn *SynState, i *int, tokenStart *int, summary *SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int) {

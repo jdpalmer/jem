@@ -24,7 +24,7 @@ func TestFindMatchingDelimiterLastLine(t *testing.T) {
 		"func f() {",
 		"}",
 	})
-	line2 := buffer.GetLine(bp, 2)
+	line2 := bp.Line(2)
 	openOff := bytes.IndexByte(line2.Data, '{')
 	var match buffer.Location
 	if !FindMatchingDelimiter(bp, buffer.MakeLocation(2, uint(openOff)), &match) {
@@ -43,7 +43,7 @@ func TestFindMatchingDelimiterLastLine(t *testing.T) {
 
 func TestCharIsStructuralStringOnLastLine(t *testing.T) {
 	bp := makeBufferFromLines([]string{`fmt.Println("{")`})
-	line := buffer.GetLine(bp, 1)
+	line := bp.Line(1)
 	braceOff := bytes.IndexByte(line.Data, '{')
 	if CharIsStructural(bp, 1, uint(braceOff)) {
 		t.Fatal("brace inside string on last line should not be structural")
@@ -52,7 +52,7 @@ func TestCharIsStructuralStringOnLastLine(t *testing.T) {
 
 func TestFindMatchingDelimiterMultibyte(t *testing.T) {
 	bp := makeBufferFromLines([]string{"日[日]"})
-	line := buffer.GetLine(bp, 1)
+	line := bp.Line(1)
 	openOff := bytes.IndexByte(line.Data, '[')
 	closeOff := bytes.IndexByte(line.Data, ']')
 	var match buffer.Location

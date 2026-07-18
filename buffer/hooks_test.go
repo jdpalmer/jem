@@ -22,7 +22,7 @@ func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
 	}
 	defer func() { PackageHooks = old }()
 
-	NoteEdit(bp, true)
+	bp.NoteEdit(true)
 	if !bp.IsChanged {
 		t.Fatal("NoteEdit should set IsChanged")
 	}
@@ -33,28 +33,28 @@ func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
 
 func TestInvalidateSyntaxFromLine(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("a"), 1)
-	AppendLineBytes(bp, []byte("b"), 1)
-	AppendLineBytes(bp, []byte("c"), 1)
+	bp.AppendLineBytes([]byte("a"), 1)
+	bp.AppendLineBytes([]byte("b"), 1)
+	bp.AppendLineBytes([]byte("c"), 1)
 	for i := uint(1); i <= bp.LineCount; i++ {
-		if lp := GetLine(bp, i); lp != nil {
+		if lp := bp.Line(i); lp != nil {
 			lp.SyntaxValid = true
 		}
 	}
 
-	InvalidateSyntaxFromLine(bp, 2)
-	if GetLine(bp, 1).SyntaxValid != true {
+	bp.InvalidateSyntaxFrom( 2)
+	if bp.Line(1).SyntaxValid != true {
 		t.Fatal("line 1 should stay valid")
 	}
-	if GetLine(bp, 2).SyntaxValid != false || GetLine(bp, 3).SyntaxValid != false {
+	if bp.Line(2).SyntaxValid != false || bp.Line(3).SyntaxValid != false {
 		t.Fatal("lines 2-3 should be invalidated")
 	}
 }
 
 func TestCallInvalidateSyntaxUsesHookWhenSet(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("a"), 1)
-	lp := GetLine(bp, 1)
+	bp.AppendLineBytes([]byte("a"), 1)
+	lp := bp.Line(1)
 	lp.SyntaxValid = true
 
 	var hookLine uint
@@ -62,7 +62,7 @@ func TestCallInvalidateSyntaxUsesHookWhenSet(t *testing.T) {
 	PackageHooks = Hooks{
 		InvalidateSyntaxFrom: func(b *Buffer, lineNumber uint) {
 			hookLine = lineNumber
-			if lp := GetLine(b, lineNumber); lp != nil {
+			if lp := b.Line(lineNumber); lp != nil {
 				lp.SyntaxValid = false
 			}
 		},
@@ -80,10 +80,10 @@ func TestCallInvalidateSyntaxUsesHookWhenSet(t *testing.T) {
 
 func TestCallInvalidateSyntaxFallsBackWithoutHook(t *testing.T) {
 	bp := New()
-	AppendLineBytes(bp, []byte("a"), 1)
-	AppendLineBytes(bp, []byte("b"), 1)
+	bp.AppendLineBytes([]byte("a"), 1)
+	bp.AppendLineBytes([]byte("b"), 1)
 	for i := uint(1); i <= bp.LineCount; i++ {
-		if lp := GetLine(bp, i); lp != nil {
+		if lp := bp.Line(i); lp != nil {
 			lp.SyntaxValid = true
 		}
 	}
@@ -93,7 +93,7 @@ func TestCallInvalidateSyntaxFallsBackWithoutHook(t *testing.T) {
 	defer func() { PackageHooks = old }()
 
 	callInvalidateSyntax(bp, 1)
-	if GetLine(bp, 1).SyntaxValid != false || GetLine(bp, 2).SyntaxValid != false {
+	if bp.Line(1).SyntaxValid != false || bp.Line(2).SyntaxValid != false {
 		t.Fatal("fallback should invalidate from line 1")
 	}
 }

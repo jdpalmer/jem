@@ -13,7 +13,7 @@ func initModeHooks() {
 		WindowInsertNewline:   windowInsertNewline,
 		WindowInsertText:      windowInsertText,
 		WindowInsertCodepoint: windowInsertCodepoint,
-		WindowSetCursor:       app.WindowSetCursor,
+		WindowSetCursor:       (*app.Window).SetCursor,
 		Message: func(msg string) {
 			mbWrite("%s", msg)
 		},

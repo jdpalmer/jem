@@ -82,5 +82,5 @@ func BufferRelease(bp *Buffer) {
 	if PackageHooks.UndoForgetBuffer != nil {
 		PackageHooks.UndoForgetBuffer(bp)
 	}
-	buffer.Destroy(bp)
+	bp.Destroy()
 }

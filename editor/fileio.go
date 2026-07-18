@@ -111,7 +111,7 @@ func visitFilePath(path string) bool {
 		return false
 	}
 	if wp := app.State.CurrentWindow; wp != nil {
-		app.WindowCenterCursor(wp)
+		wp.CenterCursor()
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
@@ -223,19 +223,19 @@ func fileVisitLocation(path string, line, column uint32) bool {
 		mbWrite("[file line out of range]")
 		return false
 	}
-	lp := buffer.GetLine(wp.Buffer, uint(line))
+	lp := wp.Buffer.Line(uint(line))
 	off := uint(column)
 	if column > 0 {
 		off--
 	}
-	if off > buffer.LineLength(lp) {
-		off = buffer.LineLength(lp)
+	if off > lp.Len() {
+		off = lp.Len()
 	}
-	app.WindowSetCursor(wp, buffer.MakeLocation(uint(line), off))
+	wp.SetCursor(buffer.MakeLocation(uint(line), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true
-	app.WindowCenterCursor(wp)
+	wp.CenterCursor()
 	return true
 }
 

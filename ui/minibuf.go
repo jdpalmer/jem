@@ -1665,7 +1665,7 @@ func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, se
 	prevRO := mbp.IsReadonly
 	mbp.IsReadonly = false
 	text := []byte(out.String())
-	eof := buffer.MakeLocation(buffer.EOF(mbp), 0)
+	eof := buffer.MakeLocation(mbp.EOF(), 0)
 	bufferSetText(mbp, buffer.MakeLocation(1, 0), eof, text, uint(len(text)), nil, false)
 	mbp.IsReadonly = prevRO
 	mbp.IsReadonly = true

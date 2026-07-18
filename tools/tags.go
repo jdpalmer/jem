@@ -217,7 +217,7 @@ func tagSymbolAtPoint(wp *Window, symbol []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	line := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
+	line := wp.Buffer.Line(wp.Cursor.Line)
 	if line == nil {
 		return false
 	}
@@ -255,16 +255,16 @@ func tagMoveCursorToLine(wp *Window, target, offset uint32) bool {
 	if target == 0 || uint(target) > bp.LineCount {
 		return false
 	}
-	lp := buffer.GetLine(bp, uint(target))
+	lp := bp.Line(uint(target))
 	off := uint(offset)
-	if off > buffer.LineLength(lp) {
-		off = buffer.LineLength(lp)
+	if off > lp.Len() {
+		off = lp.Len()
 	}
-	app.WindowSetCursor(wp, buffer.MakeLocation(uint(target), off))
+	wp.SetCursor(buffer.MakeLocation(uint(target), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true
-	app.WindowCenterCursor(wp)
+	wp.CenterCursor()
 	return true
 }
 
@@ -443,7 +443,7 @@ func tagCollectHintContext(wp *Window, out []byte) int {
 	lines := 1
 	lineNumber := wp.Cursor.Line
 	offset := int(wp.Cursor.Offset)
-	line := buffer.GetLine(bp, lineNumber)
+	line := bp.Line(lineNumber)
 	if line == nil {
 		out[0] = 0
 		return 0
@@ -457,8 +457,8 @@ func tagCollectHintContext(wp *Window, out []byte) int {
 			reversed = append(reversed, '\n')
 			used++
 			lineNumber--
-			line = buffer.GetLine(bp, lineNumber)
-			offset = int(buffer.LineLength(line))
+			line = bp.Line(lineNumber)
+			offset = int(line.Len())
 			lines++
 			continue
 		}

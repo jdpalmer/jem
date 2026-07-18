@@ -26,6 +26,6 @@ const (
 
 var (
 	MakeTextStyle    = buffer.MakeTextStyle
-	TextStyleFg      = buffer.TextStyleFg
+	TextStyleFg      = buffer.TextStyle.Fg
 	TextStyleDefault = buffer.TextStyleDefault
 )

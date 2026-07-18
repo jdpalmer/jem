@@ -537,7 +537,7 @@ func tokenizeLineFromState(lp *buffer.Line, start SynState) (SynState, SyntaxLin
 
 // tokenizeLineFromStateLimit scans up to scanLimit runes (-1 = full line).
 func tokenizeLineFromStateLimit(lp *buffer.Line, start SynState, scanLimit int) (SynState, SyntaxLineSummary, []buffer.TextStyle) {
-	buffer.EnsureLineCache(lp)
+	lp.EnsureCache()
 
 	lm := lp.LangMode
 	if lm == buffer.LModeNone && lp.Buffer != nil {
@@ -1007,7 +1007,7 @@ func SyntaxEnsureLine(lp *buffer.Line) {
 		// Find this line's index in the buffer.
 		lineNum := lineNumberInBuffer(bp, lp)
 		if lineNum > 1 {
-			prev := buffer.GetLine(bp, lineNum-1)
+			prev := bp.Line(lineNum-1)
 			if prev != nil {
 				if !prev.SyntaxValid {
 					SyntaxEnsureLine(prev) // ensure prev is computed first

@@ -61,7 +61,7 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	if bp.IsChanged {
 		t.Fatal("buffer should be clean after reload")
 	}
-	line := buffer.GetLine(bp, 1)
+	line := bp.Line(1)
 	if line == nil || string(line.Data) != "second" {
 		got := ""
 		if line != nil {
@@ -93,7 +93,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(nil, nil, nil)
 
-	line := buffer.GetLine(bp, 1)
+	line := bp.Line(1)
 	if line == nil || string(line.Data) != "alpha" {
 		got := ""
 		if line != nil {
@@ -142,7 +142,7 @@ func TestLoadCommandLineFiles(t *testing.T) {
 	if app.State.CurrentBuffer != wp.Buffer {
 		t.Fatal("current buffer should be the first file's buffer")
 	}
-	line := buffer.GetLine(app.State.CurrentBuffer, 1)
+	line := app.State.CurrentBuffer.Line(1)
 	if line == nil || string(line.Data) != "a.go" {
 		got := ""
 		if line != nil {
@@ -189,7 +189,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(func(string) bool { return false }, nil, nil)
 
-	line := buffer.GetLine(bp, 1)
+	line := bp.Line(1)
 	if line == nil || string(line.Data) != "first" {
 		got := ""
 		if line != nil {
