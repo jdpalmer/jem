@@ -5,6 +5,9 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/fileio"
+	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,7 +50,7 @@ func tagFindTagsFile() (string, bool) {
 
 	if filepath.IsAbs(tagName) {
 		if _, err := os.Stat(tagName); err == nil {
-			return fileNormalizePath(tagName), true
+			return fileio.NormalizePath(tagName), true
 		}
 		return "", false
 	}
@@ -55,7 +58,7 @@ func tagFindTagsFile() (string, bool) {
 	dir := ""
 	if bp := session.App.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
-			dir = filepath.Dir(fileNormalizePath(fname))
+			dir = filepath.Dir(fileio.NormalizePath(fname))
 		}
 	}
 	if dir == "" {
@@ -66,7 +69,7 @@ func tagFindTagsFile() (string, bool) {
 		dir = cwd
 	}
 
-	if path, ok := findFileWalkUp(dir, tagName); ok {
+	if path, ok := fileio.FindFileWalkUp(dir, tagName); ok {
 		return path, true
 	}
 	return "", false
@@ -214,7 +217,7 @@ func tagSymbolAtPoint(wp *Window, symbol []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	line := BufferGetLine(wp.Buffer, wp.Cursor.Line)
+	line := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
 	if line == nil {
 		return false
 	}
@@ -252,16 +255,16 @@ func tagMoveCursorToLine(wp *Window, target, offset uint32) bool {
 	if target == 0 || uint(target) > bp.LineCount {
 		return false
 	}
-	lp := BufferGetLine(bp, uint(target))
+	lp := buffer.GetLine(bp, uint(target))
 	off := uint(offset)
-	if off > LineLength(lp) {
-		off = LineLength(lp)
+	if off > buffer.LineLength(lp) {
+		off = buffer.LineLength(lp)
 	}
-	windowSetCursor(wp, MakeLocation(uint(target), off))
+	sess.WindowSetCursor(wp, buffer.MakeLocation(uint(target), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true
-	WindowCenterCursor(wp)
+	sess.WindowCenterCursor(wp)
 	return true
 }
 
@@ -270,13 +273,13 @@ func bufferNameFromPath(fname string) string {
 	if i := strings.IndexByte(base, ';'); i >= 0 {
 		base = base[:i]
 	}
-	if bufferFind(base) == nil {
-		return truncateBufferName(base)
+	if sess.BufferFind(base) == nil {
+		return sess.TruncateBufferName(base)
 	}
 	for suffix := 2; ; suffix++ {
 		name := fmt.Sprintf("%s:%d", base, suffix)
-		if bufferFind(name) == nil {
-			return truncateBufferName(name)
+		if sess.BufferFind(name) == nil {
+			return sess.TruncateBufferName(name)
 		}
 	}
 }
@@ -335,7 +338,7 @@ func tagSignatureScore(bp *Buffer, entry *TagEntry) int {
 	case "macro":
 		score += 2
 	}
-	if bp != nil && bp.FileName != "" && filePathsEqual(bp.FileName, entry.Path) {
+	if bp != nil && bp.FileName != "" && fileio.PathsEqual(bp.FileName, entry.Path) {
 		score += 6
 	}
 	return score
@@ -440,7 +443,7 @@ func tagCollectHintContext(wp *Window, out []byte) int {
 	lines := 1
 	lineNumber := wp.Cursor.Line
 	offset := int(wp.Cursor.Offset)
-	line := BufferGetLine(bp, lineNumber)
+	line := buffer.GetLine(bp, lineNumber)
 	if line == nil {
 		out[0] = 0
 		return 0
@@ -454,8 +457,8 @@ func tagCollectHintContext(wp *Window, out []byte) int {
 			reversed = append(reversed, '\n')
 			used++
 			lineNumber--
-			line = BufferGetLine(bp, lineNumber)
-			offset = int(LineLength(line))
+			line = buffer.GetLine(bp, lineNumber)
+			offset = int(buffer.LineLength(line))
 			lines++
 			continue
 		}

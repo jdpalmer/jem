@@ -3,8 +3,6 @@ package tools
 import (
 	"bytes"
 
-	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/fileio"
 	sess "github.com/jdpalmer/jem/session"
 )
 
@@ -31,32 +29,6 @@ const (
 	GitLineDiffModified = sess.GitLineDiffModified
 	GitLineDiffDeleted  = sess.GitLineDiffDeleted
 )
-
-func MakeLocation(line, offset uint) Location          { return sess.MakeLocation(line, offset) }
-func BufferGetLine(bp *Buffer, lineNumber uint) *Line  { return sess.BufferGetLine(bp, lineNumber) }
-func LineLength(lp *Line) uint                         { return sess.LineLength(lp) }
-func windowSetCursor(wp *Window, loc Location)         { sess.WindowSetCursor(wp, loc) }
-func windowSetTopLine(wp *Window, line uint)           { sess.WindowSetTopLine(wp, line) }
-func WindowCenterCursor(wp *Window)                    { sess.WindowCenterCursor(wp) }
-func bufferCreate(ed *sess.EditorRuntimeState) *Buffer { return sess.BufferCreate(ed) }
-func bufferFind(name string) *Buffer                   { return sess.BufferFind(name) }
-func truncateBufferName(name string) string            { return sess.TruncateBufferName(name) }
-func bufferClear(bp *Buffer) bool                      { return buffer.Clear(bp) }
-func bufferAppendLineBytes(bp *Buffer, text []byte, n uint) *Line {
-	return buffer.AppendLineBytes(bp, text, n)
-}
-func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, _ bool) bool {
-	return buffer.SetText(bp, nil, begin, end, newText, newLen, newEndOut)
-}
-
-func fileNormalizePath(path string) string { return fileio.NormalizePath(path) }
-func filePathsEqual(a, b string) bool      { return fileio.PathsEqual(a, b) }
-func findFileWalkUp(start, marker string) (string, bool) {
-	return fileio.FindFileWalkUp(start, marker)
-}
-func findDirWalkUp(start, marker string) (string, bool) {
-	return fileio.FindDirWalkUp(start, marker)
-}
 
 func promptStringFromBuf(buf []byte) string {
 	n := bytes.IndexByte(buf, 0)

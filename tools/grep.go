@@ -7,6 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/fileio"
+	sess "github.com/jdpalmer/jem/session"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -51,7 +54,7 @@ func grepSearchRoot() (string, error) {
 	start := ""
 	if bp := session.App.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
-			start = filepath.Dir(fileNormalizePath(fname))
+			start = filepath.Dir(fileio.NormalizePath(fname))
 		}
 	}
 	if start == "" {
@@ -61,7 +64,7 @@ func grepSearchRoot() (string, error) {
 		}
 		start = cwd
 	}
-	if root, ok := findDirWalkUp(start, ".git"); ok {
+	if root, ok := fileio.FindDirWalkUp(start, ".git"); ok {
 		return root, nil
 	}
 	return start, nil
@@ -229,11 +232,11 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	}
 
 	bp.IsChanged = false
-	bufferClear(bp)
+	buffer.Clear(bp)
 	bp.FileName = ""
 	bp.FileMtime = time.Time{}
 	bp.LangMode = LModeMarkdown
-	if bufferAppendLineBytes(bp, nil, 0) == nil {
+	if buffer.AppendLineBytes(bp, nil, 0) == nil {
 		return 0, false
 	}
 
@@ -249,12 +252,12 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 			currentFile = displayPath
 			haveLastLine = false
 			if matchCount > 0 {
-				if bufferAppendLineBytes(bp, nil, 0) == nil {
+				if buffer.AppendLineBytes(bp, nil, 0) == nil {
 					return 0, false
 				}
 			}
 			header := []byte("## " + displayPath)
-			if bufferAppendLineBytes(bp, header, uint(len(header))) == nil {
+			if buffer.AppendLineBytes(bp, header, uint(len(header))) == nil {
 				return 0, false
 			}
 			fileCount++
@@ -264,7 +267,7 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 		}
 
 		lineText := fmt.Sprintf("L%d: %s", m.line, m.text)
-		lp := bufferAppendLineBytes(bp, []byte(lineText), uint(len(lineText)))
+		lp := buffer.AppendLineBytes(bp, []byte(lineText), uint(len(lineText)))
 		if lp == nil {
 			return 0, false
 		}
@@ -279,23 +282,23 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	}
 
 	summary := fmt.Sprintf("# %d matches across %d files for `%s`", matchCount, fileCount, pattern)
-	if summaryLine := BufferGetLine(bp, 1); summaryLine != nil {
-		begin := MakeLocation(1, 0)
-		end := MakeLocation(1, LineLength(summaryLine))
-		if !bufferSetText(bp, begin, end, []byte(summary), uint(len(summary)), nil, false) {
+	if summaryLine := buffer.GetLine(bp, 1); summaryLine != nil {
+		begin := buffer.MakeLocation(1, 0)
+		end := buffer.MakeLocation(1, buffer.LineLength(summaryLine))
+		if !buffer.SetText(bp, nil, begin, end, []byte(summary), uint(len(summary)), nil) {
 			return 0, false
 		}
 	}
 
 	if matchCount == 0 {
 		msg := fmt.Sprintf("[no matches for: %s]", pattern)
-		if bufferAppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
+		if buffer.AppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
 			return 0, false
 		}
 	}
 	if truncated {
 		msg := "[results truncated]"
-		if bufferAppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
+		if buffer.AppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
 			return 0, false
 		}
 	}
@@ -307,10 +310,10 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 }
 
 func grepEnsureBuffer() *Buffer {
-	if bp := bufferFind(GrepBufferName); bp != nil {
+	if bp := sess.BufferFind(GrepBufferName); bp != nil {
 		return bp
 	}
-	bp := bufferCreate(&session.App.EditorRuntimeState)
+	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp == nil {
 		return nil
 	}
@@ -346,8 +349,8 @@ func VisitGrepMatch() bool {
 	if wp == nil || bp == nil || bp.Name != GrepBufferName {
 		return false
 	}
-	lp := BufferGetLine(bp, wp.Cursor.Line)
-	if lp == nil || LineLength(lp) == 0 || lp.Metadata == nil {
+	lp := buffer.GetLine(bp, wp.Cursor.Line)
+	if lp == nil || buffer.LineLength(lp) == 0 || lp.Metadata == nil {
 		return false
 	}
 	data, ok := lp.Metadata.(*GrepLineData)

@@ -79,7 +79,7 @@ func TestCompileFillBuffer(t *testing.T) {
 	if counts.diag < 1 {
 		t.Fatalf("diag count = %d", counts.diag)
 	}
-	summary := BufferGetLine(bp, 1)
+	summary := buffer.GetLine(bp, 1)
 	if summary == nil || !strings.Contains(string(summary.Data), "compile exit=1") {
 		t.Fatalf("summary = %q", summary.Data)
 	}

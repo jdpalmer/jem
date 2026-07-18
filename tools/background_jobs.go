@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"errors"
+	sess "github.com/jdpalmer/jem/session"
 )
 
 const (
@@ -154,8 +155,8 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 	markPushCurrent()
 	editorSwitchBuffer(grepBuf)
 	if wp := session.App.CurrentWindow; wp != nil {
-		windowSetTopLine(wp, 1)
-		windowSetCursor(wp, Location{Line: 1, Offset: 0})
+		sess.WindowSetTopLine(wp, 1)
+		sess.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
 		wp.Mark = Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true
@@ -199,8 +200,8 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 	markPushCurrent()
 	editorSwitchBuffer(compileBuf)
 	if wp := session.App.CurrentWindow; wp != nil {
-		windowSetTopLine(wp, 1)
-		windowSetCursor(wp, Location{Line: 1, Offset: 0})
+		sess.WindowSetTopLine(wp, 1)
+		sess.WindowSetCursor(wp, Location{Line: 1, Offset: 0})
 		wp.Mark = Location{Line: 0, Offset: 0}
 		wp.HScroll = 0
 		wp.ShouldRedraw = true

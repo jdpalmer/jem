@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/jdpalmer/jem/buffer"
+	sess "github.com/jdpalmer/jem/session"
 	"io"
 	"os"
 	"os/exec"
@@ -112,15 +114,15 @@ func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
 
 func compileAppendTextSection(bp *Buffer, title, text string, counts *compileDiagCounts) bool {
 	heading := "## " + title
-	if bufferAppendLineBytes(bp, []byte(heading), uint(len(heading))) == nil {
+	if buffer.AppendLineBytes(bp, []byte(heading), uint(len(heading))) == nil {
 		return false
 	}
 	if text == "" {
-		return bufferAppendLineBytes(bp, nil, 0) != nil
+		return buffer.AppendLineBytes(bp, nil, 0) != nil
 	}
 	for _, raw := range strings.Split(text, "\n") {
 		line := strings.TrimSuffix(raw, "\r")
-		lp := bufferAppendLineBytes(bp, []byte(line), uint(len(line)))
+		lp := buffer.AppendLineBytes(bp, []byte(line), uint(len(line)))
 		if lp == nil {
 			return false
 		}
@@ -146,50 +148,50 @@ type compileDiagCounts struct {
 
 func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int, outTrunc, errTrunc bool) (compileDiagCounts, bool) {
 	counts := compileDiagCounts{}
-	bufferClear(bp)
+	buffer.Clear(bp)
 	bp.IsChanged = false
 	bp.FileName = ""
 	bp.FileMtime = time.Time{}
 	bp.LangMode = LModeMarkdown
 
-	if bufferAppendLineBytes(bp, nil, 0) == nil {
+	if buffer.AppendLineBytes(bp, nil, 0) == nil {
 		return counts, false
 	}
 	cmdLine := "$ " + command
-	if bufferAppendLineBytes(bp, []byte(cmdLine), uint(len(cmdLine))) == nil {
+	if buffer.AppendLineBytes(bp, []byte(cmdLine), uint(len(cmdLine))) == nil {
 		return counts, false
 	}
-	if bufferAppendLineBytes(bp, nil, 0) == nil {
+	if buffer.AppendLineBytes(bp, nil, 0) == nil {
 		return counts, false
 	}
 	if !compileAppendTextSection(bp, "stdout", stdout, &counts) {
 		return counts, false
 	}
-	if bufferAppendLineBytes(bp, nil, 0) == nil {
+	if buffer.AppendLineBytes(bp, nil, 0) == nil {
 		return counts, false
 	}
 	if !compileAppendTextSection(bp, "stderr", stderr, &counts) {
 		return counts, false
 	}
 	if outTrunc || errTrunc {
-		if bufferAppendLineBytes(bp, nil, 0) == nil {
+		if buffer.AppendLineBytes(bp, nil, 0) == nil {
 			return counts, false
 		}
 		msg := "[output truncated]"
-		if bufferAppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
+		if buffer.AppendLineBytes(bp, []byte(msg), uint(len(msg))) == nil {
 			return counts, false
 		}
 	}
 
 	summary := fmt.Sprintf("# compile exit=%d, diagnostics=%d, errors=%d, warnings=%d",
 		exitCode, counts.diag, counts.errors, counts.warnings)
-	summaryLine := BufferGetLine(bp, 1)
+	summaryLine := buffer.GetLine(bp, 1)
 	if summaryLine == nil {
 		return counts, false
 	}
-	begin := MakeLocation(1, 0)
-	end := MakeLocation(1, LineLength(summaryLine))
-	if !bufferSetText(bp, begin, end, []byte(summary), uint(len(summary)), nil, false) {
+	begin := buffer.MakeLocation(1, 0)
+	end := buffer.MakeLocation(1, buffer.LineLength(summaryLine))
+	if !buffer.SetText(bp, nil, begin, end, []byte(summary), uint(len(summary)), nil) {
 		return counts, false
 	}
 
@@ -200,10 +202,10 @@ func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int,
 }
 
 func compileEnsureBuffer() *Buffer {
-	if bp := bufferFind(CompileBufferName); bp != nil {
+	if bp := sess.BufferFind(CompileBufferName); bp != nil {
 		return bp
 	}
-	bp := bufferCreate(&session.App.EditorRuntimeState)
+	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp == nil {
 		return nil
 	}
@@ -291,8 +293,8 @@ func VisitCompileDiag() bool {
 	if wp == nil || bp == nil || bp.Name != CompileBufferName {
 		return false
 	}
-	lp := BufferGetLine(bp, wp.Cursor.Line)
-	if lp == nil || LineLength(lp) == 0 || lp.Metadata == nil {
+	lp := buffer.GetLine(bp, wp.Cursor.Line)
+	if lp == nil || buffer.LineLength(lp) == 0 || lp.Metadata == nil {
 		return false
 	}
 	data, ok := lp.Metadata.(*CompileLineData)

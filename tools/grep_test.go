@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"github.com/jdpalmer/jem/buffer"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,7 +55,7 @@ func TestGrepProjectSearch(t *testing.T) {
 }
 
 func TestGrepFillBuffer(t *testing.T) {
-	bp := bufferCreate(&sess.App.EditorRuntimeState)
+	bp := sess.BufferCreate(&sess.App.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
@@ -70,7 +71,7 @@ func TestGrepFillBuffer(t *testing.T) {
 	if bp.Name != "" {
 		// unnamed buffer is fine
 	}
-	line := BufferGetLine(bp, 3)
+	line := buffer.GetLine(bp, 3)
 	if line == nil || line.Metadata == nil {
 		t.Fatal("expected metadata on match line")
 	}

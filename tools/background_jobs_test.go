@@ -75,7 +75,7 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 	if BackgroundJobRunning() {
 		t.Fatal("job still marked active after completion")
 	}
-	if got := bufferFind(GrepBufferName); got == nil {
+	if got := sess.BufferFind(GrepBufferName); got == nil {
 		t.Fatal("grep buffer not created")
 	}
 }
