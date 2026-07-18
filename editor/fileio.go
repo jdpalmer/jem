@@ -4,15 +4,10 @@ package editor
 
 import (
 	"path/filepath"
-	"time"
 
 	"github.com/jdpalmer/jem/fileio"
 	sess "github.com/jdpalmer/jem/session"
 )
-
-func fileMtime(fname string) time.Time {
-	return fileio.FileMtime(fname)
-}
 
 // loadCommandLineFiles loads paths into buffers, mirroring src/main.c startup.
 // The first path replaces the initial buffer; each remaining path gets its own
@@ -44,10 +39,6 @@ func fileCheckReload() {
 	}, mbWrite, UndoNoteBufferSaved)
 }
 
-func langModeDetect(fname string) LangMode {
-	return fileio.DetectLangMode(fname)
-}
-
 // CmdFileSave saves the current buffer to its filename, or prompts for a
 // filename if none is set. Returns true on success.
 func CmdFileSave(f bool, n int) bool {
@@ -65,7 +56,7 @@ func CmdFileSave(f bool, n int) bool {
 		}
 		return false
 	}
-	fname, res := mbReadStringCap("Write file: ", "", PromptPathCapacity)
+	fname, res := mbReadStringCap("Write file: ", "", fileio.PromptPathCapacity)
 	if res != PromptResultYes {
 		return false
 	}
@@ -85,12 +76,12 @@ func visitFilePath(path string) bool {
 	if path == "" {
 		return false
 	}
-	fileName := fileNormalizePath(path)
+	fileName := fileio.NormalizePath(path)
 
 	var buffer *Buffer
 	for i := 0; i < int(session.App.BufferCount); i++ {
 		bp := session.App.Buffers[i]
-		if bp != nil && filePathsEqual(bp.FileName, fileName) {
+		if bp != nil && fileio.PathsEqual(bp.FileName, fileName) {
 			buffer = bp
 			break
 		}
@@ -134,7 +125,7 @@ func CmdFileVisit(f bool, n int) bool {
 	initial := ""
 	if bp := session.App.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
-			dir := filepath.Dir(fileExpandPath(fname))
+			dir := filepath.Dir(fileio.ExpandPath(fname))
 			initial = dir + string(filepath.Separator)
 		}
 	}
@@ -164,12 +155,12 @@ func CmdFileWrite(f bool, n int) bool {
 	if path == "" {
 		return false
 	}
-	path = fileNormalizePath(path)
+	path = fileio.NormalizePath(path)
 	if !fileSaveBuffer(path) {
 		return false
 	}
 	bp.FileName = path
-	bp.LangMode = langModeDetect(path)
+	bp.LangMode = fileio.DetectLangMode(path)
 	UndoNoteBufferSaved(bp)
 	for i := 0; i < int(session.App.WindowCount); i++ {
 		wp := session.App.WINDOWS[i]
@@ -258,7 +249,7 @@ func CmdFileRead(f bool, n int) bool {
 	if path == "" {
 		return false
 	}
-	return fileLoad(fileNormalizePath(path))
+	return fileLoad(fileio.NormalizePath(path))
 }
 
 func eolModeLabel(mode EolMode) string {
