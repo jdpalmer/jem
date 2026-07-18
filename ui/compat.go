@@ -10,17 +10,16 @@ var (
 	marksState         = &app.MarksState
 )
 
-func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
+func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newEndOut *Location, kill bool) bool {
 	if kill {
-		var oldLen uint
-		oldText := bp.GetText(begin, end, &oldLen)
-		if oldLen > 0 {
-			if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(oldText, oldLen) {
+		oldText := bp.GetText(begin, end)
+		if len(oldText) > 0 {
+			if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(oldText) {
 				return false
 			}
 		}
 	}
-	ok := bp.SetText(nil, begin, end, newText, newLen, newEndOut)
+	ok := bp.SetText(nil, begin, end, newText, newEndOut)
 	if kill && ok && PackageHooks.KillWriteClipboard != nil {
 		PackageHooks.KillWriteClipboard()
 	}
@@ -61,18 +60,15 @@ func bufferChoiceLabel(ctx any, idx uint8) []byte {
 	return []byte(bp.Name)
 }
 
-func editorInsertPaste(text []byte, length int) bool {
+func editorInsertPaste(text []byte) bool {
 	if PackageHooks.EditorInsertPaste != nil {
-		return PackageHooks.EditorInsertPaste(text, length)
+		return PackageHooks.EditorInsertPaste(text)
 	}
 	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	if length > len(text) {
-		length = len(text)
-	}
-	paste := append([]byte(nil), text[:length]...)
+	paste := append([]byte(nil), text...)
 	for i := range paste {
 		if paste[i] == '\r' {
 			paste[i] = '\n'
@@ -80,7 +76,7 @@ func editorInsertPaste(text []byte, length int) bool {
 	}
 	loc := wp.Cursor
 	var newEnd Location
-	if !bufferSetText(wp.Buffer, loc, loc, paste, uint(len(paste)), &newEnd, false) {
+	if !bufferSetText(wp.Buffer, loc, loc, paste, &newEnd, false) {
 		return false
 	}
 	wp.SetCursor(newEnd)

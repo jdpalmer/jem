@@ -29,7 +29,7 @@ func setLinePrefix(wp *Window, prefix []byte) bool {
 	if PackageHooks.UndoBeginCommand != nil {
 		PackageHooks.UndoBeginCommand()
 	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, prefix, uint(len(prefix)), nil, false)
+	ok := PackageHooks.BufferSetText(bp, begin, end, prefix, nil, false)
 	if PackageHooks.UndoEndCommand != nil {
 		PackageHooks.UndoEndCommand()
 	}
@@ -119,7 +119,7 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 		if !PackageHooks.WindowInsertNewline(wp) {
 			return false
 		}
-		if len(prefix) > 0 && !PackageHooks.WindowInsertText(wp, prefix, len(prefix)) {
+		if len(prefix) > 0 && !PackageHooks.WindowInsertText(wp, prefix) {
 			return false
 		}
 	}

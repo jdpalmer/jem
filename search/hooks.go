@@ -13,7 +13,7 @@ type Hooks struct {
 	MarkPushCurrent    func()
 	ReadKey            func() (uint32, bool)
 	IsPasteRedrawKey   func(k uint32) bool
-	SetText            func(bp *app.Buffer, begin, end app.Location, newText []byte, newLen uint, newEndOut *app.Location, kill bool) bool
+	SetText            func(bp *app.Buffer, begin, end app.Location, newText []byte, newEndOut *app.Location, kill bool) bool
 	Beep               func()
 }
 

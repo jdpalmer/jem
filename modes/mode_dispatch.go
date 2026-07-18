@@ -8,11 +8,10 @@ import (
 type Hooks struct {
 	UndoBeginCommand      func()
 	UndoEndCommand        func()
-	BufferSetText         func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newLen uint, newEndOut *buffer.Location, kill bool) bool
+	BufferSetText         func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location, kill bool) bool
 	WindowInsertNewline   func(wp *app.Window) bool
-	WindowInsertText      func(wp *app.Window, text []byte, length int) bool
+	WindowInsertText      func(wp *app.Window, text []byte) bool
 	WindowInsertCodepoint func(wp *app.Window, c rune) bool
-	WindowSetCursor       func(wp *app.Window, loc buffer.Location)
 	Message               func(msg string)
 	DefaultGotoMatch      func(f bool, n int) bool
 }

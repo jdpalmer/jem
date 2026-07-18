@@ -269,7 +269,7 @@ func CmdCompletionAccept(f bool, n int) bool {
 			seg = text[:nl]
 		}
 		if len(seg) > 0 {
-			if !windowInsertText(wp, []byte(seg), len(seg)) {
+			if !windowInsertText(wp, []byte(seg)) {
 				return false
 			}
 		}

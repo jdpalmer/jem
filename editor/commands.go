@@ -236,7 +236,7 @@ func CmdDeleteWordForward(f bool, n int) bool {
 		start := wp.Cursor
 		end := forwardWordLoc(bp, start)
 		var newEnd Location
-		if !bufferSetText(bp, start, end, nil, 0, &newEnd, false) {
+		if !bufferSetText(bp, start, end, nil, &newEnd, false) {
 			return false
 		}
 		wp.Cursor = newEnd
@@ -262,7 +262,7 @@ func CmdDeleteWordBackward(f bool, n int) bool {
 		end := wp.Cursor
 		start := backwardWordLoc(bp, end)
 		var newEnd Location
-		if !bufferSetText(bp, start, end, nil, 0, &newEnd, false) {
+		if !bufferSetText(bp, start, end, nil, &newEnd, false) {
 			return false
 		}
 		wp.Cursor = newEnd
@@ -311,8 +311,8 @@ func CmdLowerWord(f bool, n int) bool {
 	// operate on word at point: find start and end
 	start := backwardWordLoc(bp, wp.Cursor)
 	end := forwardWordLoc(bp, start)
-	var length uint
-	text := bp.GetText(start, end, &length)
+	text := bp.GetText(start, end)
+	length := uint(len(text))
 	if length == 0 || text == nil {
 		return false
 	}
@@ -320,7 +320,7 @@ func CmdLowerWord(f bool, n int) bool {
 	UndoBeginCommand()
 	defer UndoEndCommand()
 	var newEnd Location
-	ok := bufferSetText(bp, start, end, newText, uint(len(newText)), &newEnd, false)
+	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
 	if ok {
 		wp.Cursor = newEnd
 		wp.DidEdit = true
@@ -340,8 +340,8 @@ func CmdUpperWord(f bool, n int) bool {
 	}
 	start := backwardWordLoc(bp, wp.Cursor)
 	end := forwardWordLoc(bp, start)
-	var length uint
-	text := bp.GetText(start, end, &length)
+	text := bp.GetText(start, end)
+	length := uint(len(text))
 	if length == 0 || text == nil {
 		return false
 	}
@@ -349,7 +349,7 @@ func CmdUpperWord(f bool, n int) bool {
 	UndoBeginCommand()
 	defer UndoEndCommand()
 	var newEnd Location
-	ok := bufferSetText(bp, start, end, newText, uint(len(newText)), &newEnd, false)
+	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
 	if ok {
 		wp.Cursor = newEnd
 		wp.DidEdit = true
@@ -369,8 +369,8 @@ func CmdCapWord(f bool, n int) bool {
 	}
 	start := backwardWordLoc(bp, wp.Cursor)
 	end := forwardWordLoc(bp, start)
-	var length uint
-	text := bp.GetText(start, end, &length)
+	text := bp.GetText(start, end)
+	length := uint(len(text))
 	if length == 0 || text == nil {
 		return false
 	}
@@ -385,7 +385,7 @@ func CmdCapWord(f bool, n int) bool {
 	UndoBeginCommand()
 	defer UndoEndCommand()
 	var newEnd Location
-	ok := bufferSetText(bp, start, end, newText, uint(len(newText)), &newEnd, false)
+	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
 	if ok {
 		wp.Cursor = newEnd
 		wp.DidEdit = true
@@ -415,10 +415,8 @@ func CmdTransposeWords(f bool, n int) bool {
 	}
 	rightEnd := forwardWordLoc(bp, rightStart)
 	// Extract texts
-	var llen uint
-	leftText := bp.GetText(leftStart, leftEnd, &llen)
-	var rlen uint
-	rightText := bp.GetText(rightStart, rightEnd, &rlen)
+	leftText := bp.GetText(leftStart, leftEnd)
+	rightText := bp.GetText(rightStart, rightEnd)
 	if leftText == nil || rightText == nil {
 		return false
 	}
@@ -427,11 +425,11 @@ func CmdTransposeWords(f bool, n int) bool {
 	defer UndoEndCommand()
 	// replace right with leftText
 	var tmpEnd Location
-	if !bufferSetText(bp, rightStart, rightEnd, leftText, llen, &tmpEnd, false) {
+	if !bufferSetText(bp, rightStart, rightEnd, leftText, &tmpEnd, false) {
 		return false
 	}
 	// After replacing right, left region unchanged; replace left with rightText
-	if !bufferSetText(bp, leftStart, leftEnd, rightText, rlen, &tmpEnd, false) {
+	if !bufferSetText(bp, leftStart, leftEnd, rightText, &tmpEnd, false) {
 		return false
 	}
 	wp.DidEdit = true
@@ -514,7 +512,7 @@ func CmdFillParagraph(f bool, n int) bool {
 	UndoBeginCommand()
 	defer UndoEndCommand()
 	var newEnd Location
-	ok := bufferSetText(bp, begin, endLocation, []byte(newText), uint(len(newText)), &newEnd, false)
+	ok := bufferSetText(bp, begin, endLocation, []byte(newText), &newEnd, false)
 	if ok {
 		wp.DidEdit = true
 	}
@@ -662,7 +660,7 @@ func CmdDeleteBackward(f bool, n int) bool {
 		return false
 	}
 	var newEnd Location
-	if !bufferSetText(bp, begin, end, nil, 0, &newEnd, false) {
+	if !bufferSetText(bp, begin, end, nil, &newEnd, false) {
 		return false
 	}
 	wp.Cursor = begin
@@ -690,7 +688,7 @@ func CmdDeleteForward(f bool, n int) bool {
 		return false
 	}
 	wp.Cursor = begin
-	if !bufferSetText(bp, begin, end, nil, 0, nil, false) {
+	if !bufferSetText(bp, begin, end, nil, nil, false) {
 		return false
 	}
 	wp.DidEdit = true
@@ -709,7 +707,7 @@ func CmdInsertChar(c byte) bool {
 
 	begin := wp.Cursor
 	var newEnd Location
-	if bufferSetText(bp, begin, begin, []byte{c}, 1, &newEnd, false) {
+	if bufferSetText(bp, begin, begin, []byte{c}, &newEnd, false) {
 		wp.Cursor = newEnd
 		wp.DidEdit = true
 		return true

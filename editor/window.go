@@ -101,7 +101,7 @@ func CmdWindowSplit(f bool, n int) bool {
 }
 
 // windowInsertText inserts text at the window cursor. Returns true on success.
-func windowInsertText(wp *Window, text []byte, length int) bool {
+func windowInsertText(wp *Window, text []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -110,7 +110,7 @@ func windowInsertText(wp *Window, text []byte, length int) bool {
 	defer UndoEndCommand()
 	begin := wp.Cursor
 	var newEnd Location
-	if !bufferSetText(bp, begin, begin, text, uint(length), &newEnd, false) {
+	if !bufferSetText(bp, begin, begin, text, &newEnd, false) {
 		return false
 	}
 	// Set cursor to the precise new end location returned by bufferSetText.
@@ -129,20 +129,20 @@ func windowInsertCodepoint(wp *Window, cp rune) bool {
 	}
 	// Fast path for ASCII
 	if cp < 0x80 {
-		return windowInsertText(wp, []byte{byte(cp)}, 1)
+		return windowInsertText(wp, []byte{byte(cp)})
 	}
 	buf := make([]byte, utf8.RuneLen(cp))
 	n := utf8.EncodeRune(buf, cp)
-	return windowInsertText(wp, buf, n)
+	return windowInsertText(wp, buf[:n])
 }
 
 // windowInsertNewline inserts a single newline at the window cursor.
 func windowInsertNewline(wp *Window) bool {
-	return windowInsertText(wp, []byte{'\n'}, 1)
+	return windowInsertText(wp, []byte{'\n'})
 }
 
 // windowReplaceLineLeadingText replaces the leading whitespace on the current line with the given text.
-func windowReplaceLineLeadingText(wp *Window, text []byte, length int) bool {
+func windowReplaceLineLeadingText(wp *Window, text []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -152,12 +152,12 @@ func windowReplaceLineLeadingText(wp *Window, text []byte, length int) bool {
 	if lp != nil {
 		oldWS = lp.FirstNonblank()
 	}
-	if oldWS == 0 && length == 0 {
+	if oldWS == 0 && len(text) == 0 {
 		return true
 	}
 	begin := Location{Line: lineNumber, Offset: 0}
 	end := Location{Line: lineNumber, Offset: oldWS}
-	return bufferSetText(wp.Buffer, begin, end, text, uint(length), nil, false)
+	return bufferSetText(wp.Buffer, begin, end, text, nil, false)
 }
 
 // windowSetLineIndent sets the indentation of the current line using a count of
@@ -181,7 +181,7 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 		begin := buffer.MakeLocation(wp.Cursor.Line, 0)
 		end := buffer.MakeLocation(wp.Cursor.Line, old)
 		UndoBeginCommand()
-		ok := bufferSetText(wp.Buffer, begin, end, nil, 0, nil, false)
+		ok := bufferSetText(wp.Buffer, begin, end, nil, nil, false)
 		UndoEndCommand()
 		if ok {
 			wp.DidEdit = true
@@ -203,7 +203,7 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 	begin := buffer.MakeLocation(wp.Cursor.Line, 0)
 	end := buffer.MakeLocation(wp.Cursor.Line, old)
 	UndoBeginCommand()
-	ok := bufferSetText(wp.Buffer, begin, end, indent, uint(len(indent)), nil, false)
+	ok := bufferSetText(wp.Buffer, begin, end, indent, nil, false)
 	UndoEndCommand()
 	if ok {
 		wp.DidEdit = true
@@ -226,7 +226,7 @@ func windowDeleteChars(wp *Window, count int) bool {
 			begin := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
 			end := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset + 1}
 			var newEnd Location
-			if bufferSetText(bp, begin, end, nil, 0, &newEnd, false) {
+			if bufferSetText(bp, begin, end, nil, &newEnd, false) {
 				wp.Cursor = newEnd
 				deleted = true
 				continue
@@ -236,7 +236,7 @@ func windowDeleteChars(wp *Window, count int) bool {
 			begin := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
 			end := Location{Line: wp.Cursor.Line + 1, Offset: 0}
 			var newEnd Location
-			if bufferSetText(bp, begin, end, nil, 0, &newEnd, false) {
+			if bufferSetText(bp, begin, end, nil, &newEnd, false) {
 				wp.Cursor = newEnd
 				deleted = true
 				continue
@@ -253,19 +253,13 @@ func windowDeleteChars(wp *Window, count int) bool {
 }
 
 // editorInsertPaste inserts pasted text into the current window, normalizing CR/CRLF to LF.
-func editorInsertPaste(text []byte, length int) bool {
+func editorInsertPaste(text []byte) bool {
 	wp := app.State.CurrentWindow
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
 	p := text
-	if length < 0 || length > len(text) {
-		length = len(text)
-	}
-	p = p[:length]
-	// Normalize CRLF -> LF, and lone CR -> LF
-	p = bytes.ReplaceAll(p, []byte("\r\n"), []byte("\n"))
+	// Normalize CRLF -> LF), []byte("\n"))
 	p = bytes.ReplaceAll(p, []byte("\r"), []byte("\n"))
-	ok := windowInsertText(wp, p, len(p))
-	return ok
+	return windowInsertText(wp, p)
 }

@@ -114,15 +114,15 @@ func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
 
 func compileAppendTextSection(bp *Buffer, title, text string, counts *compileDiagCounts) bool {
 	heading := "## " + title
-	if bp.AppendLineBytes([]byte(heading), uint(len(heading))) == nil {
+	if bp.AppendLineBytes([]byte(heading)) == nil {
 		return false
 	}
 	if text == "" {
-		return bp.AppendLineBytes(nil, 0) != nil
+		return bp.AppendLineBytes(nil) != nil
 	}
 	for _, raw := range strings.Split(text, "\n") {
 		line := strings.TrimSuffix(raw, "\r")
-		lp := bp.AppendLineBytes([]byte(line), uint(len(line)))
+		lp := bp.AppendLineBytes([]byte(line))
 		if lp == nil {
 			return false
 		}
@@ -154,31 +154,31 @@ func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int,
 	bp.FileMtime = time.Time{}
 	bp.LangMode = LModeMarkdown
 
-	if bp.AppendLineBytes(nil, 0) == nil {
+	if bp.AppendLineBytes(nil) == nil {
 		return counts, false
 	}
 	cmdLine := "$ " + command
-	if bp.AppendLineBytes([]byte(cmdLine), uint(len(cmdLine))) == nil {
+	if bp.AppendLineBytes([]byte(cmdLine)) == nil {
 		return counts, false
 	}
-	if bp.AppendLineBytes(nil, 0) == nil {
+	if bp.AppendLineBytes(nil) == nil {
 		return counts, false
 	}
 	if !compileAppendTextSection(bp, "stdout", stdout, &counts) {
 		return counts, false
 	}
-	if bp.AppendLineBytes(nil, 0) == nil {
+	if bp.AppendLineBytes(nil) == nil {
 		return counts, false
 	}
 	if !compileAppendTextSection(bp, "stderr", stderr, &counts) {
 		return counts, false
 	}
 	if outTrunc || errTrunc {
-		if bp.AppendLineBytes(nil, 0) == nil {
+		if bp.AppendLineBytes(nil) == nil {
 			return counts, false
 		}
 		msg := "[output truncated]"
-		if bp.AppendLineBytes([]byte(msg), uint(len(msg))) == nil {
+		if bp.AppendLineBytes([]byte(msg)) == nil {
 			return counts, false
 		}
 	}
@@ -191,7 +191,7 @@ func compileFillBuffer(bp *Buffer, command, stdout, stderr string, exitCode int,
 	}
 	begin := buffer.MakeLocation(1, 0)
 	end := buffer.MakeLocation(1, summaryLine.Len())
-	if !bp.SetText(nil, begin, end, []byte(summary), uint(len(summary)), nil) {
+	if !bp.SetText(nil, begin, end, []byte(summary), nil) {
 		return counts, false
 	}
 

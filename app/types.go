@@ -36,15 +36,6 @@ const (
 	PromptResultAbort PromptResult = 2
 )
 
-type FileIoStatus int
-
-const (
-	FIOSuc FileIoStatus = 0
-	FIOFNF FileIoStatus = 1
-	FIOEOF FileIoStatus = 2
-	FIOErr FileIoStatus = 3
-)
-
 type ThemeMode int
 
 const (

@@ -246,7 +246,7 @@ func mbKillRange(state *MinibufferState, start, end int) bool {
 	if PackageHooks.KillBegin != nil {
 		PackageHooks.KillBegin()
 	}
-	if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(killed, uint(len(killed))) {
+	if PackageHooks.KillAppend == nil || !PackageHooks.KillAppend(killed) {
 		return false
 	}
 	if PackageHooks.KillWriteClipboard != nil {
@@ -388,15 +388,15 @@ func mbYank(state *MinibufferState) bool {
 	if PackageHooks.KillReadClipboard != nil {
 		PackageHooks.KillReadClipboard()
 	}
-	var klen uint
 	if PackageHooks.KillBytes == nil {
 		return false
 	}
-	k := PackageHooks.KillBytes(&klen)
+	k := PackageHooks.KillBytes()
+	klen := uint(len(k))
 	if klen == 0 {
 		return false
 	}
-	for _, b := range k[:klen] {
+	for _, b := range k {
 		if b == '\n' || b == '\r' {
 			return false
 		}
@@ -408,7 +408,7 @@ func mbYank(state *MinibufferState) bool {
 	oldLen := len(state.Text)
 	state.Text = state.Text[:oldLen+int(klen)]
 	copy(state.Text[cpos+int(klen):], state.Text[cpos:oldLen])
-	copy(state.Text[cpos:], k[:klen])
+	copy(state.Text[cpos:], k)
 	state.CursorPos += klen
 	return true
 }
@@ -1666,7 +1666,7 @@ func writeMatchBufferGeneric(formatter MbMatchFormatter, ctx any, count uint, se
 	mbp.IsReadonly = false
 	text := []byte(out.String())
 	eof := buffer.MakeLocation(mbp.EOF(), 0)
-	bufferSetText(mbp, buffer.MakeLocation(1, 0), eof, text, uint(len(text)), nil, false)
+	bufferSetText(mbp, buffer.MakeLocation(1, 0), eof, text, nil, false)
 	mbp.IsReadonly = prevRO
 	mbp.IsReadonly = true
 

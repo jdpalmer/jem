@@ -47,7 +47,7 @@ func CmdKillRegion(f bool, n int) bool {
 	// unset mark
 	wp.Mark = Location{Line: 0, Offset: 0}
 	wp.SetCursor(region.Start)
-	return bufferSetText(wp.Buffer, region.Start, region.End, nil, 0, nil, true)
+	return bufferSetText(wp.Buffer, region.Start, region.End, nil, nil, true)
 }
 
 // CmdCopyRegion copies the active region to the kill buffer and clipboard.
@@ -63,13 +63,13 @@ func CmdCopyRegion(f bool, n int) bool {
 		return false
 	}
 	killBegin()
-	var length uint
-	text := wp.Buffer.GetText(region.Start, region.End, &length)
+	text := wp.Buffer.GetText(region.Start, region.End)
+	length := uint(len(text))
 	if length > 0 && text == nil {
 		mbWrite("[out of memory]")
 		return false
 	}
-	if !killAppend(text, length) {
+	if !killAppend(text) {
 		mbWrite("[out of memory]")
 		return false
 	}
@@ -92,8 +92,8 @@ func CmdYank(f bool, n int) bool {
 	if !killReadClipboard() && app.State.KillState == CmdStateNone {
 		return false
 	}
-	var klen uint
-	kb := killBytes(&klen)
+	kb := killBytes()
+	klen := uint(len(kb))
 	if klen == 0 {
 		return false
 	}
@@ -106,7 +106,7 @@ func CmdYank(f bool, n int) bool {
 		if app.State.CurrentWindow == nil {
 			return false
 		}
-		if !windowInsertText(app.State.CurrentWindow, kb, int(klen)) {
+		if !windowInsertText(app.State.CurrentWindow, kb) {
 			return false
 		}
 	}
@@ -178,8 +178,8 @@ func transformRegionCase(upper bool) bool {
 	if !getRegion(wp, &region) {
 		return false
 	}
-	var length uint
-	text := bp.GetText(region.Start, region.End, &length)
+	text := bp.GetText(region.Start, region.End)
+	length := uint(len(text))
 	if text == nil && length > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -200,7 +200,7 @@ func transformRegionCase(upper bool) bool {
 	if !changed {
 		return true
 	}
-	return bufferSetText(bp, region.Start, region.End, text, length, nil, false)
+	return bufferSetText(bp, region.Start, region.End, text, nil, false)
 }
 
 // CmdLowerRegion lowercases the active region.
@@ -242,8 +242,8 @@ func CmdSortRegion(f bool, n int) bool {
 	}
 	start := buffer.MakeLocation(region.Start.Line, 0)
 	end := buffer.MakeLocation(lastLine+1, 0)
-	var total uint
-	text := bp.GetText(start, end, &total)
+	text := bp.GetText(start, end)
+	total := uint(len(text))
 	if text == nil && total > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -278,7 +278,7 @@ func CmdSortRegion(f bool, n int) bool {
 		sorted = append(sorted, '\n')
 	}
 	savedCursor := wp.Cursor
-	if !bufferSetText(bp, start, end, sorted, uint(len(sorted)), nil, false) {
+	if !bufferSetText(bp, start, end, sorted, nil, false) {
 		return false
 	}
 	wp.Cursor = savedCursor
@@ -304,8 +304,8 @@ func CmdCopyRegister(f bool, n int) bool {
 	if pr != PromptResultYes {
 		return false
 	}
-	var length uint
-	text := bp.GetText(region.Start, region.End, &length)
+	text := bp.GetText(region.Start, region.End)
+	length := uint(len(text))
 	if text == nil && length > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -336,7 +336,7 @@ func CmdInsertRegister(f bool, n int) bool {
 		mbWrite("[register '%s' not found]", name)
 		return false
 	}
-	if !windowInsertText(wp, text, len(text)) {
+	if !windowInsertText(wp, text) {
 		return false
 	}
 	mbWrite("Register '%s' inserted.", name)

@@ -68,7 +68,7 @@ func modeToggleCommentRegion(wp *Window, bp *Buffer, info *app.ModeInfo, linePre
 			pos := lp.FirstNonblank()
 			b := MakeLocation(line, pos)
 			e := MakeLocation(line, pos+uint(prefixLen))
-			if !PackageHooks.BufferSetText(bp, b, e, nil, 0, nil, false) {
+			if !PackageHooks.BufferSetText(bp, b, e, nil, nil, false) {
 				wp.Cursor = savedCursor
 				wp.Mark = savedMark
 				if PackageHooks.UndoEndCommand != nil {
@@ -156,7 +156,7 @@ func CmdModeToggleComment(f bool, n int) bool {
 			savedMark := wp.Mark
 			b := MakeLocation(wp.Cursor.Line, pos)
 			e := MakeLocation(wp.Cursor.Line, pos+uint(prefixLen))
-			if PackageHooks.BufferSetText == nil || !PackageHooks.BufferSetText(bp, b, e, nil, 0, nil, false) {
+			if PackageHooks.BufferSetText == nil || !PackageHooks.BufferSetText(bp, b, e, nil, nil, false) {
 				wp.Cursor = savedCursor
 				wp.Mark = savedMark
 				if PackageHooks.UndoEndCommand != nil {

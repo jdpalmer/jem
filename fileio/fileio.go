@@ -91,7 +91,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 		if err != nil {
 			if err == io.EOF {
 				if lineBuf.Len() > 0 {
-					bp.AppendLineBytes(lineBuf.Bytes(), uint(lineBuf.Len()))
+					bp.AppendLineBytes(lineBuf.Bytes())
 					nline++
 				}
 				break
@@ -111,14 +111,14 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) bool {
 			} else if eolMode == buffer.EModeLF {
 				eolMode = buffer.EModeCR
 			}
-			bp.AppendLineBytes(lineBuf.Bytes(), uint(lineBuf.Len()))
+			bp.AppendLineBytes(lineBuf.Bytes())
 			lineBuf.Reset()
 			nline++
 			continue
 		}
 
 		if b == '\n' {
-			bp.AppendLineBytes(lineBuf.Bytes(), uint(lineBuf.Len()))
+			bp.AppendLineBytes(lineBuf.Bytes())
 			lineBuf.Reset()
 			nline++
 			continue

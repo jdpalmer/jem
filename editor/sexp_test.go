@@ -1,10 +1,10 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/buffer"
 	"testing"
 
 	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/buffer"
 )
 
 func setupSexpTest(text string, lang LangMode, line, offset uint) (*Window, *Buffer) {
@@ -13,7 +13,7 @@ func setupSexpTest(text string, lang LangMode, line, offset uint) (*Window, *Buf
 	if bp == nil {
 		return nil, nil
 	}
-	bp.AppendLineBytes([]byte(text), uint(len(text)))
+	bp.AppendLineBytes([]byte(text))
 	bp.LangMode = lang
 	wp := &Window{Buffer: bp, Cursor: buffer.MakeLocation(line, offset)}
 	app.State.CurrentWindow = wp

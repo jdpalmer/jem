@@ -217,5 +217,5 @@ func (bp *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
 	}
 	begin := Location{Line: lineNumber, Offset: newLen}
 	end := Location{Line: lineNumber, Offset: uint(len(line.Data))}
-	return bp.SetText(nil, begin, end, nil, 0, nil)
+	return bp.SetText(nil, begin, end, nil, nil)
 }

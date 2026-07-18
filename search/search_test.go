@@ -24,7 +24,7 @@ func makeTestWindow(t *testing.T, text string) *app.Window {
 	app.WindowSelect(wp)
 	eof := buffer.MakeLocation(bp.EOF(), 0)
 	data := []byte(text)
-	if !bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, uint(len(data)), nil) {
+	if !bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, nil) {
 		t.Fatal("buffer.SetText failed")
 	}
 	return wp

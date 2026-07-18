@@ -226,7 +226,7 @@ func applyPendingPaste() {
 			if app.State.ActiveMinibuffer != nil {
 				ok = editorMinibufferPaste(data)
 			} else {
-				ok = editorInsertPaste(data, len(data))
+				ok = editorInsertPaste(data)
 			}
 			if ok {
 				markPasteDirty()

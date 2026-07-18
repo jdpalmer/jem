@@ -33,9 +33,9 @@ func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
 
 func TestInvalidateSyntaxFromLine(t *testing.T) {
 	bp := New()
-	bp.AppendLineBytes([]byte("a"), 1)
-	bp.AppendLineBytes([]byte("b"), 1)
-	bp.AppendLineBytes([]byte("c"), 1)
+	bp.AppendLineBytes([]byte("a"))
+	bp.AppendLineBytes([]byte("b"))
+	bp.AppendLineBytes([]byte("c"))
 	for i := uint(1); i <= bp.LineCount; i++ {
 		if lp := bp.Line(i); lp != nil {
 			lp.SyntaxValid = true
@@ -53,7 +53,7 @@ func TestInvalidateSyntaxFromLine(t *testing.T) {
 
 func TestCallInvalidateSyntaxUsesHookWhenSet(t *testing.T) {
 	bp := New()
-	bp.AppendLineBytes([]byte("a"), 1)
+	bp.AppendLineBytes([]byte("a"))
 	lp := bp.Line(1)
 	lp.SyntaxValid = true
 
@@ -80,8 +80,8 @@ func TestCallInvalidateSyntaxUsesHookWhenSet(t *testing.T) {
 
 func TestCallInvalidateSyntaxFallsBackWithoutHook(t *testing.T) {
 	bp := New()
-	bp.AppendLineBytes([]byte("a"), 1)
-	bp.AppendLineBytes([]byte("b"), 1)
+	bp.AppendLineBytes([]byte("a"))
+	bp.AppendLineBytes([]byte("b"))
 	for i := uint(1); i <= bp.LineCount; i++ {
 		if lp := bp.Line(i); lp != nil {
 			lp.SyntaxValid = true

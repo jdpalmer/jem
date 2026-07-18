@@ -31,13 +31,6 @@ const (
 )
 
 const (
-	FIOSuc = app.FIOSuc
-	FIOFNF = app.FIOFNF
-	FIOEOF = app.FIOEOF
-	FIOErr = app.FIOErr
-)
-
-const (
 	ThemeDark  = app.ThemeDark
 	ThemeLight = app.ThemeLight
 )
@@ -112,7 +105,6 @@ type (
 	CommandState         = app.CommandState
 	SearchScopeMode      = app.SearchScopeMode
 	PromptResult         = app.PromptResult
-	FileIoStatus         = app.FileIoStatus
 	ThemeMode            = app.ThemeMode
 	GitLineDiff          = app.GitLineDiff
 	ModeWordAttr         = app.ModeWordAttr

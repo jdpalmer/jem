@@ -27,23 +27,20 @@ func makeBufferLine(bp *Buffer, data []byte) Line {
 	}
 }
 
-func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newLen uint, newEndOut *Location) bool {
+func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) bool {
 	if bp == nil || bp.IsReadonly {
 		return false
 	}
-	if newText == nil && newLen > 0 {
-		return false
+	insert := newText
+	if insert == nil {
+		insert = []byte{}
 	}
-	if newLen > uint(len(newText)) {
-		return false
-	}
-	insert := newText[:newLen]
 
 	if begin.Line > end.Line || (begin.Line == end.Line && begin.Offset > end.Offset) {
 		return false
 	}
 
-	if begin == end && newLen == 0 {
+	if begin == end && len(insert) == 0 {
 		if newEndOut != nil {
 			*newEndOut = begin
 		}
@@ -51,7 +48,7 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newLen uint, n
 	}
 
 	if bp.LineCount == 0 {
-		_ = bp.AppendLineBytes(nil, 0)
+		_ = bp.AppendLineBytes(nil)
 	}
 
 	beginIsEOF := begin.Line == bp.EOF()
@@ -230,7 +227,7 @@ func callInvalidateSyntax(bp *Buffer, lineNumber uint) {
 		PackageHooks.InvalidateSyntaxFrom(bp, lineNumber)
 		return
 	}
-	bp.InvalidateSyntaxFrom( lineNumber)
+	bp.InvalidateSyntaxFrom(lineNumber)
 }
 
 // LocationAdjustAfterReplace updates a single Location in place to account for
@@ -268,11 +265,8 @@ func (loc *Location) AdjustAfterReplace(begin, end, newEnd Location) {
 	loc.Offset = newEnd.Offset
 }
 
-func (bp *Buffer) GetText(begin, end Location, length *uint) []byte {
-	if bp == nil || length == nil {
-		if length != nil {
-			*length = 0
-		}
+func (bp *Buffer) GetText(begin, end Location) []byte {
+	if bp == nil {
 		return nil
 	}
 
@@ -283,12 +277,10 @@ func (bp *Buffer) GetText(begin, end Location, length *uint) []byte {
 	if begin.Line == end.Line {
 		// Same line (may be EOF virtual line)
 		if begin.Line == bp.EOF() {
-			*length = 0
 			return nil
 		}
 		lp := bp.Line(begin.Line)
 		if lp == nil {
-			*length = 0
 			return nil
 		}
 		b := begin.Offset
@@ -304,10 +296,8 @@ func (bp *Buffer) GetText(begin, end Location, length *uint) []byte {
 			n = e - b
 			out := make([]byte, n)
 			copy(out, lp.Data[b:e])
-			*length = n
 			return out
 		}
-		*length = 0
 		return nil
 	}
 
@@ -360,7 +350,6 @@ func (bp *Buffer) GetText(begin, end Location, length *uint) []byte {
 	}
 
 	if n == 0 {
-		*length = 0
 		return nil
 	}
 
@@ -412,21 +401,19 @@ func (bp *Buffer) GetText(begin, end Location, length *uint) []byte {
 		}
 	}
 
-	*length = uint(len(out))
 	return out
 }
 
-func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newLen uint, newEndOut *Location) bool {
+func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) bool {
 	if bp == nil || bp.IsReadonly {
 		return false
 	}
 	if undo != nil {
-		var oldLen uint
-		oldText := bp.GetText(begin, end, &oldLen)
-		undo.RecordEdit(bp, undo.Pending.Before, begin, oldText, oldLen, newText, newLen)
+		oldText := bp.GetText(begin, end)
+		undo.RecordEdit(bp, undo.Pending.Before, begin, oldText, newText)
 	}
 	hasNewline := false
-	for i := 0; i < int(newLen); i++ {
+	for i := 0; i < len(newText); i++ {
 		if newText[i] == '\n' {
 			hasNewline = true
 			break
@@ -434,21 +421,22 @@ func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte
 	}
 	isStructural := begin.Line != end.Line || hasNewline
 	callNoteEdit(bp, isStructural)
-	return bp.ReplaceRaw(begin, end, newText, newLen, newEndOut)
+	return bp.ReplaceRaw(begin, end, newText, newEndOut)
 }
 
-func (bp *Buffer) AppendLineBytes(text []byte, length uint) *Line {
+func (bp *Buffer) AppendLineBytes(text []byte) *Line {
 	if bp == nil {
 		return nil
 	}
+	var data []byte
+	if text != nil {
+		data = append([]byte(nil), text...)
+	}
 	newLine := Line{
-		Data:        make([]byte, length),
+		Data:        data,
 		SyntaxValid: false,
 		LangMode:    bp.LangMode,
 		Buffer:      bp,
-	}
-	if length > 0 && text != nil {
-		copy(newLine.Data, text[:length])
 	}
 	bp.Lines = append(bp.Lines, newLine)
 	bp.LineCount = uint(len(bp.Lines))

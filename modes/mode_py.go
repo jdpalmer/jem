@@ -158,7 +158,7 @@ func setLineIndentPy(wp *Window, col int) bool {
 	if PackageHooks.UndoBeginCommand != nil {
 		PackageHooks.UndoBeginCommand()
 	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, spaces, uint(len(spaces)), nil, false)
+	ok := PackageHooks.BufferSetText(bp, begin, end, spaces, nil, false)
 	if PackageHooks.UndoEndCommand != nil {
 		PackageHooks.UndoEndCommand()
 	}
@@ -267,7 +267,7 @@ func cmdPyMakeComment(f bool, n int) bool {
 		wp.Cursor.Offset = 0
 	}
 	cmt := []byte("  # ")
-	if !PackageHooks.WindowInsertText(wp, cmt, len(cmt)) {
+	if !PackageHooks.WindowInsertText(wp, cmt) {
 		return false
 	}
 	wp.DidMove = true
@@ -289,9 +289,7 @@ func cmdPyTopOfFunction(f bool, n int) bool {
 		}
 		return false
 	}
-	if PackageHooks.WindowSetCursor != nil {
-		PackageHooks.WindowSetCursor(wp, MakeLocation(defLine, 0))
-	}
+		wp.SetCursor(MakeLocation(defLine, 0))
 	wp.DidMove = true
 	return true
 }
@@ -337,9 +335,7 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 	if lp != nil {
 		off = lp.Len()
 	}
-	if PackageHooks.WindowSetCursor != nil {
-		PackageHooks.WindowSetCursor(wp, MakeLocation(targetLine, off))
-	}
+		wp.SetCursor(MakeLocation(targetLine, off))
 	wp.DidMove = true
 	return true
 }
@@ -358,9 +354,7 @@ func cmdPyMarkFunction(f bool, n int) bool {
 	}
 	wp.Mark.Line = wp.Cursor.Line
 	wp.Mark.Offset = wp.Cursor.Offset
-	if PackageHooks.WindowSetCursor != nil {
-		PackageHooks.WindowSetCursor(wp, MakeLocation(origLine, origOff))
-	}
+		wp.SetCursor(MakeLocation(origLine, origOff))
 	if !cmdPyTopOfFunction(false, 1) {
 		wp.Mark.Line = 0
 		return false

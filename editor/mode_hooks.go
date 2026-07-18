@@ -1,7 +1,6 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/modes"
 )
 
@@ -13,7 +12,6 @@ func initModeHooks() {
 		WindowInsertNewline:   windowInsertNewline,
 		WindowInsertText:      windowInsertText,
 		WindowInsertCodepoint: windowInsertCodepoint,
-		WindowSetCursor:       (*app.Window).SetCursor,
 		Message: func(msg string) {
 			mbWrite("%s", msg)
 		},

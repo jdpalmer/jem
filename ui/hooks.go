@@ -15,13 +15,13 @@ type Hooks struct {
 	GitLineDiff                 func(bp *Buffer, lineNumber uint) GitLineDiff
 	GitModelineText             func(bp *Buffer) string
 	KillBegin                   func()
-	KillAppend                  func(text []byte, length uint) bool
+	KillAppend                  func(text []byte) bool
 	KillWriteClipboard          func()
 	KillReadClipboard           func() bool
-	KillBytes                   func(length *uint) []byte
+	KillBytes                   func() []byte
 	MacroPlayPrompt             func(buf []byte) (PromptResult, bool)
 	MacroRecordMinibufferResult func(text []byte)
-	EditorInsertPaste           func(text []byte, length int) bool
+	EditorInsertPaste           func(text []byte) bool
 	CommandsProvider            func(ctx any, idx uint) []byte
 	BuildCommandList            func() []string
 	RequestRefresh              func()

@@ -301,7 +301,7 @@ func setLineIndentMisc(wp *Window, spec IndentSpec) bool {
 	if PackageHooks.UndoBeginCommand != nil {
 		PackageHooks.UndoBeginCommand()
 	}
-	ok := PackageHooks.BufferSetText(bp, begin, end, prefix, uint(len(prefix)), nil, false)
+	ok := PackageHooks.BufferSetText(bp, begin, end, prefix, nil, false)
 	if PackageHooks.UndoEndCommand != nil {
 		PackageHooks.UndoEndCommand()
 	}

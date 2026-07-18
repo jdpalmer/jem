@@ -31,19 +31,19 @@ func UndoNoteBufferSaved(bp *Buffer) {
 	editorUndo.NoteBufferSaved(bp)
 }
 
-func undoInsertText(wp *Window, lineNumber, offset uint, text []byte, length uint) bool {
+func undoInsertText(wp *Window, lineNumber, offset uint, text []byte) bool {
 	bp := wp.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
 	bp.NoteEdit(false)
-	return bp.ReplaceRaw(loc, loc, text, length, nil)
+	return bp.ReplaceRaw(loc, loc, text, nil)
 }
 
-func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte, length uint) bool {
+func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte) bool {
 	bp := wp.Buffer
 	begin := buffer.MakeLocation(lineNumber, offset)
 	endLine := lineNumber
 	endOffset := offset
-	for i := uint(0); i < length; i++ {
+	for i := 0; i < len(text); i++ {
 		if text[i] == '\n' {
 			endLine++
 			endOffset = 0
@@ -52,7 +52,7 @@ func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte, length uin
 		}
 	}
 	bp.NoteEdit(endLine != lineNumber)
-	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, 0, nil)
+	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
 }
 
 func CmdUndo(f bool, n int) bool {
@@ -67,17 +67,17 @@ func CmdUndo(f bool, n int) bool {
 		}
 		wp := app.State.CurrentWindow
 		ok := editorUndo.Undo(buffer.UndoReplay{
-			InsertText: func(lineNumber, offset uint, text []byte, length uint) bool {
+			InsertText: func(lineNumber, offset uint, text []byte) bool {
 				if wp == nil {
 					return false
 				}
-				return undoInsertText(wp, lineNumber, offset, text, length)
+				return undoInsertText(wp, lineNumber, offset, text)
 			},
-			DeleteText: func(lineNumber, offset uint, text []byte, length uint) bool {
+			DeleteText: func(lineNumber, offset uint, text []byte) bool {
 				if wp == nil {
 					return false
 				}
-				return undoDeleteText(wp, lineNumber, offset, text, length)
+				return undoDeleteText(wp, lineNumber, offset, text)
 			},
 			SetCursor: func(loc Location) {
 				if wp != nil {
@@ -157,13 +157,12 @@ func killBegin() {
 	app.State.KillState = CmdStateCurrent
 }
 
-func killAppend(text []byte, length uint) bool {
-	if length == 0 {
+func killAppend(text []byte) bool {
+	if len(text) == 0 {
 		return true
 	}
-	killAggregate = append(killAggregate, text[:length]...)
-	entry := make([]byte, length)
-	copy(entry, text[:length])
+	killAggregate = append(killAggregate, text...)
+	entry := append([]byte(nil), text...)
 	killRing[killRingIdx] = entry
 	killRingIdx = (killRingIdx + 1) % 16
 	if killRingCount < 16 {
@@ -172,10 +171,7 @@ func killAppend(text []byte, length uint) bool {
 	return true
 }
 
-func killBytes(length *uint) []byte {
-	if length != nil {
-		*length = uint(len(killAggregate))
-	}
+func killBytes() []byte {
 	return killAggregate
 }
 

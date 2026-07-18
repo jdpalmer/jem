@@ -7,7 +7,7 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-// Type aliases keep existing main-package code working while buffer/syntax are extracted.
+// Type aliases for buffer/syntax/term symbols used throughout the editor package.
 type (
 	Buffer              = buffer.Buffer
 	Line                = buffer.Line
@@ -104,15 +104,14 @@ var (
 	TextStyleBg      = buffer.TextStyle.Bg
 )
 
-func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
+func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newEndOut *Location, kill bool) bool {
 	if kill {
-		var oldLen uint
-		oldText := bp.GetText(begin, end, &oldLen)
-		if oldLen > 0 && !killAppend(oldText, oldLen) {
+		oldText := bp.GetText(begin, end)
+		if len(oldText) > 0 && !killAppend(oldText) {
 			return false
 		}
 	}
-	ok := bp.SetText(&editorUndo, begin, end, newText, newLen, newEndOut)
+	ok := bp.SetText(&editorUndo, begin, end, newText, newEndOut)
 	if kill && ok {
 		killWriteClipboard()
 	}

@@ -8,7 +8,6 @@ package buffer
 //
 // Optional enhancements:
 //   - NoteEdit (redraw and mode-line updates; IsChanged is always set by buffer)
-//   - InvalidateSyntaxFrom (defaults to InvalidateSyntaxFromLine)
 //
 // Set once during editor init via initBufferSyntaxHooks. Not safe for concurrent use.
 type Hooks struct {

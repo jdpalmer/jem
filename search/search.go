@@ -124,11 +124,11 @@ func doBeep() {
 	}
 }
 
-func setText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
+func setText(bp *Buffer, begin, end Location, newText []byte, newEndOut *Location, kill bool) bool {
 	if PackageHooks.SetText != nil {
-		return PackageHooks.SetText(bp, begin, end, newText, newLen, newEndOut, kill)
+		return PackageHooks.SetText(bp, begin, end, newText, newEndOut, kill)
 	}
-	return bp.SetText(nil, begin, end, newText, newLen, newEndOut)
+	return bp.SetText(nil, begin, end, newText, newEndOut)
 }
 
 func truncatePattern(s string) string {
@@ -580,8 +580,7 @@ func bufferSliceFrom(bp *Buffer, start Location) []byte {
 	if bp == nil || start.Line == 0 {
 		return nil
 	}
-	var length uint
-	return bp.GetText(start, bufferSearchEnd(bp), &length)
+	return bp.GetText(start, bufferSearchEnd(bp))
 }
 
 func findNextRegexMatchFrom(bp *Buffer, searchStart Location, pattern string) (RegexMatch, int) {
@@ -1071,7 +1070,7 @@ func doReplace(wp *Window, patLen int, repl []byte) bool {
 	}
 	end := wp.Cursor
 	begin := end.RewindBytes(wp.Buffer, patLen)
-	return setText(wp.Buffer, begin, end, repl, uint(len(repl)), nil, false)
+	return setText(wp.Buffer, begin, end, repl, nil, false)
 }
 
 func doReplacePreservingCase(wp *Window, patLen int, repl []byte, preserve bool) bool {
@@ -1090,7 +1089,7 @@ func doReplaceRange(wp *Window, start, end Location, repl []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
-	return setText(wp.Buffer, start, end, repl, uint(len(repl)), nil, false)
+	return setText(wp.Buffer, start, end, repl, nil, false)
 }
 
 func writeReplacePrompt(bp *Buffer, from, to string) {

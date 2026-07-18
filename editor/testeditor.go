@@ -61,7 +61,7 @@ func (te *TestEditor) LoadText(text string) {
 	bp.IsChanged = false
 	bp.Clear()
 	for line := range strings.SplitSeq(text, "\n") {
-		bp.AppendLineBytes([]byte(line), uint(len(line)))
+		bp.AppendLineBytes([]byte(line))
 	}
 	if bp.LineCount > 0 {
 		wp.Cursor.Line = bp.LineCount
@@ -195,7 +195,7 @@ func (te *TestEditor) Edit(begin, end Location, text string) {
 	UndoBeginCommand()
 	defer UndoEndCommand()
 	data := []byte(text)
-	if !bufferSetText(bp, begin, end, data, uint(len(data)), nil, false) {
+	if !bufferSetText(bp, begin, end, data, nil, false) {
 		te.t.Fatalf("bufferSetText(%q) failed", text)
 	}
 }

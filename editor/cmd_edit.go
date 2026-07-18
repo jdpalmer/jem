@@ -50,7 +50,7 @@ func windowDeleteBytes(wp *Window, n int, kill bool) bool {
 	if beginLoc.Line == endLoc.Line && beginLoc.Offset == endLoc.Offset {
 		return true
 	}
-	return bufferSetText(bp, beginLoc, endLoc, nil, 0, nil, kill)
+	return bufferSetText(bp, beginLoc, endLoc, nil, nil, kill)
 }
 
 // CmdKill kills text from point to end of line (Emacs kill-line semantics).
@@ -157,7 +157,7 @@ func CmdQuote(f bool, n int) bool {
 	}
 	for i := 0; i < n; i++ {
 		if k < 0x80 {
-			if !windowInsertText(wp, []byte{byte(k)}, 1) {
+			if !windowInsertText(wp, []byte{byte(k)}) {
 				return false
 			}
 		} else if !windowInsertCodepoint(wp, rune(k)) {
@@ -204,7 +204,7 @@ func CmdTransposeChars(f bool, n int) bool {
 	swapped = append(swapped, lp.Data[leftStart:leftEnd]...)
 	begin := buffer.MakeLocation(wp.Cursor.Line, leftStart)
 	end := buffer.MakeLocation(wp.Cursor.Line, rightEnd)
-	return bufferSetText(bp, begin, end, swapped, uint(len(swapped)), nil, false)
+	return bufferSetText(bp, begin, end, swapped, nil, false)
 }
 
 // CmdDeleteBlankLines collapses runs of blank lines around point.
@@ -233,7 +233,7 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 		if end-start+1 <= 1 {
 			return true
 		}
-		return bufferSetText(bp, buffer.MakeLocation(start+1, 0), buffer.MakeLocation(end+1, 0), nil, 0, nil, false)
+		return bufferSetText(bp, buffer.MakeLocation(start+1, 0), buffer.MakeLocation(end+1, 0), nil, nil, false)
 	}
 	nld := uint(0)
 	line := cur
@@ -244,7 +244,7 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 	if nld == 0 {
 		return true
 	}
-	return bufferSetText(bp, buffer.MakeLocation(cur+1, 0), buffer.MakeLocation(cur+nld+1, 0), nil, 0, nil, false)
+	return bufferSetText(bp, buffer.MakeLocation(cur+1, 0), buffer.MakeLocation(cur+nld+1, 0), nil, nil, false)
 }
 
 // CmdInsertDate inserts the current date at point.
@@ -257,7 +257,7 @@ func CmdInsertDate(f bool, n int) bool {
 	}
 	now := time.Now()
 	date := now.Format("Jan 2, 2006")
-	return windowInsertText(wp, []byte(date), len(date))
+	return windowInsertText(wp, []byte(date))
 }
 
 // CmdTrimWhitespace deletes horizontal whitespace surrounding point.
@@ -313,8 +313,8 @@ func CmdTransposeLines(f bool, n int) bool {
 	}
 	p0 := buffer.MakeLocation(curr-1, 0)
 	p2 := buffer.MakeLocation(curr+1, 0)
-	var total uint
-	original := bp.GetText(p0, p2, &total)
+	original := bp.GetText(p0, p2)
+	total := uint(len(original))
 	if original == nil && total > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -330,7 +330,7 @@ func CmdTransposeLines(f bool, n int) bool {
 	swapped := make([]byte, 0, len(original))
 	swapped = append(swapped, original[len1:]...)
 	swapped = append(swapped, original[:len1]...)
-	if !bufferSetText(bp, p0, p2, swapped, uint(len(swapped)), nil, false) {
+	if !bufferSetText(bp, p0, p2, swapped, nil, false) {
 		return false
 	}
 	wp.SetCursor(buffer.MakeLocation(curr-1, 0))

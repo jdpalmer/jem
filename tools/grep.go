@@ -236,7 +236,7 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	bp.FileName = ""
 	bp.FileMtime = time.Time{}
 	bp.LangMode = LModeMarkdown
-	if bp.AppendLineBytes(nil, 0) == nil {
+	if bp.AppendLineBytes(nil) == nil {
 		return 0, false
 	}
 
@@ -252,12 +252,12 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 			currentFile = displayPath
 			haveLastLine = false
 			if matchCount > 0 {
-				if bp.AppendLineBytes(nil, 0) == nil {
+				if bp.AppendLineBytes(nil) == nil {
 					return 0, false
 				}
 			}
 			header := []byte("## " + displayPath)
-			if bp.AppendLineBytes(header, uint(len(header))) == nil {
+			if bp.AppendLineBytes(header) == nil {
 				return 0, false
 			}
 			fileCount++
@@ -267,7 +267,7 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 		}
 
 		lineText := fmt.Sprintf("L%d: %s", m.line, m.text)
-		lp := bp.AppendLineBytes([]byte(lineText), uint(len(lineText)))
+		lp := bp.AppendLineBytes([]byte(lineText))
 		if lp == nil {
 			return 0, false
 		}
@@ -285,20 +285,20 @@ func grepFillBuffer(bp *Buffer, root string, matches []grepMatch, pattern string
 	if summaryLine := bp.Line(1); summaryLine != nil {
 		begin := buffer.MakeLocation(1, 0)
 		end := buffer.MakeLocation(1, summaryLine.Len())
-		if !bp.SetText(nil, begin, end, []byte(summary), uint(len(summary)), nil) {
+		if !bp.SetText(nil, begin, end, []byte(summary), nil) {
 			return 0, false
 		}
 	}
 
 	if matchCount == 0 {
 		msg := fmt.Sprintf("[no matches for: %s]", pattern)
-		if bp.AppendLineBytes([]byte(msg), uint(len(msg))) == nil {
+		if bp.AppendLineBytes([]byte(msg)) == nil {
 			return 0, false
 		}
 	}
 	if truncated {
 		msg := "[results truncated]"
-		if bp.AppendLineBytes([]byte(msg), uint(len(msg))) == nil {
+		if bp.AppendLineBytes([]byte(msg)) == nil {
 			return 0, false
 		}
 	}

@@ -44,8 +44,8 @@ type UndoHistory struct {
 
 // UndoReplay provides editor callbacks used while replaying undo records.
 type UndoReplay struct {
-	InsertText     func(lineNumber, offset uint, text []byte, length uint) bool
-	DeleteText     func(lineNumber, offset uint, text []byte, length uint) bool
+	InsertText     func(lineNumber, offset uint, text []byte) bool
+	DeleteText     func(lineNumber, offset uint, text []byte) bool
 	SetCursor      func(loc Location)
 	SwitchBuffer   func(bp *Buffer)
 	CurrentBuffer  func() *Buffer
@@ -125,8 +125,8 @@ func (h *UndoHistory) NoteBufferSaved(bp *Buffer) {
 	}
 }
 
-func (h *UndoHistory) appendRecordAt(bp *Buffer, before Location, lineNumber, offset uint, kind UndoKind, text []byte, length uint) bool {
-	if h == nil || h.IsReplaying || length == 0 {
+func (h *UndoHistory) appendRecordAt(bp *Buffer, before Location, lineNumber, offset uint, kind UndoKind, text []byte) bool {
+	if h == nil || h.IsReplaying || len(text) == 0 {
 		return true
 	}
 	if text == nil {
@@ -161,23 +161,22 @@ func (h *UndoHistory) appendRecordAt(bp *Buffer, before Location, lineNumber, of
 	record.Kind = kind
 	record.LineNum = lineNumber
 	record.Offset = offset
-	record.Len = length
-	record.Text = make([]byte, length)
-	copy(record.Text, text[:length])
+	record.Len = uint(len(text))
+	record.Text = append([]byte(nil), text...)
 	group.Count++
 	return true
 }
 
-// RecordEdit appends undo records for a buffer_set_text operation.
-func (h *UndoHistory) RecordEdit(bp *Buffer, before Location, begin Location, oldText []byte, oldLen uint, newText []byte, newLen uint) {
+// RecordEdit appends undo records for a buffer set-text operation.
+func (h *UndoHistory) RecordEdit(bp *Buffer, before Location, begin Location, oldText, newText []byte) {
 	if h == nil {
 		return
 	}
-	if oldLen == newLen && oldLen > 0 && bytes.Equal(oldText[:oldLen], newText[:newLen]) {
+	if len(oldText) == len(newText) && len(oldText) > 0 && bytes.Equal(oldText, newText) {
 		return
 	}
-	_ = h.appendRecordAt(bp, before, begin.Line, begin.Offset, UndoDelete, oldText, oldLen)
-	_ = h.appendRecordAt(bp, before, begin.Line, begin.Offset, UndoInsert, newText, newLen)
+	_ = h.appendRecordAt(bp, before, begin.Line, begin.Offset, UndoDelete, oldText)
+	_ = h.appendRecordAt(bp, before, begin.Line, begin.Offset, UndoInsert, newText)
 }
 
 // Undo replays the most recent undo group using editor-provided callbacks.
@@ -211,10 +210,10 @@ func (h *UndoHistory) Undo(replay UndoReplay) bool {
 		record := &group.Records[j-1]
 		if record.Kind == UndoInsert {
 			if replay.DeleteText != nil {
-				ok = replay.DeleteText(record.LineNum, record.Offset, record.Text, record.Len)
+				ok = replay.DeleteText(record.LineNum, record.Offset, record.Text)
 			}
 		} else if replay.InsertText != nil {
-			ok = replay.InsertText(record.LineNum, record.Offset, record.Text, record.Len)
+			ok = replay.InsertText(record.LineNum, record.Offset, record.Text)
 		}
 		if !ok {
 			break

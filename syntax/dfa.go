@@ -2,10 +2,10 @@ package syntax
 
 import "github.com/jdpalmer/jem/buffer"
 
-// DFA-based syntax highlighter ported from src/syntax.c
+// DFA-based syntax highlighter (ported from the C editor).
 //
-// Architecture mirrors the C implementation exactly:
-//   - 21 DFA states (SS_NORMAL … SS_OPERATOR)
+// Architecture:
+//   - 21 DFA states (SynStateNormal … SynStateOperator; SS_* aliases kept for now)
 //   - Each state: on_enter (every iteration before transition), optional on_exit
 //   - on_enter is called BEFORE the transition for every character
 //   - STATE_REPROCESS: decrement i so the same char is re-entered next iteration
@@ -16,28 +16,51 @@ import "github.com/jdpalmer/jem/buffer"
 // ------------------------------------------------------------------
 
 const (
-	SS_NORMAL       = 0
-	SS_IDENT        = 1
-	SS_NUMBER       = 2
-	SS_STRING_D     = 3
-	SS_STRING_D_ESC = 4
-	SS_STRING_S     = 5
-	SS_STRING_S_ESC = 6
-	SS_CMT_LINE     = 7
-	SS_CMT_BLOCK    = 8
-	SS_CMT_STAR     = 9
-	SS_CMT_BRACE    = 10
-	SS_CMT_PAREN    = 11
-	SS_CMT_PAREN2   = 12
-	SS_PREPROC      = 13
-	SS_LUA_DASH     = 14
-	SS_LUA_BLOCK    = 15
-	SS_LUA_BLKEND   = 16
-	SS_HTML_CMT     = 17
-	SS_HTML_CMT_D1  = 18
-	SS_HTML_CMT_D2  = 19
-	SS_OPERATOR     = 20
-	ssStateCount    = 21
+	SynStateNormal     = 0
+	SynStateIdent      = 1
+	SynStateNumber     = 2
+	SynStateStringD    = 3
+	SynStateStringDEsc = 4
+	SynStateStringS    = 5
+	SynStateStringSEsc = 6
+	SynStateCmtLine    = 7
+	SynStateCmtBlock   = 8
+	SynStateCmtStar    = 9
+	SynStateCmtBrace   = 10
+	SynStateCmtParen   = 11
+	SynStateCmtParen2  = 12
+	SynStatePreproc    = 13
+	SynStateLuaDash    = 14
+	SynStateLuaBlock   = 15
+	SynStateLuaBlkEnd  = 16
+	SynStateHTMLCmt    = 17
+	SynStateHTMLCmtD1  = 18
+	SynStateHTMLCmtD2  = 19
+	SynStateOperator   = 20
+	ssStateCount       = 21
+
+	// Legacy C-style names (prefer SynState* above).
+	SS_NORMAL       = SynStateNormal
+	SS_IDENT        = SynStateIdent
+	SS_NUMBER       = SynStateNumber
+	SS_STRING_D     = SynStateStringD
+	SS_STRING_D_ESC = SynStateStringDEsc
+	SS_STRING_S     = SynStateStringS
+	SS_STRING_S_ESC = SynStateStringSEsc
+	SS_CMT_LINE     = SynStateCmtLine
+	SS_CMT_BLOCK    = SynStateCmtBlock
+	SS_CMT_STAR     = SynStateCmtStar
+	SS_CMT_BRACE    = SynStateCmtBrace
+	SS_CMT_PAREN    = SynStateCmtParen
+	SS_CMT_PAREN2   = SynStateCmtParen2
+	SS_PREPROC      = SynStatePreproc
+	SS_LUA_DASH     = SynStateLuaDash
+	SS_LUA_BLOCK    = SynStateLuaBlock
+	SS_LUA_BLKEND   = SynStateLuaBlkEnd
+	SS_HTML_CMT     = SynStateHTMLCmt
+	SS_HTML_CMT_D1  = SynStateHTMLCmtD1
+	SS_HTML_CMT_D2  = SynStateHTMLCmtD2
+	SS_OPERATOR     = SynStateOperator
 )
 
 // ------------------------------------------------------------------
@@ -1007,7 +1030,7 @@ func SyntaxEnsureLine(lp *buffer.Line) {
 		// Find this line's index in the buffer.
 		lineNum := lineNumberInBuffer(bp, lp)
 		if lineNum > 1 {
-			prev := bp.Line(lineNum-1)
+			prev := bp.Line(lineNum - 1)
 			if prev != nil {
 				if !prev.SyntaxValid {
 					SyntaxEnsureLine(prev) // ensure prev is computed first
