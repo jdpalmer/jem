@@ -118,7 +118,7 @@ func editorSwitchBuffer(bp *Buffer) {
 
 	sess.WindowSaveState(cw)
 
-	editorSetCurrentBuffer(bp)
+	sess.SetCurrentBuffer(bp)
 	cw.Buffer = bp
 	cw.ShouldUpdateModeLine = true
 	cw.ShouldReframe = true
