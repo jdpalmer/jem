@@ -8,8 +8,8 @@ import (
 
 func TestPickBufferListNames(t *testing.T) {
 	*session.App = App{}
-	bp1 := bufferCreate(&session.App.EditorRuntimeState)
-	bp2 := bufferCreate(&session.App.EditorRuntimeState)
+	bp1 := sess.BufferCreate(&session.App.EditorRuntimeState)
+	bp2 := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp1 == nil || bp2 == nil {
 		t.Fatal("buffer create failed")
 	}
@@ -30,8 +30,8 @@ func TestPickBufferListNames(t *testing.T) {
 
 func TestCmdUseBufferDirectIndex(t *testing.T) {
 	*session.App = App{}
-	bp1 := bufferCreate(&session.App.EditorRuntimeState)
-	bp2 := bufferCreate(&session.App.EditorRuntimeState)
+	bp1 := sess.BufferCreate(&session.App.EditorRuntimeState)
+	bp2 := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp1 == nil || bp2 == nil {
 		t.Fatal("buffer create failed")
 	}

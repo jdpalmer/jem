@@ -107,7 +107,7 @@ func visitFilePath(path string) bool {
 		return true
 	}
 
-	buffer = bufferCreate(&session.App.EditorRuntimeState)
+	buffer = sess.BufferCreate(&session.App.EditorRuntimeState)
 	if buffer == nil {
 		mbWrite("[cannot create buffer]")
 		return false

@@ -1,10 +1,14 @@
 package editor
 
-import "testing"
+import (
+	"testing"
+
+	sess "github.com/jdpalmer/jem/session"
+)
 
 func setupSexpTest(text string, lang LangMode, line, offset uint) (*Window, *Buffer) {
 	*session.App = App{}
-	bp := bufferCreate(&session.App.EditorRuntimeState)
+	bp := sess.BufferCreate(&session.App.EditorRuntimeState)
 	if bp == nil {
 		return nil, nil
 	}

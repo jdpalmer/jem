@@ -797,7 +797,7 @@ func CmdKillBuffer(f bool, n int) bool {
 				mbWrite("[aborted]")
 				return false
 			}
-			bufferRelease(bp)
+			sess.BufferRelease(bp)
 			mbWrite("[buffer killed]")
 			return true
 		}
@@ -815,7 +815,7 @@ func CmdKillBuffer(f bool, n int) bool {
 		mbWrite("[aborted]")
 		return false
 	}
-	bufferRelease(bp)
+	sess.BufferRelease(bp)
 	mbWrite("[buffer killed]")
 	return true
 }
@@ -855,7 +855,7 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 				mbWrite("[aborted]")
 				return false
 			}
-			bufferRelease(bp)
+			sess.BufferRelease(bp)
 			mbWrite("[buffer killed]")
 			return true
 		}
