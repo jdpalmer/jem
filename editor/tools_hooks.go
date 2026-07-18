@@ -1,6 +1,9 @@
 package editor
 
-import "github.com/jdpalmer/jem/tools"
+import (
+	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/tools"
+)
 
 func initToolsHooks() {
 	tools.PackageHooks = tools.Hooks{
@@ -21,6 +24,6 @@ func initToolsHooks() {
 			ok := editorReadKey(&k)
 			return k, ok
 		},
-		WindowRetile: windowRetile,
+		WindowRetile: sess.WindowRetile,
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jdpalmer/jem/buffer"
+	sess "github.com/jdpalmer/jem/session"
 )
 
 var editorUndo buffer.UndoHistory
@@ -80,7 +81,7 @@ func CmdUndo(f bool, n int) bool {
 			},
 			SetCursor: func(loc Location) {
 				if wp != nil {
-					windowSetCursor(wp, loc)
+					sess.WindowSetCursor(wp, loc)
 					wp.DidMove = true
 				}
 			},
@@ -115,14 +116,14 @@ func editorSwitchBuffer(bp *Buffer) {
 		return
 	}
 
-	windowSaveState(cw)
+	sess.WindowSaveState(cw)
 
 	editorSetCurrentBuffer(bp)
 	cw.Buffer = bp
 	cw.ShouldUpdateModeLine = true
 	cw.ShouldReframe = true
 	cw.ShouldRedraw = true
-	windowSetTopLine(cw, 1)
+	sess.WindowSetTopLine(cw, 1)
 	cw.HScroll = 0
 
 	for i := 0; i < int(session.App.WindowCount); i++ {
@@ -137,9 +138,9 @@ func editorSwitchBuffer(bp *Buffer) {
 	}
 
 	if bp.Cursor.Line >= 1 {
-		windowSetCursor(cw, bp.Cursor)
+		sess.WindowSetCursor(cw, bp.Cursor)
 	} else {
-		windowSetCursor(cw, Location{Line: 1, Offset: 0})
+		sess.WindowSetCursor(cw, Location{Line: 1, Offset: 0})
 	}
 	cw.Mark = bp.Mark
 }

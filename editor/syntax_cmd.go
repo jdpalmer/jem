@@ -1,6 +1,9 @@
 package editor
 
-import "github.com/jdpalmer/jem/syntax"
+import (
+	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/syntax"
+)
 
 // syntax_cmd.go — editor commands that depend on windows/minibuffer.
 
@@ -71,7 +74,7 @@ func CmdSyntaxGotoMatch(f bool, n int) bool {
 		mbWrite("[No matching bracket]")
 		return false
 	default:
-		windowSetCursor(wp, match)
+		sess.WindowSetCursor(wp, match)
 		wp.DidMove = true
 		return true
 	}

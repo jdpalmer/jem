@@ -2,6 +2,8 @@ package editor
 
 // sexp.go — balanced-expression movement (translation of cmd_forward/backward_sexp in src/cmd_move.c)
 
+import sess "github.com/jdpalmer/jem/session"
+
 func cursorAtEob(wp *Window) bool {
 	if wp == nil || wp.Buffer == nil {
 		return true
@@ -48,9 +50,9 @@ func forwardSexpOnce(wp *Window, bp *Buffer) bool {
 		mlp := BufferGetLine(bp, match.Line)
 		after := match.Offset + 1
 		if mlp == nil || after > LineLength(mlp) {
-			windowSetCursor(wp, MakeLocation(match.Line+1, 0))
+			sess.WindowSetCursor(wp, MakeLocation(match.Line+1, 0))
 		} else {
-			windowSetCursor(wp, MakeLocation(match.Line, after))
+			sess.WindowSetCursor(wp, MakeLocation(match.Line, after))
 		}
 		wp.DidMove = true
 		return true
@@ -78,14 +80,14 @@ func backwardSexpOnce(wp *Window, bp *Buffer) bool {
 		var match Location
 		if !syntaxFindMatchingDelimiter(bp, loc, &match) {
 			mbWrite("[no matching delimiter]")
-			windowSetCursor(wp, orig)
+			sess.WindowSetCursor(wp, orig)
 			return false
 		}
-		windowSetCursor(wp, match)
+		sess.WindowSetCursor(wp, match)
 		wp.DidMove = true
 		return true
 	}
-	windowSetCursor(wp, orig)
+	sess.WindowSetCursor(wp, orig)
 	return CmdBackwardWord(false, 1)
 }
 

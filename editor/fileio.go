@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jdpalmer/jem/fileio"
+	sess "github.com/jdpalmer/jem/session"
 )
 
 func fileMtime(fname string) time.Time {
@@ -118,7 +119,7 @@ func visitFilePath(path string) bool {
 		return false
 	}
 	if wp := session.App.CurrentWindow; wp != nil {
-		WindowCenterCursor(wp)
+		sess.WindowCenterCursor(wp)
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
@@ -238,11 +239,11 @@ func fileVisitLocation(path string, line, column uint32) bool {
 	if off > LineLength(lp) {
 		off = LineLength(lp)
 	}
-	windowSetCursor(wp, MakeLocation(uint(line), off))
+	sess.WindowSetCursor(wp, MakeLocation(uint(line), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true
-	WindowCenterCursor(wp)
+	sess.WindowCenterCursor(wp)
 	return true
 }
 

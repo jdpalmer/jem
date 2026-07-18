@@ -3,6 +3,8 @@ package editor
 import (
 	"bytes"
 	"sort"
+
+	sess "github.com/jdpalmer/jem/session"
 )
 
 // region.go - port of cmd_region.c: mark/region related commands
@@ -43,7 +45,7 @@ func CmdKillRegion(f bool, n int) bool {
 	killBegin()
 	// unset mark
 	wp.Mark = Location{Line: 0, Offset: 0}
-	windowSetCursor(wp, region.Start)
+	sess.WindowSetCursor(wp, region.Start)
 	return bufferSetText(wp.Buffer, region.Start, region.End, nil, 0, nil, true)
 }
 
@@ -143,7 +145,7 @@ func CmdSwapMark(f bool, n int) bool {
 		return false
 	}
 	temp := wp.Cursor
-	windowSetCursor(wp, wp.Mark)
+	sess.WindowSetCursor(wp, wp.Mark)
 	wp.Mark = temp
 	wp.DidMove = true
 	return true
@@ -159,7 +161,7 @@ func CmdMarkWholeBuffer(f bool, n int) bool {
 		return false
 	}
 	wp.Mark = MakeLocation(BufferEOF(bp), 0)
-	windowSetCursor(wp, MakeLocation(1, 0))
+	sess.WindowSetCursor(wp, MakeLocation(1, 0))
 	wp.ShouldRedraw = true
 	mbWrite("[mark set]")
 	return true

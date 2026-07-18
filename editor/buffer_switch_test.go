@@ -1,6 +1,10 @@
 package editor
 
-import "testing"
+import (
+	"testing"
+
+	sess "github.com/jdpalmer/jem/session"
+)
 
 func TestPickBufferListNames(t *testing.T) {
 	*session.App = App{}
@@ -33,11 +37,11 @@ func TestCmdUseBufferDirectIndex(t *testing.T) {
 	}
 	bp1.Name = "one"
 	bp2.Name = "two"
-	wp := windowCreate()
+	wp := sess.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
-	windowSelect(wp)
+	sess.WindowSelect(wp)
 
 	if !CmdUseBuffer(true, 2) {
 		t.Fatal("CmdUseBuffer with universal arg n=2 failed")

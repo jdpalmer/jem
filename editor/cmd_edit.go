@@ -1,8 +1,11 @@
 package editor
 
-import "time"
+import (
+	"time"
 
-import "github.com/jdpalmer/jem/term"
+	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/term"
+)
 
 // cmd_edit.go — editing commands ported from src/cmd_edit.c
 
@@ -329,7 +332,7 @@ func CmdTransposeLines(f bool, n int) bool {
 	if !bufferSetText(bp, p0, p2, swapped, uint(len(swapped)), nil, false) {
 		return false
 	}
-	windowSetCursor(wp, MakeLocation(curr-1, 0))
+	sess.WindowSetCursor(wp, MakeLocation(curr-1, 0))
 	return true
 }
 

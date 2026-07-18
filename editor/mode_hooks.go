@@ -1,6 +1,9 @@
 package editor
 
-import "github.com/jdpalmer/jem/modes"
+import (
+	"github.com/jdpalmer/jem/modes"
+	sess "github.com/jdpalmer/jem/session"
+)
 
 func initModeHooks() {
 	modes.PackageHooks = modes.Hooks{
@@ -10,7 +13,7 @@ func initModeHooks() {
 		WindowInsertNewline:   windowInsertNewline,
 		WindowInsertText:      windowInsertText,
 		WindowInsertCodepoint: windowInsertCodepoint,
-		WindowSetCursor:       windowSetCursor,
+		WindowSetCursor:       sess.WindowSetCursor,
 		Message: func(msg string) {
 			mbWrite("%s", msg)
 		},

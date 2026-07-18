@@ -10,26 +10,6 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-func windowSelect(wp *Window) {
-	sess.WindowSelect(wp)
-}
-
-func windowCreate() *Window {
-	return sess.WindowCreate()
-}
-
-func windowSaveState(wp *Window) {
-	sess.WindowSaveState(wp)
-}
-
-func bufferWindowCount(bp *Buffer) int {
-	return sess.BufferWindowCount(bp)
-}
-
-func windowRetile() {
-	sess.WindowRetile()
-}
-
 func CmdWindowDelete(f bool, n int) bool {
 	if sess.App.WindowCount <= 1 {
 		mbWrite("[cannot remove only window]")
@@ -43,11 +23,11 @@ func CmdWindowDelete(f bool, n int) bool {
 		previousWindow = swap
 
 		if previousWindow == sess.App.CurrentWindow {
-			windowSaveState(previousWindow)
+			sess.WindowSaveState(previousWindow)
 			sess.App.CurrentWindow = sess.App.WINDOWS[i]
 			sess.App.WindowCount--
-			windowSelect(sess.App.CurrentWindow)
-			windowRetile()
+			sess.WindowSelect(sess.App.CurrentWindow)
+			sess.WindowRetile()
 			break
 		}
 	}
@@ -66,7 +46,7 @@ func CmdWindowNext(f bool, n int) bool {
 			}
 		}
 	}
-	windowSelect(next)
+	sess.WindowSelect(next)
 	return true
 }
 
@@ -77,12 +57,12 @@ func CmdWindowOnly(f bool, n int) bool {
 			sess.App.WINDOWS[0] = sess.App.CurrentWindow
 			continue
 		}
-		windowSaveState(sess.App.WINDOWS[i])
+		sess.WindowSaveState(sess.App.WINDOWS[i])
 	}
 	sess.App.WindowCount = 1
 	sess.App.CurrentWindow = sess.App.WINDOWS[0]
-	windowSelect(sess.App.CurrentWindow)
-	windowRetile()
+	sess.WindowSelect(sess.App.CurrentWindow)
+	sess.WindowRetile()
 	return true
 }
 
@@ -91,7 +71,7 @@ func CmdWindowSplit(f bool, n int) bool {
 		mbWrite("[window is too small to split]")
 		return false
 	}
-	wp := windowCreate()
+	wp := sess.WindowCreate()
 	if wp == nil {
 		mbWrite("[maximum number of windows has been reached]")
 		return false
@@ -115,25 +95,8 @@ func CmdWindowSplit(f bool, n int) bool {
 		sess.App.WINDOWS[i] = sess.App.WINDOWS[i-1]
 	}
 
-	windowRetile()
+	sess.WindowRetile()
 	return true
-}
-
-func WindowCenterCursor(wp *Window) {
-	sess.WindowCenterCursor(wp)
-}
-
-func windowSetTopLine(wp *Window, line uint) {
-	sess.WindowSetTopLine(wp, line)
-}
-
-func WindowGutterWidth(wp *Window) uint32 {
-	return sess.WindowGutterWidth(wp)
-}
-
-// windowSetCursor moves the window cursor and marks the window as moved/redrawn.
-func windowSetCursor(wp *Window, loc Location) {
-	sess.WindowSetCursor(wp, loc)
 }
 
 // windowInsertText inserts text at the window cursor. Returns true on success.

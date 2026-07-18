@@ -3,6 +3,8 @@ package editor
 import (
 	"strings"
 	"unicode"
+
+	sess "github.com/jdpalmer/jem/session"
 )
 
 // commands.go - Editor text commands and movement (translation of cmd_move.c and cmd_edit.c)
@@ -1001,7 +1003,7 @@ func CmdGotoLine(f bool, n int) bool {
 	if wp.Cursor.Line != target || wp.Cursor.Offset != 0 {
 		markPushCurrent()
 	}
-	windowSetCursor(wp, MakeLocation(target, 0))
+	sess.WindowSetCursor(wp, MakeLocation(target, 0))
 	wp.ShouldRedraw = true
 	return true
 }
