@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/buffer"
 	sess "github.com/jdpalmer/jem/session"
 	"github.com/jdpalmer/jem/syntax"
 )
@@ -20,12 +21,12 @@ func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
 		return syntaxMatchNone
 	}
 	bp := wp.Buffer
-	cursor := MakeLocation(wp.Cursor.Line, wp.Cursor.Offset)
-	if cursor.Line == 0 || cursor.Line >= BufferEOF(bp) {
+	cursor := buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset)
+	if cursor.Line == 0 || cursor.Line >= buffer.EOF(bp) {
 		return syntaxMatchNone
 	}
 	if syntaxLocationHasDelimiter(bp, cursor) {
-		if syntaxFindMatchingDelimiter(bp, cursor, matchOut) {
+		if syntax.FindMatchingDelimiter(bp, cursor, matchOut) {
 			return syntaxMatchFound
 		}
 		return syntaxMatchUnbalanced
@@ -33,9 +34,9 @@ func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
 	if cursor.Offset == 0 {
 		return syntaxMatchNone
 	}
-	prior := MakeLocation(cursor.Line, cursor.Offset-1)
+	prior := buffer.MakeLocation(cursor.Line, cursor.Offset-1)
 	if syntaxLocationHasDelimiter(bp, prior) {
-		if syntaxFindMatchingDelimiter(bp, prior, matchOut) {
+		if syntax.FindMatchingDelimiter(bp, prior, matchOut) {
 			return syntaxMatchFound
 		}
 		return syntaxMatchUnbalanced
@@ -44,14 +45,14 @@ func syntaxMatchTarget(wp *Window, matchOut *Location) syntaxMatchResult {
 }
 
 func syntaxLocationHasDelimiter(bp *Buffer, loc Location) bool {
-	if bp == nil || loc.Line == 0 || loc.Line >= BufferEOF(bp) {
+	if bp == nil || loc.Line == 0 || loc.Line >= buffer.EOF(bp) {
 		return false
 	}
-	lp := BufferGetLine(bp, loc.Line)
-	if lp == nil || loc.Offset >= LineLength(lp) {
+	lp := buffer.GetLine(bp, loc.Line)
+	if lp == nil || loc.Offset >= buffer.LineLength(lp) {
 		return false
 	}
-	ch := int(LineGetc(lp, loc.Offset))
+	ch := int(buffer.LineGetc(lp, loc.Offset))
 	if _, _, _, ok := syntax.DelimiterPair(ch); !ok {
 		return false
 	}

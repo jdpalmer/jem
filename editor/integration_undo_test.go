@@ -1,27 +1,30 @@
 package editor
 
-import "testing"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"testing"
+)
 
 func TestUndoContent(t *testing.T) {
 	te := NewTestEditor(t)
 
 	te.LoadText("hello")
 	te.ForgetUndo()
-	te.Edit(MakeLocation(1, 5), MakeLocation(1, 5), " world")
+	te.Edit(buffer.MakeLocation(1, 5), buffer.MakeLocation(1, 5), " world")
 	te.ExpectText("hello world")
 	te.Undo()
 	te.ExpectText("hello")
 
 	te.LoadText("hello world")
 	te.ForgetUndo()
-	te.Edit(MakeLocation(1, 5), MakeLocation(1, 11), "")
+	te.Edit(buffer.MakeLocation(1, 5), buffer.MakeLocation(1, 11), "")
 	te.ExpectText("hello")
 	te.Undo()
 	te.ExpectText("hello world")
 
 	te.LoadText("helloworld")
 	te.ForgetUndo()
-	te.Edit(MakeLocation(1, 5), MakeLocation(1, 5), "\n")
+	te.Edit(buffer.MakeLocation(1, 5), buffer.MakeLocation(1, 5), "\n")
 	te.ExpectLineCount(2)
 	te.Undo()
 	te.ExpectLineCount(1)
@@ -35,7 +38,7 @@ func TestUndoCleanState(t *testing.T) {
 	UndoNoteBufferSaved(te.BP())
 	te.ExpectChanged(false)
 
-	te.Edit(MakeLocation(1, 5), MakeLocation(1, 5), " world")
+	te.Edit(buffer.MakeLocation(1, 5), buffer.MakeLocation(1, 5), " world")
 	te.ExpectChanged(true)
 
 	te.Undo()

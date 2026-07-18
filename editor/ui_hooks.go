@@ -1,6 +1,9 @@
 package editor
 
-import "github.com/jdpalmer/jem/ui"
+import (
+	sess "github.com/jdpalmer/jem/session"
+	"github.com/jdpalmer/jem/ui"
+)
 
 func initUIHooks() {
 	ui.PackageHooks = ui.Hooks{
@@ -14,23 +17,22 @@ func initUIHooks() {
 			}
 			return cmd.Fn(false, 1)
 		},
-		Abort:                    func() { CmdAbort(false, 1) },
-		MBWrite:                  mbWrite,
-		MarkPushCurrent:          markPushCurrent,
-		TagsMaybeShowCallHint:    tagsMaybeShowCallHint,
-		AnyUnsavedBuffers:        anyUnsavedBuffers,
-		GitLineDiff:              gitLineDiff,
-		GitModelineText:          gitModelineText,
-		KillBegin:                killBegin,
-		KillAppend:               killAppend,
-		KillWriteClipboard:       killWriteClipboard,
-		KillReadClipboard:        killReadClipboard,
-		KillBytes:                killBytes,
-		MacroPlayPrompt:          macroPlayPrompt,
+		Abort:                       func() { CmdAbort(false, 1) },
+		MBWrite:                     mbWrite,
+		MarkPushCurrent:             sess.MarkPushCurrent,
+		TagsMaybeShowCallHint:       tagsMaybeShowCallHint,
+		AnyUnsavedBuffers:           anyUnsavedBuffers,
+		GitLineDiff:                 gitLineDiff,
+		GitModelineText:             gitModelineText,
+		KillBegin:                   killBegin,
+		KillAppend:                  killAppend,
+		KillWriteClipboard:          killWriteClipboard,
+		KillReadClipboard:           killReadClipboard,
+		KillBytes:                   killBytes,
+		MacroPlayPrompt:             macroPlayPrompt,
 		MacroRecordMinibufferResult: macroRecordMinibufferResult,
-		EditorInsertPaste:        editorInsertPaste,
-		CommandsProvider:         commandsProvider,
-		BuildCommandList:         buildCommandList,
+		EditorInsertPaste:           editorInsertPaste,
+		CommandsProvider:            commandsProvider,
+		BuildCommandList:            buildCommandList,
 	}
 }
-

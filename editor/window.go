@@ -4,6 +4,7 @@ package editor
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/buffer"
 	"unicode/utf8"
 
 	sess "github.com/jdpalmer/jem/session"
@@ -146,10 +147,10 @@ func windowReplaceLineLeadingText(wp *Window, text []byte, length int) bool {
 		return false
 	}
 	lineNumber := wp.Cursor.Line
-	lp := BufferGetLine(wp.Buffer, lineNumber)
+	lp := buffer.GetLine(wp.Buffer, lineNumber)
 	var oldWS uint = 0
 	if lp != nil {
-		oldWS = line_first_nonblank(lp)
+		oldWS = buffer.LineFirstNonblank(lp)
 	}
 	if oldWS == 0 && length == 0 {
 		return true
@@ -169,16 +170,16 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 	tot := tabs + spaces
 	if tot == 0 {
 		// No-op if line already has no leading whitespace; otherwise clear it.
-		lp := BufferGetLine(wp.Buffer, wp.Cursor.Line)
+		lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
 		if lp == nil {
 			return false
 		}
-		old := line_first_nonblank(lp)
+		old := buffer.LineFirstNonblank(lp)
 		if old == 0 {
 			return true
 		}
-		begin := MakeLocation(wp.Cursor.Line, 0)
-		end := MakeLocation(wp.Cursor.Line, old)
+		begin := buffer.MakeLocation(wp.Cursor.Line, 0)
+		end := buffer.MakeLocation(wp.Cursor.Line, old)
 		UndoBeginCommand()
 		ok := bufferSetText(wp.Buffer, begin, end, nil, 0, nil, false)
 		UndoEndCommand()
@@ -194,13 +195,13 @@ func windowSetLineIndent(wp *Window, tabs, spaces uint) bool {
 	for i := uint(0); i < spaces; i++ {
 		indent = append(indent, ' ')
 	}
-	lp := BufferGetLine(wp.Buffer, wp.Cursor.Line)
+	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
 	if lp == nil {
 		return false
 	}
-	old := line_first_nonblank(lp)
-	begin := MakeLocation(wp.Cursor.Line, 0)
-	end := MakeLocation(wp.Cursor.Line, old)
+	old := buffer.LineFirstNonblank(lp)
+	begin := buffer.MakeLocation(wp.Cursor.Line, 0)
+	end := buffer.MakeLocation(wp.Cursor.Line, old)
 	UndoBeginCommand()
 	ok := bufferSetText(wp.Buffer, begin, end, indent, uint(len(indent)), nil, false)
 	UndoEndCommand()
@@ -220,8 +221,8 @@ func windowDeleteChars(wp *Window, count int) bool {
 	defer UndoEndCommand()
 	deleted := false
 	for i := 0; i < count; i++ {
-		line := BufferGetLine(bp, wp.Cursor.Line)
-		if line != nil && wp.Cursor.Offset < LineLength(line) {
+		line := buffer.GetLine(bp, wp.Cursor.Line)
+		if line != nil && wp.Cursor.Offset < buffer.LineLength(line) {
 			begin := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset}
 			end := Location{Line: wp.Cursor.Line, Offset: wp.Cursor.Offset + 1}
 			var newEnd Location

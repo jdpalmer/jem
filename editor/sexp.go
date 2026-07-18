@@ -2,13 +2,18 @@ package editor
 
 // sexp.go — balanced-expression movement (translation of cmd_forward/backward_sexp in src/cmd_move.c)
 
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/syntax"
+)
+
 import sess "github.com/jdpalmer/jem/session"
 
 func cursorAtEob(wp *Window) bool {
 	if wp == nil || wp.Buffer == nil {
 		return true
 	}
-	return wp.Cursor.Line >= BufferEOF(wp.Buffer)
+	return wp.Cursor.Line >= buffer.EOF(wp.Buffer)
 }
 
 func cursorChar(wp *Window, bp *Buffer) int {
@@ -16,14 +21,14 @@ func cursorChar(wp *Window, bp *Buffer) int {
 		return -1
 	}
 	loc := wp.Cursor
-	lp := BufferGetLine(bp, loc.Line)
+	lp := buffer.GetLine(bp, loc.Line)
 	if lp == nil {
 		return -1
 	}
-	if loc.Offset >= LineLength(lp) {
+	if loc.Offset >= buffer.LineLength(lp) {
 		return '\n'
 	}
-	return int(LineGetc(lp, loc.Offset))
+	return int(buffer.LineGetc(lp, loc.Offset))
 }
 
 func forwardSexpOnce(wp *Window, bp *Buffer) bool {
@@ -43,16 +48,16 @@ func forwardSexpOnce(wp *Window, bp *Buffer) bool {
 	ch := cursorChar(wp, bp)
 	if ch == '(' || ch == '[' || ch == '{' {
 		var match Location
-		if !syntaxFindMatchingDelimiter(bp, loc, &match) {
+		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
 			mbWrite("[no matching delimiter]")
 			return false
 		}
-		mlp := BufferGetLine(bp, match.Line)
+		mlp := buffer.GetLine(bp, match.Line)
 		after := match.Offset + 1
-		if mlp == nil || after > LineLength(mlp) {
-			sess.WindowSetCursor(wp, MakeLocation(match.Line+1, 0))
+		if mlp == nil || after > buffer.LineLength(mlp) {
+			sess.WindowSetCursor(wp, buffer.MakeLocation(match.Line+1, 0))
 		} else {
-			sess.WindowSetCursor(wp, MakeLocation(match.Line, after))
+			sess.WindowSetCursor(wp, buffer.MakeLocation(match.Line, after))
 		}
 		wp.DidMove = true
 		return true
@@ -78,7 +83,7 @@ func backwardSexpOnce(wp *Window, bp *Buffer) bool {
 	ch := cursorChar(wp, bp)
 	if ch == ')' || ch == ']' || ch == '}' {
 		var match Location
-		if !syntaxFindMatchingDelimiter(bp, loc, &match) {
+		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
 			mbWrite("[no matching delimiter]")
 			sess.WindowSetCursor(wp, orig)
 			return false

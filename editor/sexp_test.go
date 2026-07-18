@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"github.com/jdpalmer/jem/buffer"
 	"testing"
 
 	sess "github.com/jdpalmer/jem/session"
@@ -12,9 +13,9 @@ func setupSexpTest(text string, lang LangMode, line, offset uint) (*Window, *Buf
 	if bp == nil {
 		return nil, nil
 	}
-	bufferAppendLineBytes(bp, []byte(text), uint(len(text)))
+	buffer.AppendLineBytes(bp, []byte(text), uint(len(text)))
 	bp.LangMode = lang
-	wp := &Window{Buffer: bp, Cursor: MakeLocation(line, offset)}
+	wp := &Window{Buffer: bp, Cursor: buffer.MakeLocation(line, offset)}
 	session.App.CurrentWindow = wp
 	session.App.CurrentBuffer = bp
 	session.App.WINDOWS[0] = wp

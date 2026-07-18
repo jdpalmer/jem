@@ -9,10 +9,6 @@ type MarkState = sess.MarkState
 
 var marksState = &sess.MarksState
 
-func markPushCurrent() {
-	sess.MarkPushCurrent()
-}
-
 func markPopOnce() bool {
 	if !sess.MarkPopOnce() {
 		mbWrite("[no saved mark]")
@@ -25,7 +21,7 @@ func markPopOnce() bool {
 func CmdMarkPush(f bool, n int) bool {
 	_ = f
 	_ = n
-	markPushCurrent()
+	sess.MarkPushCurrent()
 	mbWrite("[mark pushed]")
 	return true
 }

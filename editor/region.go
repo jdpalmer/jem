@@ -2,6 +2,7 @@ package editor
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/buffer"
 	"sort"
 
 	sess "github.com/jdpalmer/jem/session"
@@ -63,7 +64,7 @@ func CmdCopyRegion(f bool, n int) bool {
 	}
 	killBegin()
 	var length uint
-	text := bufferGetText(wp.Buffer, region.Start, region.End, &length)
+	text := buffer.GetText(wp.Buffer, region.Start, region.End, &length)
 	if length > 0 && text == nil {
 		mbWrite("[out of memory]")
 		return false
@@ -160,8 +161,8 @@ func CmdMarkWholeBuffer(f bool, n int) bool {
 	if wp == nil || bp == nil {
 		return false
 	}
-	wp.Mark = MakeLocation(BufferEOF(bp), 0)
-	sess.WindowSetCursor(wp, MakeLocation(1, 0))
+	wp.Mark = buffer.MakeLocation(buffer.EOF(bp), 0)
+	sess.WindowSetCursor(wp, buffer.MakeLocation(1, 0))
 	wp.ShouldRedraw = true
 	mbWrite("[mark set]")
 	return true
@@ -178,7 +179,7 @@ func transformRegionCase(upper bool) bool {
 		return false
 	}
 	var length uint
-	text := bufferGetText(bp, region.Start, region.End, &length)
+	text := buffer.GetText(bp, region.Start, region.End, &length)
 	if text == nil && length > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -239,10 +240,10 @@ func CmdSortRegion(f bool, n int) bool {
 		mbWrite("[sort needs at least 2 lines]")
 		return false
 	}
-	start := MakeLocation(region.Start.Line, 0)
-	end := MakeLocation(lastLine+1, 0)
+	start := buffer.MakeLocation(region.Start.Line, 0)
+	end := buffer.MakeLocation(lastLine+1, 0)
 	var total uint
-	text := bufferGetText(bp, start, end, &total)
+	text := buffer.GetText(bp, start, end, &total)
 	if text == nil && total > 0 {
 		mbWrite("[out of memory]")
 		return false
@@ -304,7 +305,7 @@ func CmdCopyRegister(f bool, n int) bool {
 		return false
 	}
 	var length uint
-	text := bufferGetText(bp, region.Start, region.End, &length)
+	text := buffer.GetText(bp, region.Start, region.End, &length)
 	if text == nil && length > 0 {
 		mbWrite("[out of memory]")
 		return false

@@ -16,7 +16,7 @@ func UndoBeginCommand() {
 	if editorUndo.IsReplaying || session.App.CurrentBuffer == nil || wp == nil {
 		return
 	}
-	editorUndo.BeginCommand(session.App.CurrentBuffer, MakeLocation(wp.Cursor.Line, wp.Cursor.Offset))
+	editorUndo.BeginCommand(session.App.CurrentBuffer, buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset))
 }
 
 func UndoEndCommand() {
@@ -33,14 +33,14 @@ func UndoNoteBufferSaved(bp *Buffer) {
 
 func undoInsertText(wp *Window, lineNumber, offset uint, text []byte, length uint) bool {
 	bp := wp.Buffer
-	loc := MakeLocation(lineNumber, offset)
+	loc := buffer.MakeLocation(lineNumber, offset)
 	buffer.NoteEdit(bp, false)
-	return bufferReplaceRaw(bp, loc, loc, text, length, nil)
+	return buffer.ReplaceRaw(bp, loc, loc, text, length, nil)
 }
 
 func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte, length uint) bool {
 	bp := wp.Buffer
-	begin := MakeLocation(lineNumber, offset)
+	begin := buffer.MakeLocation(lineNumber, offset)
 	endLine := lineNumber
 	endOffset := offset
 	for i := uint(0); i < length; i++ {
@@ -52,7 +52,7 @@ func undoDeleteText(wp *Window, lineNumber, offset uint, text []byte, length uin
 		}
 	}
 	buffer.NoteEdit(bp, endLine != lineNumber)
-	return bufferReplaceRaw(bp, begin, MakeLocation(endLine, endOffset), nil, 0, nil)
+	return buffer.ReplaceRaw(bp, begin, buffer.MakeLocation(endLine, endOffset), nil, 0, nil)
 }
 
 func CmdUndo(f bool, n int) bool {

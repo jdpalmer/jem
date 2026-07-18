@@ -2,6 +2,7 @@ package editor
 
 import (
 	"github.com/jdpalmer/jem/search"
+	sess "github.com/jdpalmer/jem/session"
 	"github.com/jdpalmer/jem/term"
 )
 
@@ -14,7 +15,7 @@ func initSearchHooks() {
 		MBHistoryAdd:       mbHistoryAdd,
 		MBEditKeyHistory:   mbEditKeyHistory,
 		DisplayUpdate:      DisplayUpdate,
-		MarkPushCurrent:    markPushCurrent,
+		MarkPushCurrent:    sess.MarkPushCurrent,
 		ReadKey: func() (uint32, bool) {
 			k, ok := <-GlobalMinibufKeyCh
 			return k, ok

@@ -13,7 +13,7 @@ func initToolsHooks() {
 		MBReadString:            mbReadString,
 		MBReadStringCap:         mbReadStringCap,
 		MBReadFuzzyListExString: mbReadFuzzyListExString,
-		MarkPushCurrent:         markPushCurrent,
+		MarkPushCurrent:         sess.MarkPushCurrent,
 		VisitLocation:           fileVisitLocation,
 		SwitchBuffer:            editorSwitchBuffer,
 		Abort:                   func() { CmdAbort(false, 1) },

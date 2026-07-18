@@ -103,27 +103,6 @@ var (
 	TextStyleBg      = buffer.TextStyleBg
 )
 
-func MakeLocation(line, offset uint) Location { return buffer.MakeLocation(line, offset) }
-func BufferEOF(bp *Buffer) uint               { return buffer.EOF(bp) }
-func BufferGetLine(bp *Buffer, lineNumber uint) *Line {
-	return buffer.GetLine(bp, lineNumber)
-}
-func LineGetc(lp *Line, n uint) byte { return buffer.LineGetc(lp, n) }
-func LineLength(lp *Line) uint       { return buffer.LineLength(lp) }
-
-func bufferClear(bp *Buffer) bool { return buffer.Clear(bp) }
-func locationAdvanceBytes(bp *Buffer, loc Location, bytes int) Location {
-	return buffer.LocationAdvanceBytes(bp, loc, bytes)
-}
-func locationRewindBytes(bp *Buffer, loc Location, bytes int) Location {
-	return buffer.LocationRewindBytes(bp, loc, bytes)
-}
-func bufferReplaceRaw(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location) bool {
-	return buffer.ReplaceRaw(bp, begin, end, newText, newLen, newEndOut)
-}
-func bufferGetText(bp *Buffer, begin, end Location, length *uint) []byte {
-	return buffer.GetText(bp, begin, end, length)
-}
 func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint, newEndOut *Location, kill bool) bool {
 	if kill {
 		var oldLen uint
@@ -138,9 +117,7 @@ func bufferSetText(bp *Buffer, begin, end Location, newText []byte, newLen uint,
 	}
 	return ok
 }
-func bufferAppendLineBytes(bp *Buffer, text []byte, length uint) *Line {
-	return buffer.AppendLineBytes(bp, text, length)
-}
+
 func bufferAdjustLocationsAfterReplace(bp *Buffer, begin, end, newEnd Location) {
 	for i := 0; i < int(session.App.WindowCount); i++ {
 		wp := session.App.WINDOWS[i]
@@ -167,6 +144,7 @@ func bufferAdjustLocationsAfterReplace(bp *Buffer, begin, end, newEnd Location) 
 		}
 	}
 }
+
 func bufferNoteEdit(bp *Buffer, isStructural bool) {
 	firstChange := !bp.IsChanged
 	shouldRedraw := isStructural
@@ -195,11 +173,6 @@ func bufferNoteEdit(bp *Buffer, isStructural bool) {
 		}
 	}
 }
-func line_first_nonblank(lp *Line) uint { return buffer.LineFirstNonblank(lp) }
-func line_indent_column(lp *Line) uint  { return buffer.LineIndentColumn(lp) }
-func line_first_byte(lp *Line) byte     { return buffer.LineFirstByte(lp) }
-func line_last_byte(lp *Line) byte      { return buffer.LineLastByte(lp) }
-func line_is_blank(lp *Line) bool       { return buffer.LineIsBlank(lp) }
 
 func initTermHooks() {
 	term.PackageHooks = term.Hooks{
@@ -223,7 +196,7 @@ func initBufferSyntaxHooks() {
 		NoteEdit:                    bufferNoteEdit,
 		AdjustLocationsAfterReplace: bufferAdjustLocationsAfterReplace,
 		InvalidateSyntaxFrom:        buffer.InvalidateSyntaxFromLine,
-		ReparseFrom:                 func(bp *Buffer, start uint) { IncrementalReparse(bp, start) },
+		ReparseFrom:                 syntax.IncrementalReparse,
 	}
 	syncSyntaxPalette()
 }
@@ -233,13 +206,6 @@ func syncSyntaxPalette() {
 		NormalStyle:  session.App.Theme.NormalStyle,
 		CommentStyle: session.App.Theme.CommentStyle,
 	}
-}
-
-// Syntax wrappers
-func SyntaxEnsureLine(lp *Line)                 { syntax.SyntaxEnsureLine(lp) }
-func IncrementalReparse(bp *Buffer, start uint) { syntax.IncrementalReparse(bp, start) }
-func syntaxFindMatchingDelimiter(bp *Buffer, start Location, matchOut *Location) bool {
-	return syntax.FindMatchingDelimiter(bp, start, matchOut)
 }
 
 // DFA state constants for tests and mode code.

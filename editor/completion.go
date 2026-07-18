@@ -4,6 +4,7 @@ package editor
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/buffer"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -26,7 +27,7 @@ func completionPrefixAtPoint(wp *Window) string {
 	if wp == nil || wp.Buffer == nil {
 		return ""
 	}
-	lp := BufferGetLine(wp.Buffer, wp.Cursor.Line)
+	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
 	if lp == nil || wp.Cursor.Offset == 0 {
 		return ""
 	}
@@ -49,8 +50,8 @@ func bufferTextBytes(bp *Buffer) []byte {
 		if lineNum > 1 {
 			buf.WriteByte('\n')
 		}
-		lp := BufferGetLine(bp, lineNum)
-		if lp != nil && LineLength(lp) > 0 {
+		lp := buffer.GetLine(bp, lineNum)
+		if lp != nil && buffer.LineLength(lp) > 0 {
 			buf.Write(lp.Data)
 		}
 	}
@@ -165,7 +166,7 @@ func completionCollectCandidates(bp *Buffer, prefix string) []string {
 		add(word)
 	}
 	for lineNum := uint(1); lineNum <= bp.LineCount; lineNum++ {
-		completionScanLineWords(BufferGetLine(bp, lineNum), add)
+		completionScanLineWords(buffer.GetLine(bp, lineNum), add)
 	}
 	if bp.LangMode == LModeGo {
 		for _, word := range completionGoIdents(bp) {

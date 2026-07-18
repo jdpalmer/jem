@@ -3,6 +3,7 @@ package editor
 // fileio.go - File I/O operations (translation of file.c)
 
 import (
+	"github.com/jdpalmer/jem/buffer"
 	"path/filepath"
 
 	"github.com/jdpalmer/jem/fileio"
@@ -88,7 +89,7 @@ func visitFilePath(path string) bool {
 	}
 
 	if buffer != nil {
-		markPushCurrent()
+		sess.MarkPushCurrent()
 		editorSwitchBuffer(buffer)
 		if wp := session.App.CurrentWindow; wp != nil {
 			wp.ShouldRedraw = true
@@ -103,7 +104,7 @@ func visitFilePath(path string) bool {
 		mbWrite("[cannot create buffer]")
 		return false
 	}
-	markPushCurrent()
+	sess.MarkPushCurrent()
 	buffer.Name = bufferNameFromPath(fileName)
 	editorSwitchBuffer(buffer)
 	if !fileLoad(fileName) {
@@ -222,15 +223,15 @@ func fileVisitLocation(path string, line, column uint32) bool {
 		mbWrite("[file line out of range]")
 		return false
 	}
-	lp := BufferGetLine(wp.Buffer, uint(line))
+	lp := buffer.GetLine(wp.Buffer, uint(line))
 	off := uint(column)
 	if column > 0 {
 		off--
 	}
-	if off > LineLength(lp) {
-		off = LineLength(lp)
+	if off > buffer.LineLength(lp) {
+		off = buffer.LineLength(lp)
 	}
-	sess.WindowSetCursor(wp, MakeLocation(uint(line), off))
+	sess.WindowSetCursor(wp, buffer.MakeLocation(uint(line), off))
 	wp.DidMove = true
 	wp.ShouldUpdateModeLine = true
 	wp.ShouldRedraw = true

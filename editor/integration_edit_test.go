@@ -1,6 +1,9 @@
 package editor
 
-import "testing"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"testing"
+)
 
 func TestCmdEdit(t *testing.T) {
 	te := NewTestEditor(t)
@@ -37,12 +40,12 @@ func TestBufferSetText(t *testing.T) {
 	te := NewTestEditor(t)
 
 	te.LoadText("hello\nworld")
-	te.Edit(MakeLocation(1, 3), MakeLocation(2, 2), "")
+	te.Edit(buffer.MakeLocation(1, 3), buffer.MakeLocation(2, 2), "")
 	te.ExpectText("helrld")
 	te.ExpectLineCount(1)
 
 	te.LoadText("hello world")
-	te.Edit(MakeLocation(1, 6), MakeLocation(1, 11), "a\nb")
+	te.Edit(buffer.MakeLocation(1, 6), buffer.MakeLocation(1, 11), "a\nb")
 	te.ExpectText("hello a\nb")
 	te.ExpectLineCount(2)
 }
