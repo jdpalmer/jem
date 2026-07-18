@@ -236,7 +236,7 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 	}
 	bp.DiskChangeNotifiedMtime = time.Time{}
 	if wp != nil && lineNumber > 0 && lineNumber <= bp.LineCount {
-		wp.Cursor = session.MakeLocation(lineNumber, 0)
+		wp.Cursor = buffer.MakeLocation(lineNumber, 0)
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}

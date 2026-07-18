@@ -22,9 +22,9 @@ func makeTestWindow(t *testing.T, text string) *session.Window {
 	}
 	wp.Buffer = bp
 	session.WindowSelect(wp)
-	eof := session.MakeLocation(session.BufferEOF(bp), 0)
+	eof := buffer.MakeLocation(buffer.EOF(bp), 0)
 	data := []byte(text)
-	if !buffer.SetText(bp, nil, session.MakeLocation(1, 0), eof, data, uint(len(data)), nil) {
+	if !buffer.SetText(bp, nil, buffer.MakeLocation(1, 0), eof, data, uint(len(data)), nil) {
 		t.Fatal("buffer.SetText failed")
 	}
 	return wp

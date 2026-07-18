@@ -1,6 +1,9 @@
 package ui
 
-import sess "github.com/jdpalmer/jem/session"
+import (
+	"github.com/jdpalmer/jem/buffer"
+	sess "github.com/jdpalmer/jem/session"
+)
 
 const (
 	Version               = sess.Version
@@ -190,8 +193,8 @@ const (
 	TermColorBase2   = sess.TermColorBase2
 	TermColorBase3   = sess.TermColorBase3
 
-	TextStyleFgShift   = sess.TextStyleFgShift
-	TextStyleBgShift   = sess.TextStyleBgShift
+	TextStyleFgShift   = buffer.TextStyleFgShift
+	TextStyleBgShift   = buffer.TextStyleBgShift
 	TextStyleColorMask = sess.TextStyleColorMask
 	TextStyleBold      = sess.TextStyleBold
 	TextStyleUnderline = sess.TextStyleUnderline
@@ -222,9 +225,9 @@ const (
 )
 
 var (
-	TextStyleDefault = sess.TextStyleDefault
-	TextStyleGutter  = sess.TextStyleGutter
-	MakeTextStyle    = sess.MakeTextStyle
-	TextStyleFg      = sess.TextStyleFg
-	TextStyleBg      = sess.TextStyleBg
+	TextStyleDefault = buffer.TextStyleDefault
+	TextStyleGutter  = buffer.TextStyleGutter
+	MakeTextStyle    = buffer.MakeTextStyle
+	TextStyleFg      = buffer.TextStyleFg
+	TextStyleBg      = buffer.TextStyleBg
 )

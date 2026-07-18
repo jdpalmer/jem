@@ -1,5 +1,7 @@
 package session
 
+import "github.com/jdpalmer/jem/buffer"
+
 const MarkCapacity = 32
 
 type Mark struct {
@@ -101,12 +103,12 @@ func markRestore(m *Mark) bool {
 	if wp == nil {
 		return false
 	}
-	lp := BufferGetLine(m.Buffer, m.LineNumber)
+	lp := buffer.GetLine(m.Buffer, m.LineNumber)
 	offset := m.Offset
-	if lp != nil && offset > LineLength(lp) {
-		offset = LineLength(lp)
+	if lp != nil && offset > buffer.LineLength(lp) {
+		offset = buffer.LineLength(lp)
 	}
-	WindowSetCursor(wp, MakeLocation(m.LineNumber, offset))
+	WindowSetCursor(wp, buffer.MakeLocation(m.LineNumber, offset))
 	WindowSetTopLine(wp, m.TopLineNumber)
 	wp.HScroll = m.HScroll
 	wp.DidMove = true

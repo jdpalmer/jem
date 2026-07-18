@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/session"
 )
 
@@ -60,7 +61,7 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	if bp.IsChanged {
 		t.Fatal("buffer should be clean after reload")
 	}
-	line := session.BufferGetLine(bp, 1)
+	line := buffer.GetLine(bp, 1)
 	if line == nil || string(line.Data) != "second" {
 		got := ""
 		if line != nil {
@@ -84,7 +85,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	if !LoadCurrentBuffer(path, nil) {
 		t.Fatal("LoadCurrentBuffer failed")
 	}
-	session.App.CurrentWindow.Cursor = session.MakeLocation(1, 3)
+	session.App.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
 
 	if err := os.WriteFile(path, []byte("alpha\nbeta\ngamma\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -92,7 +93,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(nil, nil, nil)
 
-	line := session.BufferGetLine(bp, 1)
+	line := buffer.GetLine(bp, 1)
 	if line == nil || string(line.Data) != "alpha" {
 		got := ""
 		if line != nil {
@@ -141,7 +142,7 @@ func TestLoadCommandLineFiles(t *testing.T) {
 	if session.App.CurrentBuffer != wp.Buffer {
 		t.Fatal("current buffer should be the first file's buffer")
 	}
-	line := session.BufferGetLine(session.App.CurrentBuffer, 1)
+	line := buffer.GetLine(session.App.CurrentBuffer, 1)
 	if line == nil || string(line.Data) != "a.go" {
 		got := ""
 		if line != nil {
@@ -188,7 +189,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(func(string) bool { return false }, nil, nil)
 
-	line := session.BufferGetLine(bp, 1)
+	line := buffer.GetLine(bp, 1)
 	if line == nil || string(line.Data) != "first" {
 		got := ""
 		if line != nil {

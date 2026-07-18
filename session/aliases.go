@@ -94,34 +94,6 @@ const (
 	UnicodeLimit = term.UnicodeLimit
 )
 
-var (
-	TextStyleDefault = buffer.TextStyleDefault
-	TextStyleGutter  = buffer.TextStyleGutter
-	MakeTextStyle    = buffer.MakeTextStyle
-	TextStyleFg      = buffer.TextStyleFg
-	TextStyleBg      = buffer.TextStyleBg
-)
-
-func MakeLocation(line, offset uint) Location { return buffer.MakeLocation(line, offset) }
-func BufferEOF(bp *Buffer) uint               { return buffer.EOF(bp) }
-func BufferGetLine(bp *Buffer, lineNumber uint) *Line {
-	return buffer.GetLine(bp, lineNumber)
-}
-func LineGetc(lp *Line, n uint) byte { return buffer.LineGetc(lp, n) }
-func LineLength(lp *Line) uint       { return buffer.LineLength(lp) }
-
-func line_first_nonblank(lp *Line) uint { return buffer.LineFirstNonblank(lp) }
-func line_indent_column(lp *Line) uint  { return buffer.LineIndentColumn(lp) }
-func line_first_byte(lp *Line) byte     { return buffer.LineFirstByte(lp) }
-func line_last_byte(lp *Line) byte      { return buffer.LineLastByte(lp) }
-func line_is_blank(lp *Line) bool       { return buffer.LineIsBlank(lp) }
-
-func SyntaxEnsureLine(lp *Line)                 { syntax.SyntaxEnsureLine(lp) }
-func IncrementalReparse(bp *Buffer, start uint) { syntax.IncrementalReparse(bp, start) }
-func SyntaxFindMatchingDelimiter(bp *Buffer, start Location, matchOut *Location) bool {
-	return syntax.FindMatchingDelimiter(bp, start, matchOut)
-}
-
 const (
 	SS_NORMAL       = syntax.SS_NORMAL
 	SS_IDENT        = syntax.SS_IDENT

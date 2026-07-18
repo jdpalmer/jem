@@ -35,8 +35,8 @@ const (
 )
 
 var (
-	MakeTextStyle = session.MakeTextStyle
-	TextStyleBg   = session.TextStyleBg
+	MakeTextStyle = buffer.MakeTextStyle
+	TextStyleBg   = buffer.TextStyleBg
 )
 
 type State struct {
@@ -325,7 +325,7 @@ func searchSwitchBuffer(wp *Window, bp *Buffer, loc Location) {
 }
 
 func bufferSearchStart(bp *Buffer) Location { return Location{Line: 1, Offset: 0} }
-func bufferSearchEnd(bp *Buffer) Location   { return Location{Line: session.BufferEOF(bp), Offset: 0} }
+func bufferSearchEnd(bp *Buffer) Location   { return Location{Line: buffer.EOF(bp), Offset: 0} }
 
 func searchCharsEqual(bc, pc int) bool {
 	if currentState().SearchCaseSensitive {
@@ -341,11 +341,11 @@ func searchReadForward(bp *Buffer, line *uint, offset *uint) (int, bool) {
 	if *line > bp.LineCount {
 		return -1, false
 	}
-	lp := session.BufferGetLine(bp, *line)
+	lp := buffer.GetLine(bp, *line)
 	if lp == nil {
 		return -1, false
 	}
-	if *offset >= session.LineLength(lp) {
+	if *offset >= buffer.LineLength(lp) {
 		*line++
 		*offset = 0
 		return '\n', true
@@ -364,18 +364,18 @@ func searchReadBackward(bp *Buffer, line *uint, offset *uint) (int, bool) {
 			return -1, false
 		}
 		*line--
-		lp := session.BufferGetLine(bp, *line)
+		lp := buffer.GetLine(bp, *line)
 		if lp == nil {
 			return -1, false
 		}
-		*offset = session.LineLength(lp) + 1
+		*offset = buffer.LineLength(lp) + 1
 	}
 	*offset--
-	lp := session.BufferGetLine(bp, *line)
+	lp := buffer.GetLine(bp, *line)
 	if lp == nil {
 		return -1, false
 	}
-	if *offset == session.LineLength(lp) {
+	if *offset == buffer.LineLength(lp) {
 		return '\n', true
 	}
 	return int(lp.Data[*offset]), true
@@ -1009,9 +1009,9 @@ func markMatchStart(wp *Window, patLen int) {
 			off--
 		} else if line > 1 {
 			line--
-			lp := session.BufferGetLine(wp.Buffer, line)
+			lp := buffer.GetLine(wp.Buffer, line)
 			if lp != nil {
-				off = session.LineLength(lp)
+				off = buffer.LineLength(lp)
 			}
 		}
 	}
@@ -1028,7 +1028,7 @@ func checkMatchCase(wp *Window, patLen int) matchCase {
 	if wp == nil || wp.Buffer == nil || patLen == 0 {
 		return matchCaseLower
 	}
-	lp := session.BufferGetLine(wp.Buffer, wp.Cursor.Line)
+	lp := buffer.GetLine(wp.Buffer, wp.Cursor.Line)
 	if lp == nil || wp.Cursor.Offset < uint(patLen) {
 		return matchCaseLower
 	}
