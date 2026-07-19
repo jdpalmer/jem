@@ -1,10 +1,6 @@
 // Package buffer provides the text buffer model for jem.
 package buffer
 
-import "time"
-
-const BufferNameCapacity = 16
-
 type EolMode int
 
 const (
@@ -59,70 +55,6 @@ const (
 	SyntaxDelimAll     SyntaxDelimiterMask = SyntaxDelimParen | SyntaxDelimBracket | SyntaxDelimCurly
 )
 
-type TextStyle uint16
-
-type TermColor uint8
-
-const (
-	TermColorBlack   TermColor = 0
-	TermColorRed     TermColor = 1
-	TermColorGreen   TermColor = 2
-	TermColorYellow  TermColor = 3
-	TermColorBlue    TermColor = 4
-	TermColorMagenta TermColor = 5
-	TermColorCyan    TermColor = 6
-	TermColorWhite   TermColor = 7
-	TermColorDefault TermColor = 16
-
-	TermColorBase03 TermColor = 17
-	TermColorBase02 TermColor = 18
-	TermColorBase01 TermColor = 19
-	TermColorBase00 TermColor = 20
-	TermColorBase0  TermColor = 21
-	TermColorBase1  TermColor = 22
-	TermColorBase2  TermColor = 23
-	TermColorBase3  TermColor = 24
-)
-
-const (
-	TextStyleFgShift   uint16    = 0
-	TextStyleBgShift   uint16    = 5
-	TextStyleColorMask uint16    = 0x001F
-	TextStyleBold      TextStyle = 0x0400
-	TextStyleUnderline TextStyle = 0x0800
-	TextStyleReverse   TextStyle = 0x1000
-)
-
-func MakeTextStyle(fg, bg TermColor, flags TextStyle) TextStyle {
-	return TextStyle((uint16(fg)&TextStyleColorMask)<<TextStyleFgShift |
-		(uint16(bg)&TextStyleColorMask)<<TextStyleBgShift |
-		uint16(flags))
-}
-
-func (style TextStyle) Fg() TermColor {
-	return TermColor((uint16(style) >> TextStyleFgShift) & TextStyleColorMask)
-}
-
-func (style TextStyle) Bg() TermColor {
-	return TermColor((uint16(style) >> TextStyleBgShift) & TextStyleColorMask)
-}
-
-var (
-	TextStyleDefault = TextStyle((uint16(TermColorDefault) << TextStyleFgShift) |
-		(uint16(TermColorDefault) << TextStyleBgShift))
-	TextStyleGutter = TextStyle((uint16(TermColorBase01) << TextStyleFgShift) |
-		(uint16(TermColorBase02) << TextStyleBgShift))
-)
-
-type Location struct {
-	Line   uint
-	Offset uint
-}
-
-func MakeLocation(line, offset uint) Location {
-	return Location{Line: line, Offset: offset}
-}
-
 type SynState struct {
 	DFA     uint8
 	Paren   uint8
@@ -136,76 +68,6 @@ type SyntaxLineSummary struct {
 	CloseOffsets    [3]uint
 	OpenMask        uint8
 	CloseMask       uint8
-}
-
-type Line struct {
-	Data           []byte
-	SyntaxEndState SynState
-	SyntaxSummary  SyntaxLineSummary
-	SyntaxValid    bool
-	RuneCache      []rune
-	WidthCache     []int8
-	SyntaxStyles   []TextStyle
-	CacheValid     bool
-	Metadata       any
-	LangMode       LangMode
-	Buffer         *Buffer
-}
-
-func (lp *Line) Byte(n uint) byte {
-	if lp == nil || n >= uint(len(lp.Data)) {
-		return 0
-	}
-	return lp.Data[n]
-}
-
-func (lp *Line) Len() uint {
-	if lp == nil {
-		return 0
-	}
-	return uint(len(lp.Data))
-}
-
-type Buffer struct {
-	Lines                   []Line
-	LineCount               uint
-	Serial                  uint32
-	SavedUndoSerial         uint32
-	IsChanged               bool
-	IsReadonly              bool
-	EolMode                 EolMode
-	LangMode                LangMode
-	FillCol                 uint32
-	CIndent                 uint32
-	CBrace                  uint32
-	CColonOffset            uint32
-	PyIndent                uint32
-	PyContinuedOffset       uint32
-	WhitespaceCleanup       bool
-	Name                    string
-	FileName                string
-	FileMtime               time.Time
-	DiskChangeNotifiedMtime time.Time
-	Cursor                  Location // last-known cursor; windows own live cursor state
-	Mark                    Location // Line == 0 means unset; otherwise 1-based line index
-}
-
-// EOF returns the location just past the last line (1-based lines).
-// For an empty buffer this is line 1; with N lines it is line N+1.
-func (bp *Buffer) EOF() uint {
-	if bp == nil {
-		return 1
-	}
-	return bp.LineCount + 1
-}
-
-// Line returns line lineNumber (1-based). The pointer is invalidated if
-// bp.Lines is reallocated; prefer line numbers across edits.
-func (bp *Buffer) Line(lineNumber uint) *Line {
-	if bp == nil || lineNumber == 0 || lineNumber > bp.LineCount {
-		return nil
-	}
-	return &bp.Lines[lineNumber-1]
 }
 
 type SyntaxBlock struct {

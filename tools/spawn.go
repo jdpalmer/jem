@@ -4,7 +4,7 @@ package tools
 
 import (
 	"fmt"
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"os"
 	"os/exec"
 	"runtime"
@@ -55,8 +55,8 @@ func SpawnShell(command *string) int {
 		cmd = spawnRunCommand(*command)
 	}
 
-	// Dispatching routes keys to GlobalMinibufKeyCh; clear it during spawn.
-	app.State.Dispatching = false
+	// Keys enqueue to the event bus; clear Dispatching so spawn isn't treated as a prompt.
+	model.State.Dispatching = false
 
 	if !TermFreezeInput() {
 		mbWrite("[spawn unavailable: input reader did not pause]")
@@ -92,7 +92,7 @@ func SpawnShell(command *string) int {
 		}
 	}
 
-	app.State.ScreenDirty = true
+	model.State.ScreenDirty = true
 
 	if runtime.GOOS != "windows" {
 		time.Sleep(2 * time.Second)
@@ -125,8 +125,8 @@ func SpawnShell(command *string) int {
 		mbClear()
 	}
 
-	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
-		if wp := app.State.WINDOWS[i]; wp != nil {
+	for i := 0; i < int(len(model.State.Windows)); i++ {
+		if wp := model.State.Windows[i]; wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
 		}
@@ -152,14 +152,16 @@ func RunSpawnCommand() bool {
 	if runtime.GOOS == "windows" {
 		prompt = "Command: "
 	}
-	command, pr := mbReadStringCap(prompt, "", app.CommandPromptCapacity)
-	return runSpawnAfterPrompt(command, pr)
+	askStringCap(prompt, "", model.CommandPromptCapacity, func(command string, pr model.PromptResult) {
+		_ = runSpawnAfterPrompt(command, pr)
+	})
+	return true
 }
 
 // runSpawnAfterPrompt finishes C-x ! after the minibuffer prompt.
 // Separated so tests can exercise empty/abort guards without interactive input.
-func runSpawnAfterPrompt(command string, pr app.PromptResult) bool {
-	if pr != app.PromptResultYes {
+func runSpawnAfterPrompt(command string, pr model.PromptResult) bool {
+	if pr != model.PromptResultYes {
 		return false
 	}
 	if command == "" {
@@ -173,6 +175,6 @@ func runSpawnAfterPrompt(command string, pr app.PromptResult) bool {
 	}
 
 	rc := SpawnShell(&command)
-	app.State.ScreenDirty = true
+	model.State.ScreenDirty = true
 	return rc != -1
 }

@@ -4,13 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/completion"
-	"github.com/jdpalmer/jem/edit"
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/event"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/view"
 )
 
 // TestEditor is a headless editor instance for integration tests.
@@ -24,12 +23,12 @@ func NewTestEditor(t *testing.T) *TestEditor {
 	t.Helper()
 	e := resetTestEditorState()
 	VarsInit()
-	ui.DisplayInitHeadless(24, 80)
-	KeybindingsInit()
-	backgroundJobsInit()
+	view.DisplayInitHeadless(24, 80)
+	InitCommands()
+	tools.InitBackgroundJobs()
 	EditorInit("test")
-	if app.State.CurrentWindow != nil {
-		app.State.CurrentWindow.Height = uint32(term.Rows())
+	if model.State.CurrentWindow != nil {
+		model.State.CurrentWindow.Height = uint32(term.Rows())
 	}
 	return &TestEditor{t: t, e: e}
 }
@@ -37,18 +36,21 @@ func NewTestEditor(t *testing.T) *TestEditor {
 func resetTestEditorState() *Editor {
 	e := New()
 	e.Activate()
-	edit.ResetKillForTests()
-	completion.ClearPending()
+	model.ResetKillForTests()
+	ClearPending()
+	clearListeners()
+	// Drain any leftover events from a prior test.
+	event.DrainForTest()
 	tools.ResetBackgroundJobsForTests()
 	return e
 }
 
 func (te *TestEditor) BP() *buffer.Buffer {
-	return app.State.CurrentBuffer
+	return model.State.CurrentBuffer
 }
 
-func (te *TestEditor) WP() *app.Window {
-	return app.State.CurrentWindow
+func (te *TestEditor) WP() *model.Window {
+	return model.State.CurrentWindow
 }
 
 // LoadText replaces buffer content and parks the cursor at end-of-buffer.
@@ -122,16 +124,16 @@ func (te *TestEditor) SetLangMode(mode buffer.LangMode) {
 	bp.LangMode = mode
 }
 
-// Key dispatches one editor key through the normal command path.
+// Key dispatches one editor key through the event Handle path.
 func (te *TestEditor) Key(k uint32) bool {
-	return Execute(int(k), false, 1)
+	return Handle(model.State, event.KeyEvent{Code: k})
 }
 
 // Click sets screen mouse coordinates and dispatches a left-click command.
 func (te *TestEditor) Click(row, col uint32) {
 	te.t.Helper()
-	app.State.Mouse.Row = row
-	app.State.Mouse.Col = col
+	model.State.Mouse.Row = row
+	model.State.Mouse.Col = col
 	if !Execute(int(term.MouseLeft), false, 1) {
 		te.t.Fatalf("mouse left click at (%d,%d) failed", row, col)
 	}
@@ -168,8 +170,8 @@ func (te *TestEditor) Press(chords ...string) {
 
 // Cmd runs a command with undo wrapping like interactive dispatch.
 func (te *TestEditor) Cmd(fn CommandFunc, f bool, n int) bool {
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	return fn(f, n)
 }
 
@@ -183,7 +185,7 @@ func (te *TestEditor) Undo() {
 func (te *TestEditor) ForgetUndo() {
 	bp := te.BP()
 	if bp != nil {
-		UndoForgetBuffer(bp)
+		model.ForgetBuffer(bp)
 	}
 }
 
@@ -193,8 +195,8 @@ func (te *TestEditor) Edit(begin, end buffer.Location, text string) {
 	if bp == nil {
 		te.t.Fatal("no buffer")
 	}
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	data := []byte(text)
 	if !bufferSetText(bp, begin, end, data, nil, false) {
 		te.t.Fatalf("bufferSetText(%q) failed", text)
@@ -233,8 +235,8 @@ func (te *TestEditor) ExpectChanged(want bool) {
 // NewlineIndent presses Enter once with undo grouping and returns the new column.
 func (te *TestEditor) NewlineIndent() uint {
 	te.t.Helper()
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	if !CmdModeNewlineAndIndent(false, 1) {
 		te.t.Fatal("newline-and-indent failed")
 	}

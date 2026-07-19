@@ -1,12 +1,13 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/term"
 	"testing"
+
+	"github.com/jdpalmer/jem/term"
 )
 
 func TestApplyCtlxPrefix(t *testing.T) {
-	KeybindingsInit()
+	InitCommands()
 
 	if got := applyCtlxPrefix('b'); got != term.CTLX|'B' {
 		t.Fatalf("C-x b: got 0x%x, want CTLX|B (0x%x)", got, term.CTLX|'B')

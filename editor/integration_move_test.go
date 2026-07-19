@@ -1,9 +1,10 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/term"
 	"testing"
+
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/term"
 )
 
 func TestCmdMove(t *testing.T) {
@@ -38,12 +39,12 @@ func TestCmdMove(t *testing.T) {
 
 	te.LoadText("aaa\nbbb\nccc")
 	te.SetCursor(1, 0)
-	app.State.MovementState = app.CmdStateNone
+	model.State.MovementState = model.CmdStateNone
 	te.Key(term.KeyDown)
 	te.ExpectCursor(2, 0)
 
 	te.SetCursor(3, 0)
-	app.State.MovementState = app.CmdStateNone
+	model.State.MovementState = model.CmdStateNone
 	te.Key(term.KeyUp)
 	te.ExpectCursor(2, 0)
 }

@@ -1,8 +1,10 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/buffer"
 	"testing"
+
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/buffer"
 )
 
 func TestUndoContent(t *testing.T) {
@@ -35,7 +37,7 @@ func TestUndoCleanState(t *testing.T) {
 	te := NewTestEditor(t)
 
 	te.LoadText("hello")
-	UndoNoteBufferSaved(te.BP())
+	model.NoteBufferSaved(te.BP())
 	te.ExpectChanged(false)
 
 	te.Edit(buffer.MakeLocation(1, 5), buffer.MakeLocation(1, 5), " world")

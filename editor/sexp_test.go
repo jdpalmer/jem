@@ -3,22 +3,22 @@ package editor
 import (
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func setupSexpTest(text string, lang buffer.LangMode, line, offset uint) (*app.Window, *buffer.Buffer) {
-	app.Reset()
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+func setupSexpTest(text string, lang buffer.LangMode, line, offset uint) (*model.Window, *buffer.Buffer) {
+	model.Reset()
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp == nil {
 		return nil, nil
 	}
 	bp.AppendLineBytes([]byte(text))
 	bp.LangMode = lang
-	wp := &app.Window{Buffer: bp, Cursor: buffer.MakeLocation(line, offset)}
-	app.State.CurrentWindow = wp
-	app.State.CurrentBuffer = bp
-	app.State.WINDOWS = []*app.Window{wp}
+	wp := &model.Window{Buffer: bp, Cursor: buffer.MakeLocation(line, offset)}
+	model.State.CurrentWindow = wp
+	model.State.CurrentBuffer = bp
+	model.State.Windows = []*model.Window{wp}
 	return wp, bp
 }
 

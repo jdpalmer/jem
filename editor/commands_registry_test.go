@@ -3,7 +3,7 @@ package editor
 import "testing"
 
 func TestCommandRegistryDocs(t *testing.T) {
-	RegisterCommands()
+	InitCommands()
 	for i := range commandTable {
 		cmd := &commandTable[i]
 		if cmd.Name == "" {

@@ -3,13 +3,14 @@ package editor
 import (
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/term"
 )
 
 func resetMacroState() {
-	app.State.EditorMacroState = app.EditorMacroState{}
+	model.State.EditorMacroState = model.EditorMacroState{}
 	macroInit()
 }
 
@@ -29,37 +30,33 @@ func TestMacroRecording(t *testing.T) {
 		t.Fatal("skip macro execute while recording failed")
 	}
 	if !macroRecordKey(int(term.CTLX|')'), false, 1) {
-		t.Fatal("record macro terminator failed")
+		t.Fatal("skip macro end while recording failed")
 	}
 	if !CmdMacroEnd(false, 1) {
 		t.Fatal("macro end failed")
 	}
 
-	if app.State.Keys[0] != int32('x') {
-		t.Fatalf("keys[0] = %d, want %d", app.State.Keys[0], 'x')
+	if len(model.State.Macro) != 2 {
+		t.Fatalf("macro len = %d, want 2", len(model.State.Macro))
 	}
-	if app.State.Keys[1] != int32(term.CTL|'U') {
-		t.Fatalf("keys[1] = %d, want CTL|U", app.State.Keys[1])
+	s0, ok := model.State.Macro[0].(event.MacroStepEvent)
+	if !ok || s0.Code != 'x' || s0.F {
+		t.Fatalf("macro[0] = %#v, want MacroStepEvent{'x'}", model.State.Macro[0])
 	}
-	if app.State.Keys[2] != 3 {
-		t.Fatalf("keys[2] = %d, want 3", app.State.Keys[2])
+	s1, ok := model.State.Macro[1].(event.MacroStepEvent)
+	if !ok || s1.Code != 'y' || !s1.F || s1.N != 3 {
+		t.Fatalf("macro[1] = %#v, want MacroStepEvent{'y', F, 3}", model.State.Macro[1])
 	}
-	if app.State.Keys[3] != int32('y') {
-		t.Fatalf("keys[3] = %d, want %d", app.State.Keys[3], 'y')
-	}
-	if app.State.Keys[4] != int32(term.CTLX|')') {
-		t.Fatalf("keys[4] = %d, want CTLX|)", app.State.Keys[4])
-	}
-	if app.State.Keys[5] != 0 {
-		t.Fatalf("keys[5] = %d, want 0", app.State.Keys[5])
+	if model.State.IsRecording() {
+		t.Fatal("still recording after end")
 	}
 }
 
 func TestMacroPlayback(t *testing.T) {
 	resetMacroState()
 	EditorInit("test")
-	bp := app.State.CurrentBuffer
-	wp := app.State.CurrentWindow
+	bp := model.State.CurrentBuffer
+	wp := model.State.CurrentWindow
 	if bp == nil || wp == nil {
 		t.Fatal("editor init failed")
 	}
@@ -70,9 +67,6 @@ func TestMacroPlayback(t *testing.T) {
 	}
 	if !macroRecordKey(int('a'), false, 1) {
 		t.Fatal("record key failed")
-	}
-	if !macroRecordKey(int(term.CTLX|')'), false, 1) {
-		t.Fatal("record terminator failed")
 	}
 	if !CmdMacroEnd(false, 1) {
 		t.Fatal("macro end failed")
@@ -92,5 +86,21 @@ func TestMacroPlayback(t *testing.T) {
 	line = bp.Line(1)
 	if line == nil || string(line.Data) != "aaaa" {
 		t.Fatalf("after repeat playback got %q, want %q", string(line.Data), "aaaa")
+	}
+}
+
+func TestMacroPromptReply(t *testing.T) {
+	resetMacroState()
+	model.State.Macro = []event.Event{
+		event.PromptReplyEvent{Text: "hello"},
+	}
+	model.State.PlayPos = 0
+
+	text, pr, ok := model.TakeMacroPromptReply()
+	if !ok || pr != model.PromptResultYes || text != "hello" {
+		t.Fatalf("TakeMacroPromptReply = %q %v %v", text, pr, ok)
+	}
+	if model.State.PlayPos != 1 {
+		t.Fatalf("PlayPos = %d, want 1", model.State.PlayPos)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 	"io"
 	"os"
@@ -202,10 +202,10 @@ func compileFillBuffer(bp *buffer.Buffer, command, stdout, stderr string, exitCo
 }
 
 func compileEnsureBuffer() *buffer.Buffer {
-	if bp := app.BufferFind(CompileBufferName); bp != nil {
+	if bp := model.BufferFind(CompileBufferName); bp != nil {
 		return bp
 	}
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp == nil {
 		return nil
 	}
@@ -272,24 +272,25 @@ func readProcessStream(r io.Reader, max int) (string, bool) {
 
 // RunCompile runs a shell build command and captures output in *compile*.
 func RunCompile() bool {
-	command, pr := mbReadString("Compile: ", compileLastCommand)
-	if pr != app.PromptResultYes {
-		return false
-	}
-	if command == "" {
-		mbWrite("[empty compile command]")
-		return false
-	}
-	mbHistoryAdd(command)
-	compileLastCommand = command
-
-	return StartBackgroundCompile(command)
+	askString("Compile: ", compileLastCommand, func(command string, pr model.PromptResult) {
+		if pr != model.PromptResultYes {
+			return
+		}
+		if command == "" {
+			mbWrite("[empty compile command]")
+			return
+		}
+		mbHistoryAdd(command)
+		compileLastCommand = command
+		_ = StartBackgroundCompile(command)
+	})
+	return true
 }
 
 // VisitCompileDiag jumps to the diagnostic at the current line in *compile*.
 func VisitCompileDiag() bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.Name != CompileBufferName {
 		return false
 	}

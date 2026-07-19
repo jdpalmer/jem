@@ -1,13 +1,15 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/modeactions"
+	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/mode"
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/syntax"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/view"
 )
 
 // Services is the editor shell's callback façade for leaf packages.
@@ -16,12 +18,13 @@ import (
 //
 // Set once at init via EnsureServices / EditorInit. Not safe for concurrent use.
 type Services struct {
-	App    app.Hooks
-	Buffer buffer.EditSession
+	App    model.Hooks
+	Buffer buffer.Hooks
 	Term   term.Hooks
-	Modes  modeactions.Hooks
+	Modes  mode.Hooks
 	Tools  tools.Hooks
-	UI     ui.Hooks
+	View   view.Hooks
+	Search search.Hooks
 }
 
 // Svc is the process-wide services table after EnsureServices or EditorInit.
@@ -30,35 +33,35 @@ var Svc *Services
 // buildServices constructs the full callback table. Shared helpers (minibuffer,
 // mark push, switch buffer, abort) are bound once and reused across packages.
 func buildServices() *Services {
-	mbWriteFn := ui.MBWrite
-	switchBufferFn := editorSwitchBuffer
+	mbWriteFn := view.MBWrite
+	switchBufferFn := model.SwitchBuffer
 	abortFn := func() { CmdAbort(false, 1) }
 
 	return &Services{
-		App: app.Hooks{
-			UndoForgetBuffer: UndoForgetBuffer,
+		App: model.Hooks{
+			UndoForgetBuffer: model.ForgetBuffer,
 			SwitchBuffer:     switchBufferFn,
 		},
-		Buffer: buffer.EditSession{
-			NoteEdit:                    app.NoteBufferEdit,
-			AdjustLocationsAfterReplace: app.AdjustLocationsAfterReplace,
+		Buffer: buffer.Hooks{
+			NoteEdit:                    model.NoteBufferEdit,
+			AdjustLocationsAfterReplace: model.AdjustLocationsAfterReplace,
 			ReparseFrom:                 syntax.IncrementalReparse,
 		},
 		Term: term.Hooks{
 			OnMouse: func(col, row int) {
-				app.State.Mouse.Col = uint32(col)
-				app.State.Mouse.Row = uint32(row)
+				model.State.Mouse.Col = uint32(col)
+				model.State.Mouse.Row = uint32(row)
 			},
 			OnPaste: func(paste []byte) {
-				ui.QueuePaste(paste)
+				event.Enqueue(event.PasteEvent{Data: paste})
 			},
 			OnResume: func() {
 				if term.RefreshSize() {
-					ui.DisplayInitHeadless(term.Rows(), term.Cols())
+					view.DisplayInitHeadless(term.Rows(), term.Cols())
 				}
 			},
 		},
-		Modes: modeactions.Hooks{
+		Modes: mode.Hooks{
 			Message: func(msg string) {
 				mbWriteFn("%s", msg)
 			},
@@ -74,7 +77,7 @@ func buildServices() *Services {
 				return k, ok
 			},
 		},
-		UI: ui.Hooks{
+		View: view.Hooks{
 			ApplyCtlxPrefix: applyCtlxPrefix,
 			RunCommandByName: func(name string) bool {
 				cmd := commandByName(name)
@@ -84,28 +87,59 @@ func buildServices() *Services {
 				return cmd.Fn(false, 1)
 			},
 			Abort:                       abortFn,
-			GitLineDiff:                 gitLineDiff,
-			GitModelineText:             gitModelineText,
+			GitLineDiff:                 tools.GitLineDiffAt,
+			GitModelineText:             tools.GitModelineText,
 			MacroRecordMinibufferResult: macroRecordMinibufferResult,
 			CommandsProvider:            commandsProvider,
 			BuildCommandList:            buildCommandList,
+			BeginMinibuf:                BeginMinibuf,
+			EndMinibuf:                  EndMinibuf,
+			WaitKey:                     WaitKey,
+			AskString: func(prompt, initial string, onDone func(string, model.PromptResult)) {
+				AskString(prompt, initial, onDone)
+			},
+			AskStringCap: func(prompt, initial string, capacity int, onDone func(string, model.PromptResult)) {
+				AskStringCap(prompt, initial, capacity, onDone)
+			},
+			AskFuzzy: func(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, onDone func(string, model.PromptResult)) {
+				AskFuzzy(prompt, provider, providerCtx, providerCount, onDone)
+			},
+			AskFuzzyEx: func(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter model.MbMatchFormatter, displayCtx any, onDone func(string, model.PromptResult)) {
+				AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
+			},
+			AskFilename: func(prompt, initial string, onDone func(string, model.PromptResult)) {
+				AskFilename(prompt, initial, onDone)
+			},
+			AskChoose: func(prompt string, ctx any, labelFn model.MLChoiceLabelFn, count uint8, defaultIdx uint8, onDone func(int16)) {
+				AskChoose(prompt, ctx, labelFn, count, defaultIdx, onDone)
+			},
+		},
+		Search: search.Hooks{
+			PushKeySession: PushKeySession,
 		},
 	}
 }
 
-// installServices copies Svc (or s) into each leaf package's PackageHooks /
-// EditSession tables.
+// installServices copies Svc (or s) into each leaf package's PackageHooks.
 func installServices(s *Services) {
 	if s == nil {
 		return
 	}
-	app.PackageHooks = s.App
-	buffer.SetEditSession(s.Buffer)
+	model.PackageHooks = s.App
+	buffer.PackageHooks = s.Buffer
 	term.PackageHooks = s.Term
-	modeactions.PackageHooks = s.Modes
+	mode.PackageHooks = s.Modes
 	tools.PackageHooks = s.Tools
-	ui.PackageHooks = s.UI
+	view.PackageHooks = s.View
+	search.PackageHooks = s.Search
 	syncSyntaxPalette()
+}
+
+func syncSyntaxPalette() {
+	syntax.PackagePalette = syntax.Palette{
+		NormalStyle:  model.State.Theme.NormalStyle,
+		CommentStyle: model.State.Theme.CommentStyle,
+	}
 }
 
 // EnsureServices builds Svc if needed and installs all package callbacks.

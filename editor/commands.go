@@ -3,9 +3,9 @@ package editor
 import (
 	"strings"
 
-	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/view"
 )
 
 // commands.go — command palette and buffer switching
@@ -26,149 +26,132 @@ func commandsProvider(ctx any, idx uint) []byte {
 }
 
 // CmdCommandPalette opens the command palette (M-x) and executes the chosen command.
-// CmdCommandPalette opens the command palette (M-x) and executes the chosen command.
 func CmdCommandPalette(f bool, n int) bool {
 	_ = f
 	_ = n
-	// Build provider list
 	names := buildCommandList()
 	if len(names) == 0 {
-		ui.MBWrite("[no commands]")
+		view.MBWrite("[no commands]")
 		return false
 	}
-	label, pr := ui.MBReadFuzzyListString("M-x: ", commandsProvider, names, uint(len(names)))
-	if pr != app.PromptResultYes {
-		return false
-	}
-	if label == "" {
-		return false
-	}
-	cmdName := strings.ToLower(label)
-	if cmdFn, ok := commandNameMap[cmdName]; ok {
-		cmdFn(false, 1)
-		return true
-	}
-	ui.MBWrite("[unknown command: %s]", label)
-	return false
+	AskFuzzy("M-x: ", commandsProvider, names, uint(len(names)), func(label string, pr model.PromptResult) {
+		if pr != model.PromptResultYes || label == "" {
+			return
+		}
+		cmdName := strings.ToLower(label)
+		if cmdFn, ok := commandNameMap[cmdName]; ok {
+			cmdFn(false, 1)
+			return
+		}
+		view.MBWrite("[unknown command: %s]", label)
+	})
+	return true
 }
 
-// CmdDescribeCommand shows the name and description of a selected command.
 // CmdDescribeCommand shows the name and description of a selected command.
 func CmdDescribeCommand(f bool, n int) bool {
 	_ = f
 	_ = n
 	names := buildCommandList()
 	if len(names) == 0 {
-		ui.MBWrite("[no commands]")
+		view.MBWrite("[no commands]")
 		return false
 	}
-	label, pr := ui.MBReadFuzzyListString("Describe: ", commandsProvider, names, uint(len(names)))
-	if pr != app.PromptResultYes {
-		return false
-	}
-	if label == "" {
-		return false
-	}
-	if cmd := commandByName(label); cmd != nil && cmd.Doc != "" {
-		ui.MBWrite("%s: %s", cmd.Name, cmd.Doc)
-		return true
-	}
-	ui.MBWrite("Command: %s", label)
+	AskFuzzy("Describe: ", commandsProvider, names, uint(len(names)), func(label string, pr model.PromptResult) {
+		if pr != model.PromptResultYes || label == "" {
+			return
+		}
+		if cmd := commandByName(label); cmd != nil && cmd.Doc != "" {
+			view.MBWrite("%s: %s", cmd.Name, cmd.Doc)
+			return
+		}
+		view.MBWrite("Command: %s", label)
+	})
 	return true
 }
 
-// CmdKillBuffer kills/releases the current buffer.
-// CmdKillBuffer kills/releases the current buffer.
+// CmdKillBuffer kills/releases the current buffer (with yes/no confirmation).
 func CmdKillBuffer(f bool, n int) bool {
 	_ = f
 	// If numeric argument provided, kill that buffer (1-based index)
 	if n > 0 {
-		if n <= len(app.State.Buffers) {
-			bp := app.State.Buffers[n-1]
+		if n <= len(model.State.Buffers) {
+			bp := model.State.Buffers[n-1]
 			if bp == nil {
-				ui.MBWrite("[no such buffer]")
+				view.MBWrite("[no such buffer]")
 				return false
 			}
-			// confirm
-			if ui.MBYesNo("Kill buffer?") != app.PromptResultYes {
-				ui.MBWrite("[aborted]")
-				return false
-			}
-			app.BufferRelease(bp)
-			ui.MBWrite("[buffer killed]")
+			AskYesNo("Kill buffer?", func() {
+				model.BufferRelease(bp)
+				view.MBWrite("[buffer killed]")
+			}, func() {
+				view.MBWrite("[aborted]")
+			})
 			return true
 		}
-		ui.MBWrite("[no such buffer]")
+		view.MBWrite("[no such buffer]")
 		return false
 	}
 
-	// default: kill current buffer with confirmation
-	bp := app.State.CurrentBuffer
+	bp := model.State.CurrentBuffer
 	if bp == nil {
-		ui.MBWrite("[no buffer to kill]")
+		view.MBWrite("[no buffer to kill]")
 		return false
 	}
-	if ui.MBYesNo("Kill current buffer?") != app.PromptResultYes {
-		ui.MBWrite("[aborted]")
-		return false
-	}
-	app.BufferRelease(bp)
-	ui.MBWrite("[buffer killed]")
+	AskYesNo("Kill current buffer?", func() {
+		model.BufferRelease(bp)
+		view.MBWrite("[buffer killed]")
+	}, func() {
+		view.MBWrite("[aborted]")
+	})
 	return true
 }
 
-// CmdKillBufferFuzzy prompts the user with a fuzzy list of buffers and kills the
-// chosen buffer after confirmation.
-// CmdKillBufferFuzzy prompts the user with a fuzzy list of buffers and kills the
-// chosen buffer after confirmation.
+// CmdKillBufferFuzzy prompts with a fuzzy list of buffers and kills after confirmation.
 func CmdKillBufferFuzzy(f bool, n int) bool {
 	_ = f
 	_ = n
-	names := make([]string, 0, len(app.State.Buffers))
-	for i := 0; i < len(app.State.Buffers); i++ {
-		bp := app.State.Buffers[i]
+	names := make([]string, 0, len(model.State.Buffers))
+	for i := 0; i < len(model.State.Buffers); i++ {
+		bp := model.State.Buffers[i]
 		if bp == nil {
 			continue
 		}
 		names = append(names, bp.Name)
 	}
 	if len(names) == 0 {
-		ui.MBWrite("[no buffers]")
+		view.MBWrite("[no buffers]")
 		return false
 	}
-	label, pr := ui.MBReadFuzzyListString("Kill buffer: ", commandsProvider, names, uint(len(names)))
-	if pr != app.PromptResultYes {
-		return false
-	}
-	if label == "" {
-		return false
-	}
-	// find buffer by name
-	for i := 0; i < len(app.State.Buffers); i++ {
-		bp := app.State.Buffers[i]
-		if bp == nil {
-			continue
+	AskFuzzy("Kill buffer: ", commandsProvider, names, uint(len(names)), func(label string, pr model.PromptResult) {
+		if pr != model.PromptResultYes || label == "" {
+			return
 		}
-		if strings.EqualFold(bp.Name, label) {
-			if ui.MBYesNo("Kill buffer?") != app.PromptResultYes {
-				ui.MBWrite("[aborted]")
-				return false
+		for i := 0; i < len(model.State.Buffers); i++ {
+			bp := model.State.Buffers[i]
+			if bp == nil {
+				continue
 			}
-			app.BufferRelease(bp)
-			ui.MBWrite("[buffer killed]")
-			return true
+			if strings.EqualFold(bp.Name, label) {
+				AskYesNo("Kill buffer?", func() {
+					model.BufferRelease(bp)
+					view.MBWrite("[buffer killed]")
+				}, func() {
+					view.MBWrite("[aborted]")
+				})
+				return
+			}
 		}
-	}
-	ui.MBWrite("[buffer not found: %s]", label)
-	return false
+		view.MBWrite("[buffer not found: %s]", label)
+	})
+	return true
 }
 
 // pickBufferList returns the active buffers in editor order.
-// pickBufferList returns the active buffers in editor order.
 func pickBufferList() []*buffer.Buffer {
-	list := make([]*buffer.Buffer, 0, len(app.State.Buffers))
-	for i := 0; i < len(app.State.Buffers); i++ {
-		if bp := app.State.Buffers[i]; bp != nil {
+	list := make([]*buffer.Buffer, 0, len(model.State.Buffers))
+	for i := 0; i < len(model.State.Buffers); i++ {
+		if bp := model.State.Buffers[i]; bp != nil {
 			list = append(list, bp)
 		}
 	}
@@ -184,8 +167,8 @@ func bufferChoiceLabel(ctx any, idx uint8) []byte {
 }
 
 func findBufferByLabel(label string) *buffer.Buffer {
-	for i := 0; i < len(app.State.Buffers); i++ {
-		bp := app.State.Buffers[i]
+	for i := 0; i < len(model.State.Buffers); i++ {
+		bp := model.State.Buffers[i]
 		if bp == nil {
 			continue
 		}
@@ -196,16 +179,23 @@ func findBufferByLabel(label string) *buffer.Buffer {
 	return nil
 }
 
-// CmdUseBuffer switches to a buffer. With a universal argument (f true, n > 0),
-// select the nth buffer (1-based) directly. Otherwise show a horizontal picker (C-x b).
+func switchToBuffer(bp *buffer.Buffer) {
+	if bp == nil {
+		return
+	}
+	macroRecordBufferName(bp)
+	model.SwitchBuffer(bp)
+	view.DisplayUpdate()
+}
+
 // CmdUseBuffer switches to a buffer. With a universal argument (f true, n > 0),
 // select the nth buffer (1-based) directly. Otherwise show a horizontal picker (C-x b).
 func CmdUseBuffer(f bool, n int) bool {
 	if f && n > 0 {
-		if n <= len(app.State.Buffers) {
-			bp := app.State.Buffers[n-1]
+		if n <= len(model.State.Buffers) {
+			bp := model.State.Buffers[n-1]
 			if bp != nil {
-				editorSwitchBuffer(bp)
+				model.SwitchBuffer(bp)
 				return true
 			}
 		}
@@ -214,44 +204,38 @@ func CmdUseBuffer(f bool, n int) bool {
 
 	buffers := pickBufferList()
 	if len(buffers) == 0 {
-		ui.MBWrite("[no buffers]")
+		view.MBWrite("[no buffers]")
 		return false
 	}
 
-	var bp *buffer.Buffer
-	if app.State.IsPlaying() {
-		label, pr := ui.MBReadStringCap("buffer.Buffer: ", "", app.BufferNameCapacity)
-		if pr != app.PromptResultYes {
-			return false
-		}
-		if label == "" {
-			return false
-		}
-		bp = findBufferByLabel(label)
-		if bp == nil {
-			ui.MBWrite("[no such buffer]")
-			return false
-		}
-	} else {
-		defaultIdx := uint8(0)
-		if len(buffers) > 1 {
-			defaultIdx = 1
-		}
-		sel := ui.MBChoose("buffer.Buffer: ", buffers, bufferChoiceLabel, uint8(len(buffers)), defaultIdx)
-		if sel == -2 {
-			CmdAbort(false, 1)
-			return false
-		}
-		if sel < 0 {
-			return false
-		}
-		bp = buffers[sel]
+	if model.State.IsPlaying() {
+		AskStringCap("buffer.Buffer: ", "", model.BufferNameCapacity, func(label string, pr model.PromptResult) {
+			if pr != model.PromptResultYes || label == "" {
+				return
+			}
+			bp := findBufferByLabel(label)
+			if bp == nil {
+				view.MBWrite("[no such buffer]")
+				return
+			}
+			switchToBuffer(bp)
+		})
+		return true
 	}
 
-	macroRecordBufferName(bp)
-	editorSwitchBuffer(bp)
-	ui.DisplayUpdate()
+	defaultIdx := uint8(0)
+	if len(buffers) > 1 {
+		defaultIdx = 1
+	}
+	AskChoose("buffer.Buffer: ", buffers, bufferChoiceLabel, uint8(len(buffers)), defaultIdx, func(sel int16) {
+		if sel == -2 {
+			CmdAbort(false, 1)
+			return
+		}
+		if sel < 0 {
+			return
+		}
+		switchToBuffer(buffers[sel])
+	})
 	return true
 }
-
-// CmdBackToIndentation moves point to the first non-blank character on the line.

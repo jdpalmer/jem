@@ -1,8 +1,9 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/buffer"
 	"testing"
+
+	"github.com/jdpalmer/jem/buffer"
 )
 
 func TestCNewlineIndent(t *testing.T) {

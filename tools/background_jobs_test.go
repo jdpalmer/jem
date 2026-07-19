@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jdpalmer/jem/app"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/model"
 )
 
 func TestGrepProjectSearchCancellation(t *testing.T) {
@@ -35,19 +36,38 @@ func TestGrepProjectSearchCancellation(t *testing.T) {
 	}
 }
 
+func waitJobDone(t *testing.T) BackgroundJobDone {
+	t.Helper()
+	select {
+	case e := <-event.Chan():
+		jd, ok := e.(event.JobDoneEvent)
+		if !ok {
+			t.Fatalf("expected JobDoneEvent, got %T", e)
+		}
+		done, ok := jd.Raw.(BackgroundJobDone)
+		if !ok {
+			t.Fatalf("JobDoneEvent.Raw = %T, want BackgroundJobDone", jd.Raw)
+		}
+		return done
+	case <-time.After(5 * time.Second):
+		t.Fatal("job timed out")
+		return BackgroundJobDone{}
+	}
+}
+
 func TestBackgroundJobGrepCompletion(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	app.Reset()
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
-	wp := app.WindowCreate()
-	app.WindowSelect(wp)
-	app.SetCurrentBuffer(bp)
+	model.Reset()
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
+	wp := model.WindowCreate()
+	model.WindowSelect(wp)
+	model.SetCurrentBuffer(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{
 		SwitchBuffer: func(next *buffer.Buffer) {
-			app.SetCurrentBuffer(next)
-			if cw := app.State.CurrentWindow; cw != nil {
+			model.SetCurrentBuffer(next)
+			if cw := model.State.CurrentWindow; cw != nil {
 				cw.Buffer = next
 			}
 		},
@@ -65,17 +85,13 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 		t.Fatal("expected active grep job")
 	}
 
-	select {
-	case done := <-BackgroundJobDoneChan():
-		HandleBackgroundJobDone(done)
-	case <-time.After(5 * time.Second):
-		t.Fatal("grep job timed out")
-	}
+	done := waitJobDone(t)
+	HandleBackgroundJobDone(done)
 
 	if BackgroundJobRunning() {
 		t.Fatal("job still marked active after completion")
 	}
-	if got := app.BufferFind(GrepBufferName); got == nil {
+	if got := model.BufferFind(GrepBufferName); got == nil {
 		t.Fatal("grep buffer not created")
 	}
 }
@@ -83,11 +99,11 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 func TestBackgroundJobCancel(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	app.Reset()
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
-	wp := app.WindowCreate()
-	app.WindowSelect(wp)
-	app.SetCurrentBuffer(bp)
+	model.Reset()
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
+	wp := model.WindowCreate()
+	model.WindowSelect(wp)
+	model.SetCurrentBuffer(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{}
 
@@ -109,13 +125,9 @@ func TestBackgroundJobCancel(t *testing.T) {
 		t.Fatal("cancel request failed")
 	}
 
-	select {
-	case done := <-BackgroundJobDoneChan():
-		if !done.Cancelled {
-			t.Fatalf("expected cancelled result, got %+v", done)
-		}
-		HandleBackgroundJobDone(done)
-	case <-time.After(5 * time.Second):
-		t.Fatal("cancelled grep job timed out")
+	done := waitJobDone(t)
+	if !done.Cancelled {
+		t.Fatalf("expected cancelled result, got %+v", done)
 	}
+	HandleBackgroundJobDone(done)
 }

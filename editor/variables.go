@@ -3,12 +3,13 @@ package editor
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jdpalmer/jem/app"
-	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/ui"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/view"
 )
 
 // variables.go — editor variables (translation of src/variables.c)
@@ -35,28 +36,28 @@ var varTable = []variable{
 	{
 		name: "theme-mode",
 		doc:  "Editor palette mode: 0 dark, 1 light.",
-		min:  0, max: uint32(app.ThemeLight), local: false,
+		min:  0, max: uint32(model.ThemeLight), local: false,
 		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
-			return uint32(app.State.Theme.Mode)
+			return uint32(model.State.Theme.Mode)
 		},
 		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
-			app.State.Theme.Mode = app.ThemeMode(v)
+			model.State.Theme.Mode = model.ThemeMode(v)
 		},
 		onChange: configThemeChanged,
 	},
 	{
 		name: "search-scope",
 		doc:  "Search scope: 0 current buffer, 1 all buffers.",
-		min:  0, max: uint32(app.SearchScopeAllBuffers), local: false,
+		min:  0, max: uint32(model.SearchScopeAllBuffers), local: false,
 		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
-			return uint32(app.State.SearchScopeSetting)
+			return uint32(model.State.SearchScopeSetting)
 		},
 		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
-			app.State.SearchScopeSetting = app.SearchScopeMode(v)
+			model.State.SearchScopeSetting = model.SearchScopeMode(v)
 		},
 		onChange: configSearchScopeChanged,
 	},
@@ -73,11 +74,11 @@ var varTable = []variable{
 		min:  0, max: 1, local: false,
 		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
-			return boolToU32(app.State.StartupQuote)
+			return boolToU32(model.State.StartupQuote)
 		},
 		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
-			app.State.StartupQuote = v != 0
+			model.State.StartupQuote = v != 0
 		},
 	},
 	{
@@ -86,11 +87,11 @@ var varTable = []variable{
 		min:  0, max: 1, local: false,
 		read: func(bp *buffer.Buffer) uint32 {
 			_ = bp
-			return boolToU32(app.State.AutoRevertMode)
+			return boolToU32(model.State.AutoRevertMode)
 		},
 		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
-			app.State.AutoRevertMode = v != 0
+			model.State.AutoRevertMode = v != 0
 		},
 	},
 	{
@@ -138,10 +139,10 @@ func boolToU32(b bool) uint32 {
 }
 
 func configThemeChanged() {
-	ui.ThemeUpdate()
+	view.ThemeUpdate()
 	syncSyntaxPalette()
-	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
-		wp := app.State.WINDOWS[i]
+	for i := 0; i < int(len(model.State.Windows)); i++ {
+		wp := model.State.Windows[i]
 		if wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
@@ -150,8 +151,8 @@ func configThemeChanged() {
 }
 
 func configSearchScopeChanged() {
-	for i := 0; i < int(len(app.State.WINDOWS)); i++ {
-		wp := app.State.WINDOWS[i]
+	for i := 0; i < int(len(model.State.Windows)); i++ {
+		wp := model.State.Windows[i]
 		if wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
@@ -160,17 +161,17 @@ func configSearchScopeChanged() {
 
 // VarsInit resets all editor variables to their defaults.
 func VarsInit() {
-	app.State.FillCol = 80
-	app.State.Theme.Mode = app.ThemeDark
-	app.State.SearchScopeSetting = app.SearchScopeBuffer
-	app.State.WhitespaceCleanup = true
-	app.State.StartupQuote = true
-	app.State.AutoRevertMode = false
-	app.State.CIndent = 2
-	app.State.CBrace = 0
-	app.State.CColonOffset = 0
-	app.State.PyIndent = 4
-	app.State.PyContinuedOffset = 4
+	model.State.FillCol = 80
+	model.State.Theme.Mode = model.ThemeDark
+	model.State.SearchScopeSetting = model.SearchScopeBuffer
+	model.State.WhitespaceCleanup = true
+	model.State.StartupQuote = true
+	model.State.AutoRevertMode = false
+	model.State.CIndent = 2
+	model.State.CBrace = 0
+	model.State.CColonOffset = 0
+	model.State.PyIndent = 4
+	model.State.PyContinuedOffset = 4
 	configThemeChanged()
 	configSearchScopeChanged()
 }
@@ -179,31 +180,31 @@ func bufferApplyVarDefaults(bp *buffer.Buffer) {
 	if bp == nil {
 		return
 	}
-	bp.FillCol = app.State.FillCol
-	bp.CIndent = app.State.CIndent
-	bp.CBrace = app.State.CBrace
-	bp.CColonOffset = app.State.CColonOffset
-	bp.PyIndent = app.State.PyIndent
-	bp.PyContinuedOffset = app.State.PyContinuedOffset
-	bp.WhitespaceCleanup = app.State.WhitespaceCleanup
+	bp.FillCol = model.State.FillCol
+	bp.CIndent = model.State.CIndent
+	bp.CBrace = model.State.CBrace
+	bp.CColonOffset = model.State.CColonOffset
+	bp.PyIndent = model.State.PyIndent
+	bp.PyContinuedOffset = model.State.PyContinuedOffset
+	bp.WhitespaceCleanup = model.State.WhitespaceCleanup
 }
 
 func varGlobalWrite(v *variable, value uint32) {
 	switch v.name {
 	case "fill-column":
-		app.State.FillCol = value
+		model.State.FillCol = value
 	case "c-indent":
-		app.State.CIndent = value
+		model.State.CIndent = value
 	case "c-brace":
-		app.State.CBrace = value
+		model.State.CBrace = value
 	case "c-colon-offset":
-		app.State.CColonOffset = value
+		model.State.CColonOffset = value
 	case "py-indent":
-		app.State.PyIndent = value
+		model.State.PyIndent = value
 	case "py-continued-offset":
-		app.State.PyContinuedOffset = value
+		model.State.PyContinuedOffset = value
 	case "whitespace-cleanup":
-		app.State.WhitespaceCleanup = value != 0
+		model.State.WhitespaceCleanup = value != 0
 	default:
 		v.write(nil, value)
 	}
@@ -212,19 +213,19 @@ func varGlobalWrite(v *variable, value uint32) {
 func varGlobalRead(v *variable) uint32 {
 	switch v.name {
 	case "fill-column":
-		return app.State.FillCol
+		return model.State.FillCol
 	case "c-indent":
-		return app.State.CIndent
+		return model.State.CIndent
 	case "c-brace":
-		return app.State.CBrace
+		return model.State.CBrace
 	case "c-colon-offset":
-		return app.State.CColonOffset
+		return model.State.CColonOffset
 	case "py-indent":
-		return app.State.PyIndent
+		return model.State.PyIndent
 	case "py-continued-offset":
-		return app.State.PyContinuedOffset
+		return model.State.PyContinuedOffset
 	case "whitespace-cleanup":
-		return boolToU32(app.State.WhitespaceCleanup)
+		return boolToU32(model.State.WhitespaceCleanup)
 	default:
 		return v.read(nil)
 	}
@@ -339,31 +340,33 @@ func varFormat(v *variable, bp *buffer.Buffer) string {
 func CmdSetVariable(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := app.State.CurrentBuffer
-	name, pr := ui.MBReadFuzzyListString("Set variable: ", varTableProvider, nil, uint(len(varTable)))
-	if pr == app.PromptResultAbort {
-		CmdAbort(false, 1)
-		return false
-	}
-	if pr != app.PromptResultYes {
-		return false
-	}
-	v := varFindByName(name)
-	if v == nil {
-		return false
-	}
-	current := varFormat(v, bp)
-	prompt := fmt.Sprintf("Set %s (current %s): ", v.name, current)
-	response, pr := ui.MBReadStringCap(prompt, "", 64)
-	if pr != app.PromptResultYes {
-		return true
-	}
-	parsed, ok := parseNumericText(response)
-	if !ok || !varStorageWrite(v, bp, parsed, !v.local) {
-		ui.MBWrite("[invalid value for %s]", v.name)
-		return false
-	}
-	ui.MBWrite("[%s = %s]", v.name, varFormat(v, bp))
+	bp := model.State.CurrentBuffer
+	AskFuzzy("Set variable: ", varTableProvider, nil, uint(len(varTable)), func(name string, pr model.PromptResult) {
+		if pr == model.PromptResultAbort {
+			CmdAbort(false, 1)
+			return
+		}
+		if pr != model.PromptResultYes {
+			return
+		}
+		v := varFindByName(name)
+		if v == nil {
+			return
+		}
+		current := varFormat(v, bp)
+		prompt := fmt.Sprintf("Set %s (current %s): ", v.name, current)
+		AskStringCap(prompt, "", 64, func(response string, pr model.PromptResult) {
+			if pr != model.PromptResultYes {
+				return
+			}
+			parsed, ok := parseNumericText(response)
+			if !ok || !varStorageWrite(v, bp, parsed, !v.local) {
+				view.MBWrite("[invalid value for %s]", v.name)
+				return
+			}
+			view.MBWrite("[%s = %s]", v.name, varFormat(v, bp))
+		})
+	})
 	return true
 }
 
@@ -371,16 +374,17 @@ func CmdSetVariable(f bool, n int) bool {
 func CmdDescribeVariable(f bool, n int) bool {
 	_ = f
 	_ = n
-	name, pr := ui.MBReadFuzzyListString("Describe variable: ", varTableProvider, nil, uint(len(varTable)))
-	if pr != app.PromptResultYes {
-		return false
-	}
-	v := varFindByName(name)
-	if v == nil {
-		ui.MBWrite("[unknown variable: %s]", name)
-		return false
-	}
-	value := varFormat(v, app.State.CurrentBuffer)
-	ui.MBWrite("[%s = %s] %s", v.name, value, v.doc)
+	AskFuzzy("Describe variable: ", varTableProvider, nil, uint(len(varTable)), func(name string, pr model.PromptResult) {
+		if pr != model.PromptResultYes {
+			return
+		}
+		v := varFindByName(name)
+		if v == nil {
+			view.MBWrite("[unknown variable: %s]", name)
+			return
+		}
+		value := varFormat(v, model.State.CurrentBuffer)
+		view.MBWrite("[%s = %s] %s", v.name, value, v.doc)
+	})
 	return true
 }

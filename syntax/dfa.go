@@ -2,7 +2,6 @@ package syntax
 
 import (
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/modesyntax"
 )
 
 // DFA-based syntax highlighter (ported from the C editor).
@@ -281,7 +280,7 @@ func isIdentStart(c int, flags uint32) bool {
 	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
 		return true
 	}
-	if flags&modesyntax.ModeFlagIdentLispSigil != 0 && (c == '#' || c == '&') {
+	if flags&ModeFlagIdentLispSigil != 0 && (c == '#' || c == '&') {
 		return true
 	}
 	return false
@@ -300,10 +299,10 @@ func isIdentCont(c int, flags uint32) bool {
 		(c >= '0' && c <= '9') || c == '_' {
 		return true
 	}
-	if flags&modesyntax.ModeFlagIdentDash != 0 && c == '-' {
+	if flags&ModeFlagIdentDash != 0 && c == '-' {
 		return true
 	}
-	if flags&modesyntax.ModeFlagIdentLispExtra != 0 {
+	if flags&ModeFlagIdentLispExtra != 0 {
 		switch c {
 		case '-', '?', '!', '/', '<', '>', '=', '+', '*', '.', '#':
 			return true
@@ -556,7 +555,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 	if lm == buffer.LModeNone && lp.Buffer != nil {
 		lm = lp.Buffer.LangMode
 	}
-	info := modesyntax.For(lm)
+	info := For(lm)
 
 	syn := start
 	n := len(lp.RuneCache)
@@ -581,7 +580,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 	// ---- Special syntax kinds (handled before DFA loop) ----
 
 	switch info.Kind {
-	case modesyntax.ModeSyntaxNone:
+	case ModeSyntaxNone:
 		syn = buffer.SynState{}
 		if fullScan {
 			lp.SyntaxEndState = syn
@@ -590,7 +589,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 		}
 		return syn, summary, styles
 
-	case modesyntax.ModeSyntaxHashCommentOnly:
+	case ModeSyntaxHashCommentOnly:
 		syn = buffer.SynState{}
 		for i := 0; i < n; i++ {
 			if getc(i) == '#' {
@@ -606,7 +605,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 		}
 		return syn, summary, styles
 
-	case modesyntax.ModeSyntaxMarkdown:
+	case ModeSyntaxMarkdown:
 		highlightMarkdown(lp, styles, n)
 		if fullScan {
 			lp.SyntaxEndState = syn
@@ -615,7 +614,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 		}
 		return syn, summary, styles
 
-	case modesyntax.ModeSyntaxHTML:
+	case ModeSyntaxHTML:
 		highlightHTML(lp, styles, n, &syn)
 		syn.Paren = 0
 		syn.Bracket = 0
@@ -691,14 +690,14 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 		switch cur {
 		case SynStateNormal:
 			// // line comment
-			if flags&modesyntax.ModeFlagCommentSlashLine != 0 && c == '/' && lookahead == '/' {
+			if flags&ModeFlagCommentSlashLine != 0 && c == '/' && lookahead == '/' {
 				fillPaint(styles, n, i, n, aComment())
 				syn.DFA = SynStateCmtLine
 				i = loopEnd // skip to end; loop's i++ will exit
 				goto afterTransition
 			}
 			// /* block comment
-			if flags&modesyntax.ModeFlagCommentSlashBlock != 0 && c == '/' && lookahead == '*' {
+			if flags&ModeFlagCommentSlashBlock != 0 && c == '/' && lookahead == '*' {
 				putPaint(styles, n, i, aComment())
 				putPaint(styles, n, i+1, aComment())
 				syn.DFA = SynStateCmtBlock
@@ -706,7 +705,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 				goto afterTransition
 			}
 			// # preprocessor directive at BOL
-			if flags&modesyntax.ModeFlagPreprocHashAtBOL != 0 && c == '#' {
+			if flags&ModeFlagPreprocHashAtBOL != 0 && c == '#' {
 				anyBefore := false
 				for k := 0; k < i; k++ {
 					if getc(k) != ' ' && getc(k) != '\t' {
@@ -728,21 +727,21 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 				}
 			}
 			// # line comment (hash comment mode)
-			if flags&modesyntax.ModeFlagCommentHash != 0 && c == '#' {
+			if flags&ModeFlagCommentHash != 0 && c == '#' {
 				fillPaint(styles, n, i, n, aComment())
 				syn.DFA = SynStateCmtLine
 				i = loopEnd
 				goto afterTransition
 			}
 			// ; line comment (lisp mode)
-			if flags&modesyntax.ModeFlagCommentSemi != 0 && c == ';' {
+			if flags&ModeFlagCommentSemi != 0 && c == ';' {
 				fillPaint(styles, n, i, n, aComment())
 				syn.DFA = SynStateCmtLine
 				i = loopEnd
 				goto afterTransition
 			}
 			// -- lua comment / lua block comment
-			if flags&modesyntax.ModeFlagCommentLua != 0 && c == '-' {
+			if flags&ModeFlagCommentLua != 0 && c == '-' {
 				tokenStart = i
 				syn.DFA = SynStateLuaDash
 				noteSummaryCode(&summary, i)
@@ -750,13 +749,13 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 				goto afterTransition
 			}
 			// { pascal brace comment
-			if flags&modesyntax.ModeFlagCommentPascalBrace != 0 && c == '{' {
+			if flags&ModeFlagCommentPascalBrace != 0 && c == '{' {
 				putPaint(styles, n, i, aComment())
 				syn.DFA = SynStateCmtBrace
 				goto afterTransition
 			}
 			// (* pascal paren comment
-			if flags&modesyntax.ModeFlagCommentPascalParen != 0 && c == '(' && lookahead == '*' {
+			if flags&ModeFlagCommentPascalParen != 0 && c == '(' && lookahead == '*' {
 				putPaint(styles, n, i, aComment())
 				putPaint(styles, n, i+1, aComment())
 				syn.DFA = SynStateCmtParen
@@ -790,7 +789,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 				goto afterTransition
 			}
 			// @ at-rule (CSS)
-			if flags&modesyntax.ModeFlagAtRule != 0 && c == '@' && lookahead >= 'a' && lookahead <= 'z' {
+			if flags&ModeFlagAtRule != 0 && c == '@' && lookahead >= 'a' && lookahead <= 'z' {
 				noteSummaryCode(&summary, i)
 				putPaint(styles, n, i, aPreproc())
 				tokenStart = i + 1
@@ -799,8 +798,8 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 			}
 			// delimiter (rainbow paren)
 			if c == '(' || c == ')' || c == '[' || c == ']' ||
-				(c == '{' && flags&modesyntax.ModeFlagNoCurlyRainbow == 0) ||
-				(c == '}' && flags&modesyntax.ModeFlagNoCurlyRainbow == 0) {
+				(c == '{' && flags&ModeFlagNoCurlyRainbow == 0) ||
+				(c == '}' && flags&ModeFlagNoCurlyRainbow == 0) {
 				if delimiterIndex(c) >= 0 {
 					pendingChar = c
 					tokenStart = i

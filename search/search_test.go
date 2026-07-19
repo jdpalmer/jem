@@ -3,25 +3,25 @@ package search
 import (
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func makeTestWindow(t *testing.T, text string) *app.Window {
+func makeTestWindow(t *testing.T, text string) *model.Window {
 	t.Helper()
-	app.Reset()
+	model.Reset()
 	DefaultState = &State{}
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
 	bp.Name = "*test*"
-	wp := app.WindowCreate()
+	wp := model.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
 	wp.Buffer = bp
-	app.WindowSelect(wp)
+	model.WindowSelect(wp)
 	eof := buffer.MakeLocation(bp.EOF(), 0)
 	data := []byte(text)
 	if err := bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, nil); err != nil {

@@ -1,29 +1,82 @@
 package editor
 
-// editor.go - Editor state and initialization (translation of editor.c)
+import (
+	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/search"
+)
 
-import "github.com/jdpalmer/jem/app"
+// Editor is one editor instance: model state, search, undo, registers,
+// and the services façade. Leaf packages reach shared state through
+// package-level pointers (model.State, model.History, search.DefaultState)
+// that Activate binds to this value.
+type Editor struct {
+	App       model.AppState
+	Search    search.State
+	History   buffer.UndoHistory
+	Registers map[string][]byte
+	Services  *Services
+
+	QuitRequested bool
+}
+
+// Current is the active Editor after Activate. Nil until New/Activate.
+var Current *Editor
+
+// New creates an Editor with empty state and an empty register map.
+func New() *Editor {
+	return &Editor{
+		Registers: make(map[string][]byte),
+	}
+}
+
+// Activate binds this Editor as the process-wide active instance.
+func (e *Editor) Activate() {
+	if e == nil {
+		return
+	}
+	if e.Registers == nil {
+		e.Registers = make(map[string][]byte)
+	}
+	Current = e
+	model.Bind(&e.App)
+	model.BindHistory(&e.History)
+	search.DefaultState = &e.Search
+	registerStore = e.Registers
+	if e.Services != nil {
+		Svc = e.Services
+		installServices(Svc)
+	}
+}
+
+func ensureCurrent() *Editor {
+	if Current == nil {
+		New().Activate()
+	}
+	return Current
+}
 
 func EditorInit(firstBufferName string) {
 	e := ensureCurrent()
 
-	app.State.Buffers = nil
-	app.State.WINDOWS = nil
+	model.State.Buffers = nil
+	model.State.Windows = nil
 
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp != nil {
-		bp.Name = app.TruncateBufferName(firstBufferName)
-		app.SetCurrentBuffer(bp)
+		bp.Name = model.TruncateBufferName(firstBufferName)
+		model.SetCurrentBuffer(bp)
 	}
 
-	wp := app.WindowCreate()
+	wp := model.WindowCreate()
 	if wp != nil {
-		app.WindowSelect(wp)
+		model.WindowSelect(wp)
 	}
-	app.WindowRetile()
+	model.WindowRetile()
 
-	app.State.MovementState = app.CmdStateNone
-	app.State.KillState = app.CmdStateNone
+	model.State.MovementState = model.CmdStateNone
+	model.State.KillState = model.CmdStateNone
+	clearListeners()
 	macroInit()
 	e.Services = buildServices()
 	Svc = e.Services

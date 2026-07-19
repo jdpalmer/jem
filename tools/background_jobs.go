@@ -3,8 +3,10 @@ package tools
 import (
 	"context"
 	"errors"
-	"github.com/jdpalmer/jem/app"
+
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/model"
 )
 
 const (
@@ -13,7 +15,7 @@ const (
 	backgroundJobCompile = "compile"
 )
 
-// BackgroundJobDone is sent on the done channel when a job finishes.
+// BackgroundJobDone is the payload carried by event.JobDoneEvent.Raw.
 type BackgroundJobDone struct {
 	Kind string
 
@@ -35,17 +37,14 @@ type BackgroundJobDone struct {
 }
 
 var (
-	backgroundJobDone   chan BackgroundJobDone
 	backgroundJobCancel context.CancelFunc
 	backgroundJobActive string
 )
 
+// InitBackgroundJobs resets background-job bookkeeping (no separate done channel).
 func InitBackgroundJobs() {
-	backgroundJobDone = make(chan BackgroundJobDone, 1)
-}
-
-func BackgroundJobDoneChan() <-chan BackgroundJobDone {
-	return backgroundJobDone
+	backgroundJobActive = backgroundJobNone
+	backgroundJobCancel = nil
 }
 
 func BackgroundJobRunning() bool {
@@ -58,6 +57,10 @@ func RequestBackgroundJobCancel() bool {
 	}
 	backgroundJobCancel()
 	return true
+}
+
+func postJobDone(done BackgroundJobDone) {
+	event.Enqueue(event.JobDoneEvent{Kind: done.Kind, Raw: done})
 }
 
 func StartBackgroundGrep(root, pattern string) bool {
@@ -73,13 +76,13 @@ func StartBackgroundGrep(root, pattern string) bool {
 	go func() {
 		result := grepProjectSearch(ctx, root, pattern)
 		cancelled := errors.Is(result.err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled)
-		backgroundJobDone <- BackgroundJobDone{
+		postJobDone(BackgroundJobDone{
 			Kind:        backgroundJobGrep,
 			GrepRoot:    root,
 			GrepPattern: pattern,
 			GrepResult:  result,
 			Cancelled:   cancelled,
-		}
+		})
 	}()
 	return true
 }
@@ -97,7 +100,7 @@ func StartBackgroundCompile(command string) bool {
 	go func() {
 		stdout, stderr, exitCode, ran, outTrunc, errTrunc := procRunShellContext(ctx, command, compileOutCapacity, compileErrCapacity)
 		cancelled := errors.Is(ctx.Err(), context.Canceled)
-		backgroundJobDone <- BackgroundJobDone{
+		postJobDone(BackgroundJobDone{
 			Kind:            backgroundJobCompile,
 			CompileCommand:  command,
 			CompileStdout:   stdout,
@@ -107,7 +110,7 @@ func StartBackgroundCompile(command string) bool {
 			CompileOutTrunc: outTrunc,
 			CompileErrTrunc: errTrunc,
 			Cancelled:       cancelled,
-		}
+		})
 	}()
 	return true
 }
@@ -124,7 +127,7 @@ func HandleBackgroundJobDone(done BackgroundJobDone) {
 	case backgroundJobCompile:
 		handleBackgroundJobCompile(done)
 	}
-	app.State.ScreenDirty = true
+	model.State.ScreenDirty = true
 }
 
 func handleBackgroundJobGrep(done BackgroundJobDone) {
@@ -155,7 +158,7 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(grepBuf)
-	if wp := app.State.CurrentWindow; wp != nil {
+	if wp := model.State.CurrentWindow; wp != nil {
 		wp.SetTopLine(1)
 		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
 		wp.Mark = buffer.Location{Line: 0, Offset: 0}
@@ -200,7 +203,7 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(compileBuf)
-	if wp := app.State.CurrentWindow; wp != nil {
+	if wp := model.State.CurrentWindow; wp != nil {
 		wp.SetTopLine(1)
 		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
 		wp.Mark = buffer.Location{Line: 0, Offset: 0}
@@ -221,10 +224,5 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 func ResetBackgroundJobsForTests() {
 	backgroundJobActive = backgroundJobNone
 	backgroundJobCancel = nil
-	if backgroundJobDone != nil {
-		select {
-		case <-backgroundJobDone:
-		default:
-		}
-	}
+	event.DrainForTest()
 }

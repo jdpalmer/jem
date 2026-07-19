@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 )
 
 func TestSpawnShellCommandBuilder(t *testing.T) {
@@ -21,10 +21,10 @@ func TestSpawnShellCommandBuilder(t *testing.T) {
 }
 
 func TestRunSpawnCommandRejectsEmptyInput(t *testing.T) {
-	if runSpawnAfterPrompt("", app.PromptResultYes) {
+	if runSpawnAfterPrompt("", model.PromptResultYes) {
 		t.Fatal("expected false for empty command")
 	}
-	if runSpawnAfterPrompt("echo", app.PromptResultAbort) {
+	if runSpawnAfterPrompt("echo", model.PromptResultAbort) {
 		t.Fatal("expected false for abort")
 	}
 }

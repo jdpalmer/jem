@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/fileio"
 	"os"
@@ -52,7 +52,7 @@ type grepSearchResult struct {
 
 func grepSearchRoot() (string, error) {
 	start := ""
-	if bp := app.State.CurrentBuffer; bp != nil {
+	if bp := model.State.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
 			start = filepath.Dir(fileio.NormalizePath(fname))
 		}
@@ -310,10 +310,10 @@ func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern
 }
 
 func grepEnsureBuffer() *buffer.Buffer {
-	if bp := app.BufferFind(GrepBufferName); bp != nil {
+	if bp := model.BufferFind(GrepBufferName); bp != nil {
 		return bp
 	}
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp == nil {
 		return nil
 	}
@@ -323,29 +323,30 @@ func grepEnsureBuffer() *buffer.Buffer {
 
 // RunGrep searches the project and opens the *grep* results buffer.
 func RunGrep() bool {
-	pattern, pr := mbReadString("grep: ", "")
-	if pr != app.PromptResultYes {
-		return false
-	}
-	if pattern == "" {
-		mbWrite("[empty pattern]")
-		return false
-	}
-	mbHistoryAdd(pattern)
+	askString("grep: ", "", func(pattern string, pr model.PromptResult) {
+		if pr != model.PromptResultYes {
+			return
+		}
+		if pattern == "" {
+			mbWrite("[empty pattern]")
+			return
+		}
+		mbHistoryAdd(pattern)
 
-	root, err := grepSearchRoot()
-	if err != nil {
-		mbWrite("[grep failed]")
-		return false
-	}
-
-	return StartBackgroundGrep(root, pattern)
+		root, err := grepSearchRoot()
+		if err != nil {
+			mbWrite("[grep failed]")
+			return
+		}
+		_ = StartBackgroundGrep(root, pattern)
+	})
+	return true
 }
 
 // VisitGrepMatch jumps to the match at the current line in the *grep* buffer.
 func VisitGrepMatch() bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.Name != GrepBufferName {
 		return false
 	}

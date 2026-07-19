@@ -4,10 +4,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jdpalmer/jem/completion"
+	"github.com/jdpalmer/jem/mode"
+	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/term"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/tools"
+	"github.com/jdpalmer/jem/view"
 )
+
+// cmd0 adapts a no-arg command for the (f, n) registry signature.
+func cmd0(fn func() bool) CommandFunc {
+	return func(bool, int) bool { return fn() }
+}
 
 type CommandFunc func(f bool, n int) bool
 type Command struct {
@@ -28,6 +35,11 @@ var commandKeyAliases = []struct {
 	Fn  CommandFunc
 }{}
 
+// InitCommands populates commandNameMap and keybindingsMap from commandTable.
+func InitCommands() {
+	initCommandRegistry()
+}
+
 func initCommandRegistry() {
 	commandTable = []Command{
 		{Name: "abort", Fn: CmdAbort, Doc: "Abort the current prompt, macro, or transient operation.", AcceptsArg: false, Keys: []uint32{term.CTL | 'G'}},
@@ -39,11 +51,11 @@ func initCommandRegistry() {
 		{Name: "backward_word", Fn: CmdBackwardWord, Doc: "Move backward by words.", AcceptsArg: true, Keys: []uint32{term.META | 'B', term.SHIFT | term.KeyLeft}},
 		{Name: "cap_word", Fn: CmdCapWord, Doc: "Capitalize the next word.", AcceptsArg: true, Keys: []uint32{term.META | 'C'}},
 		{Name: "command_palette", Fn: CmdCommandPalette, Doc: "Open the command palette with fuzzy command search.", AcceptsArg: false, Keys: []uint32{term.META | 'X'}},
-		{Name: "comment_dwim", Fn: CmdCommentDwim, Doc: "Comment or uncomment region/line (DWIM).", AcceptsArg: false, Keys: []uint32{term.META | ';'}},
-		{Name: "compile", Fn: CmdCompile, Doc: "Run a build command and capture diagnostics in *compile*.", AcceptsArg: false},
-		{Name: "compile_visit_diag", Fn: CmdCompileVisitDiag, Doc: "Visit the source location for the selected compile diagnostic.", AcceptsArg: false},
-		{Name: "completion_accept", Fn: completion.CmdAccept, Doc: "Accept the pending Completion suggestion.", AcceptsArg: false, Keys: []uint32{term.SHIFT | term.KeyEnter}},
-		{Name: "completion_complete", Fn: completion.CmdComplete, Doc: "Request a Completion suggestion.", AcceptsArg: false, Keys: []uint32{term.SHIFT | term.KeyTab}},
+		{Name: "comment_dwim", Fn: mode.CmdCommentDwim, Doc: "Comment or uncomment region/line (DWIM).", AcceptsArg: false, Keys: []uint32{term.META | ';'}},
+		{Name: "compile", Fn: cmd0(tools.RunCompile), Doc: "Run a build command and capture diagnostics in *compile*.", AcceptsArg: false},
+		{Name: "compile_visit_diag", Fn: cmd0(tools.VisitCompileDiag), Doc: "Visit the source location for the selected compile diagnostic.", AcceptsArg: false},
+		{Name: "completion_accept", Fn: CmdAccept, Doc: "Accept the pending Completion suggestion.", AcceptsArg: false, Keys: []uint32{term.SHIFT | term.KeyEnter}},
+		{Name: "completion_complete", Fn: CmdComplete, Doc: "Request a Completion suggestion.", AcceptsArg: false, Keys: []uint32{term.SHIFT | term.KeyTab}},
 		{Name: "copy_region", Fn: CmdCopyRegion, Doc: "Copy the active region.", AcceptsArg: false, Keys: []uint32{term.META | 'W'}},
 		{Name: "copy_register", Fn: CmdCopyRegister, Doc: "Copy the active region to a named register.", AcceptsArg: false},
 		{Name: "delete_backward", Fn: CmdDeleteBackward, Doc: "Delete the previous character.", AcceptsArg: true, Keys: []uint32{0x7F}},
@@ -68,15 +80,15 @@ func initCommandRegistry() {
 		{Name: "goto_eof", Fn: CmdGotoEof, Doc: "Move to the end of the buffer.", AcceptsArg: false, Keys: []uint32{term.META | '>'}},
 		{Name: "goto_eol", Fn: CmdGotoEol, Doc: "Move to the end of the line.", AcceptsArg: false, Keys: []uint32{term.CTL | 'E'}},
 		{Name: "goto_line", Fn: CmdGotoLine, Doc: "Jump to a specific line.", AcceptsArg: true, Keys: []uint32{term.META | 'G'}},
-		{Name: "goto_tag", Fn: CmdGotoTag, Doc: "Jump to a tag definition.", AcceptsArg: false, Keys: []uint32{term.META | '.'}},
-		{Name: "grep_project", Fn: CmdGrepProject, Doc: "Search project files with ripgrep and open a jump buffer.", AcceptsArg: false},
-		{Name: "grep_visit_match", Fn: CmdGrepVisitMatch, Doc: "Visit the source location for the selected grep match.", AcceptsArg: false},
+		{Name: "goto_tag", Fn: cmd0(tools.RunGotoTag), Doc: "Jump to a tag definition.", AcceptsArg: false, Keys: []uint32{term.META | '.'}},
+		{Name: "grep_project", Fn: cmd0(tools.RunGrep), Doc: "Search project files with ripgrep and open a jump buffer.", AcceptsArg: false},
+		{Name: "grep_visit_match", Fn: cmd0(tools.VisitGrepMatch), Doc: "Visit the source location for the selected grep match.", AcceptsArg: false},
 		{Name: "insert_date", Fn: CmdInsertDate, Doc: "Insert the current date.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'D'}},
 		{Name: "insert_register", Fn: CmdInsertRegister, Doc: "Insert the contents of a named register.", AcceptsArg: false},
-		{Name: "isearch_backward", Fn: CmdIsearchBackward, Doc: "Incrementally search backward.", AcceptsArg: false, Keys: []uint32{term.CTL | 'R'}},
-		{Name: "isearch_forward", Fn: CmdIsearchForward, Doc: "Incrementally search forward.", AcceptsArg: false, Keys: []uint32{term.CTL | 'S'}},
-		{Name: "isearch_re_backward", Fn: CmdIsearchReBackward, Doc: "Incrementally search backward with regex.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'R'}},
-		{Name: "isearch_re_forward", Fn: CmdIsearchReForward, Doc: "Incrementally search forward with regex.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'S'}},
+		{Name: "isearch_backward", Fn: cmd0(search.IsearchBackward), Doc: "Incrementally search backward.", AcceptsArg: false, Keys: []uint32{term.CTL | 'R'}},
+		{Name: "isearch_forward", Fn: cmd0(search.IsearchForward), Doc: "Incrementally search forward.", AcceptsArg: false, Keys: []uint32{term.CTL | 'S'}},
+		{Name: "isearch_re_backward", Fn: cmd0(search.IsearchReBackward), Doc: "Incrementally search backward with regex.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'R'}},
+		{Name: "isearch_re_forward", Fn: cmd0(search.IsearchReForward), Doc: "Incrementally search forward with regex.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'S'}},
 		{Name: "kill", Fn: CmdKill, Doc: "Kill text from point.", AcceptsArg: true, Keys: []uint32{term.CTL | 'K'}},
 		{Name: "kill_buffer", Fn: CmdKillBuffer, Doc: "Kill one buffer.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'K'}},
 		{Name: "kill_buffer_fuzzy", Fn: CmdKillBufferFuzzy, Doc: "Kill one buffer with fuzzy matching.", AcceptsArg: false},
@@ -89,37 +101,37 @@ func initCommandRegistry() {
 		{Name: "mark_pop", Fn: CmdMarkPop, Doc: "Pop back to the most recently pushed mark.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | ' '}},
 		{Name: "mark_push", Fn: CmdMarkPush, Doc: "Push the current location onto the mark stack.", AcceptsArg: false, Keys: []uint32{term.CTLX | ' '}},
 		{Name: "mark_whole_buffer", Fn: CmdMarkWholeBuffer, Doc: "Mark the entire buffer as the active region.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'H'}},
-		{Name: "menu_run", Fn: ui.CmdMenuRun, Doc: "Open the message-line menu.", AcceptsArg: false, Keys: []uint32{term.CTL | '_', term.CTL | '/'}},
-		{Name: "mode_close_brace", Fn: CmdModeCloseBrace, Doc: "Insert a close brace with mode-aware behavior.", AcceptsArg: true, Keys: []uint32{'}'}},
-		{Name: "mode_end_of_function", Fn: CmdModeEndOfFunction, Doc: "Jump to the end of the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'E'}},
-		{Name: "mode_goto_match", Fn: CmdModeGotoMatch, Doc: "Jump to the matching delimiter.", AcceptsArg: false, Keys: []uint32{term.CTL | '\\'}},
-		{Name: "mode_indent_line", Fn: CmdModeIndentLine, Doc: "Indent the current line using the active mode.", AcceptsArg: false, Keys: []uint32{term.KeyTab}},
-		{Name: "mode_mark_function", Fn: CmdModeMarkFunction, Doc: "Mark the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'H'}},
+		{Name: "menu_run", Fn: view.CmdMenuRun, Doc: "Open the message-line menu.", AcceptsArg: false, Keys: []uint32{term.CTL | '_', term.CTL | '/'}},
+		{Name: "mode_close_brace", Fn: mode.CmdModeCloseBrace, Doc: "Insert a close brace with mode-aware behavior.", AcceptsArg: true, Keys: []uint32{'}'}},
+		{Name: "mode_end_of_function", Fn: mode.CmdModeEndOfFunction, Doc: "Jump to the end of the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'E'}},
+		{Name: "mode_goto_match", Fn: mode.CmdModeGotoMatch, Doc: "Jump to the matching delimiter.", AcceptsArg: false, Keys: []uint32{term.CTL | '\\'}},
+		{Name: "mode_indent_line", Fn: mode.CmdModeIndentLine, Doc: "Indent the current line using the active mode.", AcceptsArg: false, Keys: []uint32{term.KeyTab}},
+		{Name: "mode_mark_function", Fn: mode.CmdModeMarkFunction, Doc: "Mark the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'H'}},
 		{Name: "mode_newline_and_indent", Fn: CmdModeNewlineAndIndent, Doc: "Insert a newline using the active mode.", AcceptsArg: true, Keys: []uint32{term.KeyEnter, '\r', '\n'}},
-		{Name: "mode_top_of_function", Fn: CmdModeTopOfFunction, Doc: "Jump to the start of the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'A'}},
-		{Name: "mouse_drag", Fn: ui.CmdMouseDrag, Doc: "Extend the selection with the mouse.", AcceptsArg: false, Keys: []uint32{term.MouseDrag}},
-		{Name: "mouse_left", Fn: ui.CmdMouseLeft, Doc: "Move point with the mouse.", AcceptsArg: false, Keys: []uint32{term.MouseLeft}},
-		{Name: "mouse_wheel_down", Fn: ui.CmdMouseWheelDown, Doc: "Scroll down with the mouse wheel.", AcceptsArg: false, Keys: []uint32{term.MouseWheelDown}},
-		{Name: "mouse_wheel_up", Fn: ui.CmdMouseWheelUp, Doc: "Scroll up with the mouse wheel.", AcceptsArg: false, Keys: []uint32{term.MouseWheelUp}},
+		{Name: "mode_top_of_function", Fn: mode.CmdModeTopOfFunction, Doc: "Jump to the start of the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'A'}},
+		{Name: "mouse_drag", Fn: CmdMouseDrag, Doc: "Extend the selection with the mouse.", AcceptsArg: false, Keys: []uint32{term.MouseDrag}},
+		{Name: "mouse_left", Fn: CmdMouseLeft, Doc: "Move point with the mouse.", AcceptsArg: false, Keys: []uint32{term.MouseLeft}},
+		{Name: "mouse_wheel_down", Fn: CmdMouseWheelDown, Doc: "Scroll down with the mouse wheel.", AcceptsArg: false, Keys: []uint32{term.MouseWheelDown}},
+		{Name: "mouse_wheel_up", Fn: CmdMouseWheelUp, Doc: "Scroll up with the mouse wheel.", AcceptsArg: false, Keys: []uint32{term.MouseWheelUp}},
 		{Name: "open_line", Fn: CmdOpenLine, Doc: "Open a blank line after point.", AcceptsArg: true, Keys: []uint32{term.CTL | 'O'}},
-		{Name: "query_re_replace", Fn: CmdQueryReReplace, Doc: "Query replace with a regular expression.", AcceptsArg: false},
-		{Name: "query_replace", Fn: CmdQueryReplace, Doc: "Query replace plain text.", AcceptsArg: false, Keys: []uint32{term.META | '%'}},
+		{Name: "query_re_replace", Fn: cmd0(search.QueryReReplace), Doc: "Query replace with a regular expression.", AcceptsArg: false},
+		{Name: "query_replace", Fn: cmd0(search.QueryReplace), Doc: "Query replace plain text.", AcceptsArg: false, Keys: []uint32{term.META | '%'}},
 		{Name: "quit", Fn: CmdQuit, Doc: "Quit Jem.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'C'}},
 		{Name: "quote", Fn: CmdQuote, Doc: "Insert the next character literally.", AcceptsArg: true, Keys: []uint32{term.CTL | 'Q'}},
-		{Name: "refresh", Fn: ui.CmdRefresh, Doc: "Refresh the current window.", AcceptsArg: false, Keys: []uint32{term.CTL | 'L'}},
+		{Name: "refresh", Fn: view.CmdRefresh, Doc: "Refresh the current window.", AcceptsArg: false, Keys: []uint32{term.CTL | 'L'}},
 		{Name: "revert_file", Fn: CmdRevertFile, Doc: "Revert the current buffer to the on-disk file.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'V'}},
-		{Name: "search_backward", Fn: CmdSearchBackward, Doc: "Search backward for a string.", AcceptsArg: false},
-		{Name: "search_forward", Fn: CmdSearchForward, Doc: "Search forward for a string.", AcceptsArg: false},
+		{Name: "search_backward", Fn: cmd0(search.SearchBackward), Doc: "Search backward for a string.", AcceptsArg: false},
+		{Name: "search_forward", Fn: cmd0(search.SearchForward), Doc: "Search forward for a string.", AcceptsArg: false},
 		{Name: "set_eol_mode", Fn: CmdSetEolMode, Doc: "Set the current buffer line ending mode.", AcceptsArg: false},
 		{Name: "set_mark", Fn: CmdSetMark, Doc: "Set the mark.", AcceptsArg: false, Keys: []uint32{term.CTL | ' '}},
 		{Name: "set_variable", Fn: CmdSetVariable, Doc: "Set a named editor variable.", AcceptsArg: false},
 		{Name: "show_position", Fn: CmdShowPosition, Doc: "Show the current cursor position.", AcceptsArg: false, Keys: []uint32{term.CTLX | '='}},
 		{Name: "sort_region", Fn: CmdSortRegion, Doc: "Sort the active region by lines.", AcceptsArg: false},
-		{Name: "spawn", Fn: CmdSpawn, Doc: "Run a shell command.", AcceptsArg: false, Keys: []uint32{term.CTLX | '!'}},
-		{Name: "spawn_cli", Fn: CmdSpawnCli, Doc: "Open an interactive shell.", AcceptsArg: false, Keys: []uint32{term.META | '!'}},
+		{Name: "spawn", Fn: cmd0(tools.RunSpawnCommand), Doc: "Run a shell command.", AcceptsArg: false, Keys: []uint32{term.CTLX | '!'}},
+		{Name: "spawn_cli", Fn: cmd0(tools.RunSpawnCLI), Doc: "Open an interactive shell.", AcceptsArg: false, Keys: []uint32{term.META | '!'}},
 		{Name: "swap_mark", Fn: CmdSwapMark, Doc: "Swap point and mark.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'X'}},
-		{Name: "theme_toggle", Fn: ui.CmdThemeToggle, Doc: "Toggle between dark and light themes.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'T'}},
-		{Name: "toggle_search_scope", Fn: CmdToggleSearchScope, Doc: "Toggle search between one buffer and all buffers.", AcceptsArg: false},
+		{Name: "theme_toggle", Fn: view.CmdThemeToggle, Doc: "Toggle between dark and light themes.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'T'}},
+		{Name: "toggle_search_scope", Fn: cmd0(search.ToggleSearchScope), Doc: "Toggle search between one buffer and all buffers.", AcceptsArg: false},
 		{Name: "transpose_chars", Fn: CmdTransposeChars, Doc: "Transpose the characters around point.", AcceptsArg: false, Keys: []uint32{term.CTL | 'T'}},
 		{Name: "transpose_lines", Fn: CmdTransposeLines, Doc: "Transpose the current line with the line above it.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'T'}},
 		{Name: "transpose_words", Fn: CmdTransposeWords, Doc: "Transpose the words around point.", AcceptsArg: false, Keys: []uint32{term.META | 'T'}},

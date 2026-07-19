@@ -1,9 +1,9 @@
 package editor
 
 import (
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/view"
 )
 
 // cmd_move.go — cursor movement and navigation
@@ -144,8 +144,8 @@ func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 // Move forward by a single codepoint, preserving UTF-8 boundaries.
 // Move forward by a single codepoint, preserving UTF-8 boundaries.
 func CmdForwardChar(f bool, n int) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -166,8 +166,8 @@ func CmdForwardChar(f bool, n int) bool {
 }
 
 func CmdBackwardChar(f bool, n int) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -196,8 +196,8 @@ func CmdBackwardChar(f bool, n int) bool {
 // CmdForwardWord moves forward by words (ASCII words: letters, digits, underscore)
 func CmdForwardWord(f bool, n int) bool {
 	_ = f
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -212,8 +212,8 @@ func CmdForwardWord(f bool, n int) bool {
 // CmdBackwardWord moves backward by words
 func CmdBackwardWord(f bool, n int) bool {
 	_ = f
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -227,7 +227,7 @@ func CmdBackwardWord(f bool, n int) bool {
 // delete forward word
 // Page-wise movement
 func CmdForwardPage(f bool, n int) bool {
-	wp := app.State.CurrentWindow
+	wp := model.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -241,7 +241,7 @@ func CmdForwardPage(f bool, n int) bool {
 }
 
 func CmdBackwardPage(f bool, n int) bool {
-	wp := app.State.CurrentWindow
+	wp := model.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -255,8 +255,8 @@ func CmdBackwardPage(f bool, n int) bool {
 }
 
 func CmdForwardLine(f bool, n int) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -276,8 +276,8 @@ func CmdForwardLine(f bool, n int) bool {
 }
 
 func CmdBackwardLine(f bool, n int) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -297,7 +297,7 @@ func CmdBackwardLine(f bool, n int) bool {
 }
 
 func CmdGotoBol(f bool, n int) bool {
-	wp := app.State.CurrentWindow
+	wp := model.State.CurrentWindow
 	if wp != nil {
 		wp.Cursor.Offset = 0
 		wp.DidMove = true
@@ -306,8 +306,8 @@ func CmdGotoBol(f bool, n int) bool {
 }
 
 func CmdGotoEol(f bool, n int) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp != nil && bp != nil {
 		line := bp.Line(wp.Cursor.Line)
 		if line != nil {
@@ -321,7 +321,7 @@ func CmdGotoEol(f bool, n int) bool {
 }
 
 func CmdGotoBof(f bool, n int) bool {
-	wp := app.State.CurrentWindow
+	wp := model.State.CurrentWindow
 	if wp != nil {
 		wp.Cursor.Line = 1
 		wp.Cursor.Offset = 0
@@ -331,8 +331,8 @@ func CmdGotoBof(f bool, n int) bool {
 }
 
 func CmdGotoEof(f bool, n int) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp != nil && bp != nil {
 		wp.Cursor.Line = bp.LineCount
 		line := bp.Line(wp.Cursor.Line)
@@ -350,7 +350,7 @@ func CmdGotoEof(f bool, n int) bool {
 func CmdBackToIndentation(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := app.State.CurrentWindow
+	wp := model.State.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -367,36 +367,42 @@ func CmdBackToIndentation(f bool, n int) bool {
 // CmdGotoLine jumps to a specific line number.
 // CmdGotoLine jumps to a specific line number.
 func CmdGotoLine(f bool, n int) bool {
-	bp := app.State.CurrentBuffer
-	wp := app.State.CurrentWindow
+	bp := model.State.CurrentBuffer
+	wp := model.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
 	var target uint
 	if f {
 		if n <= 0 {
-			ui.MBWrite("[line number out of range]")
+			view.MBWrite("[line number out of range]")
 			return false
 		}
 		target = uint(n)
 	} else {
-		lineStr, pr := ui.MBReadStringCap("Goto line: ", "", 32)
-		if pr != app.PromptResultYes {
-			return false
-		}
-		parsed, ok := parsePositiveLineNumber(lineStr)
-		if !ok {
-			ui.MBWrite("[invalid line number]")
-			return false
-		}
-		target = parsed
+		AskStringCap("Goto line: ", "", 32, func(lineStr string, pr model.PromptResult) {
+			if pr != model.PromptResultYes {
+				return
+			}
+			parsed, ok := parsePositiveLineNumber(lineStr)
+			if !ok {
+				view.MBWrite("[invalid line number]")
+				return
+			}
+			gotoLineNumber(bp, wp, parsed)
+		})
+		return true
 	}
+	return gotoLineNumber(bp, wp, target)
+}
+
+func gotoLineNumber(bp *buffer.Buffer, wp *model.Window, target uint) bool {
 	if target > bp.LineCount {
-		ui.MBWrite("[line number out of range]")
+		view.MBWrite("[line number out of range]")
 		return false
 	}
 	if wp.Cursor.Line != target || wp.Cursor.Offset != 0 {
-		app.MarkPushCurrent()
+		model.MarkPushCurrent()
 	}
 	wp.SetCursor(buffer.MakeLocation(target, 0))
 	wp.ShouldRedraw = true

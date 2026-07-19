@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
@@ -47,25 +47,25 @@ func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, load
 
 	for i := len(paths) - 1; i >= 1; i-- {
 		path := paths[i]
-		abp := app.BufferCreate(&app.State.EditorRuntimeState)
+		abp := model.BufferCreate(&model.State.EditorRuntimeState)
 		if abp == nil {
 			continue
 		}
 		if nameFromPath != nil {
 			abp.Name = nameFromPath(path)
 		}
-		app.SetCurrentBuffer(abp)
+		model.SetCurrentBuffer(abp)
 		_ = loadFile(path)
 	}
 
-	if cw := app.State.CurrentWindow; cw != nil && cw.Buffer != nil {
-		app.SetCurrentBuffer(cw.Buffer)
+	if cw := model.State.CurrentWindow; cw != nil && cw.Buffer != nil {
+		model.SetCurrentBuffer(cw.Buffer)
 	}
 }
 
 func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	resolved := NormalizePath(fname)
-	bp := app.State.CurrentBuffer
+	bp := model.State.CurrentBuffer
 	if bp == nil {
 		return ErrNoBuffer
 	}
@@ -147,7 +147,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
 	bp.Mark = buffer.Location{Line: 0, Offset: 0}
 
-	if wp := app.State.CurrentWindow; wp != nil && wp.Buffer == bp {
+	if wp := model.State.CurrentWindow; wp != nil && wp.Buffer == bp {
 		wp.TopLine = 1
 		wp.Cursor = buffer.Location{Line: 1, Offset: 0}
 		wp.Mark = buffer.Location{Line: 0, Offset: 0}
@@ -161,7 +161,33 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 }
 
 func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef func(string, ...any)) error {
-	bp := app.State.CurrentBuffer
+	bp := model.State.CurrentBuffer
+	if bp == nil {
+		return ErrNoBuffer
+	}
+
+	if NeedsOverwriteConfirm(fn) {
+		if confirmOverwrite == nil || !confirmOverwrite("file changed on disk. overwrite") {
+			return ErrCancelled
+		}
+	}
+
+	return SaveCurrentBufferForce(fn, writef)
+}
+
+// NeedsOverwriteConfirm reports whether fn's on-disk mtime differs from the buffer's.
+func NeedsOverwriteConfirm(fn string) bool {
+	bp := model.State.CurrentBuffer
+	if bp == nil || bp.FileMtime.IsZero() {
+		return false
+	}
+	curMtime := FileMtime(fn)
+	return !curMtime.IsZero() && !curMtime.Equal(bp.FileMtime)
+}
+
+// SaveCurrentBufferForce writes the buffer without the overwrite-mtime prompt.
+func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
+	bp := model.State.CurrentBuffer
 	if bp == nil {
 		return ErrNoBuffer
 	}
@@ -169,15 +195,6 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 	if bp.WhitespaceCleanup {
 		for i := uint(1); i <= bp.LineCount; i++ {
 			bp.TrimTrailingWhitespace(i)
-		}
-	}
-
-	if !bp.FileMtime.IsZero() {
-		curMtime := FileMtime(fn)
-		if !curMtime.IsZero() && !curMtime.Equal(bp.FileMtime) {
-			if confirmOverwrite == nil || !confirmOverwrite("file changed on disk. overwrite") {
-				return ErrCancelled
-			}
 		}
 	}
 
@@ -233,8 +250,8 @@ func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef fun
 }
 
 func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*buffer.Buffer), writef func(string, ...any)) error {
-	bp := app.State.CurrentBuffer
-	wp := app.State.CurrentWindow
+	bp := model.State.CurrentBuffer
+	wp := model.State.CurrentWindow
 	if bp == nil {
 		return ErrNoBuffer
 	}
@@ -253,7 +270,7 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 		wp.ShouldRedraw = true
 		wp.ShouldUpdateModeLine = true
 	}
-	for _, w := range app.State.WINDOWS {
+	for _, w := range model.State.Windows {
 		if w != nil && w.Buffer == bp {
 			w.ShouldRedraw = true
 			w.ShouldUpdateModeLine = true
@@ -263,12 +280,14 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 }
 
 // CheckReloadCurrentBuffer mirrors src/file.c file_check_reload behavior.
-func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...any), noteBufferSaved func(*buffer.Buffer)) {
-	if app.State.ActiveMinibuffer != nil || app.State.Dispatching {
+// askConfirm, when non-nil, is used for dirty-buffer revert prompts (async-friendly:
+// callers may schedule work in onYes/onNo and return immediately).
+func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func()), writef func(string, ...any), noteBufferSaved func(*buffer.Buffer)) {
+	if model.State.ActiveMinibuffer != nil || model.State.Dispatching {
 		return
 	}
-	bp := app.State.CurrentBuffer
-	wp := app.State.CurrentWindow
+	bp := model.State.CurrentBuffer
+	wp := model.State.CurrentWindow
 	if bp == nil || bp.IsReadonly {
 		return
 	}
@@ -294,7 +313,7 @@ func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...
 	}
 
 	if bp.IsChanged {
-		if app.State.AutoRevertMode {
+		if model.State.AutoRevertMode {
 			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			return
 		}
@@ -305,12 +324,16 @@ func CheckReloadCurrentBuffer(confirm func(string) bool, writef func(string, ...
 		if wp != nil {
 			wp.ShouldUpdateModeLine = true
 		}
-		if confirm != nil && confirm("File changed on disk; revert") {
+		if askConfirm == nil {
+			writeMessage(writef, "[keeping edited buffer]")
+			return
+		}
+		askConfirm("File changed on disk; revert", func() {
 			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			writeMessage(writef, "[Reverted]")
-		} else {
+		}, func() {
 			writeMessage(writef, "[keeping edited buffer]")
-		}
+		})
 		return
 	}
 

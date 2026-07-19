@@ -3,11 +3,12 @@ package editor
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jdpalmer/jem/term"
-	"github.com/jdpalmer/jem/ui"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/view"
 )
 
 const keyCodeSpace uint32 = 0x40000000
@@ -33,7 +34,7 @@ func ConfigLoad() {
 	}
 
 	VarsFromJSON(raw)
-	ui.ThemeUpdate()
+	view.ThemeUpdate()
 	keybindingsFromJSON(raw)
 }
 
@@ -44,14 +45,14 @@ func keybindingsFromJSON(raw map[string]json.RawMessage) {
 	}
 	var kb map[string]*json.RawMessage
 	if err := json.Unmarshal(kbRaw, &kb); err != nil {
-		ui.MBWrite("invalid JSON keybindings object")
+		view.MBWrite("invalid JSON keybindings object")
 		return
 	}
 
 	for key, valPtr := range kb {
 		code, ok := parseKeySequence(strings.TrimSpace(key))
 		if !ok {
-			ui.MBWrite("invalid JSON keybinding code: %s", key)
+			view.MBWrite("invalid JSON keybinding code: %s", key)
 			continue
 		}
 
@@ -61,14 +62,14 @@ func keybindingsFromJSON(raw map[string]json.RawMessage) {
 		}
 		var v string
 		if err := json.Unmarshal(*valPtr, &v); err != nil {
-			ui.MBWrite("invalid JSON keybinding value for %s", key)
+			view.MBWrite("invalid JSON keybinding value for %s", key)
 			continue
 		}
 		cmdName := strings.ToLower(v)
 		if cmdFn, ok := commandNameMap[cmdName]; ok {
 			keybindingsMap[code] = cmdFn
 		} else {
-			ui.MBWrite("invalid JSON command name: %s", v)
+			view.MBWrite("invalid JSON command name: %s", v)
 		}
 	}
 }

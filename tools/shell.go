@@ -3,9 +3,9 @@ package tools
 import (
 	"bytes"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/view"
 )
 
 func promptStringFromBuf(buf []byte) string {
@@ -17,31 +17,43 @@ func promptStringFromBuf(buf []byte) string {
 }
 
 func mbWrite(format string, args ...interface{}) {
-	ui.MBWrite(format, args...)
+	view.MBWrite(format, args...)
 }
 
 func mbClear() {
-	ui.MBClear()
+	view.MBClear()
 }
 
 func mbHistoryAdd(text string) {
-	ui.MBHistoryAdd(text)
+	view.MBHistoryAdd(text)
 }
 
-func mbReadString(prompt, initial string) (string, app.PromptResult) {
-	return ui.MBReadString(prompt, initial)
+func mbReadString(prompt, initial string) (string, model.PromptResult) {
+	return view.MBReadString(prompt, initial)
 }
 
-func mbReadStringCap(prompt, initial string, capacity int) (string, app.PromptResult) {
-	return ui.MBReadStringCap(prompt, initial, capacity)
+func mbReadStringCap(prompt, initial string, capacity int) (string, model.PromptResult) {
+	return view.MBReadStringCap(prompt, initial, capacity)
 }
 
-func mbReadFuzzyListExString(prompt string, provider app.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter app.MbMatchFormatter, displayCtx any) (string, app.PromptResult) {
-	return ui.MBReadFuzzyListExString(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx)
+func mbReadFuzzyListExString(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter model.MbMatchFormatter, displayCtx any) (string, model.PromptResult) {
+	return view.MBReadFuzzyListExString(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx)
+}
+
+func askString(prompt, initial string, onDone func(string, model.PromptResult)) {
+	view.AskString(prompt, initial, onDone)
+}
+
+func askStringCap(prompt, initial string, capacity int, onDone func(string, model.PromptResult)) {
+	view.AskStringCap(prompt, initial, capacity, onDone)
+}
+
+func askFuzzyEx(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter model.MbMatchFormatter, displayCtx any, onDone func(string, model.PromptResult)) {
+	view.AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
 }
 
 func markPushCurrent() {
-	app.MarkPushCurrent()
+	model.MarkPushCurrent()
 }
 
 func fileVisitLocation(path string, line, column uint32) bool {
@@ -56,10 +68,7 @@ func editorSwitchBuffer(bp *buffer.Buffer) {
 		PackageHooks.SwitchBuffer(bp)
 		return
 	}
-	app.SetCurrentBuffer(bp)
-	if wp := app.State.CurrentWindow; wp != nil {
-		wp.Buffer = bp
-	}
+	model.SwitchBuffer(bp)
 }
 
 func CmdAbort(_ bool, _ int) bool {
@@ -71,11 +80,11 @@ func CmdAbort(_ bool, _ int) bool {
 }
 
 func TermFreezeInput() bool {
-	return ui.TermFreezeInput()
+	return view.TermFreezeInput()
 }
 
 func TermThawInput() {
-	ui.TermThawInput()
+	view.TermThawInput()
 }
 
 func editorReadKey(keyOut *uint32) bool {
@@ -91,5 +100,5 @@ func editorReadKey(keyOut *uint32) bool {
 }
 
 func windowRetile() {
-	app.WindowRetile()
+	model.WindowRetile()
 }

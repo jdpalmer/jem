@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
@@ -16,13 +16,13 @@ func CmdDeleteWordForward(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	for i := 0; i < n; i++ {
 		start := wp.Cursor
 		end := forwardWordLoc(bp, start)
@@ -43,13 +43,13 @@ func CmdDeleteWordBackward(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	for i := 0; i < n; i++ {
 		end := wp.Cursor
 		start := backwardWordLoc(bp, end)
@@ -97,8 +97,8 @@ func CmdLowerWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -111,8 +111,8 @@ func CmdLowerWord(f bool, n int) bool {
 		return false
 	}
 	newText := []byte(strings.ToLower(string(text)))
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	var newEnd buffer.Location
 	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
 	if ok {
@@ -127,8 +127,8 @@ func CmdUpperWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -140,8 +140,8 @@ func CmdUpperWord(f bool, n int) bool {
 		return false
 	}
 	newText := []byte(strings.ToUpper(string(text)))
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	var newEnd buffer.Location
 	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
 	if ok {
@@ -156,8 +156,8 @@ func CmdCapWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -176,8 +176,8 @@ func CmdCapWord(f bool, n int) bool {
 		}
 	}
 	newText := []byte(string(runes))
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	var newEnd buffer.Location
 	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
 	if ok {
@@ -194,8 +194,8 @@ func CmdTransposeWords(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -216,8 +216,8 @@ func CmdTransposeWords(f bool, n int) bool {
 		return false
 	}
 	// Replace right then left to avoid offset shifts
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	// replace right with leftText
 	var tmpEnd buffer.Location
 	if !bufferSetText(bp, rightStart, rightEnd, leftText, &tmpEnd, false) {
@@ -236,8 +236,8 @@ func CmdTransposeWords(f bool, n int) bool {
 func CmdFillParagraph(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
@@ -245,7 +245,7 @@ func CmdFillParagraph(f bool, n int) bool {
 	// find paragraph start
 	start := lineNum
 	for start > 1 {
-		lp := bp.Line(start-1)
+		lp := bp.Line(start - 1)
 		if lp == nil || lp.IsBlank() {
 			break
 		}
@@ -253,7 +253,7 @@ func CmdFillParagraph(f bool, n int) bool {
 	}
 	end := lineNum
 	for end < bp.LineCount {
-		nl := bp.Line(end+1)
+		nl := bp.Line(end + 1)
 		if nl == nil || nl.IsBlank() {
 			break
 		}
@@ -305,8 +305,8 @@ func CmdFillParagraph(f bool, n int) bool {
 		endOff = endLoc.Len()
 	}
 	endLocation := buffer.MakeLocation(end, endOff)
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 	var newEnd buffer.Location
 	ok := bufferSetText(bp, begin, endLocation, []byte(newText), &newEnd, false)
 	if ok {
@@ -320,14 +320,14 @@ func CmdDeleteBackward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteForward(f, -n)
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly || n == 0 {
 		return false
 	}
 
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 
 	end := wp.Cursor
 	CmdBackwardChar(f, n)
@@ -348,14 +348,14 @@ func CmdDeleteForward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteBackward(f, -n)
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly || n == 0 {
 		return false
 	}
 
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 
 	begin := wp.Cursor
 	CmdForwardChar(f, n)
@@ -372,14 +372,14 @@ func CmdDeleteForward(f bool, n int) bool {
 }
 
 func CmdInsertChar(c byte) bool {
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil || bp.IsReadonly {
 		return false
 	}
 
-	UndoBeginCommand()
-	defer UndoEndCommand()
+	model.BeginCommand()
+	defer model.EndCommand()
 
 	begin := wp.Cursor
 	var newEnd buffer.Location

@@ -3,21 +3,20 @@ package editor
 // sexp.go — balanced-expression movement (translation of cmd_forward/backward_sexp in src/cmd_move.c)
 
 import (
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
-	"github.com/jdpalmer/jem/ui"
+	"github.com/jdpalmer/jem/view"
 )
 
-import "github.com/jdpalmer/jem/app"
-
-func cursorAtEob(wp *app.Window) bool {
+func cursorAtEob(wp *model.Window) bool {
 	if wp == nil || wp.Buffer == nil {
 		return true
 	}
 	return wp.Cursor.Line >= wp.Buffer.EOF()
 }
 
-func cursorChar(wp *app.Window, bp *buffer.Buffer) int {
+func cursorChar(wp *model.Window, bp *buffer.Buffer) int {
 	if cursorAtEob(wp) {
 		return -1
 	}
@@ -32,7 +31,7 @@ func cursorChar(wp *app.Window, bp *buffer.Buffer) int {
 	return int(lp.Byte(loc.Offset))
 }
 
-func forwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
+func forwardSexpOnce(wp *model.Window, bp *buffer.Buffer) bool {
 	for {
 		ch := cursorChar(wp, bp)
 		if ch < 0 {
@@ -50,7 +49,7 @@ func forwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
 	if ch == '(' || ch == '[' || ch == '{' {
 		var match buffer.Location
 		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
-			ui.MBWrite("[no matching delimiter]")
+			view.MBWrite("[no matching delimiter]")
 			return false
 		}
 		mlp := bp.Line(match.Line)
@@ -66,7 +65,7 @@ func forwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
 	return CmdForwardWord(false, 1)
 }
 
-func backwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
+func backwardSexpOnce(wp *model.Window, bp *buffer.Buffer) bool {
 	orig := wp.Cursor
 	if !CmdBackwardChar(false, 1) {
 		return false
@@ -85,7 +84,7 @@ func backwardSexpOnce(wp *app.Window, bp *buffer.Buffer) bool {
 	if ch == ')' || ch == ']' || ch == '}' {
 		var match buffer.Location
 		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
-			ui.MBWrite("[no matching delimiter]")
+			view.MBWrite("[no matching delimiter]")
 			wp.SetCursor(orig)
 			return false
 		}
@@ -103,8 +102,8 @@ func CmdForwardSexp(f bool, n int) bool {
 	if n < 0 {
 		return CmdBackwardSexp(false, -n)
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -125,8 +124,8 @@ func CmdBackwardSexp(f bool, n int) bool {
 	if n < 0 {
 		return CmdForwardSexp(false, -n)
 	}
-	wp := app.State.CurrentWindow
-	bp := app.State.CurrentBuffer
+	wp := model.State.CurrentWindow
+	bp := model.State.CurrentBuffer
 	if wp == nil || bp == nil {
 		return false
 	}

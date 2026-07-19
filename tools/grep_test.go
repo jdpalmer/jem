@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 )
 
 func TestGrepCompilePatternSmartCase(t *testing.T) {
@@ -54,7 +54,7 @@ func TestGrepProjectSearch(t *testing.T) {
 }
 
 func TestGrepFillBuffer(t *testing.T) {
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}

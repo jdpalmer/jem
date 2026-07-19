@@ -3,13 +3,13 @@ package editor
 import (
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 )
 
 func TestPickBufferListNames(t *testing.T) {
-	app.Reset()
-	bp1 := app.BufferCreate(&app.State.EditorRuntimeState)
-	bp2 := app.BufferCreate(&app.State.EditorRuntimeState)
+	model.Reset()
+	bp1 := model.BufferCreate(&model.State.EditorRuntimeState)
+	bp2 := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp1 == nil || bp2 == nil {
 		t.Fatal("buffer create failed")
 	}
@@ -29,24 +29,24 @@ func TestPickBufferListNames(t *testing.T) {
 }
 
 func TestCmdUseBufferDirectIndex(t *testing.T) {
-	app.Reset()
-	bp1 := app.BufferCreate(&app.State.EditorRuntimeState)
-	bp2 := app.BufferCreate(&app.State.EditorRuntimeState)
+	model.Reset()
+	bp1 := model.BufferCreate(&model.State.EditorRuntimeState)
+	bp2 := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp1 == nil || bp2 == nil {
 		t.Fatal("buffer create failed")
 	}
 	bp1.Name = "one"
 	bp2.Name = "two"
-	wp := app.WindowCreate()
+	wp := model.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
-	app.WindowSelect(wp)
+	model.WindowSelect(wp)
 
 	if !CmdUseBuffer(true, 2) {
 		t.Fatal("CmdUseBuffer with universal arg n=2 failed")
 	}
-	if app.State.CurrentBuffer != bp2 {
+	if model.State.CurrentBuffer != bp2 {
 		t.Fatal("expected second buffer selected")
 	}
 }

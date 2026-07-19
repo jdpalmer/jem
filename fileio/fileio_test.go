@@ -6,26 +6,26 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
 func resetAppForFileIoTests() {
-	app.Reset()
+	model.Reset()
 }
 
 func initBufferWindowForFileIoTests(t *testing.T) *buffer.Buffer {
 	t.Helper()
-	bp := app.BufferCreate(&app.State.EditorRuntimeState)
+	bp := model.BufferCreate(&model.State.EditorRuntimeState)
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}
-	app.SetCurrentBuffer(bp)
-	wp := app.WindowCreate()
+	model.SetCurrentBuffer(bp)
+	wp := model.WindowCreate()
 	if wp == nil {
 		t.Fatal("window create failed")
 	}
-	app.WindowSelect(wp)
+	model.WindowSelect(wp)
 	return bp
 }
 
@@ -86,7 +86,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	if err := LoadCurrentBuffer(path, nil); err != nil {
 		t.Fatal(err)
 	}
-	app.State.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
+	model.State.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
 
 	if err := os.WriteFile(path, []byte("alpha\nbeta\ngamma\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -105,8 +105,8 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	if bp.LineCount != 3 {
 		t.Fatalf("line_count = %d, want 3", bp.LineCount)
 	}
-	if app.State.CurrentWindow.Cursor.Line != 1 {
-		t.Fatalf("cursor line = %d, want 1", app.State.CurrentWindow.Cursor.Line)
+	if model.State.CurrentWindow.Cursor.Line != 1 {
+		t.Fatalf("cursor line = %d, want 1", model.State.CurrentWindow.Cursor.Line)
 	}
 	if bp.IsChanged {
 		t.Fatal("buffer should be clean after auto-reload")
@@ -133,17 +133,17 @@ func TestLoadCommandLineFiles(t *testing.T) {
 		return LoadCurrentBuffer(path, nil)
 	})
 
-	if len(app.State.Buffers) != 3 {
-		t.Fatalf("buffer_count = %d, want 3", len(app.State.Buffers))
+	if len(model.State.Buffers) != 3 {
+		t.Fatalf("buffer_count = %d, want 3", len(model.State.Buffers))
 	}
-	wp := app.State.CurrentWindow
+	wp := model.State.CurrentWindow
 	if wp == nil {
 		t.Fatal("no window")
 	}
-	if app.State.CurrentBuffer != wp.Buffer {
+	if model.State.CurrentBuffer != wp.Buffer {
 		t.Fatal("current buffer should be the first file's buffer")
 	}
-	line := app.State.CurrentBuffer.Line(1)
+	line := model.State.CurrentBuffer.Line(1)
 	if line == nil || string(line.Data) != "a.go" {
 		got := ""
 		if line != nil {
@@ -152,7 +152,7 @@ func TestLoadCommandLineFiles(t *testing.T) {
 		t.Fatalf("first buffer text = %q, want %q", got, "a.go")
 	}
 	names := map[string]bool{}
-	for _, bp := range app.State.Buffers {
+	for _, bp := range model.State.Buffers {
 		if bp != nil {
 			names[bp.Name] = true
 		}
@@ -187,7 +187,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	// Avoid prompting by simulating that the user already declined for this mtime.
 	bp.DiskChangeNotifiedMtime = FileMtime(path)
 
-	CheckReloadCurrentBuffer(func(string) bool { return false }, nil, nil)
+	CheckReloadCurrentBuffer(nil, nil, nil)
 
 	line := bp.Line(1)
 	if line == nil || string(line.Data) != "first" {

@@ -186,8 +186,8 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 }
 
 func callReparseFrom(bp *Buffer, lineNumber uint) {
-	if editSession.ReparseFrom != nil {
-		editSession.ReparseFrom(bp, lineNumber)
+	if PackageHooks.ReparseFrom != nil {
+		PackageHooks.ReparseFrom(bp, lineNumber)
 	}
 }
 
@@ -204,7 +204,7 @@ func (bp *Buffer) InvalidateSyntaxFrom(lineNumber uint) {
 	}
 }
 
-// NoteEdit marks the buffer changed and notifies the EditSession when installed.
+// NoteEdit marks the buffer changed and notifies PackageHooks when installed.
 func (bp *Buffer) NoteEdit(isStructural bool) {
 	callNoteEdit(bp, isStructural)
 }
@@ -213,52 +213,17 @@ func callNoteEdit(bp *Buffer, isStructural bool) {
 	if bp == nil {
 		return
 	}
-	// Session runs before IsChanged so NoteEdit can detect first-change.
-	if editSession.NoteEdit != nil {
-		editSession.NoteEdit(bp, isStructural)
+	// Hooks run before IsChanged so NoteEdit can detect first-change.
+	if PackageHooks.NoteEdit != nil {
+		PackageHooks.NoteEdit(bp, isStructural)
 	}
 	bp.IsChanged = true
 }
 
 func callAdjustLocations(bp *Buffer, begin, end, newEnd Location) {
-	if editSession.AdjustLocationsAfterReplace != nil {
-		editSession.AdjustLocationsAfterReplace(bp, begin, end, newEnd)
+	if PackageHooks.AdjustLocationsAfterReplace != nil {
+		PackageHooks.AdjustLocationsAfterReplace(bp, begin, end, newEnd)
 	}
-}
-
-// LocationAdjustAfterReplace updates a single Location in place to account for
-// a replacement of [begin,end) with newEnd, following the logic from src/edit.c.
-func (loc *Location) AdjustAfterReplace(begin, end, newEnd Location) {
-	if loc == nil {
-		return
-	}
-	if loc.Line < begin.Line {
-		return
-	}
-	if loc.Line == begin.Line && loc.Offset < begin.Offset {
-		return
-	}
-	if loc.Line == end.Line && loc.Offset > end.Offset {
-		loc.Line = newEnd.Line
-		loc.Offset = newEnd.Offset + (loc.Offset - end.Offset)
-		return
-	}
-	if loc.Line > end.Line {
-		if newEnd.Line >= end.Line {
-			loc.Line += newEnd.Line - end.Line
-		} else {
-			removed := end.Line - newEnd.Line
-			if loc.Line >= removed {
-				loc.Line -= removed
-			} else {
-				loc.Line = 1
-			}
-		}
-		return
-	}
-	// Default: set to newEnd
-	loc.Line = newEnd.Line
-	loc.Offset = newEnd.Offset
 }
 
 func (bp *Buffer) GetText(begin, end Location) []byte {
@@ -400,9 +365,9 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 	return out
 }
 
-// SetText is the interactive edit-session entry point: optional undo recording,
-// NoteEdit (session + IsChanged), then ReplaceRaw (location adjust, syntax
-// invalidate, reparse via the active EditSession).
+// SetText is the interactive edit entry: optional undo recording, NoteEdit
+// (PackageHooks + IsChanged), then ReplaceRaw (location adjust, syntax
+// invalidate, reparse via PackageHooks).
 func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) error {
 	if bp == nil {
 		return ErrNilBuffer

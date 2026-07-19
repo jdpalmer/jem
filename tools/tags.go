@@ -5,7 +5,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jdpalmer/jem/app"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/fileio"
 	"os"
@@ -56,7 +56,7 @@ func tagFindTagsFile() (string, bool) {
 	}
 
 	dir := ""
-	if bp := app.State.CurrentBuffer; bp != nil {
+	if bp := model.State.CurrentBuffer; bp != nil {
 		if fname := bp.FileName; fname != "" {
 			dir = filepath.Dir(fileio.NormalizePath(fname))
 		}
@@ -213,7 +213,7 @@ func tagIsSymbolChar(c byte) bool {
 		(c >= '0' && c <= '9') || c == '_'
 }
 
-func tagSymbolAtPoint(wp *app.Window, symbol []byte) bool {
+func tagSymbolAtPoint(wp *model.Window, symbol []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -247,7 +247,7 @@ func tagSymbolAtPoint(wp *app.Window, symbol []byte) bool {
 	return true
 }
 
-func tagMoveCursorToLine(wp *app.Window, target, offset uint32) bool {
+func tagMoveCursorToLine(wp *model.Window, target, offset uint32) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -273,13 +273,13 @@ func bufferNameFromPath(fname string) string {
 	if i := strings.IndexByte(base, ';'); i >= 0 {
 		base = base[:i]
 	}
-	if app.BufferFind(base) == nil {
-		return app.TruncateBufferName(base)
+	if model.BufferFind(base) == nil {
+		return model.TruncateBufferName(base)
 	}
 	for suffix := 2; ; suffix++ {
 		name := fmt.Sprintf("%s:%d", base, suffix)
-		if app.BufferFind(name) == nil {
-			return app.TruncateBufferName(name)
+		if model.BufferFind(name) == nil {
+			return model.TruncateBufferName(name)
 		}
 	}
 }
@@ -395,9 +395,10 @@ func tagDisplayFormatter(out []byte, outSize uint, idx uint, ctx any) {
 	}
 }
 
-func tagChooseMatch(matches []*TagEntry) int {
+func tagChooseMatch(matches []*TagEntry, onDone func(choice int)) {
 	if len(matches) == 0 {
-		return -1
+		onDone(-1)
+		return
 	}
 	count := len(matches)
 	if count > 255 {
@@ -405,35 +406,75 @@ func tagChooseMatch(matches []*TagEntry) int {
 	}
 
 	list := &tagMatchList{matches: matches[:count]}
-	selected, r := mbReadFuzzyListExString("Tag: ", func(ctx any, idx uint) []byte {
+	askFuzzyEx("Tag: ", func(ctx any, idx uint) []byte {
 		return ctx.(*tagMatchList).provider(idx)
-	}, list, uint(count), tagDisplayFormatter, list)
-	if r == app.PromptResultAbort {
-		CmdAbort(false, 1)
-		return -1
-	}
-	if r != app.PromptResultYes {
-		return -1
-	}
-
-	for i := 0; i < count; i++ {
-		if matches[i].Name == selected {
-			return i
+	}, list, uint(count), tagDisplayFormatter, list, func(selected string, r model.PromptResult) {
+		if r == model.PromptResultAbort {
+			CmdAbort(false, 1)
+			onDone(-1)
+			return
 		}
-	}
-	return -1
+		if r != model.PromptResultYes {
+			onDone(-1)
+			return
+		}
+		for i := 0; i < count; i++ {
+			if matches[i].Name == selected {
+				onDone(i)
+				return
+			}
+		}
+		onDone(-1)
+	})
 }
 
-func tagReadSymbolString(wp *app.Window) (string, bool) {
-	var buf [app.PatternCapacity]byte
+func tagVisitMatch(matches []*TagEntry, choice int) {
+	if choice < 0 || choice >= len(matches) {
+		return
+	}
+	markPushCurrent()
+	entry := matches[choice]
+	_ = tagVisitLocation(entry.Path, entry.Line, 0)
+}
+
+// RunGotoTag jumps to the definition of the symbol at point (M-.).
+func RunGotoTag() bool {
+	wp := model.State.CurrentWindow
+
+	if !EnsureTagsLoaded(false) {
+		return false
+	}
+
+	finish := func(name string) {
+		matches := tagCollectMatches(name, false)
+		if len(matches) == 0 {
+			mbWrite("[tag not found: %s]", name)
+			return
+		}
+		if len(matches) == 1 {
+			tagVisitMatch(matches, 0)
+			return
+		}
+		tagChooseMatch(matches, func(choice int) {
+			tagVisitMatch(matches, choice)
+		})
+	}
+
+	var buf [model.PatternCapacity]byte
 	if tagSymbolAtPoint(wp, buf[:]) {
-		return promptStringFromBuf(buf[:]), true
+		finish(promptStringFromBuf(buf[:]))
+		return true
 	}
-	symbol, pr := mbReadString("Goto tag: ", "")
-	return symbol, pr == app.PromptResultYes
+	askString("Goto tag: ", "", func(symbol string, pr model.PromptResult) {
+		if pr != model.PromptResultYes {
+			return
+		}
+		finish(symbol)
+	})
+	return true
 }
 
-func tagCollectHintContext(wp *app.Window, out []byte) int {
+func tagCollectHintContext(wp *model.Window, out []byte) int {
 	if wp == nil || wp.Buffer == nil || len(out) == 0 {
 		return 0
 	}
@@ -477,7 +518,7 @@ func tagCollectHintContext(wp *app.Window, out []byte) int {
 	return used
 }
 
-func tagFindCallHint(wp *app.Window, name []byte, argIndexOut *uint32) bool {
+func tagFindCallHint(wp *model.Window, name []byte, argIndexOut *uint32) bool {
 	if len(name) == 0 || argIndexOut == nil {
 		return false
 	}
@@ -555,55 +596,21 @@ func tagFindCallHint(wp *app.Window, name []byte, argIndexOut *uint32) bool {
 	return true
 }
 
-// RunGotoTag jumps to the definition of the symbol at point (M-.).
-func RunGotoTag() bool {
-	wp := app.State.CurrentWindow
-
-	if !EnsureTagsLoaded(false) {
-		return false
-	}
-	name, ok := tagReadSymbolString(wp)
-	if !ok {
-		return false
-	}
-
-	matches := tagCollectMatches(name, false)
-	if len(matches) == 0 {
-		mbWrite("[tag not found: %s]", name)
-		return false
-	}
-
-	choice := 0
-	if len(matches) > 1 {
-		choice = tagChooseMatch(matches)
-		if choice < 0 {
-			return false
-		}
-	}
-
-	markPushCurrent()
-	entry := matches[choice]
-	if !tagVisitLocation(entry.Path, entry.Line, 0) {
-		return false
-	}
-	return true
-}
-
 // MaybeShowCallHint displays a signature hint for the function call at point.
 func MaybeShowCallHint() {
-	if app.State.IsRecording() || app.State.IsPlaying() {
+	if model.State.IsRecording() || model.State.IsPlaying() {
 		return
 	}
 	if !EnsureTagsLoaded(true) {
 		return
 	}
 
-	bp := app.State.CurrentBuffer
-	wp := app.State.CurrentWindow
+	bp := model.State.CurrentBuffer
+	wp := model.State.CurrentWindow
 	if bp == nil || wp == nil {
 		return
 	}
-	var name [app.PatternCapacity]byte
+	var name [model.PatternCapacity]byte
 	var argIndex uint32
 	if !tagFindCallHint(wp, name[:], &argIndex) {
 		return

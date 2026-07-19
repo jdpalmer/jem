@@ -4,10 +4,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/modesyntax"
 )
 
-// Delimiter navigation (translation of syntax_find_matching_delimiter in src/syntax.c).
+// Delimiter navigation (translation of syntax_find_matching_delimiter in src/c).
 
 // DelimiterPair maps a delimiter rune to its partner and scan direction.
 func DelimiterPair(ch int) (open, close int, forward bool, ok bool) {
@@ -20,7 +19,7 @@ func DelimiterPair(ch int) (open, close int, forward bool, ok bool) {
 }
 
 // byteOffsetToRuneLimit returns how many leading runes end before byteOffset in
-// lp.Data, matching syntax_process_line scan_maxn byte semantics in syntax.c.
+// lp.Data, matching syntax_process_line scan_maxn byte semantics in c.
 func byteOffsetToRuneLimit(lp *buffer.Line, byteOffset uint) int {
 	if lp == nil {
 		return 0
@@ -79,10 +78,10 @@ func bufferSyntaxFindStart(bp *buffer.Buffer, lineNumber uint, st *buffer.SynSta
 	if bp == nil {
 		return
 	}
-	info := modesyntax.For(bp.LangMode)
-	if info.Kind == modesyntax.ModeSyntaxNone ||
-		info.Kind == modesyntax.ModeSyntaxMarkdown ||
-		info.Kind == modesyntax.ModeSyntaxHashCommentOnly {
+	info := For(bp.LangMode)
+	if info.Kind == ModeSyntaxNone ||
+		info.Kind == ModeSyntaxMarkdown ||
+		info.Kind == ModeSyntaxHashCommentOnly {
 		return
 	}
 	syncLine := uint(1)
