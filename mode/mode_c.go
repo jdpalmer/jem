@@ -14,7 +14,16 @@ func lineColOfOffset(lp *buffer.Line, offset uint) int {
 	if offset > lp.Len() {
 		offset = lp.Len()
 	}
-	return int(offset)
+	col := 0
+	for i := uint(0); i < offset; i++ {
+		c := lp.Data[i]
+		if c == '\t' {
+			col += 8 - (col % 8)
+		} else {
+			col++
+		}
+	}
+	return col
 }
 
 func lineFirstNonblankOffset(lp *buffer.Line) (uint, byte) {
@@ -186,20 +195,21 @@ func findClosingDelimiterIndent(bp *buffer.Buffer, lineNumber uint, offset uint)
 	default:
 		return 0
 	}
+	// Search strictly before the closer so we do not depth++ the delimiter we are matching.
 	depth := 0
 	for ln := int(lineNumber); ln >= 1; ln-- {
 		lp := bp.Line(uint(ln))
 		if lp == nil {
 			continue
 		}
-		start := len(lp.Data)
+		start := len(lp.Data) - 1
 		if ln == int(lineNumber) {
-			start = int(offset)
-		}
-		for i := start; i >= 0; i-- {
-			if i == len(lp.Data) {
+			if offset == 0 {
 				continue
 			}
+			start = int(offset) - 1
+		}
+		for i := start; i >= 0; i-- {
 			c := lp.Data[i]
 			if c == ch {
 				depth++
@@ -209,6 +219,10 @@ func findClosingDelimiterIndent(bp *buffer.Buffer, lineNumber uint, offset uint)
 				if depth > 0 {
 					depth--
 					continue
+				}
+				// Braces align to the opening line's indent (gofmt / K&R), not the '{' column.
+				if open == '{' {
+					return int(lp.IndentColumn())
 				}
 				return lineColOfOffset(lp, uint(i))
 			}
@@ -658,7 +672,7 @@ func cmdCCloseBrace(f bool, n int) bool {
 func init() {
 	for i := range modeTable {
 		switch modeTable[i].Mode {
-		case buffer.LModeC, buffer.LModeJava, buffer.LModeCSharp, buffer.LModeGo, buffer.LModeKotlin, buffer.LModeSwift, buffer.LModeJavaScript, buffer.LModeTypeScript, buffer.LModeActionScript, buffer.LModeDart, buffer.LModeRust:
+		case buffer.LModeC, buffer.LModeJava, buffer.LModeCSharp, buffer.LModeKotlin, buffer.LModeSwift, buffer.LModeJavaScript, buffer.LModeTypeScript, buffer.LModeActionScript, buffer.LModeDart, buffer.LModeRust:
 			modeTable[i].NewlineAndIndent = cmdCNewlineAndIndent
 			modeTable[i].IndentLine = cmdCIndentLine
 			modeTable[i].CloseBrace = cmdCCloseBrace

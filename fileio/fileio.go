@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/mode"
+	"github.com/jdpalmer/jem/model"
 )
 
 var (
@@ -79,6 +80,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	bp.EolMode = buffer.EModeLF
 	bp.FileName = resolved
 	bp.LangMode = DetectLangMode(resolved)
+	mode.ApplyLangIndentDefaults(bp)
 
 	fh, err := os.Open(resolved)
 	if err != nil {

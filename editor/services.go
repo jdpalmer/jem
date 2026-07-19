@@ -41,6 +41,7 @@ func buildServices() *Services {
 		App: model.Hooks{
 			UndoForgetBuffer: model.ForgetBuffer,
 			SwitchBuffer:     switchBufferFn,
+			OnBufferCreate:   bufferApplyVarDefaults,
 		},
 		Buffer: buffer.Hooks{
 			NoteEdit:                    model.NoteBufferEdit,

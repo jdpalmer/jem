@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/mode"
+	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
 	"github.com/jdpalmer/jem/view"
@@ -116,12 +117,13 @@ func (te *TestEditor) Cursor() buffer.Location {
 	return wp.Cursor
 }
 
-func (te *TestEditor) SetLangMode(mode buffer.LangMode) {
+func (te *TestEditor) SetLangMode(lang buffer.LangMode) {
 	bp := te.BP()
 	if bp == nil {
 		te.t.Fatal("no buffer")
 	}
-	bp.LangMode = mode
+	bp.LangMode = lang
+	mode.ApplyLangIndentDefaults(bp)
 }
 
 // Key dispatches one editor key through the event Handle path.

@@ -122,8 +122,9 @@ var modeTable = []model.ModeInfo{
 		Mode:           buffer.LModeGo,
 		DisplayName:    "Go",
 		CompletionName: "go",
-		CommentOpen:    "/*",
+		CommentOpen:    "//",
 		CommentAltOpen: "//",
+		CommentAppend:  "  // ",
 	},
 	{
 		Mode:           buffer.LModeCSharp,

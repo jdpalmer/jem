@@ -21,6 +21,9 @@ func BufferCreate(ed *EditorRuntimeState) *buffer.Buffer {
 	bp.Serial = ed.NextBufferSerial
 	ed.NextBufferSerial++
 	ed.Buffers = append(ed.Buffers, bp)
+	if PackageHooks.OnBufferCreate != nil {
+		PackageHooks.OnBufferCreate(bp)
+	}
 	return bp
 }
 

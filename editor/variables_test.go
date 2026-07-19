@@ -40,6 +40,23 @@ func TestVarsInitDefaults(t *testing.T) {
 	}
 }
 
+func TestBufferCreateAppliesIndentDefaults(t *testing.T) {
+	_ = NewTestEditor(t)
+	bp := model.State.CurrentBuffer
+	if bp == nil {
+		t.Fatal("no buffer")
+	}
+	if bp.CIndent != 2 {
+		t.Fatalf("buffer CIndent = %d, want 2 (OnBufferCreate)", bp.CIndent)
+	}
+	if bp.PyIndent != 4 {
+		t.Fatalf("buffer PyIndent = %d, want 4", bp.PyIndent)
+	}
+	if bp.FillCol != 80 {
+		t.Fatalf("buffer FillCol = %d, want 80", bp.FillCol)
+	}
+}
+
 func TestVarSetFromJSON(t *testing.T) {
 	VarsInit()
 	v := varFindByName("fill-column")

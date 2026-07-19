@@ -59,6 +59,11 @@ func ensureCurrent() *Editor {
 func EditorInit(firstBufferName string) {
 	e := ensureCurrent()
 
+	// Install services before BufferCreate so OnBufferCreate applies defaults.
+	e.Services = buildServices()
+	Svc = e.Services
+	installServices(Svc)
+
 	model.State.Buffers = nil
 	model.State.Windows = nil
 
@@ -78,7 +83,4 @@ func EditorInit(firstBufferName string) {
 	model.State.KillState = model.CmdStateNone
 	clearListeners()
 	macroInit()
-	e.Services = buildServices()
-	Svc = e.Services
-	installServices(Svc)
 }
