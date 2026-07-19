@@ -1,4 +1,8 @@
-package view
+package editor
+
+import (
+	"github.com/jdpalmer/jem/view"
+)
 
 type menuItem struct {
 	label   string
@@ -22,25 +26,24 @@ var mainMenu = []menuItem{
 	{label: "Menu Quit", command: "quit"},
 }
 
-// CmdMenuRun opens the message-line menu and dispatches via hooks.
+// CmdMenuRun opens the message-line menu and dispatches the chosen command.
 func CmdMenuRun(f bool, n int) bool {
 	_ = f
 	_ = n
 	AskChoose("Menu > ", mainMenu, menuItemLabel, uint8(len(mainMenu)), 0, func(result int16) {
 		if result == -2 {
-			if PackageHooks.Abort != nil {
-				PackageHooks.Abort()
-			}
+			CmdAbort(false, 1)
 			return
 		}
 		if result < 0 {
-			MBClear()
+			view.MBClear()
 			return
 		}
 		cmd := mainMenu[result].command
-		MBClear()
-		if PackageHooks.RunCommandByName != nil {
-			PackageHooks.RunCommandByName(cmd)
+		view.MBClear()
+		c := commandByName(cmd)
+		if c != nil && c.Fn != nil {
+			_ = c.Fn(false, 1)
 		}
 	})
 	return true

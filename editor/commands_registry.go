@@ -8,7 +8,6 @@ import (
 	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
-	"github.com/jdpalmer/jem/view"
 )
 
 // cmd0 adapts a no-arg command for the (f, n) registry signature.
@@ -101,7 +100,7 @@ func initCommandRegistry() {
 		{Name: "mark_pop", Fn: CmdMarkPop, Doc: "Pop back to the most recently pushed mark.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | ' '}},
 		{Name: "mark_push", Fn: CmdMarkPush, Doc: "Push the current location onto the mark stack.", AcceptsArg: false, Keys: []uint32{term.CTLX | ' '}},
 		{Name: "mark_whole_buffer", Fn: CmdMarkWholeBuffer, Doc: "Mark the entire buffer as the active region.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'H'}},
-		{Name: "menu_run", Fn: view.CmdMenuRun, Doc: "Open the message-line menu.", AcceptsArg: false, Keys: []uint32{term.CTL | '_', term.CTL | '/'}},
+		{Name: "menu_run", Fn: CmdMenuRun, Doc: "Open the message-line menu.", AcceptsArg: false, Keys: []uint32{term.CTL | '_', term.CTL | '/'}},
 		{Name: "mode_close_brace", Fn: mode.CmdModeCloseBrace, Doc: "Insert a close brace with mode-aware behavior.", AcceptsArg: true, Keys: []uint32{'}'}},
 		{Name: "mode_end_of_function", Fn: mode.CmdModeEndOfFunction, Doc: "Jump to the end of the current function.", AcceptsArg: false, Keys: []uint32{term.META | term.CTL | 'E'}},
 		{Name: "mode_goto_match", Fn: mode.CmdModeGotoMatch, Doc: "Jump to the matching delimiter.", AcceptsArg: false, Keys: []uint32{term.CTL | '\\'}},
@@ -118,7 +117,7 @@ func initCommandRegistry() {
 		{Name: "query_replace", Fn: cmd0(search.QueryReplace), Doc: "Query replace plain text.", AcceptsArg: false, Keys: []uint32{term.META | '%'}},
 		{Name: "quit", Fn: CmdQuit, Doc: "Quit Jem.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'C'}},
 		{Name: "quote", Fn: CmdQuote, Doc: "Insert the next character literally.", AcceptsArg: true, Keys: []uint32{term.CTL | 'Q'}},
-		{Name: "refresh", Fn: view.CmdRefresh, Doc: "Refresh the current window.", AcceptsArg: false, Keys: []uint32{term.CTL | 'L'}},
+		{Name: "refresh", Fn: CmdRefresh, Doc: "Refresh the current window.", AcceptsArg: false, Keys: []uint32{term.CTL | 'L'}},
 		{Name: "revert_file", Fn: CmdRevertFile, Doc: "Revert the current buffer to the on-disk file.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'V'}},
 		{Name: "search_backward", Fn: cmd0(search.SearchBackward), Doc: "Search backward for a string.", AcceptsArg: false},
 		{Name: "search_forward", Fn: cmd0(search.SearchForward), Doc: "Search forward for a string.", AcceptsArg: false},
@@ -130,7 +129,7 @@ func initCommandRegistry() {
 		{Name: "spawn", Fn: cmd0(tools.RunSpawnCommand), Doc: "Run a shell command.", AcceptsArg: false, Keys: []uint32{term.CTLX | '!'}},
 		{Name: "spawn_cli", Fn: cmd0(tools.RunSpawnCLI), Doc: "Open an interactive shell.", AcceptsArg: false, Keys: []uint32{term.META | '!'}},
 		{Name: "swap_mark", Fn: CmdSwapMark, Doc: "Swap point and mark.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'X'}},
-		{Name: "theme_toggle", Fn: view.CmdThemeToggle, Doc: "Toggle between dark and light themes.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'T'}},
+		{Name: "theme_toggle", Fn: CmdThemeToggle, Doc: "Toggle between dark and light themes.", AcceptsArg: false, Keys: []uint32{term.CTLX | 'T'}},
 		{Name: "toggle_search_scope", Fn: cmd0(search.ToggleSearchScope), Doc: "Toggle search between one buffer and all buffers.", AcceptsArg: false},
 		{Name: "transpose_chars", Fn: CmdTransposeChars, Doc: "Transpose the characters around point.", AcceptsArg: false, Keys: []uint32{term.CTL | 'T'}},
 		{Name: "transpose_lines", Fn: CmdTransposeLines, Doc: "Transpose the current line with the line above it.", AcceptsArg: false, Keys: []uint32{term.CTLX | term.CTL | 'T'}},

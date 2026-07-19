@@ -30,10 +30,6 @@ func mbClear() {
 	view.MBClear()
 }
 
-func mbReadString(prompt, initial string) (string, model.PromptResult) {
-	return view.MBReadString(prompt, initial)
-}
-
 func askString(prompt, initial string, onDone func(string, model.PromptResult)) {
 	view.AskString(prompt, initial, onDone)
 }

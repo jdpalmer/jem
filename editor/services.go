@@ -78,20 +78,10 @@ func buildServices() *Services {
 			},
 		},
 		View: view.Hooks{
-			ApplyCtlxPrefix: applyCtlxPrefix,
-			RunCommandByName: func(name string) bool {
-				cmd := commandByName(name)
-				if cmd == nil || cmd.Fn == nil {
-					return false
-				}
-				return cmd.Fn(false, 1)
-			},
-			Abort:                       abortFn,
+			ApplyCtlxPrefix:             applyCtlxPrefix,
 			GitLineDiff:                 tools.GitLineDiffAt,
 			GitModelineText:             tools.GitModelineText,
 			MacroRecordMinibufferResult: macroRecordMinibufferResult,
-			CommandsProvider:            commandsProvider,
-			BuildCommandList:            buildCommandList,
 			BeginMinibuf:                BeginMinibuf,
 			EndMinibuf:                  EndMinibuf,
 			WaitKey:                     WaitKey,

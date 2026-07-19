@@ -1,27 +1,19 @@
 package view
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/model"
 )
 
-type CommandFunc func(f bool, n int) bool
-
 // Hooks are editor-owned callbacks view cannot import directly (cycle).
-// Kill ring, key decode/meta, and paste live in view/model;
-// git modeline stays hooked (tools↔view cycle).
-// Macro play replies are consumed via model.TakeMacroPromptReply.
 type Hooks struct {
 	ApplyCtlxPrefix             func(second uint32) uint32
-	RunCommandByName            func(name string) bool
-	Abort                       func()
 	GitLineDiff                 func(bp *buffer.Buffer, lineNumber uint) model.GitLineDiff
 	GitModelineText             func(bp *buffer.Buffer) string
 	MacroRecordMinibufferResult func(text []byte)
-	CommandsProvider            func(ctx any, idx uint) []byte
-	BuildCommandList            func() []string
 	// BeginMinibuf / EndMinibuf / WaitKey route blocking prompts through the
-	// editor listener stack and single event bus (view must not import editor).
+	// editor listener stack (view must not import editor). Prefer Ask* on the
+	// main loop; WaitKey remains for test/hook fallbacks.
 	BeginMinibuf func()
 	EndMinibuf   func()
 	WaitKey      func() (uint32, bool)

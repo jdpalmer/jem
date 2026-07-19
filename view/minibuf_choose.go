@@ -21,41 +21,6 @@ func macroPlayPrompt(buf []byte) (model.PromptResult, bool) {
 	return pr, true
 }
 
-// mbReadInitial prompts the user and returns their input in buf (blocking).
-func mbReadInitial(prompt string, buf []byte, capacity int, initial []byte) model.PromptResult {
-	if pr, played := macroPlayPrompt(buf); played {
-		return pr
-	}
-	init := ""
-	if len(initial) > 0 {
-		init = string(initial)
-	}
-	p := NewStringPrompt(prompt, init, capacity)
-	p.OpenBlocking()
-	defer p.Close()
-	for {
-		k, ok := WaitKey()
-		if !ok {
-			return model.PromptResultAbort
-		}
-		done, text, pr := p.HandleKey(k)
-		if done {
-			if pr == model.PromptResultYes {
-				n := copy(buf, text)
-				if n < len(buf) {
-					buf[n] = 0
-				}
-			}
-			return pr
-		}
-	}
-}
-
-// mbRead is a convenience wrapper for mbReadInitial with no initial text.
-func mbRead(prompt string, buf []byte) model.PromptResult {
-	return mbReadInitial(prompt, buf, len(buf), nil)
-}
-
 // ---- Horizontal choice menu (mb_choose) --------------------------------------
 
 const (

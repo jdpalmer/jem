@@ -195,35 +195,3 @@ func fuzzyMatches(provider model.MbNameProviderFn, ctx any, count uint, query []
 	}
 	return out
 }
-
-// mbReadFuzzyListEx prompts the user with a live-filtering fuzzy list (blocking).
-func mbReadFuzzyListEx(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter model.MbMatchFormatter, displayCtx any, buf []byte, nbuf int) model.PromptResult {
-	if pr, played := macroPlayPrompt(buf); played {
-		return pr
-	}
-	p := NewFuzzyPrompt(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, nbuf)
-	p.OpenBlocking()
-	defer p.Close()
-	for {
-		k, ok := WaitKey()
-		if !ok {
-			return model.PromptResultAbort
-		}
-		done, text, pr := p.HandleKey(k)
-		if done {
-			if pr == model.PromptResultYes {
-				n := copy(buf, text)
-				if n < len(buf) {
-					buf[n] = 0
-				}
-			}
-			return pr
-		}
-	}
-}
-
-// mbReadFuzzyList is a convenience wrapper around mbReadFuzzyListEx with no
-// custom display formatter.
-func mbReadFuzzyList(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, buf []byte, nbuf int) model.PromptResult {
-	return mbReadFuzzyListEx(prompt, provider, providerCtx, providerCount, nil, nil, buf, nbuf)
-}

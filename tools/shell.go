@@ -28,18 +28,6 @@ func mbHistoryAdd(text string) {
 	view.MBHistoryAdd(text)
 }
 
-func mbReadString(prompt, initial string) (string, model.PromptResult) {
-	return view.MBReadString(prompt, initial)
-}
-
-func mbReadStringCap(prompt, initial string, capacity int) (string, model.PromptResult) {
-	return view.MBReadStringCap(prompt, initial, capacity)
-}
-
-func mbReadFuzzyListExString(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter model.MbMatchFormatter, displayCtx any) (string, model.PromptResult) {
-	return view.MBReadFuzzyListExString(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx)
-}
-
 func askString(prompt, initial string, onDone func(string, model.PromptResult)) {
 	view.AskString(prompt, initial, onDone)
 }
