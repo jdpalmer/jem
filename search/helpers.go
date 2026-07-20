@@ -1,16 +1,33 @@
 package search
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/term"
-	"github.com/jdpalmer/jem/view"
 )
+
+type SearchScopeMode int
+
+const (
+	SearchScopeBuffer SearchScopeMode = iota
+	SearchScopeAllBuffers
+)
+
+type TransientAction int32
+
+type TransientBinding struct {
+	Code   uint32
+	Action TransientAction
+}
 
 type State struct {
 	SearchCaseSensitive bool
 	RegexSearchPattern  string
-	TransientBindings   []model.TransientBinding
+	SearchScopeSetting  SearchScopeMode
+	SearchPattern       string
+	TransientBindings   []TransientBinding
 }
 
 var DefaultState = &State{}
@@ -23,51 +40,51 @@ func currentState() *State {
 }
 
 func mbWrite(format string, args ...interface{}) {
-	view.MBWrite(format, args...)
+	display.MBWrite(format, args...)
 }
 
 func mbClear() {
-	view.MBClear()
+	display.MBClear()
 }
 
-func askString(prompt, initial string, onDone func(string, model.PromptResult)) {
-	view.AskString(prompt, initial, onDone)
+func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
+	display.AskString(prompt, initial, onDone)
 }
 
 func mbWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextStyle) {
-	view.MBWritePromptStyle(prompt, text, cpos, style)
+	display.MBWritePromptStyle(prompt, text, cpos, style)
 }
 
 func mbHistoryAdd(text string) {
-	view.MBHistoryAdd(text)
+	display.MBHistoryAdd(text)
 }
 
-func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) model.MinibufferEditResult {
-	return view.MBEditKeyHistory(buf, cpos, nbuf, initial, historyPos, haveSavedEdit, savedEdit, k)
+func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) minibuffer.MinibufferEditResult {
+	return display.MBEditKeyHistory(buf, cpos, nbuf, initial, historyPos, haveSavedEdit, savedEdit, k)
 }
 
 func displayUpdate() {
-	view.DisplayUpdate()
+	display.DisplayUpdate()
 }
 
 func markPushCurrent() {
-	model.MarkPushCurrent()
+	markring.PushCurrent()
 }
 
 func isearchReadKey() (uint32, bool) {
-	return view.WaitKey()
+	return display.WaitKey()
 }
 
-func activateMinibuffer(state *model.MinibufferState) {
-	view.ActivateMinibuffer(state)
+func activateMinibuffer(state *minibuffer.MinibufferState) {
+	display.ActivateMinibuffer(state)
 }
 
 func deactivateMinibuffer() {
-	view.DeactivateMinibuffer()
+	display.DeactivateMinibuffer()
 }
 
 func isPasteRedrawKey(k uint32) bool {
-	return view.IsPasteRedrawKey(k)
+	return display.IsPasteRedrawKey(k)
 }
 
 func doBeep() {
@@ -75,12 +92,15 @@ func doBeep() {
 }
 
 func setText(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
-	return model.SetText(bp, begin, end, newText, newEndOut)
+	if PackageHooks.SetText == nil {
+		return buffer.ErrNilBuffer
+	}
+	return PackageHooks.SetText(bp, begin, end, newText, newEndOut)
 }
 
 func truncatePattern(s string) string {
-	if len(s) >= model.PatternCapacity {
-		return s[:model.PatternCapacity-1]
+	if len(s) >= display.PatternCapacity {
+		return s[:display.PatternCapacity-1]
 	}
 	return s
 }
@@ -106,7 +126,7 @@ type RegexMatch struct {
 	Index []int
 }
 
-type replaceAction model.TransientAction
+type replaceAction TransientAction
 
 const (
 	replaceActionNone    replaceAction = 0
@@ -117,21 +137,21 @@ const (
 	replaceActionYesQuit replaceAction = 5
 )
 
-var queryReplaceBindings = []model.TransientBinding{
-	{'y', model.TransientAction(replaceActionYes)},
-	{' ', model.TransientAction(replaceActionYes)},
-	{term.KeyEnter, model.TransientAction(replaceActionYes)},
-	{'n', model.TransientAction(replaceActionNo)},
-	{term.CTL | 'H', model.TransientAction(replaceActionNo)},
-	{0x7F, model.TransientAction(replaceActionNo)},
-	{'!', model.TransientAction(replaceActionAll)},
-	{'+', model.TransientAction(replaceActionYesQuit)},
-	{'q', model.TransientAction(replaceActionQuit)},
-	{term.CTL | 'G', model.TransientAction(replaceActionQuit)},
-	{0x1B, model.TransientAction(replaceActionQuit)},
+var queryReplaceBindings = []TransientBinding{
+	{'y', TransientAction(replaceActionYes)},
+	{' ', TransientAction(replaceActionYes)},
+	{term.KeyEnter, TransientAction(replaceActionYes)},
+	{'n', TransientAction(replaceActionNo)},
+	{term.CTL | 'H', TransientAction(replaceActionNo)},
+	{0x7F, TransientAction(replaceActionNo)},
+	{'!', TransientAction(replaceActionAll)},
+	{'+', TransientAction(replaceActionYesQuit)},
+	{'q', TransientAction(replaceActionQuit)},
+	{term.CTL | 'G', TransientAction(replaceActionQuit)},
+	{0x1B, TransientAction(replaceActionQuit)},
 }
 
-func transientSet(bindings []model.TransientBinding) {
+func transientSet(bindings []TransientBinding) {
 	currentState().TransientBindings = bindings
 }
 

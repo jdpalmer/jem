@@ -1,19 +1,21 @@
 package mode
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
 type Hooks struct {
 	Message          func(msg string)
 	DefaultGotoMatch func(f bool, n int) bool
+	BeginCommand     func()
+	EndCommand       func()
+	SetText          func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
 }
 
 var PackageHooks Hooks
 
-func CurrentModeInfo() *model.ModeInfo {
-	bp := model.State.CurrentBuffer
+func CurrentModeInfo() *ModeInfo {
+	bp := buffer.All.Current
 	if bp == nil {
 		return LangModeInfo(buffer.LModeNone)
 	}
@@ -50,9 +52,9 @@ func CmdModeGotoMatch(f bool, n int) bool {
 func CmdModeMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	model.BeginCommand()
+	PackageHooks.BeginCommand()
 	ok := ModeDispatch(CurrentModeInfo().MakeComment, false, 1)
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	return ok
 }
 

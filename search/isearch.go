@@ -2,9 +2,9 @@ package search
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/display"
 
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/model"
 )
 
 func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp *buffer.Buffer) {
@@ -14,9 +14,9 @@ func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp
 	} else {
 		prompt += ": "
 	}
-	style := model.State.Theme.NormalStyle
+	style := display.Active.Theme.NormalStyle
 	if failing {
-		style = buffer.MakeTextStyle(buffer.TermColorRed, model.State.Theme.NormalStyle.Bg(), 0)
+		style = buffer.MakeTextStyle(buffer.TermColorRed, display.Active.Theme.NormalStyle.Bg(), 0)
 	}
 	end := bytes.IndexByte(pattern, 0)
 	if end < 0 {

@@ -1,12 +1,12 @@
 package mode
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
+	"github.com/jdpalmer/jem/window"
 )
 
-func modeCommentLinePrefix(info *model.ModeInfo) []byte {
+func modeCommentLinePrefix(info *ModeInfo) []byte {
 	if info == nil {
 		return nil
 	}
@@ -38,14 +38,14 @@ func lineHasCommentPrefix(lp *buffer.Line, prefix []byte) bool {
 	return true
 }
 
-func modeSupportsComments(info *model.ModeInfo) bool {
+func modeSupportsComments(info *ModeInfo) bool {
 	if info == nil {
 		return false
 	}
 	return info.CommentOpen != "" || info.CommentAppend != ""
 }
 
-func modeToggleCommentRegion(wp *model.Window, bp *buffer.Buffer, info *model.ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
+func modeToggleCommentRegion(wp *window.Window, bp *buffer.Buffer, info *ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
 	prefixLen := len(linePrefix)
 	allCommented := true
 	for line := startLine; line <= endLine; line++ {
@@ -56,7 +56,7 @@ func modeToggleCommentRegion(wp *model.Window, bp *buffer.Buffer, info *model.Mo
 		}
 	}
 	if allCommented {
-		model.BeginCommand()
+		PackageHooks.BeginCommand()
 		savedCursor := wp.Cursor
 		savedMark := wp.Mark
 		for line := startLine; line <= endLine; line++ {
@@ -67,10 +67,10 @@ func modeToggleCommentRegion(wp *model.Window, bp *buffer.Buffer, info *model.Mo
 			pos := lp.FirstNonblank()
 			b := buffer.MakeLocation(line, pos)
 			e := buffer.MakeLocation(line, pos+uint(prefixLen))
-			if err := model.SetText(bp, b, e, nil, nil); err != nil {
+			if err := PackageHooks.SetText(bp, b, e, nil, nil); err != nil {
 				wp.Cursor = savedCursor
 				wp.Mark = savedMark
-				model.EndCommand()
+				PackageHooks.EndCommand()
 				return false
 			}
 			if savedCursor.Line == line {
@@ -88,7 +88,7 @@ func modeToggleCommentRegion(wp *model.Window, bp *buffer.Buffer, info *model.Mo
 				}
 			}
 		}
-		model.EndCommand()
+		PackageHooks.EndCommand()
 		wp.Cursor = savedCursor
 		wp.Mark = savedMark
 		wp.DidEdit = true
@@ -96,17 +96,17 @@ func modeToggleCommentRegion(wp *model.Window, bp *buffer.Buffer, info *model.Mo
 		return true
 	}
 
-	model.BeginCommand()
+	PackageHooks.BeginCommand()
 	ok := ModeDispatch(info.MakeComment, false, 1)
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	return ok
 }
 
 func CmdModeToggleComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil {
 		return false
 	}
@@ -125,9 +125,9 @@ func CmdModeToggleComment(f bool, n int) bool {
 		if linePrefix != nil {
 			return modeToggleCommentRegion(wp, bp, info, linePrefix, startLine, endLine)
 		}
-		model.BeginCommand()
+		PackageHooks.BeginCommand()
 		ok := ModeDispatch(info.MakeComment, false, 1)
-		model.EndCommand()
+		PackageHooks.EndCommand()
 		return ok
 	}
 
@@ -136,15 +136,15 @@ func CmdModeToggleComment(f bool, n int) bool {
 		if lineHasCommentPrefix(lp, linePrefix) {
 			pos := lp.FirstNonblank()
 			prefixLen := len(linePrefix)
-			model.BeginCommand()
+			PackageHooks.BeginCommand()
 			savedCursor := wp.Cursor
 			savedMark := wp.Mark
 			b := buffer.MakeLocation(wp.Cursor.Line, pos)
 			e := buffer.MakeLocation(wp.Cursor.Line, pos+uint(prefixLen))
-			if err := model.SetText(bp, b, e, nil, nil); err != nil {
+			if err := PackageHooks.SetText(bp, b, e, nil, nil); err != nil {
 				wp.Cursor = savedCursor
 				wp.Mark = savedMark
-				model.EndCommand()
+				PackageHooks.EndCommand()
 				return false
 			}
 			if savedCursor.Line == b.Line {
@@ -161,30 +161,30 @@ func CmdModeToggleComment(f bool, n int) bool {
 					savedMark.Offset = b.Offset
 				}
 			}
-			model.EndCommand()
+			PackageHooks.EndCommand()
 			wp.Cursor = savedCursor
 			wp.Mark = savedMark
 			wp.DidEdit = true
 			wp.DidMove = true
 			return true
 		}
-		model.BeginCommand()
+		PackageHooks.BeginCommand()
 		ok := ModeDispatch(info.MakeComment, false, 1)
-		model.EndCommand()
+		PackageHooks.EndCommand()
 		return ok
 	}
 
-	model.BeginCommand()
+	PackageHooks.BeginCommand()
 	ok := ModeDispatch(info.MakeComment, false, 1)
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	return ok
 }
 
 func CmdCommentDwim(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil {
 		return false
 	}

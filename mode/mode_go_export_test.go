@@ -26,7 +26,7 @@ func TestIndentBytesForCol(t *testing.T) {
 	}
 }
 
-func TestApplyLangIndentDefaultsGo(t *testing.T) {
+func TestEditorlyLangIndentDefaultsGo(t *testing.T) {
 	bp := buffer.New()
 	bp.CIndent = 2
 	bp.LangMode = buffer.LModeGo

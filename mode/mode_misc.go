@@ -1,8 +1,8 @@
 package mode
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 const (
@@ -258,28 +258,28 @@ func calcLispIndent(bp *buffer.Buffer, lineNumber uint) IndentSpec {
 func calcMiscIndent(bp *buffer.Buffer, lineNumber uint) IndentSpec {
 	kind := LangModeInfo(bp.LangMode).MiscIndentKind
 	switch kind {
-	case model.ModeMiscIndentNone:
+	case ModeMiscIndentNone:
 		return IndentSpec{0, false}
-	case model.ModeMiscIndentMake:
+	case ModeMiscIndentMake:
 		return calcMakeIndent(bp, lineNumber)
-	case model.ModeMiscIndentLua:
+	case ModeMiscIndentLua:
 		return calcBlockIndent(bp, lineNumber, luaIsCloser, luaIsOpener)
-	case model.ModeMiscIndentPascal:
+	case ModeMiscIndentPascal:
 		return calcBlockIndent(bp, lineNumber, pascalIsCloser, pascalIsOpener)
-	case model.ModeMiscIndentVerilog:
+	case ModeMiscIndentVerilog:
 		return calcBlockIndent(bp, lineNumber, verilogIsCloser, verilogIsOpener)
-	case model.ModeMiscIndentR:
+	case ModeMiscIndentR:
 		return calcBlockIndent(bp, lineNumber, nil, nil)
-	case model.ModeMiscIndentHTML:
+	case ModeMiscIndentHTML:
 		return calcBlockIndent(bp, lineNumber, htmlIsCloser, htmlIsOpener)
-	case model.ModeMiscIndentLisp:
+	case ModeMiscIndentLisp:
 		return calcLispIndent(bp, lineNumber)
 	default:
 		return IndentSpec{0, false}
 	}
 }
 
-func setLineIndentMisc(wp *model.Window, spec IndentSpec) bool {
+func setLineIndentMisc(wp *window.Window, spec IndentSpec) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -301,10 +301,10 @@ func setLineIndentMisc(wp *model.Window, spec IndentSpec) bool {
 	}
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, first)
-	model.BeginCommand()
-	err := model.SetText(bp, begin, end, prefix, nil)
+	PackageHooks.BeginCommand()
+	err := PackageHooks.SetText(bp, begin, end, prefix, nil)
 	ok := err == nil
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
@@ -316,13 +316,13 @@ func cmdMiscNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !model.InsertNewline(wp) {
+		if !window.InsertNewline(wp) {
 			return false
 		}
 		spec := calcMiscIndent(bp, wp.Cursor.Line)
@@ -336,8 +336,8 @@ func cmdMiscNewlineAndIndent(f bool, n int) bool {
 func cmdMiscIndentLine(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -349,7 +349,7 @@ func cmdMiscIndentLine(f bool, n int) bool {
 
 func init() {
 	for i := range modeTable {
-		if modeTable[i].MiscIndentKind != model.ModeMiscIndentNone {
+		if modeTable[i].MiscIndentKind != ModeMiscIndentNone {
 			modeTable[i].NewlineAndIndent = cmdMiscNewlineAndIndent
 			modeTable[i].IndentLine = cmdMiscIndentLine
 		}

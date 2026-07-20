@@ -7,9 +7,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/fileio"
+	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,9 +53,9 @@ type grepSearchResult struct {
 
 func grepSearchRoot() (string, error) {
 	start := ""
-	if bp := model.State.CurrentBuffer; bp != nil {
+	if bp := buffer.All.Current; bp != nil {
 		if fname := bp.FileName; fname != "" {
-			start = filepath.Dir(fileio.NormalizePath(fname))
+			start = filepath.Dir(files.NormalizePath(fname))
 		}
 	}
 	if start == "" {
@@ -64,7 +65,7 @@ func grepSearchRoot() (string, error) {
 		}
 		start = cwd
 	}
-	if root, ok := fileio.FindDirWalkUp(start, ".git"); ok {
+	if root, ok := files.FindDirWalkUp(start, ".git"); ok {
 		return root, nil
 	}
 	return start, nil
@@ -310,10 +311,10 @@ func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern
 }
 
 func grepEnsureBuffer() *buffer.Buffer {
-	if bp := model.BufferFind(GrepBufferName); bp != nil {
+	if bp := buffer.Find(GrepBufferName); bp != nil {
 		return bp
 	}
-	bp := model.BufferCreate(&model.State.EditorRuntimeState)
+	bp := buffer.Create()
 	if bp == nil {
 		return nil
 	}
@@ -323,8 +324,8 @@ func grepEnsureBuffer() *buffer.Buffer {
 
 // RunGrep searches the project and opens the *grep* results buffer.
 func RunGrep() bool {
-	askString("grep: ", "", func(pattern string, pr model.PromptResult) {
-		if pr != model.PromptResultYes {
+	askString("grep: ", "", func(pattern string, pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes {
 			return
 		}
 		if pattern == "" {
@@ -345,8 +346,8 @@ func RunGrep() bool {
 
 // VisitGrepMatch jumps to the match at the current line in the *grep* buffer.
 func VisitGrepMatch() bool {
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil || bp.Name != GrepBufferName {
 		return false
 	}

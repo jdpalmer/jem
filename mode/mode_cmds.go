@@ -1,17 +1,17 @@
 package mode
 
 import (
-	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/window"
 )
 
 func ModeNewlineAndIndent(f bool, n int) bool {
 	_ = f
-	wp := model.State.CurrentWindow
+	wp := window.Active.CurrentWindow
 	if wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !model.InsertNewline(wp) {
+		if !window.InsertNewline(wp) {
 			return false
 		}
 	}
@@ -26,12 +26,12 @@ func ModeIndentLine(f bool, n int) bool {
 
 func ModeCloseBrace(f bool, n int) bool {
 	_ = f
-	wp := model.State.CurrentWindow
+	wp := window.Active.CurrentWindow
 	if wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !model.InsertCodepoint(wp, '}') {
+		if !window.InsertCodepoint(wp, '}') {
 			return false
 		}
 	}

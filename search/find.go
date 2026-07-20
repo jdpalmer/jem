@@ -1,15 +1,16 @@
 package search
 
 import (
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 	"regexp"
 	"unicode"
 
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
 func searchScopeIsAllBuffers() bool {
-	return model.State.SearchScopeSetting == model.SearchScopeAllBuffers
+	return currentState().SearchScopeSetting == SearchScopeAllBuffers
 }
 
 func buildSearchPrompt(label string) string {
@@ -32,19 +33,19 @@ func updateSearchCase(pattern string) {
 }
 
 func searchPatternBytes() []byte {
-	return []byte(model.State.SearchPattern)
+	return []byte(currentState().SearchPattern)
 }
 
-func readPattern(label string, onDone func(pr model.PromptResult)) {
+func readPattern(label string, onDone func(pr minibuffer.PromptResult)) {
 	display := buildSearchPrompt(label)
-	askString(display, model.State.SearchPattern, func(pattern string, pr model.PromptResult) {
-		if pr == model.PromptResultYes {
-			model.State.SearchPattern = truncatePattern(pattern)
-		} else if pr == model.PromptResultNo && model.State.SearchPattern != "" {
-			pr = model.PromptResultYes
+	askString(display, currentState().SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
+		if pr == minibuffer.PromptResultYes {
+			currentState().SearchPattern = truncatePattern(pattern)
+		} else if pr == minibuffer.PromptResultNo && currentState().SearchPattern != "" {
+			pr = minibuffer.PromptResultYes
 		}
-		if pr == model.PromptResultYes {
-			updateSearchCase(model.State.SearchPattern)
+		if pr == minibuffer.PromptResultYes {
+			updateSearchCase(currentState().SearchPattern)
 		}
 		if onDone != nil {
 			onDone(pr)
@@ -55,8 +56,8 @@ func readPattern(label string, onDone func(pr model.PromptResult)) {
 func searchScopeInit(origin *buffer.Buffer) bufferSearchScope {
 	scope := bufferSearchScope{allBuffers: searchScopeIsAllBuffers()}
 	scope.buffers = append(scope.buffers, origin)
-	for i := 0; i < int(len(model.State.Buffers)); i++ {
-		bp := model.State.Buffers[i]
+	for i := 0; i < int(len(buffer.All.Buffers)); i++ {
+		bp := buffer.All.Buffers[i]
 		if bp != nil && bp != origin {
 			scope.buffers = append(scope.buffers, bp)
 		}
@@ -73,7 +74,7 @@ func searchScopeIndex(scope *bufferSearchScope, bp *buffer.Buffer) int {
 	return 0
 }
 
-func saveSearchSnapshot(wp *model.Window, patternLen int) ISearchSnapshot {
+func saveSearchSnapshot(wp *window.Window, patternLen int) ISearchSnapshot {
 	s := ISearchSnapshot{Buffer: wp.Buffer, PatternLen: patternLen}
 	if wp.Buffer != nil {
 		s.Line = wp.Cursor.Line
@@ -84,17 +85,17 @@ func saveSearchSnapshot(wp *model.Window, patternLen int) ISearchSnapshot {
 	return s
 }
 
-func restoreSearchSnapshot(wp *model.Window, snap *ISearchSnapshot) {
+func restoreSearchSnapshot(wp *window.Window, snap *ISearchSnapshot) {
 	if snap == nil || snap.Buffer == nil || snap.Line == 0 {
 		return
 	}
-	if model.State.CurrentBuffer != snap.Buffer {
-		if model.PackageHooks.SwitchBuffer != nil {
-			model.PackageHooks.SwitchBuffer(snap.Buffer)
+	if buffer.All.Current != snap.Buffer {
+		if true {
+			window.SwitchBuffer(snap.Buffer)
 		} else {
-			model.SetCurrentBuffer(snap.Buffer)
+			buffer.SetCurrent(snap.Buffer)
 		}
-		wp = model.State.CurrentWindow
+		wp = window.Active.CurrentWindow
 	}
 	if wp == nil {
 		return
@@ -105,7 +106,7 @@ func restoreSearchSnapshot(wp *model.Window, snap *ISearchSnapshot) {
 	wp.DidMove = true
 }
 
-func isearchClearHighlight(wp *model.Window) {
+func isearchClearHighlight(wp *window.Window) {
 	if wp == nil {
 		return
 	}
@@ -116,17 +117,17 @@ func isearchClearHighlight(wp *model.Window) {
 	wp.Mark.Offset = 0
 }
 
-func searchSwitchBuffer(wp *model.Window, bp *buffer.Buffer, loc buffer.Location) {
+func searchSwitchBuffer(wp *window.Window, bp *buffer.Buffer, loc buffer.Location) {
 	if bp == nil || loc.Line == 0 {
 		return
 	}
-	if model.State.CurrentBuffer != bp {
-		if model.PackageHooks.SwitchBuffer != nil {
-			model.PackageHooks.SwitchBuffer(bp)
+	if buffer.All.Current != bp {
+		if true {
+			window.SwitchBuffer(bp)
 		} else {
-			model.SetCurrentBuffer(bp)
+			buffer.SetCurrent(bp)
 		}
-		wp = model.State.CurrentWindow
+		wp = window.Active.CurrentWindow
 	}
 	if wp != nil {
 		wp.SetCursor(loc)
@@ -193,7 +194,7 @@ func searchReadBackward(bp *buffer.Buffer, line *uint, offset *uint) (int, bool)
 	return int(lp.Data[*offset]), true
 }
 
-func findNextPlain(wp *model.Window, pattern []byte) bool {
+func findNextPlain(wp *window.Window, pattern []byte) bool {
 	if wp == nil || wp.Buffer == nil || len(pattern) == 0 {
 		return false
 	}
@@ -232,7 +233,7 @@ func findNextPlain(wp *model.Window, pattern []byte) bool {
 	return false
 }
 
-func findPrevPlain(wp *model.Window, pattern []byte) bool {
+func findPrevPlain(wp *window.Window, pattern []byte) bool {
 	if wp == nil || wp.Buffer == nil || len(pattern) == 0 {
 		return false
 	}
@@ -267,7 +268,7 @@ func findPrevPlain(wp *model.Window, pattern []byte) bool {
 	}
 }
 
-func findNextInScope(wp *model.Window, scope *bufferSearchScope, pattern []byte) bool {
+func findNextInScope(wp *window.Window, scope *bufferSearchScope, pattern []byte) bool {
 	if wp == nil || scope == nil {
 		return false
 	}
@@ -282,7 +283,7 @@ func findNextInScope(wp *model.Window, scope *bufferSearchScope, pattern []byte)
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchStart(bp))
-		wp = model.State.CurrentWindow
+		wp = window.Active.CurrentWindow
 		if wp != nil && findNextPlain(wp, pattern) {
 			return true
 		}
@@ -290,7 +291,7 @@ func findNextInScope(wp *model.Window, scope *bufferSearchScope, pattern []byte)
 	return false
 }
 
-func findPrevInScope(wp *model.Window, scope *bufferSearchScope, pattern []byte) bool {
+func findPrevInScope(wp *window.Window, scope *bufferSearchScope, pattern []byte) bool {
 	if wp == nil || scope == nil {
 		return false
 	}
@@ -305,7 +306,7 @@ func findPrevInScope(wp *model.Window, scope *bufferSearchScope, pattern []byte)
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchEnd(bp))
-		wp = model.State.CurrentWindow
+		wp = window.Active.CurrentWindow
 		if wp != nil && findPrevPlain(wp, pattern) {
 			return true
 		}
@@ -313,7 +314,7 @@ func findPrevInScope(wp *model.Window, scope *bufferSearchScope, pattern []byte)
 	return false
 }
 
-func isearchHighlightPlain(wp *model.Window, patLen int, backward bool) {
+func isearchHighlightPlain(wp *window.Window, patLen int, backward bool) {
 	if wp == nil || patLen <= 0 {
 		return
 	}
@@ -329,7 +330,7 @@ func isearchHighlightPlain(wp *model.Window, patLen int, backward bool) {
 	wp.ShouldRedraw = true
 }
 
-func isearchHighlightMatch(wp *model.Window, start, end buffer.Location, backward bool) {
+func isearchHighlightMatch(wp *window.Window, start, end buffer.Location, backward bool) {
 	if wp == nil {
 		return
 	}
@@ -342,16 +343,16 @@ func isearchHighlightMatch(wp *model.Window, start, end buffer.Location, backwar
 }
 
 func isearchSetPlainPattern(pattern string) {
-	model.State.SearchPattern = truncatePattern(pattern)
-	updateSearchCase(model.State.SearchPattern)
+	currentState().SearchPattern = truncatePattern(pattern)
+	updateSearchCase(currentState().SearchPattern)
 }
 
-func isearchRunPlain(wp *model.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
+func isearchRunPlain(wp *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
 	if wp == nil || scope == nil || start == nil || out == nil {
 		return false
 	}
 	restoreSearchSnapshot(wp, start)
-	wp = model.State.CurrentWindow
+	wp = window.Active.CurrentWindow
 	if len(pattern) == 0 {
 		*out = saveSearchSnapshot(wp, 0)
 		return true
@@ -366,7 +367,7 @@ func isearchRunPlain(wp *model.Window, scope *bufferSearchScope, start *ISearchS
 	if !ok {
 		return false
 	}
-	wp = model.State.CurrentWindow
+	wp = window.Active.CurrentWindow
 	isearchHighlightPlain(wp, len(pattern), backward)
 	*out = saveSearchSnapshot(wp, len(pattern))
 	return true
@@ -447,7 +448,7 @@ func findPrevRegexMatchFrom(bp *buffer.Buffer, limit buffer.Location, pattern st
 	return best, 1
 }
 
-func findNextRegexInScope(wp *model.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
+func findNextRegexInScope(wp *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
 	if wp == nil || scope == nil {
 		return RegexMatch{}, 0
 	}
@@ -460,7 +461,7 @@ func findNextRegexInScope(wp *model.Window, scope *bufferSearchScope, pattern st
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchStart(bp))
-		wp = model.State.CurrentWindow
+		wp = window.Active.CurrentWindow
 		if wp == nil {
 			continue
 		}
@@ -472,7 +473,7 @@ func findNextRegexInScope(wp *model.Window, scope *bufferSearchScope, pattern st
 	return RegexMatch{}, 0
 }
 
-func findPrevRegexInScope(wp *model.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
+func findPrevRegexInScope(wp *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
 	if wp == nil || scope == nil {
 		return RegexMatch{}, 0
 	}
@@ -485,7 +486,7 @@ func findPrevRegexInScope(wp *model.Window, scope *bufferSearchScope, pattern st
 	for step := 1; step < len(scope.buffers); step++ {
 		bp := scope.buffers[(idx+step)%len(scope.buffers)]
 		searchSwitchBuffer(wp, bp, bufferSearchEnd(bp))
-		wp = model.State.CurrentWindow
+		wp = window.Active.CurrentWindow
 		if wp == nil {
 			continue
 		}
@@ -497,12 +498,12 @@ func findPrevRegexInScope(wp *model.Window, scope *bufferSearchScope, pattern st
 	return RegexMatch{}, 0
 }
 
-func isearchRunRegex(wp *model.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
+func isearchRunRegex(wp *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
 	if wp == nil || scope == nil || start == nil || out == nil {
 		return false
 	}
 	restoreSearchSnapshot(wp, start)
-	wp = model.State.CurrentWindow
+	wp = window.Active.CurrentWindow
 	if pattern == "" {
 		*out = saveSearchSnapshot(wp, 0)
 		return true
@@ -522,7 +523,7 @@ func isearchRunRegex(wp *model.Window, scope *bufferSearchScope, start *ISearchS
 		isearchClearHighlight(wp)
 		return false
 	}
-	wp = model.State.CurrentWindow
+	wp = window.Active.CurrentWindow
 	if backward {
 		wp.SetCursor(match.Start)
 	} else {

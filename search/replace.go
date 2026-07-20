@@ -2,9 +2,11 @@ package search
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 	"unicode"
 
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
@@ -16,7 +18,7 @@ const (
 	matchCaseCapitalized
 )
 
-func markMatchStart(wp *model.Window, patLen int) {
+func markMatchStart(wp *window.Window, patLen int) {
 	if wp == nil || wp.Buffer == nil || patLen == 0 {
 		return
 	}
@@ -36,13 +38,13 @@ func markMatchStart(wp *model.Window, patLen int) {
 	wp.Mark = buffer.Location{Line: line, Offset: off}
 }
 
-func markMatchLocation(wp *model.Window, start buffer.Location) {
+func markMatchLocation(wp *window.Window, start buffer.Location) {
 	if wp != nil {
 		wp.Mark = start
 	}
 }
 
-func checkMatchCase(wp *model.Window, patLen int) matchCase {
+func checkMatchCase(wp *window.Window, patLen int) matchCase {
 	if wp == nil || wp.Buffer == nil || patLen == 0 {
 		return matchCaseLower
 	}
@@ -83,7 +85,7 @@ func applyMatchCase(mc matchCase, repl []byte, out []byte) int {
 	return n
 }
 
-func doReplace(wp *model.Window, patLen int, repl []byte) bool {
+func doReplace(wp *window.Window, patLen int, repl []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -92,11 +94,11 @@ func doReplace(wp *model.Window, patLen int, repl []byte) bool {
 	return setText(wp.Buffer, begin, end, repl, nil) == nil
 }
 
-func doReplacePreservingCase(wp *model.Window, patLen int, repl []byte, preserve bool) bool {
+func doReplacePreservingCase(wp *window.Window, patLen int, repl []byte, preserve bool) bool {
 	if preserve {
 		mc := checkMatchCase(wp, patLen)
 		if mc != matchCaseLower {
-			var caseRepl [model.PatternCapacity]byte
+			var caseRepl [display.PatternCapacity]byte
 			n := applyMatchCase(mc, repl, caseRepl[:])
 			return doReplace(wp, patLen, caseRepl[:n])
 		}
@@ -104,7 +106,7 @@ func doReplacePreservingCase(wp *model.Window, patLen int, repl []byte, preserve
 	return doReplace(wp, patLen, repl)
 }
 
-func doReplaceRange(wp *model.Window, start, end buffer.Location, repl []byte) bool {
+func doReplaceRange(wp *window.Window, start, end buffer.Location, repl []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -153,13 +155,13 @@ func expandRegexReplacement(repl string, match RegexMatch) ([]byte, error) {
 }
 
 func SearchForward() bool {
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil {
 		return false
 	}
-	readPattern("Search", func(pr model.PromptResult) {
-		if pr != model.PromptResultYes {
+	readPattern("Search", func(pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes {
 			return
 		}
 		pat := searchPatternBytes()
@@ -175,13 +177,13 @@ func SearchForward() bool {
 }
 
 func SearchBackward() bool {
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil {
 		return false
 	}
-	readPattern("Reverse search", func(pr model.PromptResult) {
-		if pr != model.PromptResultYes {
+	readPattern("Reverse search", func(pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes {
 			return
 		}
 		pat := searchPatternBytes()
@@ -197,10 +199,10 @@ func SearchBackward() bool {
 }
 
 func ToggleSearchScope() bool {
-	if model.State.SearchScopeSetting == model.SearchScopeBuffer {
-		model.State.SearchScopeSetting = model.SearchScopeAllBuffers
+	if currentState().SearchScopeSetting == SearchScopeBuffer {
+		currentState().SearchScopeSetting = SearchScopeAllBuffers
 	} else {
-		model.State.SearchScopeSetting = model.SearchScopeBuffer
+		currentState().SearchScopeSetting = SearchScopeBuffer
 	}
 	if searchScopeIsAllBuffers() {
 		mbWrite("[search scope: all buffers]")
@@ -211,13 +213,13 @@ func ToggleSearchScope() bool {
 }
 
 func QueryReplace() bool {
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil {
 		return false
 	}
-	readPattern("replace", func(pr model.PromptResult) {
-		if pr != model.PromptResultYes {
+	readPattern("replace", func(pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes {
 			return
 		}
 		pat := searchPatternBytes()
@@ -226,8 +228,8 @@ func QueryReplace() bool {
 			return
 		}
 		preserveCase := !currentState().SearchCaseSensitive
-		askString("Replace '"+string(pat)+"' with: ", "", func(repl string, pr model.PromptResult) {
-			if pr == model.PromptResultAbort {
+		askString("Replace '"+string(pat)+"' with: ", "", func(repl string, pr minibuffer.PromptResult) {
+			if pr == minibuffer.PromptResultAbort {
 				return
 			}
 			startQueryReplace(newQueryReplaceSession(bp, []byte(repl), pat, patLen, preserveCase))
@@ -237,17 +239,17 @@ func QueryReplace() bool {
 }
 
 func QueryReReplace() bool {
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil {
 		return false
 	}
-	askString(buildSearchPrompt("Query re-replace"), model.State.SearchPattern, func(pattern string, pr model.PromptResult) {
-		if pr != model.PromptResultYes || pattern == "" {
+	askString(buildSearchPrompt("Query re-replace"), currentState().SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes || pattern == "" {
 			return
 		}
-		askString("Replace '"+pattern+"' with (\\0..\\9): ", "", func(replStr string, pr model.PromptResult) {
-			if pr == model.PromptResultAbort {
+		askString("Replace '"+pattern+"' with (\\0..\\9): ", "", func(replStr string, pr minibuffer.PromptResult) {
+			if pr == minibuffer.PromptResultAbort {
 				return
 			}
 			startQueryReplace(newQueryReReplaceSession(bp, pattern, replStr))

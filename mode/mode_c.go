@@ -2,8 +2,8 @@ package mode
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/window"
 
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
@@ -379,7 +379,7 @@ func calcIndent(bp *buffer.Buffer, lineNumber uint) int {
 	return ind
 }
 
-func setLineIndent(wp *model.Window, col int) bool {
+func setLineIndent(wp *window.Window, col int) bool {
 	if wp == nil || wp.Buffer == nil || col < 0 {
 		return false
 	}
@@ -396,10 +396,10 @@ func setLineIndent(wp *model.Window, col int) bool {
 	}
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, oldFirst)
-	model.BeginCommand()
-	err := model.SetText(bp, begin, end, spaces, nil)
+	PackageHooks.BeginCommand()
+	err := PackageHooks.SetText(bp, begin, end, spaces, nil)
 	ok := err == nil
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
@@ -411,13 +411,13 @@ func cmdCNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !model.InsertNewline(wp) {
+		if !window.InsertNewline(wp) {
 			return false
 		}
 		indent := calcIndent(bp, wp.Cursor.Line)
@@ -431,8 +431,8 @@ func cmdCIndentLine(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -445,8 +445,8 @@ func cmdCIndentLine(f bool, n int) bool {
 func cmdCMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -463,7 +463,7 @@ func cmdCMakeComment(f bool, n int) bool {
 			endOffset = bp.Line(endLine).Len()
 		}
 		orig := wp.Cursor
-		model.BeginCommand()
+		PackageHooks.BeginCommand()
 		for ln := startLine; ln <= endLine; ln++ {
 			lineLp := bp.Line(ln)
 			if lineLp == nil {
@@ -471,20 +471,20 @@ func cmdCMakeComment(f bool, n int) bool {
 			}
 			start := lineLp.FirstNonblank()
 			insLoc := buffer.MakeLocation(ln, start)
-			if err := model.SetText(bp, insLoc, insLoc, []byte("/*"), nil); err != nil {
+			if err := PackageHooks.SetText(bp, insLoc, insLoc, []byte("/*"), nil); err != nil {
 				wp.Cursor = orig
-				model.EndCommand()
+				PackageHooks.EndCommand()
 				return false
 			}
 			lineLp = bp.Line(ln)
 			closeLoc := buffer.MakeLocation(ln, lineLp.Len())
-			if err := model.SetText(bp, closeLoc, closeLoc, []byte("*/"), nil); err != nil {
+			if err := PackageHooks.SetText(bp, closeLoc, closeLoc, []byte("*/"), nil); err != nil {
 				wp.Cursor = orig
-				model.EndCommand()
+				PackageHooks.EndCommand()
 				return false
 			}
 		}
-		model.EndCommand()
+		PackageHooks.EndCommand()
 		wp.Cursor.Line = endLine
 		wp.Cursor.Offset = endOffset
 		wp.DidMove = true
@@ -492,7 +492,7 @@ func cmdCMakeComment(f bool, n int) bool {
 	}
 	insLoc := wp.Cursor
 	cmt := []byte("  /* */")
-	if err := model.SetText(bp, insLoc, insLoc, cmt, nil); err != nil {
+	if err := PackageHooks.SetText(bp, insLoc, insLoc, cmt, nil); err != nil {
 		return false
 	}
 	lp := bp.Line(wp.Cursor.Line)
@@ -511,8 +511,8 @@ func cmdCMakeComment(f bool, n int) bool {
 func cmdCTopOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -572,8 +572,8 @@ func cmdCTopOfFunction(f bool, n int) bool {
 func cmdCEndOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -617,7 +617,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 func cmdCMarkFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := model.State.CurrentWindow
+	wp := window.Active.CurrentWindow
 	if wp == nil {
 		return false
 	}
@@ -645,15 +645,15 @@ func cmdCCloseBrace(f bool, n int) bool {
 	if n <= 0 {
 		n = 1
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
 	col := calcIndent(bp, wp.Cursor.Line)
 	setLineIndent(wp, col)
 	for i := 0; i < n; i++ {
-		if !model.InsertCodepoint(wp, '}') {
+		if !window.InsertCodepoint(wp, '}') {
 			return false
 		}
 	}

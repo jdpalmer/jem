@@ -2,27 +2,28 @@ package search
 
 import (
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/model"
-	"github.com/jdpalmer/jem/view"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 type queryReplaceSession struct {
-	bp            *buffer.Buffer
-	pat           []byte
-	patLen        int
-	replBytes     []byte
-	repl          string
-	preserveCase  bool
-	regex         bool
-	pattern       string // regex pattern
-	replStr       string // regex replacement template
-	scope         bufferSearchScope
-	nReplaced     int
-	replaceAll    bool
-	mbState       model.MinibufferState
-	awaitingKey   bool
-	pendingMatch  RegexMatch
-	hasPending    bool
+	bp           *buffer.Buffer
+	pat          []byte
+	patLen       int
+	replBytes    []byte
+	repl         string
+	preserveCase bool
+	regex        bool
+	pattern      string // regex pattern
+	replStr      string // regex replacement template
+	scope        bufferSearchScope
+	nReplaced    int
+	replaceAll   bool
+	mbState      minibuffer.MinibufferState
+	awaitingKey  bool
+	pendingMatch RegexMatch
+	hasPending   bool
 }
 
 func newQueryReplaceSession(bp *buffer.Buffer, replBytes, pat []byte, patLen int, preserveCase bool) *queryReplaceSession {
@@ -49,15 +50,15 @@ func newQueryReReplaceSession(bp *buffer.Buffer, pattern, replStr string) *query
 
 func (s *queryReplaceSession) Open() (done bool) {
 	transientSet(queryReplaceBindings)
-	view.ShowMinibuffer(&s.mbState)
+	display.ShowMinibuffer(&s.mbState)
 	displayUpdate()
 	return s.advance()
 }
 
 func (s *queryReplaceSession) Close() {
 	transientClear()
-	view.HideMinibuffer()
-	if wp := model.State.CurrentWindow; wp != nil {
+	display.HideMinibuffer()
+	if wp := window.Active.CurrentWindow; wp != nil {
 		wp.Mark.Line = 0
 		wp.ShouldRedraw = true
 	}
@@ -73,7 +74,7 @@ func (s *queryReplaceSession) finishMessage() {
 
 func (s *queryReplaceSession) advance() (done bool) {
 	for {
-		wp := model.State.CurrentWindow
+		wp := window.Active.CurrentWindow
 		if s.regex {
 			match, found := findNextRegexInScope(wp, &s.scope, s.pattern)
 			if found < 0 {
@@ -137,7 +138,7 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 		return false
 	}
 
-	wp := model.State.CurrentWindow
+	wp := window.Active.CurrentWindow
 	switch action {
 	case replaceActionYes:
 		if !s.applyCurrent(wp) {
@@ -180,7 +181,7 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 	return s.advance()
 }
 
-func (s *queryReplaceSession) applyCurrent(wp *model.Window) bool {
+func (s *queryReplaceSession) applyCurrent(wp *window.Window) bool {
 	if s.regex {
 		if !s.hasPending {
 			return false

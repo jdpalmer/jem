@@ -4,7 +4,9 @@ package tools
 
 import (
 	"fmt"
-	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 	"os"
 	"os/exec"
 	"runtime"
@@ -12,6 +14,10 @@ import (
 
 	"github.com/jdpalmer/jem/term"
 )
+
+const CommandPromptCapacity = 256
+
+var Dispatching bool
 
 func spawnPrintNotice(label, command string) {
 	fmt.Fprint(os.Stdout, "\n[jem] ", label)
@@ -56,7 +62,7 @@ func SpawnShell(command *string) int {
 	}
 
 	// Keys enqueue to the event bus; clear Dispatching so spawn isn't treated as a prompt.
-	model.State.Dispatching = false
+	Dispatching = false
 
 	if !TermFreezeInput() {
 		mbWrite("[spawn unavailable: input reader did not pause]")
@@ -92,7 +98,7 @@ func SpawnShell(command *string) int {
 		}
 	}
 
-	model.State.ScreenDirty = true
+	display.Active.ScreenDirty = true
 
 	if runtime.GOOS != "windows" {
 		time.Sleep(2 * time.Second)
@@ -125,8 +131,8 @@ func SpawnShell(command *string) int {
 		mbClear()
 	}
 
-	for i := 0; i < int(len(model.State.Windows)); i++ {
-		if wp := model.State.Windows[i]; wp != nil {
+	for i := 0; i < int(len(window.Active.Windows)); i++ {
+		if wp := window.Active.Windows[i]; wp != nil {
 			wp.ShouldRedraw = true
 			wp.ShouldUpdateModeLine = true
 		}
@@ -152,7 +158,7 @@ func RunSpawnCommand() bool {
 	if runtime.GOOS == "windows" {
 		prompt = "Command: "
 	}
-	askStringCap(prompt, "", model.CommandPromptCapacity, func(command string, pr model.PromptResult) {
+	askStringCap(prompt, "", CommandPromptCapacity, func(command string, pr minibuffer.PromptResult) {
 		_ = runSpawnAfterPrompt(command, pr)
 	})
 	return true
@@ -160,8 +166,8 @@ func RunSpawnCommand() bool {
 
 // runSpawnAfterPrompt finishes C-x ! after the minibuffer prompt.
 // Separated so tests can exercise empty/abort guards without interactive input.
-func runSpawnAfterPrompt(command string, pr model.PromptResult) bool {
-	if pr != model.PromptResultYes {
+func runSpawnAfterPrompt(command string, pr minibuffer.PromptResult) bool {
+	if pr != minibuffer.PromptResultYes {
 		return false
 	}
 	if command == "" {
@@ -175,6 +181,6 @@ func runSpawnAfterPrompt(command string, pr model.PromptResult) bool {
 	}
 
 	rc := SpawnShell(&command)
-	model.State.ScreenDirty = true
+	display.Active.ScreenDirty = true
 	return rc != -1
 }

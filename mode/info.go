@@ -1,0 +1,67 @@
+package mode
+
+import (
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/syntax"
+)
+
+type ModeWordAttr int
+
+const (
+	ModeWordAttrNone ModeWordAttr = iota
+	ModeWordAttrType
+	ModeWordAttrBuiltin
+)
+
+type ModeMiscIndentKind int
+
+const (
+	ModeMiscIndentNone ModeMiscIndentKind = iota
+	ModeMiscIndentMake
+	ModeMiscIndentLua
+	ModeMiscIndentPascal
+	ModeMiscIndentVerilog
+	ModeMiscIndentR
+	ModeMiscIndentHTML
+	ModeMiscIndentLisp
+)
+
+type HookEvent int
+
+const (
+	HookBufferVisit HookEvent = iota
+	HookModeChange
+	HookBeforeSave
+	HookAfterSave
+	HookWindowSwitch
+	HookBufferCreate
+	HookBufferKill
+	HookSearchJump
+	HookEventCount
+)
+
+type ModeInfo struct {
+	Mode              buffer.LangMode
+	DisplayName       string
+	CompletionName    string
+	SyntaxKind        syntax.ModeSyntaxKind
+	SyntaxFlags       uint32
+	MiscIndentKind    ModeMiscIndentKind
+	FillColumnDefault uint16
+	CommentOpen       string
+	CommentAltOpen    string
+	CommentAppend     string
+	CommentCursorBack uint8
+	NewlineAndIndent  func(f bool, n int) bool
+	IndentLine        func(f bool, n int) bool
+	CloseBrace        func(f bool, n int) bool
+	GotoMatch         func(f bool, n int) bool
+	MakeComment       func(f bool, n int) bool
+	TopOfFunction     func(f bool, n int) bool
+	EndOfFunction     func(f bool, n int) bool
+	MarkFunction      func(f bool, n int) bool
+	Extensions        []string
+	ExtensionCount    uint8
+	Basenames         []string
+	BasenameCount     uint8
+}

@@ -1,7 +1,7 @@
 package main
 
-import "github.com/jdpalmer/jem/editor"
+import "github.com/jdpalmer/jem/runtime"
 
 func main() {
-	editor.Run(editor.New())
+	runtime.Run(runtime.New())
 }

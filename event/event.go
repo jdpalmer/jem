@@ -1,7 +1,7 @@
 // Package event defines editor loop events and the inbound event bus.
 //
 // Events are queued via Enqueue and applied on a later tick of the main loop.
-// This package must not import editor or view.
+// This package must not import editor or display.
 package event
 
 // Event is anything the main loop can apply on a tick.

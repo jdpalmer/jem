@@ -6,8 +6,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 	"io"
 	"os"
 	"os/exec"
@@ -202,10 +203,10 @@ func compileFillBuffer(bp *buffer.Buffer, command, stdout, stderr string, exitCo
 }
 
 func compileEnsureBuffer() *buffer.Buffer {
-	if bp := model.BufferFind(CompileBufferName); bp != nil {
+	if bp := buffer.Find(CompileBufferName); bp != nil {
 		return bp
 	}
-	bp := model.BufferCreate(&model.State.EditorRuntimeState)
+	bp := buffer.Create()
 	if bp == nil {
 		return nil
 	}
@@ -272,8 +273,8 @@ func readProcessStream(r io.Reader, max int) (string, bool) {
 
 // RunCompile runs a shell build command and captures output in *compile*.
 func RunCompile() bool {
-	askString("Compile: ", compileLastCommand, func(command string, pr model.PromptResult) {
-		if pr != model.PromptResultYes {
+	askString("Compile: ", compileLastCommand, func(command string, pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes {
 			return
 		}
 		if command == "" {
@@ -289,8 +290,8 @@ func RunCompile() bool {
 
 // VisitCompileDiag jumps to the diagnostic at the current line in *compile*.
 func VisitCompileDiag() bool {
-	wp := model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	wp := window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if wp == nil || bp == nil || bp.Name != CompileBufferName {
 		return false
 	}

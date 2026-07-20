@@ -2,7 +2,7 @@ package mode
 
 import (
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/window"
 )
 
 // indentBytesForCol builds gofmt-style leading whitespace: tabs for each
@@ -34,7 +34,7 @@ func calcIndentGo(bp *buffer.Buffer, lineNumber uint) int {
 	return ind
 }
 
-func setLineIndentGo(wp *model.Window, col int) bool {
+func setLineIndentGo(wp *window.Window, col int) bool {
 	if wp == nil || wp.Buffer == nil || col < 0 {
 		return false
 	}
@@ -48,10 +48,10 @@ func setLineIndentGo(wp *model.Window, col int) bool {
 	prefix := indentBytesForCol(col)
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, oldFirst)
-	model.BeginCommand()
-	err := model.SetText(bp, begin, end, prefix, nil)
+	PackageHooks.BeginCommand()
+	err := PackageHooks.SetText(bp, begin, end, prefix, nil)
 	ok := err == nil
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	if ok {
 		wp.DidEdit = true
 		// Park cursor after the new indent when it was in the old indent region.
@@ -74,13 +74,13 @@ func cmdGoNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !model.InsertNewline(wp) {
+		if !window.InsertNewline(wp) {
 			return false
 		}
 		indent := calcIndentGo(bp, wp.Cursor.Line)
@@ -94,8 +94,8 @@ func cmdGoIndentLine(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -110,8 +110,8 @@ func cmdGoCloseBrace(f bool, n int) bool {
 	if n <= 0 {
 		n = 1
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -121,7 +121,7 @@ func cmdGoCloseBrace(f bool, n int) bool {
 	}
 	wp.Cursor.Offset = 0
 	for i := 0; i < n; i++ {
-		if !model.InsertCodepoint(wp, '}') {
+		if !window.InsertCodepoint(wp, '}') {
 			return false
 		}
 	}
@@ -141,8 +141,8 @@ func cmdGoCloseBrace(f bool, n int) bool {
 func cmdGoMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
@@ -173,7 +173,7 @@ func cmdGoMakeComment(f bool, n int) bool {
 	} else {
 		wp.Cursor.Offset = 0
 	}
-	if !model.InsertText(wp, []byte("  // ")) {
+	if !window.InsertText(wp, []byte("  // ")) {
 		return false
 	}
 	wp.DidMove = true

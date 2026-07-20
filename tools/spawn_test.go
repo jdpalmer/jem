@@ -1,10 +1,9 @@
 package tools
 
 import (
+	"github.com/jdpalmer/jem/minibuffer"
 	"runtime"
 	"testing"
-
-	"github.com/jdpalmer/jem/model"
 )
 
 func TestSpawnShellCommandBuilder(t *testing.T) {
@@ -21,10 +20,10 @@ func TestSpawnShellCommandBuilder(t *testing.T) {
 }
 
 func TestRunSpawnCommandRejectsEmptyInput(t *testing.T) {
-	if runSpawnAfterPrompt("", model.PromptResultYes) {
+	if runSpawnAfterPrompt("", minibuffer.PromptResultYes) {
 		t.Fatal("expected false for empty command")
 	}
-	if runSpawnAfterPrompt("echo", model.PromptResultAbort) {
+	if runSpawnAfterPrompt("echo", minibuffer.PromptResultAbort) {
 		t.Fatal("expected false for abort")
 	}
 }

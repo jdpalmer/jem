@@ -1,11 +1,10 @@
 package tools
 
 import (
+	"github.com/jdpalmer/jem/buffer"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/jdpalmer/jem/model"
 )
 
 func TestGrepCompilePatternSmartCase(t *testing.T) {
@@ -54,7 +53,7 @@ func TestGrepProjectSearch(t *testing.T) {
 }
 
 func TestGrepFillBuffer(t *testing.T) {
-	bp := model.BufferCreate(&model.State.EditorRuntimeState)
+	bp := buffer.Create()
 	if bp == nil {
 		t.Fatal("buffer create failed")
 	}

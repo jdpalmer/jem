@@ -2,29 +2,30 @@ package search
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/model"
+	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/term"
-	"github.com/jdpalmer/jem/view"
 )
 
 type isearchSession struct {
-	backward     bool
-	regex        bool
-	wp           *model.Window
-	scope        bufferSearchScope
-	origin       ISearchSnapshot
-	lastSuccess  ISearchSnapshot
-	pat          [model.PatternCapacity]byte
-	savedEdit    [model.PatternCapacity]byte
-	cpos         int
-	historyPos   int16
+	backward      bool
+	regex         bool
+	wp            *window.Window
+	scope         bufferSearchScope
+	origin        ISearchSnapshot
+	lastSuccess   ISearchSnapshot
+	pat           [display.PatternCapacity]byte
+	savedEdit     [display.PatternCapacity]byte
+	cpos          int
+	historyPos    int16
 	haveSavedEdit bool
-	failing      bool
-	repeatKey    uint32
-	label        string
-	mbState      model.MinibufferState
+	failing       bool
+	repeatKey     uint32
+	label         string
+	mbState       minibuffer.MinibufferState
 }
 
 func newISearchSession(backward, regex bool) *isearchSession {
@@ -52,8 +53,8 @@ func newISearchSession(backward, regex bool) *isearchSession {
 }
 
 func (s *isearchSession) Open() (done bool) {
-	s.wp = model.State.CurrentWindow
-	bp := model.State.CurrentBuffer
+	s.wp = window.Active.CurrentWindow
+	bp := buffer.All.Current
 	if s.wp == nil || bp == nil {
 		return true
 	}
@@ -63,16 +64,16 @@ func (s *isearchSession) Open() (done bool) {
 	}
 	s.origin = saveSearchSnapshot(s.wp, 0)
 	s.lastSuccess = s.origin
-	view.ShowMinibuffer(&s.mbState)
-	model.State.ShowPhantomCursor = true
+	display.ShowMinibuffer(&s.mbState)
+	display.Active.ShowPhantomCursor = true
 	s.redraw()
 	return false
 }
 
 func (s *isearchSession) Close() {
-	model.State.ShowPhantomCursor = false
-	isearchClearHighlight(model.State.CurrentWindow)
-	view.HideMinibuffer()
+	display.Active.ShowPhantomCursor = false
+	isearchClearHighlight(window.Active.CurrentWindow)
+	display.HideMinibuffer()
 }
 
 func (s *isearchSession) redraw() {
@@ -119,13 +120,13 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 	if s.regex {
 		initial = []byte(currentState().RegexSearchPattern)
 	}
-	edit := mbEditKeyHistory(s.pat[:], &s.cpos, model.PatternCapacity, initial, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
-	if edit == model.MinibufEditUnhandled {
+	edit := mbEditKeyHistory(s.pat[:], &s.cpos, display.PatternCapacity, initial, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
+	if edit == minibuffer.MinibufEditUnhandled {
 		s.commitPattern(plen)
 		mbClear()
 		return true
 	}
-	if edit == model.MinibufEditNoChange {
+	if edit == minibuffer.MinibufEditNoChange {
 		doBeep()
 		return false
 	}
@@ -142,7 +143,7 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 		return false
 	}
 	var next ISearchSnapshot
-	s.wp = model.State.CurrentWindow
+	s.wp = window.Active.CurrentWindow
 	ok := false
 	if s.regex {
 		ok = isearchRunRegex(s.wp, &s.scope, &s.origin, string(s.pat[:plen]), s.backward, &next)
@@ -196,7 +197,7 @@ func (s *isearchSession) handleRepeat(plen int) {
 		return
 	}
 	var next ISearchSnapshot
-	s.wp = model.State.CurrentWindow
+	s.wp = window.Active.CurrentWindow
 	ok := false
 	if s.regex {
 		ok = isearchRunRegex(s.wp, &s.scope, &s.lastSuccess, string(s.pat[:plen]), s.backward, &next)

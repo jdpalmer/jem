@@ -1,10 +1,10 @@
 package tools
 
 import (
+	"github.com/jdpalmer/jem/window"
 	"strings"
 	"testing"
 
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 )
 
@@ -66,9 +66,9 @@ func TestCompileParseColonDiag(t *testing.T) {
 
 func TestCompileFillBuffer(t *testing.T) {
 	bp := buffer.New()
-	wp := &model.Window{Buffer: bp}
-	model.State.CurrentWindow = wp
-	model.State.CurrentBuffer = bp
+	wp := &window.Window{Buffer: bp}
+	window.Active.CurrentWindow = wp
+	buffer.All.Current = bp
 	counts, ok := compileFillBuffer(bp, "make -k",
 		"main.go:2:3: error: boom\n",
 		"warning: something\n",

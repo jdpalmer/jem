@@ -5,9 +5,11 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/fileio"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,15 +52,15 @@ func tagFindTagsFile() (string, bool) {
 
 	if filepath.IsAbs(tagName) {
 		if _, err := os.Stat(tagName); err == nil {
-			return fileio.NormalizePath(tagName), true
+			return files.NormalizePath(tagName), true
 		}
 		return "", false
 	}
 
 	dir := ""
-	if bp := model.State.CurrentBuffer; bp != nil {
+	if bp := buffer.All.Current; bp != nil {
 		if fname := bp.FileName; fname != "" {
-			dir = filepath.Dir(fileio.NormalizePath(fname))
+			dir = filepath.Dir(files.NormalizePath(fname))
 		}
 	}
 	if dir == "" {
@@ -69,7 +71,7 @@ func tagFindTagsFile() (string, bool) {
 		dir = cwd
 	}
 
-	if path, ok := fileio.FindFileWalkUp(dir, tagName); ok {
+	if path, ok := files.FindFileWalkUp(dir, tagName); ok {
 		return path, true
 	}
 	return "", false
@@ -213,7 +215,7 @@ func tagIsSymbolChar(c byte) bool {
 		(c >= '0' && c <= '9') || c == '_'
 }
 
-func tagSymbolAtPoint(wp *model.Window, symbol []byte) bool {
+func tagSymbolAtPoint(wp *window.Window, symbol []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -247,7 +249,7 @@ func tagSymbolAtPoint(wp *model.Window, symbol []byte) bool {
 	return true
 }
 
-func tagMoveCursorToLine(wp *model.Window, target, offset uint32) bool {
+func tagMoveCursorToLine(wp *window.Window, target, offset uint32) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -273,13 +275,13 @@ func bufferNameFromPath(fname string) string {
 	if i := strings.IndexByte(base, ';'); i >= 0 {
 		base = base[:i]
 	}
-	if model.BufferFind(base) == nil {
-		return model.TruncateBufferName(base)
+	if buffer.Find(base) == nil {
+		return buffer.TruncateName(base)
 	}
 	for suffix := 2; ; suffix++ {
 		name := fmt.Sprintf("%s:%d", base, suffix)
-		if model.BufferFind(name) == nil {
-			return model.TruncateBufferName(name)
+		if buffer.Find(name) == nil {
+			return buffer.TruncateName(name)
 		}
 	}
 }
@@ -338,7 +340,7 @@ func tagSignatureScore(bp *buffer.Buffer, entry *TagEntry) int {
 	case "macro":
 		score += 2
 	}
-	if bp != nil && bp.FileName != "" && fileio.PathsEqual(bp.FileName, entry.Path) {
+	if bp != nil && bp.FileName != "" && files.PathsEqual(bp.FileName, entry.Path) {
 		score += 6
 	}
 	return score
@@ -408,13 +410,13 @@ func tagChooseMatch(matches []*TagEntry, onDone func(choice int)) {
 	list := &tagMatchList{matches: matches[:count]}
 	askFuzzyEx("Tag: ", func(ctx any, idx uint) []byte {
 		return ctx.(*tagMatchList).provider(idx)
-	}, list, uint(count), tagDisplayFormatter, list, func(selected string, r model.PromptResult) {
-		if r == model.PromptResultAbort {
+	}, list, uint(count), tagDisplayFormatter, list, func(selected string, r minibuffer.PromptResult) {
+		if r == minibuffer.PromptResultAbort {
 			CmdAbort(false, 1)
 			onDone(-1)
 			return
 		}
-		if r != model.PromptResultYes {
+		if r != minibuffer.PromptResultYes {
 			onDone(-1)
 			return
 		}
@@ -439,7 +441,7 @@ func tagVisitMatch(matches []*TagEntry, choice int) {
 
 // RunGotoTag jumps to the definition of the symbol at point (M-.).
 func RunGotoTag() bool {
-	wp := model.State.CurrentWindow
+	wp := window.Active.CurrentWindow
 
 	if !EnsureTagsLoaded(false) {
 		return false
@@ -460,13 +462,13 @@ func RunGotoTag() bool {
 		})
 	}
 
-	var buf [model.PatternCapacity]byte
+	var buf [display.PatternCapacity]byte
 	if tagSymbolAtPoint(wp, buf[:]) {
 		finish(promptStringFromBuf(buf[:]))
 		return true
 	}
-	askString("Goto tag: ", "", func(symbol string, pr model.PromptResult) {
-		if pr != model.PromptResultYes {
+	askString("Goto tag: ", "", func(symbol string, pr minibuffer.PromptResult) {
+		if pr != minibuffer.PromptResultYes {
 			return
 		}
 		finish(symbol)
@@ -474,7 +476,7 @@ func RunGotoTag() bool {
 	return true
 }
 
-func tagCollectHintContext(wp *model.Window, out []byte) int {
+func tagCollectHintContext(wp *window.Window, out []byte) int {
 	if wp == nil || wp.Buffer == nil || len(out) == 0 {
 		return 0
 	}
@@ -518,7 +520,7 @@ func tagCollectHintContext(wp *model.Window, out []byte) int {
 	return used
 }
 
-func tagFindCallHint(wp *model.Window, name []byte, argIndexOut *uint32) bool {
+func tagFindCallHint(wp *window.Window, name []byte, argIndexOut *uint32) bool {
 	if len(name) == 0 || argIndexOut == nil {
 		return false
 	}
@@ -598,19 +600,19 @@ func tagFindCallHint(wp *model.Window, name []byte, argIndexOut *uint32) bool {
 
 // MaybeShowCallHint displays a signature hint for the function call at point.
 func MaybeShowCallHint() {
-	if model.State.IsRecording() || model.State.IsPlaying() {
+	if display.Active.MacroRecording || display.Active.MacroPlaying {
 		return
 	}
 	if !EnsureTagsLoaded(true) {
 		return
 	}
 
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return
 	}
-	var name [model.PatternCapacity]byte
+	var name [display.PatternCapacity]byte
 	var argIndex uint32
 	if !tagFindCallHint(wp, name[:], &argIndex) {
 		return

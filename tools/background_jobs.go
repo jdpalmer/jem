@@ -3,10 +3,11 @@ package tools
 import (
 	"context"
 	"errors"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/event"
-	"github.com/jdpalmer/jem/model"
 )
 
 const (
@@ -127,7 +128,7 @@ func HandleBackgroundJobDone(done BackgroundJobDone) {
 	case backgroundJobCompile:
 		handleBackgroundJobCompile(done)
 	}
-	model.State.ScreenDirty = true
+	display.Active.ScreenDirty = true
 }
 
 func handleBackgroundJobGrep(done BackgroundJobDone) {
@@ -158,7 +159,7 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(grepBuf)
-	if wp := model.State.CurrentWindow; wp != nil {
+	if wp := window.Active.CurrentWindow; wp != nil {
 		wp.SetTopLine(1)
 		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
 		wp.Mark = buffer.Location{Line: 0, Offset: 0}
@@ -203,7 +204,7 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(compileBuf)
-	if wp := model.State.CurrentWindow; wp != nil {
+	if wp := window.Active.CurrentWindow; wp != nil {
 		wp.SetTopLine(1)
 		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
 		wp.Mark = buffer.Location{Line: 0, Offset: 0}

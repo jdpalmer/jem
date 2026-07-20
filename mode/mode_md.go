@@ -1,8 +1,8 @@
 package mode
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 func prevNonblankLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
@@ -16,7 +16,7 @@ func prevNonblankLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func setLinePrefix(wp *model.Window, prefix []byte) bool {
+func setLinePrefix(wp *window.Window, prefix []byte) bool {
 	if wp == nil || wp.Buffer == nil {
 		return false
 	}
@@ -29,10 +29,10 @@ func setLinePrefix(wp *model.Window, prefix []byte) bool {
 	first := lp.FirstNonblank()
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, first)
-	model.BeginCommand()
-	err := model.SetText(bp, begin, end, prefix, nil)
+	PackageHooks.BeginCommand()
+	err := PackageHooks.SetText(bp, begin, end, prefix, nil)
 	ok := err == nil
-	model.EndCommand()
+	PackageHooks.EndCommand()
 	if ok {
 		wp.DidEdit = true
 	}
@@ -108,18 +108,18 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
 		lp := bp.Line(wp.Cursor.Line)
 		prefix := mdBuildPrefix(lp)
-		if !model.InsertNewline(wp) {
+		if !window.InsertNewline(wp) {
 			return false
 		}
-		if len(prefix) > 0 && !model.InsertText(wp, prefix) {
+		if len(prefix) > 0 && !window.InsertText(wp, prefix) {
 			return false
 		}
 	}
@@ -129,8 +129,8 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 func cmdMdIndentLine(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := model.State.CurrentBuffer
-	wp := model.State.CurrentWindow
+	bp := buffer.All.Current
+	wp := window.Active.CurrentWindow
 	if bp == nil || wp == nil {
 		return false
 	}

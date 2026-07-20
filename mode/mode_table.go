@@ -1,12 +1,11 @@
 package mode
 
 import (
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
 )
 
-var modeTable = []model.ModeInfo{
+var modeTable = []ModeInfo{
 	{
 		Mode:              buffer.LModeNone,
 		DisplayName:       "Text",
@@ -180,7 +179,7 @@ func init() {
 	}
 }
 
-func LangModeInfo(mode buffer.LangMode) *model.ModeInfo {
+func LangModeInfo(mode buffer.LangMode) *ModeInfo {
 	for i := range modeTable {
 		if modeTable[i].Mode == mode {
 			return &modeTable[i]

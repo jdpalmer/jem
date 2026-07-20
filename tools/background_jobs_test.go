@@ -3,6 +3,8 @@ package tools
 import (
 	"context"
 	"errors"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/window"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +12,6 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/event"
-	"github.com/jdpalmer/jem/model"
 )
 
 func TestGrepProjectSearchCancellation(t *testing.T) {
@@ -58,16 +59,16 @@ func waitJobDone(t *testing.T) BackgroundJobDone {
 func TestBackgroundJobGrepCompletion(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	model.Reset()
-	bp := model.BufferCreate(&model.State.EditorRuntimeState)
-	wp := model.WindowCreate()
-	model.WindowSelect(wp)
-	model.SetCurrentBuffer(bp)
+	display.Reset()
+	bp := buffer.Create()
+	wp := window.WindowCreate()
+	window.WindowSelect(wp)
+	buffer.SetCurrent(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{
 		SwitchBuffer: func(next *buffer.Buffer) {
-			model.SetCurrentBuffer(next)
-			if cw := model.State.CurrentWindow; cw != nil {
+			buffer.SetCurrent(next)
+			if cw := window.Active.CurrentWindow; cw != nil {
 				cw.Buffer = next
 			}
 		},
@@ -91,7 +92,7 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 	if BackgroundJobRunning() {
 		t.Fatal("job still marked active after completion")
 	}
-	if got := model.BufferFind(GrepBufferName); got == nil {
+	if got := buffer.Find(GrepBufferName); got == nil {
 		t.Fatal("grep buffer not created")
 	}
 }
@@ -99,11 +100,11 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 func TestBackgroundJobCancel(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
-	model.Reset()
-	bp := model.BufferCreate(&model.State.EditorRuntimeState)
-	wp := model.WindowCreate()
-	model.WindowSelect(wp)
-	model.SetCurrentBuffer(bp)
+	display.Reset()
+	bp := buffer.Create()
+	wp := window.WindowCreate()
+	window.WindowSelect(wp)
+	buffer.SetCurrent(bp)
 	wp.Buffer = bp
 	PackageHooks = Hooks{}
 

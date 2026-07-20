@@ -2,10 +2,12 @@ package tools
 
 import (
 	"bytes"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 
-	"github.com/jdpalmer/jem/model"
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/view"
+	"github.com/jdpalmer/jem/display"
 )
 
 func promptStringFromBuf(buf []byte) string {
@@ -17,31 +19,31 @@ func promptStringFromBuf(buf []byte) string {
 }
 
 func mbWrite(format string, args ...interface{}) {
-	view.MBWrite(format, args...)
+	display.MBWrite(format, args...)
 }
 
 func mbClear() {
-	view.MBClear()
+	display.MBClear()
 }
 
 func mbHistoryAdd(text string) {
-	view.MBHistoryAdd(text)
+	display.MBHistoryAdd(text)
 }
 
-func askString(prompt, initial string, onDone func(string, model.PromptResult)) {
-	view.AskString(prompt, initial, onDone)
+func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
+	display.AskString(prompt, initial, onDone)
 }
 
-func askStringCap(prompt, initial string, capacity int, onDone func(string, model.PromptResult)) {
-	view.AskStringCap(prompt, initial, capacity, onDone)
+func askStringCap(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult)) {
+	display.AskStringCap(prompt, initial, capacity, onDone)
 }
 
-func askFuzzyEx(prompt string, provider model.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter model.MbMatchFormatter, displayCtx any, onDone func(string, model.PromptResult)) {
-	view.AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
+func askFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
+	display.AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
 }
 
 func markPushCurrent() {
-	model.MarkPushCurrent()
+	markring.PushCurrent()
 }
 
 func fileVisitLocation(path string, line, column uint32) bool {
@@ -56,7 +58,7 @@ func editorSwitchBuffer(bp *buffer.Buffer) {
 		PackageHooks.SwitchBuffer(bp)
 		return
 	}
-	model.SwitchBuffer(bp)
+	window.SwitchBuffer(bp)
 }
 
 func CmdAbort(_ bool, _ int) bool {
@@ -68,11 +70,11 @@ func CmdAbort(_ bool, _ int) bool {
 }
 
 func TermFreezeInput() bool {
-	return view.TermFreezeInput()
+	return display.TermFreezeInput()
 }
 
 func TermThawInput() {
-	view.TermThawInput()
+	display.TermThawInput()
 }
 
 func editorReadKey(keyOut *uint32) bool {
@@ -88,5 +90,5 @@ func editorReadKey(keyOut *uint32) bool {
 }
 
 func windowRetile() {
-	model.WindowRetile()
+	window.WindowRetile()
 }
