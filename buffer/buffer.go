@@ -35,24 +35,6 @@ func New() *Buffer {
 	}
 }
 
-func (bp *Buffer) Destroy() {
-	if bp == nil {
-		return
-	}
-	if bp.Lines != nil {
-		for i := range bp.Lines {
-			bp.Lines[i].Data = nil
-		}
-		bp.Lines = nil
-	}
-	bp.LineCount = 0
-	bp.Name = ""
-	bp.FileName = ""
-	bp.Serial = 0
-	bp.SavedUndoSerial = 0
-	bp.FileMtime = time.Time{}
-}
-
 func (bp *Buffer) Clear() bool {
 	if bp == nil {
 		return false

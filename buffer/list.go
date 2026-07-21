@@ -48,7 +48,8 @@ func Create() *Buffer {
 	return bp
 }
 
-// Release removes bp from All, retargets dependents via hooks, and destroys it.
+// Release removes bp from All and retargets dependents via hooks.
+// The buffer is left for the garbage collector once no longer referenced.
 func Release(bp *Buffer) {
 	if bp == nil {
 		return
@@ -82,7 +83,6 @@ func Release(bp *Buffer) {
 	if PackageHooks.UndoForgetBuffer != nil {
 		PackageHooks.UndoForgetBuffer(bp)
 	}
-	bp.Destroy()
 }
 
 // SetCurrent makes bp the current buffer and moves it to the front of All.Buffers.

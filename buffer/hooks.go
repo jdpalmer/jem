@@ -15,10 +15,10 @@ type Hooks struct {
 	AdjustLocationsAfterReplace func(bp *Buffer, begin, end, newEnd Location)
 	ReparseFrom                 func(bp *Buffer, lineNumber uint)
 	OnBufferCreate              func(bp *Buffer)
-	// OnBufferKill is called after bp is removed from All but before Destroy.
+	// OnBufferKill is called after bp is removed from All.
 	// replacement may be nil when no buffers remain.
-	OnBufferKill      func(bp, replacement *Buffer)
-	UndoForgetBuffer  func(bp *Buffer)
+	OnBufferKill     func(bp, replacement *Buffer)
+	UndoForgetBuffer func(bp *Buffer)
 }
 
 // PackageHooks is set by the editor during init.
