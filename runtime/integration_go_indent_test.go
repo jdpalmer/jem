@@ -108,9 +108,9 @@ func TestGoTabDoesNotCollapseToColumnZero(t *testing.T) {
 func TestCIndentStillUsesSpacesAfterDefaults(t *testing.T) {
 	te := NewTestEditor(t)
 	te.SetLangMode(buffer.LModeC)
-	// OnBufferCreate set CIndent=2; SetLangMode must not wipe it for C.
-	if te.BP().CIndent != 2 {
-		t.Fatalf("C CIndent = %d, want 2", te.BP().CIndent)
+	// OnBufferCreate set Width=2; SetLangMode(C) keeps the C default of 2.
+	if te.BP().Indent.Width != 2 {
+		t.Fatalf("C Indent.Width = %d, want 2", te.BP().Indent.Width)
 	}
 
 	te.LoadText("if (x) {")

@@ -299,22 +299,17 @@ modes are supported internally but are not auto-detected from the file name.
 | `M-C-h` | Mark (select) the current function / class |
 | `}` | Insert `}` and auto-indent *(C-family modes: C, Java, Go, Rust, Swift, JS/TS, Kotlin, Dart, C#, etc.)* |
 
-### C-Family Indentation Parameters
+### Indentation Parameters
 
-Set in `~/.jem.json` (see section 17):
-
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `c-indent` | `2` | Spaces added after `{` |
-| `c-brace` | `0` | Extra indent for a standalone `{` line |
-| `c-colon-offset` | `0` | Offset of `case`/`default` labels inside `switch` |
-
-### Python Indentation Parameters
+Set in `~/.jem.json` (see section 17). Applied as buffer-local indent style;
+language mode defaults seed `indent-width` / related fields on mode change:
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `py-indent` | `4` | Spaces per block level |
-| `py-continued-offset` | `4` | Extra indent after a `\` continuation |
+| `indent-width` | `2` (C/text), `4` (Python), `8` (Go) | Primary indent step |
+| `indent-brace` | `0` | Extra indent for a standalone `{` line (C-like) |
+| `indent-label` | `0` | Offset of `case`/`default` labels inside `switch` |
+| `indent-continued` | `4` (Python) | Extra indent after a `\` continuation |
 
 Python's `elif`, `else`, `except`, and `finally` keywords are automatically
 de-indented to align with their opening block.
@@ -357,11 +352,10 @@ hyphenated keys:
   "whitespace-cleanup": 1,
   "search-scope": 0,
   "auto-revert-mode": 0,
-  "c-indent": 4,
-  "c-brace": 0,
-  "c-colon-offset": 0,
-  "py-indent": 2,
-  "py-continued-offset": 4,
+  "indent-width": 4,
+  "indent-brace": 0,
+  "indent-label": 0,
+  "indent-continued": 4,
   "keybindings": {
     "C-x C-e": "set_eol_mode",
     "C-x f": "set_variable",
@@ -381,11 +375,10 @@ hyphenated keys:
 | `whitespace-cleanup` | `1` | Set to `0` to preserve trailing whitespace when saving |
 | `search-scope` | `0` | `0` = current buffer, `1` = all buffers for search/replace |
 | `auto-revert-mode` | `0` | `0` = prompt before reverting modified buffers on disk change; `1` = always reload |
-| `c-indent` | `2` | C-family: spaces per block level |
-| `c-brace` | `0` | C-family: extra indent for standalone `{` |
-| `c-colon-offset` | `0` | C-family: offset of `case`/`default` labels |
-| `py-indent` | `4` | Python: spaces per block level |
-| `py-continued-offset` | `4` | Python: extra indent after `\` continuation |
+| `indent-width` | `2` | Primary indent step (mode defaults: C/text 2, Python 4, Go 8) |
+| `indent-brace` | `0` | Extra indent for standalone `{` (C-like modes) |
+| `indent-label` | `0` | Offset of `case`/`default` labels (C-like modes) |
+| `indent-continued` | `4` | Extra indent for continuation lines (Python-like modes) |
 
 ### Custom Keybindings
 

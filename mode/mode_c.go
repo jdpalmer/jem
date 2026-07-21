@@ -160,8 +160,8 @@ func calcCommentIndent(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func findCaseIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
-	cIndent := buf.CIndent
-	cColonOffset := buf.CColonOffset
+	cIndent := buf.Indent.Width
+	cColonOffset := buf.Indent.Label
 	for ln := lineNumber; ln >= 1; ln-- {
 		line := buf.Line(ln)
 		if line == nil {
@@ -284,7 +284,7 @@ func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber int, offset 
 		}
 		tail++
 	}
-	return line.IndentColumn() + buf.CIndent
+	return line.IndentColumn() + buf.Indent.Width
 }
 
 func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
@@ -296,7 +296,7 @@ func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) in
 	if line == nil {
 		return -1
 	}
-	return line.IndentColumn() + buf.CIndent
+	return line.IndentColumn() + buf.Indent.Width
 }
 
 func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset int) (buffer.Location, bool) {
@@ -331,8 +331,8 @@ func calcIndent(buf *buffer.Buffer, lineNumber int) int {
 	if line == nil {
 		return 0
 	}
-	cIndent := buf.CIndent
-	cBrace := buf.CBrace
+	cIndent := buf.Indent.Width
+	cBrace := buf.Indent.Brace
 	first, fc := lineFirstNonblankOffset(line)
 	if lineIsPreproc(buf, lineNumber) {
 		return 0

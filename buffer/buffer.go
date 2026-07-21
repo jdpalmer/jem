@@ -11,11 +11,7 @@ type Buffer struct {
 	EolMode                 EolMode
 	LangMode                LangMode
 	FillCol                 int
-	CIndent                 int
-	CBrace                  int
-	CColonOffset            int
-	PyIndent                int
-	PyContinuedOffset       int
+	Indent                  IndentConfig
 	WhitespaceCleanup       bool
 	Name                    string
 	FileName                string

@@ -32,8 +32,8 @@ func TestVarsInitDefaults(t *testing.T) {
 	if display.Active.FillCol != 80 {
 		t.Fatalf("FillCol = %d, want 80", display.Active.FillCol)
 	}
-	if State.CIndent != 2 {
-		t.Fatalf("CIndent = %d, want 2", State.CIndent)
+	if State.Indent.Width != 2 {
+		t.Fatalf("Indent.Width = %d, want 2", State.Indent.Width)
 	}
 }
 
@@ -43,11 +43,11 @@ func TestBufferCreateAppliesIndentDefaults(t *testing.T) {
 	if buf == nil {
 		t.Fatal("no buffer")
 	}
-	if buf.CIndent != 2 {
-		t.Fatalf("buffer CIndent = %d, want 2 (OnBufferCreate)", buf.CIndent)
+	if buf.Indent.Width != 2 {
+		t.Fatalf("buffer Indent.Width = %d, want 2 (OnBufferCreate)", buf.Indent.Width)
 	}
-	if buf.PyIndent != 4 {
-		t.Fatalf("buffer PyIndent = %d, want 4", buf.PyIndent)
+	if buf.Indent.Continued != 4 {
+		t.Fatalf("buffer Indent.Continued = %d, want 4", buf.Indent.Continued)
 	}
 	if buf.FillCol != 80 {
 		t.Fatalf("buffer FillCol = %d, want 80", buf.FillCol)

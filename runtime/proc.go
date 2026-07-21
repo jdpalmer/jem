@@ -18,11 +18,7 @@ type ProcState struct {
 	PlayPos           int
 	WhitespaceCleanup bool
 	AutoRevertMode    bool
-	CIndent           int
-	CBrace            int
-	CColonOffset      int
-	PyIndent          int
-	PyContinuedOffset int
+	Indent            buffer.IndentConfig
 }
 
 var defaultState ProcState = ProcState{PlayPos: -1}

@@ -9,7 +9,7 @@ import (
 func TestCNewlineIndent(t *testing.T) {
 	te := NewTestEditor(t)
 	te.SetLangMode(buffer.LModeC)
-	te.BP().CIndent = 2
+	te.BP().Indent.Width = 2
 
 	te.LoadText("if (x) {")
 	if col := te.NewlineIndent(); col != 2 {

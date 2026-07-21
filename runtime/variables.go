@@ -84,39 +84,32 @@ var varTable = []variable{
 		},
 	},
 	{
-		name: "c-indent",
-		doc:  "C-family block indent width in spaces.",
+		name: "indent-width",
+		doc:  "Primary indent step in columns/spaces.",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) int { return buf.CIndent },
-		write: func(buf *buffer.Buffer, v int) { buf.CIndent = v },
+		read:  func(buf *buffer.Buffer) int { return buf.Indent.Width },
+		write: func(buf *buffer.Buffer, v int) { buf.Indent.Width = v },
 	},
 	{
-		name: "c-brace",
-		doc:  "Extra indent for a standalone opening brace line in C-like modes.",
+		name: "indent-brace",
+		doc:  "Extra indent for a standalone opening brace line (C-like modes).",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) int { return buf.CBrace },
-		write: func(buf *buffer.Buffer, v int) { buf.CBrace = v },
+		read:  func(buf *buffer.Buffer) int { return buf.Indent.Brace },
+		write: func(buf *buffer.Buffer, v int) { buf.Indent.Brace = v },
 	},
 	{
-		name: "c-colon-offset",
-		doc:  "Extra offset applied to C-family case/default labels.",
+		name: "indent-label",
+		doc:  "Extra offset applied to case/default labels (C-like modes).",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) int { return buf.CColonOffset },
-		write: func(buf *buffer.Buffer, v int) { buf.CColonOffset = v },
+		read:  func(buf *buffer.Buffer) int { return buf.Indent.Label },
+		write: func(buf *buffer.Buffer, v int) { buf.Indent.Label = v },
 	},
 	{
-		name: "py-indent",
-		doc:  "Python block indent width in spaces.",
+		name: "indent-continued",
+		doc:  "Extra indent for continuation lines (Python-like modes).",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) int { return buf.PyIndent },
-		write: func(buf *buffer.Buffer, v int) { buf.PyIndent = v },
-	},
-	{
-		name: "py-continued-offset",
-		doc:  "Extra indent for explicit Python continuation lines.",
-		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) int { return buf.PyContinuedOffset },
-		write: func(buf *buffer.Buffer, v int) { buf.PyContinuedOffset = v },
+		read:  func(buf *buffer.Buffer) int { return buf.Indent.Continued },
+		write: func(buf *buffer.Buffer, v int) { buf.Indent.Continued = v },
 	},
 }
 
@@ -155,11 +148,7 @@ func VarsInit() {
 	search.DefaultState.SearchScopeSetting = search.SearchScopeBuffer
 	State.WhitespaceCleanup = true
 	State.AutoRevertMode = false
-	State.CIndent = 2
-	State.CBrace = 0
-	State.CColonOffset = 0
-	State.PyIndent = 4
-	State.PyContinuedOffset = 4
+	State.Indent = buffer.IndentConfig{Width: 2, Continued: 4}
 	configThemeChanged()
 	configSearchScopeChanged()
 }
@@ -169,11 +158,7 @@ func bufferApplyVarDefaults(buf *buffer.Buffer) {
 		return
 	}
 	buf.FillCol = display.Active.FillCol
-	buf.CIndent = State.CIndent
-	buf.CBrace = State.CBrace
-	buf.CColonOffset = State.CColonOffset
-	buf.PyIndent = State.PyIndent
-	buf.PyContinuedOffset = State.PyContinuedOffset
+	buf.Indent = State.Indent
 	buf.WhitespaceCleanup = State.WhitespaceCleanup
 }
 
@@ -181,16 +166,14 @@ func varGlobalWrite(v *variable, value int) {
 	switch v.name {
 	case "fill-column":
 		display.Active.FillCol = value
-	case "c-indent":
-		State.CIndent = value
-	case "c-brace":
-		State.CBrace = value
-	case "c-colon-offset":
-		State.CColonOffset = value
-	case "py-indent":
-		State.PyIndent = value
-	case "py-continued-offset":
-		State.PyContinuedOffset = value
+	case "indent-width":
+		State.Indent.Width = value
+	case "indent-brace":
+		State.Indent.Brace = value
+	case "indent-label":
+		State.Indent.Label = value
+	case "indent-continued":
+		State.Indent.Continued = value
 	case "whitespace-cleanup":
 		State.WhitespaceCleanup = value != 0
 	default:
@@ -202,16 +185,14 @@ func varGlobalRead(v *variable) int {
 	switch v.name {
 	case "fill-column":
 		return display.Active.FillCol
-	case "c-indent":
-		return State.CIndent
-	case "c-brace":
-		return State.CBrace
-	case "c-colon-offset":
-		return State.CColonOffset
-	case "py-indent":
-		return State.PyIndent
-	case "py-continued-offset":
-		return State.PyContinuedOffset
+	case "indent-width":
+		return State.Indent.Width
+	case "indent-brace":
+		return State.Indent.Brace
+	case "indent-label":
+		return State.Indent.Label
+	case "indent-continued":
+		return State.Indent.Continued
 	case "whitespace-cleanup":
 		return boolToInt(State.WhitespaceCleanup)
 	default:

@@ -27,10 +27,10 @@ func calcIndentGo(buf *buffer.Buffer, lineNumber int) int {
 	if buf == nil {
 		return 0
 	}
-	saved := buf.CIndent
-	buf.CIndent = goIndentCols
+	saved := buf.Indent.Width
+	buf.Indent.Width = goIndentCols
 	ind := calcIndent(buf, lineNumber)
-	buf.CIndent = saved
+	buf.Indent.Width = saved
 	return ind
 }
 

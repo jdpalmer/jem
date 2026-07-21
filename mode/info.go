@@ -47,7 +47,7 @@ type ModeInfo struct {
 	SyntaxKind        syntax.ModeSyntaxKind
 	SyntaxFlags       uint32
 	MiscIndentKind    ModeMiscIndentKind
-	FillColumnDefault int
+	IndentDefault     buffer.IndentConfig
 	CommentOpen       string
 	CommentAltOpen    string
 	CommentAppend     string

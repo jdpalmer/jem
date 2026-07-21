@@ -58,8 +58,8 @@ func lineIsDedentStmt(line *buffer.Line) bool {
 
 func calcIndentPy(buf *buffer.Buffer, lineNumber int) int {
 	line := buf.Line(lineNumber)
-	pyIndentWidth := buf.PyIndent
-	pyContinuedOffset := buf.PyContinuedOffset
+	pyIndentWidth := buf.Indent.Width
+	pyContinuedOffset := buf.Indent.Continued
 
 	if line != nil && lineIsDeindentKw(line) {
 		refLine := prevCodeLineNumberPy(buf, lineNumber)

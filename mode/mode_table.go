@@ -176,6 +176,7 @@ func init() {
 		s := syntax.For(modeTable[i].Mode)
 		modeTable[i].SyntaxKind = s.Kind
 		modeTable[i].SyntaxFlags = s.Flags
+		modeTable[i].IndentDefault = indentDefaultFor(modeTable[i].Mode)
 	}
 }
 

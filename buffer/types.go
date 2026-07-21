@@ -36,6 +36,14 @@ const (
 	LModeCSS          LangMode = 21
 )
 
+// IndentConfig is language-agnostic indent style for a buffer.
+type IndentConfig struct {
+	Width     int // primary indent step
+	Brace     int // extra indent for a standalone opening brace (C-like)
+	Label     int // extra offset for case/default labels (C-like)
+	Continued int // extra indent for continuation lines (Python-like)
+}
+
 type SyntaxContext int
 
 const (
