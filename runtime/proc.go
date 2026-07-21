@@ -23,7 +23,6 @@ const (
 )
 
 type ProcState struct {
-	Mouse             display.ScreenCoord
 	MovementState     CommandState
 	Dispatching       bool
 	Macro             []event.Event

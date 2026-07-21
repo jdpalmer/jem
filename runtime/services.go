@@ -48,9 +48,8 @@ func buildServices() *Services {
 		},
 		Term: term.Hooks{
 			OnMouse: func(col, row int) {
-				State.Mouse.Col = uint32(col)
-				State.Mouse.Row = uint32(row)
-				display.Active.Mouse = State.Mouse
+				display.Active.Mouse.Col = uint32(col)
+				display.Active.Mouse.Row = uint32(row)
 			},
 			OnPaste: func(paste []byte) {
 				event.Enqueue(event.PasteEvent{Data: paste})

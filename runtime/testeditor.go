@@ -137,7 +137,6 @@ func (te *TestEditor) Click(row, col uint32) {
 	te.t.Helper()
 	display.Active.Mouse.Row = row
 	display.Active.Mouse.Col = col
-	State.Mouse = display.Active.Mouse
 	if !Execute(int(term.MouseLeft), false, 1) {
 		te.t.Fatalf("mouse left click at (%d,%d) failed", row, col)
 	}
