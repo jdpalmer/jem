@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"fmt"
-
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
@@ -85,7 +83,7 @@ func CmdUndo(f bool, n int) bool {
 	}
 	for i := 0; i < n; i++ {
 		if History.Count == 0 {
-			fmt.Println("[no undo]")
+			display.MBWrite("[no undo]")
 			return false
 		}
 		wp := window.Active.CurrentWindow
@@ -122,10 +120,10 @@ func CmdUndo(f bool, n int) bool {
 			},
 		})
 		if !ok {
-			fmt.Println("[undo failed]")
+			display.MBWrite("[undo failed]")
 			return false
 		}
 	}
-	fmt.Println("[undo]")
+	display.MBWrite("[undo]")
 	return true
 }
