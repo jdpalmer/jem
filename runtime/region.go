@@ -11,7 +11,7 @@ import (
 	"github.com/jdpalmer/jem/display"
 )
 
-// region.go - port of cmd_region.c: mark/region related commands
+// Mark/region commands (kill, copy, case, sort, fill bounds).
 
 func getRegion(wp *window.Window, rp *window.Region) bool {
 	if wp == nil || rp == nil {

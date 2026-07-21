@@ -1,6 +1,6 @@
 package term
 
-// term.go - Terminal I/O and raw mode (translation of term.c)
+// Terminal I/O and raw mode.
 
 import (
 	"bufio"

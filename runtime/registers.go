@@ -1,13 +1,13 @@
 package runtime
 
-// registers.go - Named clipboards / text registers (translation of registers.c)
-
 import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
+
+// Named text registers (clipboards keyed by name).
 
 var registerStore = make(map[string][]byte)
 

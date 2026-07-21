@@ -1,6 +1,6 @@
 package runtime
 
-// mouse.go - Mouse command implementations (translation of mouse.c)
+// Mouse hit handling and click/drag commands.
 
 import (
 	"github.com/jdpalmer/jem/buffer"

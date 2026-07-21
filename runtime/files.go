@@ -1,6 +1,6 @@
 package runtime
 
-// files.go - File I/O operations (translation of file.c)
+// File visit/save/revert commands and disk-change reload checks.
 
 import (
 	"fmt"
@@ -32,7 +32,7 @@ func bufferNameFromPath(fname string) string {
 	}
 }
 
-// loadCommandLineFiles loads paths into buffers, mirroring src/main.c startup.
+// loadCommandLineFiles loads paths into buffers at startup.
 // The first path replaces the initial buffer; each remaining path gets its own
 // buffer. On return the first file's buffer is current and shown in the window.
 func loadCommandLineFiles(paths []string) {
@@ -69,8 +69,8 @@ func fileReloadFromDisk(fname string, lineNumber uint) bool {
 	return files.ReloadCurrentBufferFromDisk(fname, lineNumber, NoteBufferSaved, display.MBWrite) == nil
 }
 
-// fileCheckReload mirrors src/file.c file_check_reload: silently reload unmodified
-// buffers when the on-disk file changes; prompt before reverting modified buffers.
+// fileCheckReload silently reloads unmodified buffers when the on-disk file
+// changes; prompts before reverting modified buffers.
 func fileCheckReload() {
 	files.CheckReloadCurrentBuffer(func(prompt string, onYes, onNo func()) {
 		AskYesNo(prompt, onYes, onNo)

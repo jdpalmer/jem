@@ -19,7 +19,6 @@ import (
 )
 
 // applyCtlxPrefix forms the editor key code for the key following C-x.
-// Mirrors C main.c: c = CTLX | decode_key_char(control_key, true).
 func applyCtlxPrefix(second uint32) uint32 {
 	second = display.DecodeKeyChar(second, true)
 	combined := term.CTLX | second
@@ -39,8 +38,7 @@ func applyCtlxPrefix(second uint32) uint32 {
 var editorEscapePrefixPending bool
 
 // editorReadKey reads one editor command key on the main thread.
-// Mirrors src/main.c editor_read_key (used during spawn pause while the
-// background reader is frozen).
+// Used during spawn pause while the background key reader is frozen.
 func editorReadKey(keyOut *uint32) bool {
 	for {
 		k, ok := term.ReadKey()

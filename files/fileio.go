@@ -266,7 +266,7 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 	return nil
 }
 
-// CheckReloadCurrentBuffer mirrors src/file.c file_check_reload behavior.
+// CheckReloadCurrentBuffer reloads the current buffer when its file changes on disk.
 // askConfirm, when non-nil, is used for dirty-buffer revert prompts (async-friendly:
 // callers may schedule work in onYes/onNo and return immediately).
 func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func()), writef func(string, ...any), noteBufferSaved func(*buffer.Buffer)) {

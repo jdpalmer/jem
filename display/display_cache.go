@@ -26,7 +26,6 @@ func reverseScreenRows(rows *[]ScreenRow, lo, hi int) {
 }
 
 // lineMeasureAdvance returns the screen column after rendering one character.
-// Mirrors src/display.c line_measure_advance.
 func lineMeasureAdvance(col int, c rune) int {
 	if c == '\t' {
 		col |= 0x07

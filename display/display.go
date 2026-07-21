@@ -76,7 +76,7 @@ func DisplayInitHeadless(rows, cols int) {
 	ThemeUpdate()
 }
 
-// ThemeUpdate recomputes cached palette colors from the active theme mode (src/theme.c).
+// ThemeUpdate recomputes cached palette colors from the active theme mode.
 func ThemeUpdate() {
 	theme := &Active.Theme
 	if theme.Mode == ThemeLight {
@@ -218,8 +218,8 @@ func screenPutGlyph(c rune) {
 		if swCursorCol < tabOriginCol {
 			tabOriginCol = swCursorCol
 		}
-		// C display.c uses do-while: always emit at least one space, then
-		// continue until aligned to an 8-column boundary from tabOriginCol.
+		// Always emit at least one space, then continue until aligned to an
+		// 8-column boundary from tabOriginCol.
 		for {
 			screenPutGlyph(' ')
 			if (swCursorCol-tabOriginCol)&0x07 == 0 {

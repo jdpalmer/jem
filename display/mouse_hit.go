@@ -1,6 +1,6 @@
 package display
 
-// mouse_hit.go — screen geometry helpers for mouse hit-testing (no model mutation).
+// Screen geometry helpers for mouse hit-testing.
 
 import (
 	"github.com/jdpalmer/jem/window"

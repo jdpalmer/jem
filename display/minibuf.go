@@ -1,6 +1,6 @@
 package display
 
-// minibuf.go - Minibuffer presentation (message line); editing lives in minibuffer.
+// Minibuffer presentation (message line); editing lives in package minibuffer.
 
 import (
 	"fmt"

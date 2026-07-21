@@ -1,6 +1,6 @@
 package tools
 
-// git.go - Git modeline and gutter diff markers (translation of src/git.c)
+// Git modeline text and gutter diff markers.
 //
 // Uses the installed git binary via os/exec, matching the C implementation.
 // This preserves user git config, hooks, and porcelain output semantics.

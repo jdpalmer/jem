@@ -1,6 +1,6 @@
 package tools
 
-// compile.go — build command runner and diagnostic buffer (translation of src/cmd_compile.c)
+// Build command runner and diagnostic buffer.
 
 import (
 	"bytes"

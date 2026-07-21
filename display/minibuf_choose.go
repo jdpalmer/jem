@@ -1,6 +1,6 @@
 package display
 
-// minibuf.go - Minibuffer input prompts and feedback (Go port of src/minibuffer.c)
+// Horizontal choice menu rendering for the message line.
 
 import (
 	"github.com/jdpalmer/jem/minibuffer"

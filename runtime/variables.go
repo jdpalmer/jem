@@ -14,7 +14,7 @@ import (
 	"github.com/jdpalmer/jem/search"
 )
 
-// variables.go — editor variables (translation of src/variables.c)
+// Editor variables (fill-column, indent settings, etc.).
 
 type variable struct {
 	name     string

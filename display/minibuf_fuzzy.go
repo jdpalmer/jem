@@ -1,6 +1,6 @@
 package display
 
-// minibuf.go - Minibuffer input prompts and feedback (Go port of src/minibuffer.c)
+// Fuzzy-list prompt matching and redraw.
 
 import (
 	"github.com/jdpalmer/jem/minibuffer"

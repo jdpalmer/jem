@@ -76,7 +76,7 @@ func (loc Location) RewindBytes(bp *Buffer, bytes int) Location {
 }
 
 // AdjustAfterReplace updates a Location in place for a replacement of
-// [begin,end) ending at newEnd (src/edit.c).
+// [begin,end) ending at newEnd.
 func (loc *Location) AdjustAfterReplace(begin, end, newEnd Location) {
 	if loc == nil {
 		return

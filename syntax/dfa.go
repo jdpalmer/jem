@@ -435,7 +435,7 @@ func doBuiltinOnExit(state int, lp *buffer.Line, syn *buffer.SynState, i *int, t
 // 9. Markdown / HTML Specialised Highlighters
 // ------------------------------------------------------------------
 
-// highlightMarkdown is a direct port of C's highlight_markdown().
+// highlightMarkdown applies markdown-specific style overrides on a line.
 func highlightMarkdown(lp *buffer.Line, styles []buffer.TextStyle, n int) {
 	if n == 0 || len(lp.RuneCache) == 0 {
 		return
@@ -505,7 +505,7 @@ func highlightMarkdown(lp *buffer.Line, styles []buffer.TextStyle, n int) {
 	}
 }
 
-// highlightHTML is a port of C's highlight_html().
+// highlightHTML applies HTML/XML-specific style overrides on a line.
 func highlightHTML(lp *buffer.Line, styles []buffer.TextStyle, n int, syn *buffer.SynState) {
 	for i := 0; i < n; i++ {
 		c := lineGetcR(lp, i)

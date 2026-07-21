@@ -1,6 +1,6 @@
 package runtime
 
-// sexp.go — balanced-expression movement (translation of cmd_forward/backward_sexp in src/cmd_move.c)
+// Balanced-expression (sexp) movement.
 
 import (
 	"github.com/jdpalmer/jem/buffer"

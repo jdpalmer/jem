@@ -6,7 +6,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-// Delimiter navigation (translation of syntax_find_matching_delimiter in src/c).
+// Delimiter matching and structural character navigation.
 
 // DelimiterPair maps a delimiter rune to its partner and scan direction.
 func DelimiterPair(ch int) (open, close int, forward bool, ok bool) {
@@ -18,8 +18,7 @@ func DelimiterPair(ch int) (open, close int, forward bool, ok bool) {
 	return d.open, d.close, ch == d.open, true
 }
 
-// byteOffsetToRuneLimit returns how many leading runes end before byteOffset in
-// lp.Data, matching syntax_process_line scan_maxn byte semantics in c.
+// byteOffsetToRuneLimit returns how many leading runes end before byteOffset in lp.Data.
 func byteOffsetToRuneLimit(lp *buffer.Line, byteOffset uint) int {
 	if lp == nil {
 		return 0

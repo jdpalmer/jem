@@ -1,6 +1,6 @@
 package tools
 
-// grep.go - Project-wide search (translation of src/cmd_grep.c)
+// Project-wide search (grep).
 
 import (
 	"bufio"

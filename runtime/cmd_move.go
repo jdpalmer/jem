@@ -8,9 +8,7 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-// cmd_move.go — cursor movement and navigation
-
-// commands.go - Editor text commands and movement (translation of cmd_move.c and cmd_edit.c)
+// Cursor movement and navigation.
 
 // helper: ASCII word char
 func isWordChar(b byte) bool {

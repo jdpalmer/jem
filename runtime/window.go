@@ -1,6 +1,6 @@
 package runtime
 
-// window.go - Window management and layout tiling (translation of window.c and part of display.c)
+// Window split/delete/next/only commands and layout retile.
 
 import (
 	"github.com/jdpalmer/jem/buffer"

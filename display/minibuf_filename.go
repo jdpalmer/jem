@@ -1,6 +1,6 @@
 package display
 
-// minibuf.go - Minibuffer input prompts and feedback (Go port of src/minibuffer.c)
+// Filename prompt helpers (path list / fuzzy matching).
 
 import (
 	"fmt"

@@ -1,6 +1,6 @@
 package tools
 
-// tags.go - Tag database and navigation (translation of src/tags.c)
+// Tag database and navigation (tags.json).
 
 import (
 	"encoding/json"

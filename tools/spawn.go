@@ -1,6 +1,6 @@
 package tools
 
-// spawn.go — shell one-liner and interactive CLI (translation of src/cmd_spawn.c)
+// Shell one-liner and interactive CLI spawn.
 
 import (
 	"fmt"
