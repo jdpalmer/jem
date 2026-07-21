@@ -234,16 +234,16 @@ func CmdTransposeChars(f bool, n int) bool {
 	var rightStart, rightEnd uint
 	if offset == lp.Len() {
 		rightEnd = offset
-		rightStart = utf8PrevOffset(lp.Data, rightEnd)
+		rightStart = buffer.PrevOffset(lp.Data, rightEnd)
 	} else {
 		rightStart = offset
-		rightEnd = utf8NextOffset(lp.Data, rightStart)
+		rightEnd = buffer.NextOffset(lp.Data, rightStart)
 	}
 	if rightStart == rightEnd {
 		return false
 	}
 	leftEnd := rightStart
-	leftStart := utf8PrevOffset(lp.Data, leftEnd)
+	leftStart := buffer.PrevOffset(lp.Data, leftEnd)
 	if leftStart == leftEnd {
 		return false
 	}

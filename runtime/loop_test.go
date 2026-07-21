@@ -6,7 +6,7 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-func TestEditorlyCtlxPrefix(t *testing.T) {
+func TestApplyCtlxPrefix(t *testing.T) {
 	InitCommands()
 
 	if got := applyCtlxPrefix('b'); got != term.CTLX|'B' {

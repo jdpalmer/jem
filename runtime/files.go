@@ -3,40 +3,21 @@ package runtime
 // File visit/save/revert commands and disk-change reload checks.
 
 import (
-	"fmt"
+	"path/filepath"
+
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/files"
 	"github.com/jdpalmer/jem/markring"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
-	"path/filepath"
-	"strings"
-
-	"github.com/jdpalmer/jem/buffer"
-
-	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/files"
 )
-
-func bufferNameFromPath(fname string) string {
-	base := filepath.Base(fname)
-	if i := strings.IndexByte(base, ';'); i >= 0 {
-		base = base[:i]
-	}
-	if buffer.Find(base) == nil {
-		return buffer.TruncateName(base)
-	}
-	for suffix := 2; ; suffix++ {
-		name := fmt.Sprintf("%s:%d", base, suffix)
-		if buffer.Find(name) == nil {
-			return buffer.TruncateName(name)
-		}
-	}
-}
 
 // loadCommandLineFiles loads paths into buffers at startup.
 // The first path replaces the initial buffer; each remaining path gets its own
 // buffer. On return the first file's buffer is current and shown in the window.
 func loadCommandLineFiles(paths []string) {
-	files.LoadCommandLineFiles(paths, bufferNameFromPath, func(path string) error {
+	files.LoadCommandLineFiles(paths, files.BufferNameFromPath, func(path string) error {
 		return files.LoadCurrentBuffer(path, display.MBWrite)
 	})
 }
@@ -142,7 +123,7 @@ func visitFilePath(path string) bool {
 		return false
 	}
 	markring.PushCurrent()
-	bp.Name = bufferNameFromPath(fileName)
+	bp.Name = files.BufferNameFromPath(fileName)
 	window.SwitchBuffer(bp)
 	if !fileLoad(fileName) {
 		return false

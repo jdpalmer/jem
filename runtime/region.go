@@ -191,9 +191,9 @@ func transformRegionCase(upper bool) bool {
 	for i := range text {
 		var t byte
 		if upper {
-			t = u8upper(text[i])
+			t = buffer.ToUpperASCII(text[i])
 		} else {
-			t = u8lower(text[i])
+			t = buffer.ToLowerASCII(text[i])
 		}
 		if t != text[i] {
 			text[i] = t

@@ -93,7 +93,7 @@ func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 	}
 	// Step back to a word char, then skip non-word and word backwards.
 	for off > 0 {
-		offPrev := utf8PrevOffset(line.Data, uint(off))
+		offPrev := buffer.PrevOffset(line.Data, uint(off))
 		if offPrev == uint(off) {
 			off--
 		} else {
@@ -127,7 +127,7 @@ func CmdForwardChar(f bool, n int) bool {
 	for i := 0; i < n; i++ {
 		line := bp.Line(wp.Cursor.Line)
 		if line != nil && wp.Cursor.Offset < line.Len() {
-			wp.Cursor.Offset = utf8NextOffset(line.Data, wp.Cursor.Offset)
+			wp.Cursor.Offset = buffer.NextOffset(line.Data, wp.Cursor.Offset)
 		} else if wp.Cursor.Line < bp.LineCount {
 			wp.Cursor.Line++
 			wp.Cursor.Offset = 0
@@ -149,7 +149,7 @@ func CmdBackwardChar(f bool, n int) bool {
 	for i := 0; i < n; i++ {
 		line := bp.Line(wp.Cursor.Line)
 		if line != nil && wp.Cursor.Offset > 0 {
-			wp.Cursor.Offset = utf8PrevOffset(line.Data, wp.Cursor.Offset)
+			wp.Cursor.Offset = buffer.PrevOffset(line.Data, wp.Cursor.Offset)
 		} else if wp.Cursor.Line > 1 {
 			wp.Cursor.Line--
 			prevLine := bp.Line(wp.Cursor.Line)

@@ -4,6 +4,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/killring"
+	"github.com/jdpalmer/jem/registers"
 	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/window"
 )
@@ -50,7 +51,7 @@ func (e *App) Activate() {
 	window.Bind(&e.Windows)
 	BindHistory(&e.History)
 	search.DefaultState = &e.Search
-	registerStore = e.Registers
+	registers.Bind(e.Registers)
 	if e.Services != nil {
 		Svc = e.Services
 		installServices(Svc)

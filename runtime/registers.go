@@ -4,32 +4,9 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/registers"
 	"github.com/jdpalmer/jem/window"
 )
-
-// Named text registers (clipboards keyed by name).
-
-var registerStore = make(map[string][]byte)
-
-func RegisterSetText(name string, text []byte) bool {
-	if name == "" {
-		display.MBWrite("[register name required]")
-		return false
-	}
-	if len(text) == 0 {
-		delete(registerStore, name)
-		return true
-	}
-	copyBuf := make([]byte, len(text))
-	copy(copyBuf, text)
-	registerStore[name] = copyBuf
-	return true
-}
-
-func RegisterGetText(name string) ([]byte, bool) {
-	val, ok := registerStore[name]
-	return val, ok
-}
 
 // CmdCopyRegister copies the active region to a named register.
 func CmdCopyRegister(f bool, n int) bool {
@@ -54,7 +31,11 @@ func CmdCopyRegister(f bool, n int) bool {
 		if pr != minibuffer.PromptResultYes {
 			return
 		}
-		if !RegisterSetText(name, text) {
+		if name == "" {
+			display.MBWrite("[register name required]")
+			return
+		}
+		if !registers.Set(name, text) {
 			return
 		}
 		display.MBWrite("Register '%s' copied.", name)
@@ -76,7 +57,7 @@ func CmdInsertRegister(f bool, n int) bool {
 		if pr != minibuffer.PromptResultYes {
 			return
 		}
-		text, ok := RegisterGetText(name)
+		text, ok := registers.Get(name)
 		if !ok {
 			display.MBWrite("[register '%s' not found]", name)
 			return

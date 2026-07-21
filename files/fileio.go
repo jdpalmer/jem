@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,7 +12,9 @@ import (
 	"time"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/mode"
+	"github.com/jdpalmer/jem/window"
 )
 
 var (
@@ -38,6 +38,23 @@ func FileMtime(fname string) time.Time {
 		return time.Time{}
 	}
 	return fi.ModTime()
+}
+
+// BufferNameFromPath picks a unique buffer name from a filesystem path.
+func BufferNameFromPath(fname string) string {
+	base := filepath.Base(fname)
+	if i := strings.IndexByte(base, ';'); i >= 0 {
+		base = base[:i]
+	}
+	if buffer.Find(base) == nil {
+		return buffer.TruncateName(base)
+	}
+	for suffix := 2; ; suffix++ {
+		name := fmt.Sprintf("%s:%d", base, suffix)
+		if buffer.Find(name) == nil {
+			return buffer.TruncateName(name)
+		}
+	}
 }
 
 func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, loadFile func(string) error) {

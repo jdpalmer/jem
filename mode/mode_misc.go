@@ -15,13 +15,6 @@ type IndentSpec struct {
 	LeadingTab bool
 }
 
-func u8lower(b byte) byte {
-	if b >= 'A' && b <= 'Z' {
-		return b - 'A' + 'a'
-	}
-	return b
-}
-
 func u8isalnum(b byte) bool {
 	return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }
@@ -47,7 +40,7 @@ func wordMatchCI(lp *buffer.Line, start uint, word string) bool {
 		if i >= lp.Len() {
 			return false
 		}
-		if u8lower(lp.Byte(i)) != u8lower(word[j]) {
+		if buffer.ToLowerASCII(lp.Byte(i)) != buffer.ToLowerASCII(word[j]) {
 			return false
 		}
 		i++
@@ -81,7 +74,7 @@ func lineEndsWithWordCI(lp *buffer.Line, word string) bool {
 		return false
 	}
 	for i := 0; i < wlen; i++ {
-		if u8lower(lp.Byte(uint(end-wlen+i))) != u8lower(word[i]) {
+		if buffer.ToLowerASCII(lp.Byte(uint(end-wlen+i))) != buffer.ToLowerASCII(word[i]) {
 			return false
 		}
 	}
