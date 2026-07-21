@@ -92,7 +92,7 @@ func CmdYank(f bool, n int) bool {
 	}
 	// Prefer the system clipboard, but fall back to the in-process kill ring
 	// when yanking immediately after a kill in environments without clipboard access.
-	if !killring.KillReadClipboard() && killring.KillState == killring.CmdStateNone {
+	if !killring.KillReadClipboard() && !killring.InSequence() {
 		return false
 	}
 	kb := killring.KillBytes()

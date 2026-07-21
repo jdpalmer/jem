@@ -1,28 +1,30 @@
 package killring
 
-// CommandState tracks chained kill sequences.
-type CommandState int
-
-const (
-	CmdStateNone    CommandState = 0
-	CmdStateChained CommandState = 1
-	CmdStateCurrent CommandState = 2
-)
-
-// KillState is the process-wide kill-sequence state.
-var KillState CommandState
+// killSeq tracks chained kill sequences across command ticks:
+// 0 = idle, 1 = chained from previous tick, 2 = active this tick.
+var killSeq int
 
 var killRing [16][]byte
 var killRingCount uint8
 var killRingIdx uint8
 var killAggregate []byte
 
+// InSequence reports whether a kill sequence is active or chained.
+func InSequence() bool {
+	return killSeq != 0
+}
+
+// ClearSequence resets kill-sequence chaining (e.g. on yank from idle).
+func ClearSequence() {
+	killSeq = 0
+}
+
 // KillBegin starts or continues a kill sequence (aggregates successive kills).
 func KillBegin() {
-	if KillState == CmdStateNone {
+	if killSeq == 0 {
 		killAggregate = nil
 	}
-	KillState = CmdStateCurrent
+	killSeq = 2
 }
 
 // KillAppend adds text to the kill ring and aggregate.
@@ -76,10 +78,10 @@ func KillReadClipboard() bool {
 	return true
 }
 
-// Tick decrements KillState when non-zero (end of a command tick).
+// Tick decays kill-sequence state at the end of a command tick.
 func Tick() {
-	if KillState != CmdStateNone {
-		KillState--
+	if killSeq != 0 {
+		killSeq--
 	}
 }
 
@@ -88,7 +90,7 @@ func ResetForTests() {
 	killAggregate = nil
 	killRingCount = 0
 	killRingIdx = 0
-	KillState = CmdStateNone
+	killSeq = 0
 	for i := range killRing {
 		killRing[i] = nil
 	}

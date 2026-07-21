@@ -79,12 +79,10 @@ func Execute(c int, f bool, n int) bool {
 		}
 	}
 
-	if State.MovementState > CmdStateNone {
+	if State.MovementState > MovementNone {
 		State.MovementState--
 	}
-	if killring.KillState > killring.CmdStateNone {
-		killring.KillState--
-	}
+	killring.Tick()
 
 	keycode := uint32(c)
 	var cmd CommandFunc

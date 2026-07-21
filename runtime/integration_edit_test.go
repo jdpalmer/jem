@@ -31,7 +31,7 @@ func TestCmdEdit(t *testing.T) {
 
 	te.LoadText("hello world")
 	te.SetCursor(1, 5)
-	killring.KillState = killring.CmdStateNone
+	killring.ClearSequence()
 	te.Press("C-k")
 	te.ExpectText("hello")
 	te.Press("C-y")

@@ -14,16 +14,17 @@ const (
 	HookCapacity          = 8
 )
 
-type CommandState int
+// MovementPhase tracks consecutive movement for mark/region behavior.
+type MovementPhase int
 
 const (
-	CmdStateNone CommandState = iota
-	CmdStateChained
-	CmdStateCurrent
+	MovementNone MovementPhase = iota
+	MovementChained
+	MovementCurrent
 )
 
 type ProcState struct {
-	MovementState     CommandState
+	MovementState     MovementPhase
 	Dispatching       bool
 	Macro             []event.Event
 	PlayPos           int

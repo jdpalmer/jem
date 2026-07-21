@@ -15,7 +15,7 @@ func TestCmdYankDoesNotUseStaleKillRing(t *testing.T) {
 	te.LoadText("hello")
 	killring.KillBegin()
 	_ = killring.KillAppend([]byte("stale kill ring text"))
-	killring.KillState = killring.CmdStateNone
+	killring.ClearSequence()
 
 	if CmdYank(false, 1) {
 		t.Fatal("CmdYank should fail when clipboard is unavailable")

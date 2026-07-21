@@ -90,8 +90,8 @@ func AppInit(firstBufferName string) {
 	}
 	window.WindowRetile()
 
-	State.MovementState = CmdStateNone
-	killring.KillState = killring.CmdStateNone
+	State.MovementState = MovementNone
+	killring.ClearSequence()
 	clearListeners()
 	macroInit()
 }
