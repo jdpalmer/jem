@@ -28,7 +28,7 @@ func TestInsertPaste(t *testing.T) {
 	if got := string(buf.Line(1).Data); got != "hel" {
 		t.Fatalf("line 1 after paste = %q, want hel", got)
 	}
-	if buf.LineCount < 2 {
+	if len(buf.Lines) < 2 {
 		t.Fatal("paste with CR should create a second line")
 	}
 	if got := string(buf.Line(2).Data); got != "lo" {

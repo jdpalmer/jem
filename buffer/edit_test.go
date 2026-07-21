@@ -3,8 +3,8 @@ package buffer
 import "testing"
 
 func linesOf(buf *Buffer) []string {
-	out := make([]string, 0, int(buf.LineCount))
-	for i := uint(1); i <= buf.LineCount; i++ {
+	out := make([]string, 0, len(buf.Lines))
+	for i := 1; i <= len(buf.Lines); i++ {
 		line := buf.Line(i)
 		if line == nil {
 			out = append(out, "")
@@ -121,11 +121,11 @@ func TestSetTextUndoDelete(t *testing.T) {
 		t.Fatalf("after delete: %q", buf.Line(1).Data)
 	}
 	replay := UndoReplay{
-		InsertText: func(lineNumber, offset uint, text []byte) error {
+		InsertText: func(lineNumber, offset int, text []byte) error {
 			loc := MakeLocation(lineNumber, offset)
 			return buf.ReplaceRaw(loc, loc, text, nil)
 		},
-		DeleteText: func(lineNumber, offset uint, text []byte) error {
+		DeleteText: func(lineNumber, offset int, text []byte) error {
 			begin := MakeLocation(lineNumber, offset)
 			endLine, endOffset := lineNumber, offset
 			for i := 0; i < len(text); i++ {

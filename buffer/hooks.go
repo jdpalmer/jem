@@ -13,7 +13,7 @@ package buffer
 type Hooks struct {
 	NoteEdit                    func(buf *Buffer, isStructural bool)
 	AdjustLocationsAfterReplace func(buf *Buffer, begin, end, newEnd Location)
-	ReparseFrom                 func(buf *Buffer, lineNumber uint)
+	ReparseFrom                 func(buf *Buffer, lineNumber int)
 	OnBufferCreate              func(buf *Buffer)
 	// OnBufferKill is called after buf is removed from All.
 	// replacement may be nil when no buffers remain.

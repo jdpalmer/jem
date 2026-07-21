@@ -23,7 +23,7 @@ func indentBytesForCol(col int) []byte {
 	return out
 }
 
-func calcIndentGo(buf *buffer.Buffer, lineNumber uint) int {
+func calcIndentGo(buf *buffer.Buffer, lineNumber int) int {
 	if buf == nil {
 		return 0
 	}
@@ -56,14 +56,14 @@ func setLineIndentGo(win *window.Window, col int) bool {
 		win.DidEdit = true
 		// Park cursor after the new indent when it was in the old indent region.
 		if win.Cursor.Offset <= oldFirst {
-			win.Cursor.Offset = uint(len(prefix))
+			win.Cursor.Offset = len(prefix)
 		} else {
 			delta := int(len(prefix)) - int(oldFirst)
 			off := int(win.Cursor.Offset) + delta
 			if off < 0 {
 				off = 0
 			}
-			win.Cursor.Offset = uint(off)
+			win.Cursor.Offset = off
 		}
 	}
 	return ok
@@ -151,7 +151,7 @@ func cmdGoMakeComment(f bool, n int) bool {
 		prefix := []byte("//")
 		if lineHasCommentPrefix(line, prefix) {
 			pos := line.FirstNonblank()
-			win.Cursor.Offset = pos + uint(len(prefix))
+			win.Cursor.Offset = pos + len(prefix)
 			if win.Cursor.Offset < line.Len() && line.Byte(win.Cursor.Offset) == ' ' {
 				win.Cursor.Offset++
 			}

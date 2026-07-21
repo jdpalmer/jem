@@ -1,11 +1,11 @@
 package buffer
 
 type Location struct {
-	Line   uint
-	Offset uint
+	Line   int
+	Offset int
 }
 
-func MakeLocation(line, offset uint) Location {
+func MakeLocation(line, offset int) Location {
 	return Location{Line: line, Offset: offset}
 }
 
@@ -17,9 +17,9 @@ func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
 		return loc
 	}
 	curLine := loc.Line
-	offset := int(loc.Offset)
+	offset := loc.Offset
 	for bytes > 0 {
-		if curLine == 0 || curLine > buf.LineCount {
+		if curLine <= 0 || curLine > len(buf.Lines) {
 			return Location{Line: buf.EOF(), Offset: 0}
 		}
 		line := buf.Line(curLine)
@@ -28,10 +28,10 @@ func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
 		}
 		avail := len(line.Data) - offset
 		if avail >= bytes {
-			return Location{Line: curLine, Offset: uint(offset + bytes)}
+			return Location{Line: curLine, Offset: offset + bytes}
 		}
 		bytes -= avail
-		if curLine < buf.LineCount {
+		if curLine < len(buf.Lines) {
 			if bytes == 0 {
 				return Location{Line: curLine + 1, Offset: 0}
 			}
@@ -42,7 +42,7 @@ func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
 		}
 		return Location{Line: buf.EOF(), Offset: 0}
 	}
-	return Location{Line: curLine, Offset: uint(offset)}
+	return Location{Line: curLine, Offset: offset}
 }
 
 func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
@@ -50,7 +50,7 @@ func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
 		return loc
 	}
 	curLine := loc.Line
-	offset := int(loc.Offset)
+	offset := loc.Offset
 	for bytes > 0 {
 		if offset > 0 {
 			step := bytes
@@ -72,7 +72,7 @@ func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
 		offset = len(line.Data)
 		bytes--
 	}
-	return Location{Line: curLine, Offset: uint(offset)}
+	return Location{Line: curLine, Offset: offset}
 }
 
 // AdjustAfterReplace updates a Location in place for a replacement of

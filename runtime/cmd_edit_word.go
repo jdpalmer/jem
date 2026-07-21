@@ -74,7 +74,7 @@ func nextWordStart(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 		return loc
 	}
 	off := int(loc.Offset)
-	for ln := loc.Line; ln <= buf.LineCount; ln++ {
+	for ln := loc.Line; ln <= len(buf.Lines); ln++ {
 		line = buf.Line(ln)
 		if line == nil {
 			continue
@@ -83,11 +83,11 @@ func nextWordStart(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 			off++
 		}
 		if off < len(line.Data) {
-			return buffer.Location{Line: ln, Offset: uint(off)}
+			return buffer.Location{Line: ln, Offset: off}
 		}
 		off = 0
 	}
-	return buffer.Location{Line: buf.LineCount, Offset: 0}
+	return buffer.Location{Line: len(buf.Lines), Offset: 0}
 }
 
 // Case transformations on a word at point
@@ -106,7 +106,7 @@ func CmdLowerWord(f bool, n int) bool {
 	start := backwardWordLoc(buf, win.Cursor)
 	end := forwardWordLoc(buf, start)
 	text := buf.GetText(start, end)
-	length := uint(len(text))
+	length := len(text)
 	if length == 0 || text == nil {
 		return false
 	}
@@ -135,7 +135,7 @@ func CmdUpperWord(f bool, n int) bool {
 	start := backwardWordLoc(buf, win.Cursor)
 	end := forwardWordLoc(buf, start)
 	text := buf.GetText(start, end)
-	length := uint(len(text))
+	length := len(text)
 	if length == 0 || text == nil {
 		return false
 	}
@@ -164,7 +164,7 @@ func CmdCapWord(f bool, n int) bool {
 	start := backwardWordLoc(buf, win.Cursor)
 	end := forwardWordLoc(buf, start)
 	text := buf.GetText(start, end)
-	length := uint(len(text))
+	length := len(text)
 	if length == 0 || text == nil {
 		return false
 	}
@@ -252,7 +252,7 @@ func CmdFillParagraph(f bool, n int) bool {
 		start--
 	}
 	end := lineNum
-	for end < buf.LineCount {
+	for end < len(buf.Lines) {
 		nl := buf.Line(end + 1)
 		if nl == nil || nl.IsBlank() {
 			break
@@ -297,7 +297,7 @@ func CmdFillParagraph(f bool, n int) bool {
 	newText := strings.Join(outLines, "\n")
 	begin := buffer.MakeLocation(start, 0)
 	endLoc := buf.Line(end)
-	endOff := uint(0)
+	endOff := 0
 	if endLoc != nil {
 		endOff = endLoc.Len()
 	}

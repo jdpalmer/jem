@@ -45,9 +45,9 @@ type menuItem struct {
 	command string
 }
 
-func menuItemLabel(ctx any, idx uint8) []byte {
+func menuItemLabel(ctx any, idx int) []byte {
 	items := ctx.([]menuItem)
-	if int(idx) >= len(items) {
+	if idx >= len(items) {
 		return nil
 	}
 	return []byte(items[idx].label)
@@ -66,7 +66,7 @@ var mainMenu = []menuItem{
 func CmdMenuRun(f bool, n int) bool {
 	_ = f
 	_ = n
-	AskChoose("Menu > ", mainMenu, menuItemLabel, uint8(len(mainMenu)), 0, func(result int16) {
+	AskChoose("Menu > ", mainMenu, menuItemLabel, len(mainMenu), 0, func(result int16) {
 		if result == -2 {
 			CmdAbort(false, 1)
 			return

@@ -16,7 +16,7 @@ func renderModeline(win *window.Window) {
 		return
 	}
 	buf := win.Buffer
-	row := int(win.ScreenTopRow + win.Height)
+	row := win.ScreenTopRow + win.Height
 	if row >= term.Rows() {
 		row = term.Rows() - 1
 	}
@@ -40,7 +40,7 @@ func renderModeline(win *window.Window) {
 
 	// Position: percentage, line, column
 	lineno := win.Cursor.Line
-	totallines := buf.LineCount
+	totallines := len(buf.Lines)
 	var pct uint32
 	if lineno >= totallines {
 		pct = 100
@@ -69,8 +69,8 @@ func renderModeline(win *window.Window) {
 	nameStyle := buffer.MakeTextStyle(Active.Theme.ModelineNameColor, gutterBg, buffer.TextStyleBold)
 	dirtyStyle := buffer.MakeTextStyle(buffer.TermColorRed, gutterBg, buffer.TextStyleBold)
 
-	gutterW := int(win.GutterWidth())
-	markerCol := gutterW + 79 - int(win.HScroll)
+	gutterW := win.GutterWidth()
+	markerCol := gutterW + 79 - win.HScroll
 	hintCol := term.Cols() - len(modelineHint)
 
 	screenMove(row, 0)
@@ -217,12 +217,12 @@ func DisplayUpdate() {
 		if !win.ShouldReframe {
 			cursorVisible := false
 			visLine := win.TopLine
-			for i := uint32(0); i < win.Height; i++ {
+			for i := 0; i < win.Height; i++ {
 				if visLine == win.Cursor.Line {
 					cursorVisible = true
 					break
 				}
-				if visLine > win.Buffer.LineCount {
+				if visLine > len(win.Buffer.Lines) {
 					break
 				}
 				visLine++
@@ -239,11 +239,11 @@ func DisplayUpdate() {
 
 		// Adjust horizontal scroll for the current window to keep cursor visible
 		if win == window.Active.CurrentWindow {
-			gutterW := int(win.GutterWidth())
+			gutterW := win.GutterWidth()
 			cc := WindowCursorScreenCol(win)
 			visible := term.Cols() - gutterW
 			margin := visible / 4
-			newHScroll := int(win.HScroll)
+			newHScroll := win.HScroll
 			if cc < newHScroll {
 				if cc > margin {
 					newHScroll = cc - margin
@@ -256,13 +256,13 @@ func DisplayUpdate() {
 			if newHScroll < 0 {
 				newHScroll = 0
 			}
-			if uint32(newHScroll) != win.HScroll {
-				win.HScroll = uint32(newHScroll)
+			if newHScroll != win.HScroll {
+				win.HScroll = newHScroll
 				win.ShouldRedraw = true
 			}
 		}
 
-		gutterW := int(win.GutterWidth())
+		gutterW := win.GutterWidth()
 
 		// When region is active, force full redraw so selection highlights all affected lines
 		if win.Mark.Line != 0 && !win.ShouldRedraw {
@@ -273,7 +273,7 @@ func DisplayUpdate() {
 
 		if win.DidEdit && !win.DidMove && !win.ShouldRedraw {
 			// Fast path: only re-render the cursor line
-			cursorRow := int(win.ScreenTopRow) + int(win.Cursor.Line-win.TopLine)
+			cursorRow := win.ScreenTopRow + int(win.Cursor.Line-win.TopLine)
 			var synSt buffer.SynState
 			var selSt SelState
 			selInit(&selSt, win)
@@ -283,7 +283,7 @@ func DisplayUpdate() {
 			var scrollN int
 			if oldTopLine != win.TopLine {
 				delta := int(oldTopLine) - int(win.TopLine)
-				height := int(win.Height)
+				height := win.Height
 				if delta < 0 {
 					delta = -delta
 				}
@@ -295,9 +295,9 @@ func DisplayUpdate() {
 			}
 
 			// Apply terminal scroll if partial scroll
-			if scrollN != 0 && scrollN > -int(win.Height) && scrollN < int(win.Height) {
-				top := int(win.ScreenTopRow)
-				height := int(win.Height)
+			if scrollN != 0 && scrollN > -win.Height && scrollN < win.Height {
+				top := win.ScreenTopRow
+				height := win.Height
 				absN := scrollN
 				if absN < 0 {
 					absN = -absN
@@ -343,12 +343,12 @@ func DisplayUpdate() {
 			var selSt SelState
 			selInit(&selSt, win)
 			lineNumber := win.TopLine
-			for r := uint32(0); r < win.Height; r++ {
-				row := int(win.ScreenTopRow + r)
+			for r := 0; r < win.Height; r++ {
+				row := win.ScreenTopRow + r
 				if row >= term.Rows() {
 					break
 				}
-				if lineNumber <= win.Buffer.LineCount {
+				if lineNumber <= len(win.Buffer.Lines) {
 					renderLine(win, lineNumber, row, &synSt, &selSt)
 					lineNumber++
 				} else {
@@ -374,11 +374,11 @@ func DisplayUpdate() {
 		if window.Active.CurrentWindow != nil {
 			cw := window.Active.CurrentWindow
 			cursorLineDelta := cw.Cursor.Line - cw.TopLine
-			Active.Cursor.Row = cw.ScreenTopRow + uint32(cursorLineDelta)
+			Active.Cursor.Row = uint32(cw.ScreenTopRow + cursorLineDelta)
 
-			gutterW := int(cw.GutterWidth())
+			gutterW := cw.GutterWidth()
 			contentCol := WindowCursorScreenCol(cw)
-			hscroll := int(cw.HScroll)
+			hscroll := cw.HScroll
 			cursorCol := gutterW + contentCol - hscroll
 			if gutterW >= term.Cols() {
 				cursorCol = term.Cols() - 1

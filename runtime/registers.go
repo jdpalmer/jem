@@ -22,7 +22,7 @@ func CmdCopyRegister(f bool, n int) bool {
 		return false
 	}
 	text := buf.GetText(region.Start, region.End)
-	length := uint(len(text))
+	length := len(text)
 	if text == nil && length > 0 {
 		display.MBWrite("[out of memory]")
 		return false

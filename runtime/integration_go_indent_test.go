@@ -71,7 +71,7 @@ func TestGoTabAlignsNestedCloseBraces(t *testing.T) {
 	te.LoadText(src)
 
 	cases := []struct {
-		line uint
+		line int
 		want string
 	}{
 		{5, "\t\t}"},

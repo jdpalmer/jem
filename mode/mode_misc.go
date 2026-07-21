@@ -11,7 +11,7 @@ const (
 )
 
 type IndentSpec struct {
-	Spaces     uint
+	Spaces     int
 	LeadingTab bool
 }
 
@@ -19,7 +19,7 @@ func u8isalnum(b byte) bool {
 	return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }
 
-func prevNonblankLineNumberBuf(buf *buffer.Buffer, lineNumber uint) uint {
+func prevNonblankLineNumberBuf(buf *buffer.Buffer, lineNumber int) int {
 	for lineNumber > 1 {
 		lineNumber--
 		p := buf.Line(lineNumber)
@@ -30,7 +30,7 @@ func prevNonblankLineNumberBuf(buf *buffer.Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func wordMatchCI(line *buffer.Line, start uint, word string) bool {
+func wordMatchCI(line *buffer.Line, start int, word string) bool {
 	if line == nil {
 		return false
 	}
@@ -61,10 +61,10 @@ func lineEndsWithWordCI(line *buffer.Line, word string) bool {
 	if line == nil {
 		return false
 	}
-	end := int(line.Len())
+	end := line.Len()
 	wlen := len(word)
 	for end > 0 {
-		c := line.Byte(uint(end - 1))
+		c := line.Byte((end - 1))
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -74,14 +74,14 @@ func lineEndsWithWordCI(line *buffer.Line, word string) bool {
 		return false
 	}
 	for i := 0; i < wlen; i++ {
-		if buffer.ToLowerASCII(line.Byte(uint(end-wlen+i))) != buffer.ToLowerASCII(word[i]) {
+		if buffer.ToLowerASCII(line.Byte((end-wlen+i))) != buffer.ToLowerASCII(word[i]) {
 			return false
 		}
 	}
 	if end == wlen {
 		return true
 	}
-	c := line.Byte(uint(end - wlen - 1))
+	c := line.Byte((end - wlen - 1))
 	return !(u8isalnum(c) || c == '_')
 }
 
@@ -112,7 +112,7 @@ func isMakeTargetLine(line *buffer.Line) bool {
 	return seenColon
 }
 
-func calcMakeIndent(buf *buffer.Buffer, lineNumber uint) IndentSpec {
+func calcMakeIndent(buf *buffer.Buffer, lineNumber int) IndentSpec {
 	line := buf.Line(lineNumber)
 	refLine := prevNonblankLineNumberBuf(buf, lineNumber)
 	var ref *buffer.Line
@@ -129,7 +129,7 @@ func calcMakeIndent(buf *buffer.Buffer, lineNumber uint) IndentSpec {
 		return IndentSpec{0, true}
 	}
 	if ref.LastByte() == '\\' {
-		return IndentSpec{uint(ref.IndentColumn() + makeContinuationIndent), false}
+		return IndentSpec{ref.IndentColumn() + makeContinuationIndent, false}
 	}
 	return IndentSpec{0, false}
 }
@@ -166,7 +166,7 @@ func htmlIsOpener(line *buffer.Line) bool {
 	i := line.FirstNonblank()
 	end := line.Len()
 	for end > i {
-		c := line.Byte(uint(end - 1))
+		c := line.Byte((end - 1))
 		if c != ' ' && c != '\t' {
 			break
 		}
@@ -175,17 +175,17 @@ func htmlIsOpener(line *buffer.Line) bool {
 	if i >= end || line.Byte(i) != '<' || i+1 >= end {
 		return false
 	}
-	c := line.Byte(uint(i + 1))
+	c := line.Byte((i + 1))
 	if c == '/' || c == '!' || c == '?' {
 		return false
 	}
-	if end-i >= 2 && line.Byte(uint(end-2)) == '/' && line.Byte(uint(end-1)) == '>' {
+	if end-i >= 2 && line.Byte((end-2)) == '/' && line.Byte((end-1)) == '>' {
 		return false
 	}
-	return line.Byte(uint(end-1)) == '>'
+	return line.Byte((end-1)) == '>'
 }
 
-func calcBlockIndent(buf *buffer.Buffer, lineNumber uint, isCloser func(*buffer.Line) bool, isOpener func(*buffer.Line) bool) IndentSpec {
+func calcBlockIndent(buf *buffer.Buffer, lineNumber int, isCloser func(*buffer.Line) bool, isOpener func(*buffer.Line) bool) IndentSpec {
 	line := buf.Line(lineNumber)
 	refLine := prevNonblankLineNumberBuf(buf, lineNumber)
 	var ref *buffer.Line
@@ -194,22 +194,22 @@ func calcBlockIndent(buf *buffer.Buffer, lineNumber uint, isCloser func(*buffer.
 	}
 	base := 0
 	if ref != nil {
-		base = int(ref.IndentColumn())
+		base = ref.IndentColumn()
 	}
 	if line != nil && isCloser != nil && isCloser(line) {
 		ind := base - simpleIndent
 		if ind < 0 {
 			ind = 0
 		}
-		return IndentSpec{uint(ind), false}
+		return IndentSpec{ind, false}
 	}
 	if ref != nil && isOpener != nil && isOpener(ref) {
-		return IndentSpec{uint(base + simpleIndent), false}
+		return IndentSpec{(base + simpleIndent), false}
 	}
-	return IndentSpec{uint(base), false}
+	return IndentSpec{base, false}
 }
 
-func calcLispIndent(buf *buffer.Buffer, lineNumber uint) IndentSpec {
+func calcLispIndent(buf *buffer.Buffer, lineNumber int) IndentSpec {
 	line := buf.Line(lineNumber)
 	depth := 0
 	closeAlign := line != nil && line.FirstByte() == ')'
@@ -219,27 +219,27 @@ func calcLispIndent(buf *buffer.Buffer, lineNumber uint) IndentSpec {
 		if p == nil {
 			continue
 		}
-		for i := int(p.Len()); i > 0; i-- {
-			c := p.Byte(uint(i - 1))
+		for i := p.Len(); i > 0; i-- {
+			c := p.Byte((i - 1))
 			if c == ')' {
 				depth++
 			} else if c == '(' {
 				if depth == 0 {
-					openCol := lineColOfOffset(p, uint(i-1))
+					openCol := lineColOfOffset(p, (i-1))
 					if closeAlign {
-						return IndentSpec{uint(openCol), false}
+						return IndentSpec{openCol, false}
 					}
-					for j := i; j < int(p.Len()); j++ {
-						nc := p.Byte(uint(j))
+					for j := i; j < p.Len(); j++ {
+						nc := p.Byte(j)
 						if nc == ' ' || nc == '\t' {
 							continue
 						}
 						if nc == ')' {
 							break
 						}
-						return IndentSpec{uint(lineColOfOffset(p, uint(j))), false}
+						return IndentSpec{lineColOfOffset(p, j), false}
 					}
-					return IndentSpec{uint(openCol + 1), false}
+					return IndentSpec{(openCol + 1), false}
 				}
 				depth--
 			}
@@ -248,7 +248,7 @@ func calcLispIndent(buf *buffer.Buffer, lineNumber uint) IndentSpec {
 	return IndentSpec{0, false}
 }
 
-func calcMiscIndent(buf *buffer.Buffer, lineNumber uint) IndentSpec {
+func calcMiscIndent(buf *buffer.Buffer, lineNumber int) IndentSpec {
 	kind := LangModeInfo(buf.LangMode).MiscIndentKind
 	switch kind {
 	case ModeMiscIndentNone:

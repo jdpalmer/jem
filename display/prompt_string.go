@@ -21,7 +21,7 @@ func NewStringPrompt(prompt, initial string, capacity int) *StringPrompt {
 		state: minibuffer.MinibufferState{
 			Prompt:     prompt,
 			Text:       make([]byte, 0, capacity),
-			Nbuf:       uint(capacity),
+			Nbuf:       capacity,
 			HistoryPos: -1,
 		},
 	}
@@ -43,7 +43,7 @@ func (p *StringPrompt) Close() {
 }
 
 func (p *StringPrompt) redraw() {
-	MBWritePrompt(p.prompt, p.state.Text, int(p.state.CursorPos))
+	MBWritePrompt(p.prompt, p.state.Text, p.state.CursorPos)
 	DisplayUpdate()
 }
 

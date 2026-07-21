@@ -218,15 +218,15 @@ func fillPaint(styles []buffer.TextStyle, n int, a int, b int, val buffer.TextSt
 
 func newSummary() buffer.SyntaxLineSummary {
 	return buffer.SyntaxLineSummary{
-		FirstCodeOffset: ^uint(0),
-		OpenOffsets:     [3]uint{^uint(0), ^uint(0), ^uint(0)},
-		CloseOffsets:    [3]uint{^uint(0), ^uint(0), ^uint(0)},
+		FirstCodeOffset: buffer.OffsetUnset,
+		OpenOffsets:     [3]int{buffer.OffsetUnset, buffer.OffsetUnset, buffer.OffsetUnset},
+		CloseOffsets:    [3]int{buffer.OffsetUnset, buffer.OffsetUnset, buffer.OffsetUnset},
 	}
 }
 
 func noteSummaryCode(summary *buffer.SyntaxLineSummary, offset int) {
-	if summary.FirstCodeOffset == ^uint(0) {
-		summary.FirstCodeOffset = uint(offset)
+	if summary.FirstCodeOffset == buffer.OffsetUnset {
+		summary.FirstCodeOffset = offset
 	}
 }
 
@@ -239,13 +239,13 @@ func noteSummaryDelimiter(summary *buffer.SyntaxLineSummary, ch int, offset int)
 	d := kDelims[di]
 	if ch == d.open {
 		summary.OpenMask |= d.mask
-		if summary.OpenOffsets[di] == ^uint(0) {
-			summary.OpenOffsets[di] = uint(offset)
+		if summary.OpenOffsets[di] == buffer.OffsetUnset {
+			summary.OpenOffsets[di] = offset
 		}
 	} else {
 		summary.CloseMask |= d.mask
-		if summary.CloseOffsets[di] == ^uint(0) {
-			summary.CloseOffsets[di] = uint(offset)
+		if summary.CloseOffsets[di] == buffer.OffsetUnset {
+			summary.CloseOffsets[di] = offset
 		}
 	}
 }
@@ -1034,13 +1034,13 @@ func SyntaxEnsureLine(line *buffer.Line) {
 }
 
 // lineNumberInBuffer returns the 1-based line number of line within buf, or 0.
-func lineNumberInBuffer(buf *buffer.Buffer, line *buffer.Line) uint {
+func lineNumberInBuffer(buf *buffer.Buffer, line *buffer.Line) int {
 	if buf == nil || line == nil {
 		return 0
 	}
 	for i := range buf.Lines {
 		if &buf.Lines[i] == line {
-			return uint(i + 1)
+			return i + 1
 		}
 	}
 	return 0

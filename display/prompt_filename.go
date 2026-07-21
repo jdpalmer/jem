@@ -17,7 +17,7 @@ type FilenamePrompt struct {
 	filePaths      []string
 	matchRoot      string
 	currentDirPart string
-	matchIndices   []uint
+	matchIndices   []int
 	lastQuery      string
 	sel            int
 	programmatic   bool
@@ -33,7 +33,7 @@ func NewFilenamePrompt(prompt, initial string, capacity int) *FilenamePrompt {
 		state: minibuffer.MinibufferState{
 			Prompt:     prompt,
 			Text:       make([]byte, 0, capacity),
-			Nbuf:       uint(capacity),
+			Nbuf:       capacity,
 			HistoryPos: -1,
 		},
 	}
@@ -95,9 +95,9 @@ func (p *FilenamePrompt) syncMatches() {
 		if n > maxMatches {
 			n = maxMatches
 		}
-		p.matchIndices = make([]uint, n)
+		p.matchIndices = make([]int, n)
 		for i := range p.matchIndices {
-			p.matchIndices[i] = uint(i)
+			p.matchIndices[i] = i
 		}
 	} else {
 		p.matchIndices = filenameFuzzyMatches(p.filePaths, pattern, maxMatches)
@@ -124,7 +124,7 @@ func (p *FilenamePrompt) setPromptText(text string) {
 	p.lastQuery = text
 }
 
-func (p *FilenamePrompt) fpProvider(ctx any, idx uint) []byte {
+func (p *FilenamePrompt) fpProvider(ctx any, idx int) []byte {
 	paths := ctx.([]string)
 	if int(idx) >= len(paths) {
 		return nil
@@ -143,7 +143,7 @@ func (p *FilenamePrompt) redraw() {
 	}
 	window.HideMatchWindow()
 	DisplayUpdate()
-	MBWritePrompt(promptFormatWithCount(p.prompt, p.sel, len(p.matchIndices)), p.state.Text, int(p.state.CursorPos))
+	MBWritePrompt(promptFormatWithCount(p.prompt, p.sel, len(p.matchIndices)), p.state.Text, p.state.CursorPos)
 }
 
 // HandleKey applies one key. On success, text is the chosen path.

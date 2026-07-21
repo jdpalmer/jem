@@ -42,7 +42,7 @@ func TestInvalidateSyntaxFromLine(t *testing.T) {
 	buf.AppendLineBytes([]byte("a"))
 	buf.AppendLineBytes([]byte("b"))
 	buf.AppendLineBytes([]byte("c"))
-	for i := uint(1); i <= buf.LineCount; i++ {
+	for i := 1; i <= len(buf.Lines); i++ {
 		if line := buf.Line(i); line != nil {
 			line.SyntaxValid = true
 		}
@@ -62,7 +62,7 @@ func TestReplaceRawUsesPackageHooks(t *testing.T) {
 	buf.AppendLineBytes([]byte("hello"))
 
 	var adjusted bool
-	var reparsed uint
+	var reparsed int
 	old := PackageHooks
 	PackageHooks = Hooks{
 		AdjustLocationsAfterReplace: func(b *Buffer, begin, end, newEnd Location) {
@@ -71,7 +71,7 @@ func TestReplaceRawUsesPackageHooks(t *testing.T) {
 				t.Fatalf("unexpected adjust args: begin=%v newEnd=%v", begin, newEnd)
 			}
 		},
-		ReparseFrom: func(b *Buffer, lineNumber uint) {
+		ReparseFrom: func(b *Buffer, lineNumber int) {
 			reparsed = lineNumber
 		},
 	}

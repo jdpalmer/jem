@@ -1,5 +1,7 @@
 package buffer
 
+import "math"
+
 // ---- Buffer text operations ---------------------------------------------------
 
 func splitInsertLines(insert []byte) [][]byte {
@@ -50,7 +52,7 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 		return nil
 	}
 
-	if buf.LineCount == 0 {
+	if len(buf.Lines) == 0 {
 		_ = buf.AppendLineBytes(nil)
 	}
 
@@ -58,10 +60,10 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	endIsEOF := end.Line == buf.EOF()
 	endReal := end.Line
 	if endIsEOF {
-		endReal = buf.LineCount
+		endReal = len(buf.Lines)
 	}
 
-	oldLineCount := buf.LineCount
+	oldLineCount := len(buf.Lines)
 
 	var prefix []byte
 	var bline *Line
@@ -70,7 +72,7 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 		if bline == nil {
 			return ErrBadRange
 		}
-		bOffset := int(begin.Offset)
+		bOffset := begin.Offset
 		if bOffset > len(bline.Data) {
 			bOffset = len(bline.Data)
 		}
@@ -86,7 +88,7 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 		if eline == nil {
 			return ErrBadRange
 		}
-		eOffset = int(end.Offset)
+		eOffset = end.Offset
 		if eOffset > len(eline.Data) {
 			eOffset = len(eline.Data)
 		}
@@ -100,9 +102,9 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 		linesBefore = append(linesBefore, buf.Lines[:begin.Line-1]...)
 	}
 
-	tailIdx := int(buf.LineCount)
+	tailIdx := len(buf.Lines)
 	if !endIsEOF {
-		tailIdx = int(end.Line)
+		tailIdx = end.Line
 	}
 	var linesAfter []Line
 	if tailIdx < len(buf.Lines) {
@@ -147,15 +149,14 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	}
 
 	buf.Lines = newLines
-	buf.LineCount = uint(len(buf.Lines))
 
 	var newEnd Location
-	lineNum := uint(len(linesBefore) + len(parts))
-	var offset uint
+	lineNum := len(linesBefore) + len(parts)
+	var offset int
 	if len(parts) == 1 {
-		offset = uint(prefixLen + len(parts[0]))
+		offset = prefixLen + len(parts[0])
 	} else if len(parts) > 0 {
-		offset = uint(len(parts[len(parts)-1]))
+		offset = len(parts[len(parts)-1])
 	}
 	newEnd = Location{Line: lineNum, Offset: offset}
 	if newEndOut != nil {
@@ -166,12 +167,12 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	if beginIsEOF {
 		normEnd = begin
 	} else if endIsEOF {
-		normEnd = Location{Line: endReal, Offset: ^uint(0)}
+		normEnd = Location{Line: endReal, Offset: math.MaxInt}
 	} else {
 		normEnd = Location{Line: endReal, Offset: end.Offset}
 	}
 
-	var resultFirstLine uint
+	var resultFirstLine int
 	if beginIsEOF {
 		resultFirstLine = oldLineCount + 1
 	} else {
@@ -185,18 +186,18 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	return nil
 }
 
-func callReparseFrom(buf *Buffer, lineNumber uint) {
+func callReparseFrom(buf *Buffer, lineNumber int) {
 	if PackageHooks.ReparseFrom != nil {
 		PackageHooks.ReparseFrom(buf, lineNumber)
 	}
 }
 
 // InvalidateSyntaxFrom clears syntax validity from lineNumber through end of buffer.
-func (buf *Buffer) InvalidateSyntaxFrom(lineNumber uint) {
-	if buf == nil || lineNumber == 0 || lineNumber > buf.LineCount {
+func (buf *Buffer) InvalidateSyntaxFrom(lineNumber int) {
+	if buf == nil || lineNumber <= 0 || lineNumber > len(buf.Lines) {
 		return
 	}
-	for ln := lineNumber; ln <= buf.LineCount; ln++ {
+	for ln := lineNumber; ln <= len(buf.Lines); ln++ {
 		line := buf.Line(ln)
 		if line != nil {
 			line.SyntaxValid = false
@@ -231,9 +232,9 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 		return nil
 	}
 
-	// EOF handling: EOF is virtual line buf.LineCount+1 with offset 0
+	// EOF handling: EOF is virtual line len(Lines)+1 with offset 0
 	endIsEOF := end.Line == buf.EOF()
-	var n uint = 0
+	n := 0
 
 	if begin.Line == end.Line {
 		// Same line (may be EOF virtual line)
@@ -265,12 +266,12 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 	// Different lines
 	lastReal := end.Line
 	if endIsEOF {
-		lastReal = buf.LineCount
+		lastReal = len(buf.Lines)
 	}
 
 	// compute required size
 	// tail of start line
-	if begin.Line <= buf.LineCount {
+	if begin.Line <= len(buf.Lines) {
 		sl := buf.Line(begin.Line)
 		if sl != nil {
 			slUsed := sl.Len()
@@ -289,14 +290,14 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 		}
 		// final segment
 		if endIsEOF {
-			if lastReal >= 1 && lastReal <= buf.LineCount {
+			if lastReal >= 1 && lastReal <= len(buf.Lines) {
 				line := buf.Line(lastReal)
 				if line != nil {
 					n += line.Len()
 				}
 			}
 		} else {
-			if lastReal >= 1 && lastReal <= buf.LineCount {
+			if lastReal >= 1 && lastReal <= len(buf.Lines) {
 				line := buf.Line(lastReal)
 				if line != nil {
 					lpUsed := line.Len()
@@ -317,7 +318,7 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 	out := make([]byte, 0, n)
 
 	// copy start line tail
-	if begin.Line <= buf.LineCount {
+	if begin.Line <= len(buf.Lines) {
 		sl := buf.Line(begin.Line)
 		if sl != nil {
 			b := begin.Offset
@@ -406,6 +407,5 @@ func (buf *Buffer) AppendLineBytes(text []byte) *Line {
 		Buffer:      buf,
 	}
 	buf.Lines = append(buf.Lines, newLine)
-	buf.LineCount = uint(len(buf.Lines))
-	return &buf.Lines[buf.LineCount-1]
+	return &buf.Lines[len(buf.Lines)-1]
 }

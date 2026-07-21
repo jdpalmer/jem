@@ -25,7 +25,7 @@ func TestCmdEdit(t *testing.T) {
 	te.ExpectText("elo")
 
 	te.LoadText("café")
-	te.SetCursor(1, uint(len(te.BufferText())))
+	te.SetCursor(1, len(te.BufferText()))
 	te.Key(0x7F)
 	te.ExpectText("caf")
 
@@ -84,6 +84,6 @@ func TestMouseLeftClick(t *testing.T) {
 	te.SetCursor(1, 0)
 
 	gutter := te.WP().GutterWidth()
-	te.Click(0, gutter+5)
+	te.Click(0, uint32(gutter+5))
 	te.ExpectCursor(1, 5)
 }

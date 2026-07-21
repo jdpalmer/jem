@@ -26,7 +26,7 @@ func mlChoiceVisibleWidth(ctx any, labelFn minibuffer.MLChoiceLabelFn, count, st
 		if i > start {
 			w += mlChoiceSeparatorWidth
 		}
-		w += len(labelFn(ctx, uint8(i)))
+		w += len(labelFn(ctx, i))
 	}
 	if end < count-1 {
 		w += mlChoiceRightWidth
@@ -93,7 +93,7 @@ func mlChoiceRender(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, 
 	}
 
 	for i := start; i <= end; i++ {
-		label := labelFn(ctx, uint8(i))
+		label := labelFn(ctx, i)
 		if i > start && maxcol-col >= mlChoiceSeparatorWidth {
 			screenPutBytes([]byte("  "))
 			col += mlChoiceSeparatorWidth

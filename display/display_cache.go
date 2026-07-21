@@ -45,12 +45,12 @@ func lineMeasureAdvance(col int, c rune) int {
 }
 
 // lineColAtOffset returns the screen column corresponding to byte offset in line.
-func lineColAtOffset(line *buffer.Line, offset uint) int {
+func lineColAtOffset(line *buffer.Line, offset int) int {
 	if line == nil {
 		return 0
 	}
 	col := 0
-	i := uint(0)
+	i := 0
 	for i < offset && i < line.Len() {
 		b := line.Data[i]
 		if b < 0x80 {
@@ -65,7 +65,7 @@ func lineColAtOffset(line *buffer.Line, offset uint) int {
 			continue
 		}
 		col = lineMeasureAdvance(col, r)
-		i += uint(size)
+		i += size
 	}
 	return col
 }

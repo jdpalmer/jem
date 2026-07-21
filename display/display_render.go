@@ -65,13 +65,13 @@ func selInit(ss *SelState, win *window.Window) {
 
 // selLine returns the byte range [s, e) to highlight for lineNumber.
 // Returns s==-1 if no selection on this line.
-func selLine(ss *SelState, lineNumber uint, line *buffer.Line) (s, e int) {
+func selLine(ss *SelState, lineNumber int, line *buffer.Line) (s, e int) {
 	s = -1
 	e = 0
 	if !ss.active {
 		return
 	}
-	length := int(line.Len())
+	length := line.Len()
 
 	if ss.phase == selectionBefore {
 		if lineNumber != ss.startLine {
@@ -309,12 +309,12 @@ func screenPutLine(line *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, sel
 }
 
 // renderLine renders one buffer line (gutter + content + horizontal scroll) into row.
-func renderLine(win *window.Window, lineNumber uint, row int, synSt *buffer.SynState, selSt *SelState) {
+func renderLine(win *window.Window, lineNumber int, row int, synSt *buffer.SynState, selSt *SelState) {
 	line := win.Buffer.Line(lineNumber)
 	if line == nil {
 		return
 	}
-	gutter := int(win.GutterWidth())
+	gutter := win.GutterWidth()
 	marker := gitLineDiff(win.Buffer, lineNumber)
 
 	var ss, se int
@@ -326,7 +326,7 @@ func renderLine(win *window.Window, lineNumber uint, row int, synSt *buffer.SynS
 
 	screenMove(row, 0)
 	// Content starts at column gutter; horizontal scroll shifts content left
-	swCursorCol = gutter - int(win.HScroll)
+	swCursorCol = gutter - win.HScroll
 	tabOriginCol = swCursorCol
 	oldClipLeft := clipLeftCol
 	clipLeftCol = gutter

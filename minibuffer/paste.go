@@ -6,7 +6,7 @@ func InsertPaste(text []byte) bool {
 	if state == nil || len(text) == 0 {
 		return false
 	}
-	if state.Text == nil || state.Nbuf+uint(len(text)) >= uint(cap(state.Text)) {
+	if state.Text == nil || state.Nbuf+len(text) >= cap(state.Text) {
 		return false
 	}
 
@@ -17,9 +17,9 @@ func InsertPaste(text []byte) bool {
 		}
 	}
 
-	insertLen := uint(len(paste))
-	if state.Nbuf+insertLen >= uint(cap(state.Text)) {
-		insertLen = uint(cap(state.Text)) - state.Nbuf
+	insertLen := len(paste)
+	if state.Nbuf+insertLen >= cap(state.Text) {
+		insertLen = cap(state.Text) - state.Nbuf
 	}
 	copy(state.Text[state.CursorPos:], paste[:insertLen])
 	state.Nbuf += insertLen

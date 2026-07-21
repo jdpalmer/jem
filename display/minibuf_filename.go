@@ -118,7 +118,7 @@ func filenameFuzzyScore(name, query string) int {
 
 // filenameFuzzyMatches returns the indices (into paths) of up to maxMatches
 // entries that best match query, ordered by score descending.
-func filenameFuzzyMatches(paths []string, query string, maxMatches int) []uint {
+func filenameFuzzyMatches(paths []string, query string, maxMatches int) []int {
 	if len(paths) == 0 || maxMatches <= 0 {
 		return nil
 	}
@@ -147,9 +147,9 @@ func filenameFuzzyMatches(paths []string, query string, maxMatches int) []uint {
 	if n > maxMatches {
 		n = maxMatches
 	}
-	out := make([]uint, n)
+	out := make([]int, n)
 	for i := 0; i < n; i++ {
-		out[i] = uint(matches[i].idx)
+		out[i] = matches[i].idx
 	}
 	return out
 }
@@ -217,7 +217,7 @@ func completePromptFilename(state *minibuffer.MinibufferState) bool {
 	if matchCount == 1 && matchIsDir {
 		newText += string(filepath.Separator)
 	}
-	if uint(len(newText)) >= state.Nbuf {
+	if len(newText) >= state.Nbuf {
 		return false
 	}
 	state.SetText([]byte(newText))

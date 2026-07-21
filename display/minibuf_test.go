@@ -21,7 +21,7 @@ func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	buf.Name = "alpha"
 
 	clipLeftCol = 10
-	label := func(ctx any, idx uint8) []byte {
+	label := func(ctx any, idx int) []byte {
 		buffers := ctx.([]*buffer.Buffer)
 		if int(idx) >= len(buffers) || buffers[idx] == nil {
 			return nil

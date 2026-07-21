@@ -19,30 +19,30 @@ func DelimiterPair(ch int) (open, close int, forward bool, ok bool) {
 }
 
 // byteOffsetToRuneLimit returns how many leading runes end before byteOffset in line.Data.
-func byteOffsetToRuneLimit(line *buffer.Line, byteOffset uint) int {
+func byteOffsetToRuneLimit(line *buffer.Line, byteOffset int) int {
 	if line == nil {
 		return 0
 	}
 	data := line.Data
 	n := len(data)
-	if byteOffset == 0 {
+	if byteOffset <= 0 {
 		return 0
 	}
-	if byteOffset >= uint(n) {
+	if byteOffset >= n {
 		line.EnsureCache()
 		return len(line.RuneCache)
 	}
 	limit := 0
 	i := 0
 	for i < n {
-		if i >= int(byteOffset) {
+		if i >= byteOffset {
 			break
 		}
 		_, size := utf8.DecodeRune(data[i:])
 		if size == 0 {
 			break
 		}
-		if i+size > int(byteOffset) {
+		if i+size > byteOffset {
 			break
 		}
 		i += size
@@ -72,7 +72,7 @@ func syntaxContextIsStructural(ctx buffer.SyntaxContext) bool {
 	return ctx == buffer.SyntaxContextCode || ctx == buffer.SyntaxContextPreproc
 }
 
-func bufferSyntaxFindStart(buf *buffer.Buffer, lineNumber uint, st *buffer.SynState) {
+func bufferSyntaxFindStart(buf *buffer.Buffer, lineNumber int, st *buffer.SynState) {
 	*st = buffer.SynState{DFA: SynStateNormal}
 	if buf == nil {
 		return
@@ -83,7 +83,7 @@ func bufferSyntaxFindStart(buf *buffer.Buffer, lineNumber uint, st *buffer.SynSt
 		info.Kind == ModeSyntaxHashCommentOnly {
 		return
 	}
-	syncLine := uint(1)
+	syncLine := 1
 	if lineNumber > 1 {
 		for q := lineNumber - 1; q > 0; q-- {
 			line := buf.Line(q)
@@ -107,7 +107,7 @@ func bufferSyntaxFindStart(buf *buffer.Buffer, lineNumber uint, st *buffer.SynSt
 	}
 }
 
-func syntaxStateAt(buf *buffer.Buffer, lineNumber, offset uint, st *buffer.SynState) bool {
+func syntaxStateAt(buf *buffer.Buffer, lineNumber, offset int, st *buffer.SynState) bool {
 	if buf == nil || lineNumber == 0 || lineNumber > buf.EOF() {
 		*st = buffer.SynState{DFA: SynStateNormal}
 		return false
@@ -125,7 +125,7 @@ func syntaxStateAt(buf *buffer.Buffer, lineNumber, offset uint, st *buffer.SynSt
 	return true
 }
 
-func syntaxCharIsStructural(buf *buffer.Buffer, lineNumber, offset uint) bool {
+func syntaxCharIsStructural(buf *buffer.Buffer, lineNumber, offset int) bool {
 	var before, after buffer.SynState
 	if !syntaxStateAt(buf, lineNumber, offset, &before) {
 		return false
@@ -160,7 +160,7 @@ func syntaxFindMatchingDelimiter(buf *buffer.Buffer, start buffer.Location, matc
 	if forward {
 		lineNum := start.Line
 		off := start.Offset + 1
-		for lineNum <= buf.LineCount {
+		for lineNum <= len(buf.Lines) {
 			line := buf.Line(lineNum)
 			if line == nil {
 				return false
@@ -182,19 +182,19 @@ func syntaxFindMatchingDelimiter(buf *buffer.Buffer, start buffer.Location, matc
 		}
 	} else {
 		lineNum := start.Line
-		off := int(start.Offset) - 1
+		off := start.Offset - 1
 		for lineNum >= 1 {
 			line := buf.Line(lineNum)
 			if line == nil {
 				return false
 			}
 			for off >= 0 {
-				c := int(line.Byte(uint(off)))
-				if (c == open || c == close) && syntaxCharIsStructural(buf, lineNum, uint(off)) {
+				c := int(line.Byte(off))
+				if (c == open || c == close) && syntaxCharIsStructural(buf, lineNum, off) {
 					if c == close {
 						depth++
 					} else if depth--; depth == 0 {
-						*matchOut = buffer.MakeLocation(lineNum, uint(off))
+						*matchOut = buffer.MakeLocation(lineNum, off)
 						return true
 					}
 				}
@@ -208,7 +208,7 @@ func syntaxFindMatchingDelimiter(buf *buffer.Buffer, start buffer.Location, matc
 			if prev == nil {
 				return false
 			}
-			off = int(prev.Len()) - 1
+			off = prev.Len() - 1
 		}
 	}
 	return false
@@ -220,6 +220,6 @@ func FindMatchingDelimiter(buf *buffer.Buffer, start buffer.Location, matchOut *
 }
 
 // CharIsStructural reports whether offset on line is a structural delimiter char.
-func CharIsStructural(buf *buffer.Buffer, lineNumber, offset uint) bool {
+func CharIsStructural(buf *buffer.Buffer, lineNumber, offset int) bool {
 	return syntaxCharIsStructural(buf, lineNumber, offset)
 }

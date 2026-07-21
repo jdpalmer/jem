@@ -11,10 +11,10 @@ const MarkCapacity = 32
 type Mark struct {
 	Buffer        *buffer.Buffer
 	BufferSerial  uint32
-	LineNumber    uint
-	Offset        uint
-	TopLineNumber uint
-	HScroll       uint32
+	LineNumber    int
+	Offset        int
+	TopLineNumber int
+	HScroll       int
 }
 
 // State holds the mark ring.

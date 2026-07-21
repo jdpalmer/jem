@@ -111,7 +111,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 
 	writeMessage(writef, "[Reading file]")
 	reader := bufio.NewReader(fh)
-	nline := uint(0)
+	nline := 0
 	eolMode := buffer.EModeLF
 
 	var lineBuf bytes.Buffer
@@ -197,7 +197,7 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 	}
 
 	if buf.WhitespaceCleanup {
-		for i := uint(1); i <= buf.LineCount; i++ {
+		for i := 1; i <= len(buf.Lines); i++ {
 			buf.TrimTrailingWhitespace(i)
 		}
 	}
@@ -218,7 +218,7 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 
 	writer := bufio.NewWriter(fh)
 	nline := 0
-	for i := uint(1); i <= buf.LineCount; i++ {
+	for i := 1; i <= len(buf.Lines); i++ {
 		line := buf.Line(i)
 		if line == nil {
 			continue
@@ -253,7 +253,7 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 	return nil
 }
 
-func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*buffer.Buffer), writef func(string, ...any)) error {
+func ReloadCurrentBufferFromDisk(fname string, lineNumber int, noteBufferSaved func(*buffer.Buffer), writef func(string, ...any)) error {
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
 	if buf == nil {
@@ -269,7 +269,7 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 		noteBufferSaved(buf)
 	}
 	buf.DiskChangeNotifiedMtime = time.Time{}
-	if win != nil && lineNumber > 0 && lineNumber <= buf.LineCount {
+	if win != nil && lineNumber > 0 && lineNumber <= len(buf.Lines) {
 		win.Cursor = buffer.MakeLocation(lineNumber, 0)
 		win.ShouldRedraw = true
 		win.ShouldUpdateModeLine = true
@@ -311,7 +311,7 @@ func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func())
 		return
 	}
 
-	lineNumber := uint(1)
+	lineNumber := 1
 	if win != nil {
 		lineNumber = win.Cursor.Line
 	}

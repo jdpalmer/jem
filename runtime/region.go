@@ -67,7 +67,7 @@ func CmdCopyRegion(f bool, n int) bool {
 	}
 	killring.KillBegin()
 	text := win.Buffer.GetText(region.Start, region.End)
-	length := uint(len(text))
+	length := len(text)
 	if length > 0 && text == nil {
 		display.MBWrite("[out of memory]")
 		return false
@@ -96,7 +96,7 @@ func CmdYank(f bool, n int) bool {
 		return false
 	}
 	kb := killring.KillBytes()
-	klen := uint(len(kb))
+	klen := len(kb)
 	if klen == 0 {
 		return false
 	}
@@ -182,7 +182,7 @@ func transformRegionCase(upper bool) bool {
 		return false
 	}
 	text := buf.GetText(region.Start, region.End)
-	length := uint(len(text))
+	length := len(text)
 	if text == nil && length > 0 {
 		display.MBWrite("[out of memory]")
 		return false
@@ -246,14 +246,14 @@ func CmdSortRegion(f bool, n int) bool {
 	start := buffer.MakeLocation(region.Start.Line, 0)
 	end := buffer.MakeLocation(lastLine+1, 0)
 	text := buf.GetText(start, end)
-	total := uint(len(text))
+	total := len(text)
 	if text == nil && total > 0 {
 		display.MBWrite("[out of memory]")
 		return false
 	}
 	slines := make([]sortLine, 0, nlines)
 	p := 0
-	for i := uint(0); i < nlines; i++ {
+	for i := 0; i < nlines; i++ {
 		nl := bytes.IndexByte(text[p:], '\n')
 		var llen int
 		if nl >= 0 {

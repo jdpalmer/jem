@@ -72,15 +72,15 @@ func (state *MinibufferState) SetText(text []byte) {
 		return
 	}
 	n := len(text)
-	if uint(n) >= state.Nbuf {
-		n = int(state.Nbuf) - 1
+	if n >= state.Nbuf {
+		n = state.Nbuf - 1
 		if n < 0 {
 			n = 0
 		}
 	}
 	state.Text = state.Text[:0]
 	state.Text = append(state.Text, text[:n]...)
-	state.CursorPos = uint(len(state.Text))
+	state.CursorPos = len(state.Text)
 }
 
 // InsertChar inserts rune r at the current cursor position.
@@ -90,10 +90,10 @@ func (state *MinibufferState) InsertChar(r rune) bool {
 	}
 	var enc [utf8.UTFMax]byte
 	n := utf8.EncodeRune(enc[:], r)
-	if uint(len(state.Text)+n) >= state.Nbuf {
+	if len(state.Text)+n >= state.Nbuf {
 		return false
 	}
-	cpos := int(state.CursorPos)
+	cpos := state.CursorPos
 	oldLen := len(state.Text)
 	if cap(state.Text) >= oldLen+n {
 		state.Text = state.Text[:oldLen+n]
@@ -106,7 +106,7 @@ func (state *MinibufferState) InsertChar(r rune) bool {
 		out = append(out, state.Text[cpos:]...)
 		state.Text = out
 	}
-	state.CursorPos += uint(n)
+	state.CursorPos += n
 	return true
 }
 
@@ -115,21 +115,21 @@ func (state *MinibufferState) DeleteBackward() bool {
 	if state == nil || state.CursorPos == 0 {
 		return false
 	}
-	cpos := int(state.CursorPos)
+	cpos := state.CursorPos
 	prev := prevUtf8Offset(state.Text, cpos)
 	n := cpos - prev
 	copy(state.Text[prev:], state.Text[cpos:])
 	state.Text = state.Text[:len(state.Text)-n]
-	state.CursorPos = uint(prev)
+	state.CursorPos = prev
 	return true
 }
 
 // DeleteForward deletes the rune at the cursor position.
 func (state *MinibufferState) DeleteForward() bool {
-	if state == nil || int(state.CursorPos) >= len(state.Text) {
+	if state == nil || state.CursorPos >= len(state.Text) {
 		return false
 	}
-	cpos := int(state.CursorPos)
+	cpos := state.CursorPos
 	next := nextUtf8Offset(state.Text, cpos)
 	n := next - cpos
 	copy(state.Text[cpos:], state.Text[next:])
@@ -162,7 +162,7 @@ func (state *MinibufferState) KillRange(start, end int) bool {
 	killring.KillWriteClipboard()
 	copy(state.Text[start:], state.Text[end:])
 	state.Text = state.Text[:len(state.Text)-(end-start)]
-	state.CursorPos = uint(start)
+	state.CursorPos = start
 	return true
 }
 
@@ -171,16 +171,16 @@ func (state *MinibufferState) BackwardChar() bool {
 	if state == nil || state.CursorPos == 0 {
 		return false
 	}
-	state.CursorPos = uint(prevUtf8Offset(state.Text, int(state.CursorPos)))
+	state.CursorPos = prevUtf8Offset(state.Text, state.CursorPos)
 	return true
 }
 
 // ForwardChar moves the cursor one rune to the right.
 func (state *MinibufferState) ForwardChar() bool {
-	if state == nil || int(state.CursorPos) >= len(state.Text) {
+	if state == nil || state.CursorPos >= len(state.Text) {
 		return false
 	}
-	state.CursorPos = uint(nextUtf8Offset(state.Text, int(state.CursorPos)))
+	state.CursorPos = nextUtf8Offset(state.Text, state.CursorPos)
 	return true
 }
 
@@ -198,7 +198,7 @@ func (state *MinibufferState) GotoEol() bool {
 	if state == nil {
 		return false
 	}
-	end := uint(len(state.Text))
+	end := len(state.Text)
 	if state.CursorPos == end {
 		return false
 	}
@@ -211,7 +211,7 @@ func (state *MinibufferState) BackwardWord() bool {
 	if state == nil {
 		return false
 	}
-	pos := int(state.CursorPos)
+	pos := state.CursorPos
 	for pos > 0 {
 		prev := prevUtf8Offset(state.Text, pos)
 		r, _ := utf8.DecodeRune(state.Text[prev:])
@@ -228,10 +228,10 @@ func (state *MinibufferState) BackwardWord() bool {
 		}
 		pos = prev
 	}
-	if pos == int(state.CursorPos) {
+	if pos == state.CursorPos {
 		return false
 	}
-	state.CursorPos = uint(pos)
+	state.CursorPos = pos
 	return true
 }
 
@@ -240,7 +240,7 @@ func (state *MinibufferState) ForwardWord() bool {
 	if state == nil {
 		return false
 	}
-	pos := int(state.CursorPos)
+	pos := state.CursorPos
 	textLen := len(state.Text)
 	for pos < textLen {
 		r, sz := utf8.DecodeRune(state.Text[pos:])
@@ -256,10 +256,10 @@ func (state *MinibufferState) ForwardWord() bool {
 		}
 		pos += sz
 	}
-	if pos == int(state.CursorPos) {
+	if pos == state.CursorPos {
 		return false
 	}
-	state.CursorPos = uint(pos)
+	state.CursorPos = pos
 	return true
 }
 
@@ -268,11 +268,11 @@ func (state *MinibufferState) DeleteWordBackward() bool {
 	if state == nil {
 		return false
 	}
-	oldPos := int(state.CursorPos)
+	oldPos := state.CursorPos
 	if !state.BackwardWord() {
 		return false
 	}
-	return state.KillRange(int(state.CursorPos), oldPos)
+	return state.KillRange(state.CursorPos, oldPos)
 }
 
 // DeleteWordForward kills from the cursor to the end of the next word.
@@ -280,12 +280,12 @@ func (state *MinibufferState) DeleteWordForward() bool {
 	if state == nil {
 		return false
 	}
-	startPos := int(state.CursorPos)
+	startPos := state.CursorPos
 	if !state.ForwardWord() {
 		return false
 	}
-	endPos := int(state.CursorPos)
-	state.CursorPos = uint(startPos)
+	endPos := state.CursorPos
+	state.CursorPos = startPos
 	return state.KillRange(startPos, endPos)
 }
 
@@ -295,7 +295,7 @@ func (state *MinibufferState) Kill() bool {
 		return false
 	}
 	end := len(state.Text)
-	cpos := int(state.CursorPos)
+	cpos := state.CursorPos
 	if cpos >= end {
 		return false
 	}
@@ -310,7 +310,7 @@ func (state *MinibufferState) Yank() bool {
 	}
 	killring.KillReadClipboard()
 	k := killring.KillBytes()
-	klen := uint(len(k))
+	klen := len(k)
 	if klen == 0 {
 		return false
 	}
@@ -319,13 +319,13 @@ func (state *MinibufferState) Yank() bool {
 			return false
 		}
 	}
-	if uint(len(state.Text))+klen >= state.Nbuf {
+	if len(state.Text)+klen >= state.Nbuf {
 		return false
 	}
-	cpos := int(state.CursorPos)
+	cpos := state.CursorPos
 	oldLen := len(state.Text)
-	state.Text = state.Text[:oldLen+int(klen)]
-	copy(state.Text[cpos+int(klen):], state.Text[cpos:oldLen])
+	state.Text = state.Text[:oldLen+klen]
+	copy(state.Text[cpos+klen:], state.Text[cpos:oldLen])
 	copy(state.Text[cpos:], k)
 	state.CursorPos += klen
 	return true
@@ -391,8 +391,8 @@ func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos 
 	}
 	state := MinibufferState{
 		Text:          append(make([]byte, 0, nbuf), buf[:end]...),
-		Nbuf:          uint(nbuf),
-		CursorPos:     uint(*cpos),
+		Nbuf:          nbuf,
+		CursorPos:     *cpos,
 		HistoryPos:    *historyPos,
 		HaveSavedEdit: *haveSavedEdit,
 	}
@@ -433,7 +433,7 @@ func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos 
 	if len(state.Text) < nbuf {
 		buf[len(state.Text)] = 0
 	}
-	*cpos = int(state.CursorPos)
+	*cpos = state.CursorPos
 	*historyPos = state.HistoryPos
 	*haveSavedEdit = state.HaveSavedEdit
 	if state.HaveSavedEdit {

@@ -12,7 +12,7 @@ import (
 // commands.go — command palette and buffer switching
 
 // commandsProvider returns the command name label for the given index. ctx is a []string.
-func commandsProvider(ctx any, idx uint) []byte {
+func commandsProvider(ctx any, idx int) []byte {
 	if ctx == nil {
 		return nil
 	}
@@ -35,7 +35,7 @@ func CmdCommandPalette(f bool, n int) bool {
 		display.MBWrite("[no commands]")
 		return false
 	}
-	AskFuzzy("M-x: ", commandsProvider, names, uint(len(names)), func(label string, pr minibuffer.PromptResult) {
+	AskFuzzy("M-x: ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}
@@ -58,7 +58,7 @@ func CmdDescribeCommand(f bool, n int) bool {
 		display.MBWrite("[no commands]")
 		return false
 	}
-	AskFuzzy("Describe: ", commandsProvider, names, uint(len(names)), func(label string, pr minibuffer.PromptResult) {
+	AskFuzzy("Describe: ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}
@@ -124,7 +124,7 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 		display.MBWrite("[no buffers]")
 		return false
 	}
-	AskFuzzy("Kill buffer: ", commandsProvider, names, uint(len(names)), func(label string, pr minibuffer.PromptResult) {
+	AskFuzzy("Kill buffer: ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}
@@ -159,7 +159,7 @@ func pickBufferList() []*buffer.Buffer {
 	return list
 }
 
-func bufferChoiceLabel(ctx any, idx uint8) []byte {
+func bufferChoiceLabel(ctx any, idx int) []byte {
 	list, _ := ctx.([]*buffer.Buffer)
 	if int(idx) >= len(list) || list[idx] == nil {
 		return nil
@@ -224,11 +224,11 @@ func CmdUseBuffer(f bool, n int) bool {
 		return true
 	}
 
-	defaultIdx := uint8(0)
+	defaultIdx := 0
 	if len(buffers) > 1 {
 		defaultIdx = 1
 	}
-	AskChoose("buffer.Buffer: ", buffers, bufferChoiceLabel, uint8(len(buffers)), defaultIdx, func(sel int16) {
+	AskChoose("buffer.Buffer: ", buffers, bufferChoiceLabel, len(buffers), defaultIdx, func(sel int16) {
 		if sel == -2 {
 			CmdAbort(false, 1)
 			return

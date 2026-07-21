@@ -7,7 +7,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func setupSexpTest(text string, lang buffer.LangMode, line, offset uint) (*window.Window, *buffer.Buffer) {
+func setupSexpTest(text string, lang buffer.LangMode, line, offset int) (*window.Window, *buffer.Buffer) {
 	Reset()
 	buf := buffer.Create()
 	if buf == nil {

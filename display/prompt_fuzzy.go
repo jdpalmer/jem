@@ -11,17 +11,17 @@ type FuzzyPrompt struct {
 	prompt           string
 	provider         minibuffer.MbNameProviderFn
 	providerCtx      any
-	providerCount    uint
+	providerCount    int
 	displayFormatter minibuffer.MbMatchFormatter
 	displayCtx       any
 	state            minibuffer.MinibufferState
 	sel              int
-	matches          []uint
+	matches          []int
 	fctx             *fuzzyMatchCtx
 }
 
 // NewFuzzyPrompt builds a fuzzy list prompt.
-func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, capacity int) *FuzzyPrompt {
+func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, capacity int) *FuzzyPrompt {
 	if capacity <= 0 {
 		capacity = PatternCapacity
 	}
@@ -35,7 +35,7 @@ func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, provide
 		state: minibuffer.MinibufferState{
 			Prompt:     prompt,
 			Text:       make([]byte, 0, capacity),
-			Nbuf:       uint(capacity),
+			Nbuf:       capacity,
 			HistoryPos: -1,
 		},
 		fctx: &fuzzyMatchCtx{

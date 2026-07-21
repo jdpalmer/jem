@@ -7,11 +7,11 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func lpKeyword(line *buffer.Line, i uint, kw string) bool {
+func lpKeyword(line *buffer.Line, i int, kw string) bool {
 	if line == nil {
 		return false
 	}
-	klen := uint(len(kw))
+	klen := len(kw)
 	if i+klen > line.Len() {
 		return false
 	}
@@ -26,7 +26,7 @@ func lpKeyword(line *buffer.Line, i uint, kw string) bool {
 	return nc == ' ' || nc == '\t' || nc == ':' || nc == '(' || nc == '\r'
 }
 
-func prevCodeLineNumberPy(buf *buffer.Buffer, lineNumber uint) uint {
+func prevCodeLineNumberPy(buf *buffer.Buffer, lineNumber int) int {
 	for lineNumber > 1 {
 		lineNumber--
 		p := buf.Line(lineNumber)
@@ -56,7 +56,7 @@ func lineIsDedentStmt(line *buffer.Line) bool {
 	return lpKeyword(line, i, "return") || lpKeyword(line, i, "break") || lpKeyword(line, i, "continue") || lpKeyword(line, i, "raise") || lpKeyword(line, i, "pass")
 }
 
-func calcIndentPy(buf *buffer.Buffer, lineNumber uint) int {
+func calcIndentPy(buf *buffer.Buffer, lineNumber int) int {
 	line := buf.Line(lineNumber)
 	pyIndentWidth := buf.PyIndent
 	pyContinuedOffset := buf.PyContinuedOffset
@@ -70,7 +70,7 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber uint) int {
 		if ref == nil {
 			return 0
 		}
-		ind := int(ref.IndentColumn()) - int(pyIndentWidth)
+		ind := ref.IndentColumn() - int(pyIndentWidth)
 		if ind < 0 {
 			return 0
 		}
@@ -102,7 +102,7 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber uint) int {
 	if ref == nil {
 		return 0
 	}
-	refInd := int(ref.IndentColumn())
+	refInd := ref.IndentColumn()
 	last := buf.Line(refLine).LastByte()
 
 	if last == '\\' {
@@ -117,7 +117,7 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber uint) int {
 
 	prev := buf.Line(refLine)
 	if prev != nil && lineIsDedentStmt(prev) {
-		curInd := int(prev.IndentColumn())
+		curInd := prev.IndentColumn()
 		ln := prevCodeLineNumberPy(buf, refLine)
 		for ln != 0 {
 			p := buf.Line(ln)
@@ -125,7 +125,7 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber uint) int {
 				ln = prevCodeLineNumberPy(buf, ln)
 				continue
 			}
-			ind := int(p.IndentColumn())
+			ind := p.IndentColumn()
 			if ind < curInd {
 				if ind < 0 {
 					return 0
@@ -166,12 +166,12 @@ func setLineIndentPy(win *window.Window, col int) bool {
 	return ok
 }
 
-func findDefLineNumber(buf *buffer.Buffer, lineNumber uint) uint {
-	if buf.LineCount == 0 {
+func findDefLineNumber(buf *buffer.Buffer, lineNumber int) int {
+	if len(buf.Lines) == 0 {
 		return 0
 	}
 	if lineNumber == buf.EOF() {
-		lineNumber = buf.LineCount
+		lineNumber = len(buf.Lines)
 	}
 	line := buf.Line(lineNumber)
 	if line == nil {
@@ -181,7 +181,7 @@ func findDefLineNumber(buf *buffer.Buffer, lineNumber uint) uint {
 	if lpKeyword(line, i, "def") || lpKeyword(line, i, "class") {
 		return lineNumber
 	}
-	curInd := int(line.IndentColumn())
+	curInd := line.IndentColumn()
 	for lineNumber > 1 {
 		lineNumber--
 		line = buf.Line(lineNumber)
@@ -189,7 +189,7 @@ func findDefLineNumber(buf *buffer.Buffer, lineNumber uint) uint {
 			continue
 		}
 		if !line.IsBlank() {
-			ind := int(line.IndentColumn())
+			ind := line.IndentColumn()
 			if ind < curInd {
 				j := line.FirstNonblank()
 				if lpKeyword(line, j, "def") || lpKeyword(line, j, "class") {
@@ -248,7 +248,7 @@ func cmdPyMakeComment(f bool, n int) bool {
 	}
 	line := buf.Line(win.Cursor.Line)
 	if line != nil {
-		for i := uint(0); i < line.Len(); i++ {
+		for i := 0; i < line.Len(); i++ {
 			if line.Byte(i) == '#' {
 				win.Cursor.Offset = i + 1
 				if win.Cursor.Offset < line.Len() && line.Byte(win.Cursor.Offset) == ' ' {
@@ -311,13 +311,13 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 	if def == nil {
 		return false
 	}
-	defInd := int(def.IndentColumn())
+	defInd := def.IndentColumn()
 	lineNumber := defLine + 1
 	lastLine := defLine
-	for lineNumber <= buf.LineCount {
+	for lineNumber <= len(buf.Lines) {
 		line := buf.Line(lineNumber)
 		if !line.IsBlank() {
-			if int(line.IndentColumn()) <= defInd {
+			if line.IndentColumn() <= defInd {
 				break
 			}
 			lastLine = lineNumber
@@ -329,7 +329,7 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 		targetLine = defLine
 	}
 	line := buf.Line(targetLine)
-	off := uint(0)
+	off := 0
 	if line != nil {
 		off = line.Len()
 	}

@@ -34,14 +34,14 @@ const (
 // GrepLineData is stored in grep result line Metadata for jump-to-match.
 type GrepLineData struct {
 	Path   string
-	Line   uint
-	Column uint
+	Line   int
+	Column int
 }
 
 type grepMatch struct {
 	path   string // absolute
-	line   uint
-	column uint // 1-based byte offset
+	line   int
+	column int // 1-based byte offset
 	text   string
 }
 
@@ -110,7 +110,7 @@ func grepSearchFile(path string, re *regexp.Regexp, out chan<- grepMatch, limit 
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(data))
-	lineNum := uint(0)
+	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Bytes()
@@ -131,7 +131,7 @@ func grepSearchFile(path string, re *regexp.Regexp, out chan<- grepMatch, limit 
 			out <- grepMatch{
 				path:   abs,
 				line:   lineNum,
-				column: uint(loc[0]) + 1,
+				column: loc[0] + 1,
 				text:   text,
 			}
 		}
@@ -227,7 +227,7 @@ func grepDisplayPath(root, abs string) string {
 	return abs
 }
 
-func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, pattern string, truncated bool) (uint, bool) {
+func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, pattern string, truncated bool) (int, bool) {
 	if buf == nil {
 		return 0, false
 	}
@@ -241,10 +241,10 @@ func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, patter
 		return 0, false
 	}
 
-	var matchCount uint
-	var fileCount uint
+	var matchCount int
+	var fileCount int
 	currentFile := ""
-	var lastLine uint
+	var lastLine int
 	haveLastLine := false
 
 	for _, m := range matches {

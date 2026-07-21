@@ -31,10 +31,10 @@ const (
 // SelState holds pre-computed selection bounds for a single rendering pass.
 type SelState struct {
 	active    bool
-	startLine uint
-	startO    uint
-	endLine   uint
-	endO      uint
+	startLine int
+	startO    int
+	endLine   int
+	endO      int
 	phase     SelectionPhase
 }
 

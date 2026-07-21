@@ -27,7 +27,7 @@ func TestFindMatchingDelimiterLastLine(t *testing.T) {
 	line2 := buf.Line(2)
 	openOff := bytes.IndexByte(line2.Data, '{')
 	var match buffer.Location
-	if !FindMatchingDelimiter(buf, buffer.MakeLocation(2, uint(openOff)), &match) {
+	if !FindMatchingDelimiter(buf, buffer.MakeLocation(2, openOff), &match) {
 		t.Fatal("expected forward match to last line")
 	}
 	if match.Line != 3 || match.Offset != 0 {
@@ -36,7 +36,7 @@ func TestFindMatchingDelimiterLastLine(t *testing.T) {
 	if !FindMatchingDelimiter(buf, buffer.MakeLocation(3, 0), &match) {
 		t.Fatal("expected backward match from last line")
 	}
-	if match.Line != 2 || match.Offset != uint(openOff) {
+	if match.Line != 2 || match.Offset != openOff {
 		t.Fatalf("expected open at (2,%d) got (%d,%d)", openOff, match.Line, match.Offset)
 	}
 }
@@ -45,7 +45,7 @@ func TestCharIsStructuralStringOnLastLine(t *testing.T) {
 	buf := makeBufferFromLines([]string{`fmt.Println("{")`})
 	line := buf.Line(1)
 	braceOff := bytes.IndexByte(line.Data, '{')
-	if CharIsStructural(buf, 1, uint(braceOff)) {
+	if CharIsStructural(buf, 1, braceOff) {
 		t.Fatal("brace inside string on last line should not be structural")
 	}
 }
@@ -56,10 +56,10 @@ func TestFindMatchingDelimiterMultibyte(t *testing.T) {
 	openOff := bytes.IndexByte(line.Data, '[')
 	closeOff := bytes.IndexByte(line.Data, ']')
 	var match buffer.Location
-	if !FindMatchingDelimiter(buf, buffer.MakeLocation(1, uint(openOff)), &match) {
+	if !FindMatchingDelimiter(buf, buffer.MakeLocation(1, openOff), &match) {
 		t.Fatal("expected multibyte line to match brackets")
 	}
-	if match.Offset != uint(closeOff) {
+	if match.Offset != closeOff {
 		t.Fatalf("expected close at byte %d got %d", closeOff, match.Offset)
 	}
 }
@@ -67,7 +67,7 @@ func TestFindMatchingDelimiterMultibyte(t *testing.T) {
 func TestByteOffsetToRuneLimit(t *testing.T) {
 	line := makeLine("日[")
 	tests := []struct {
-		byteOff uint
+		byteOff int
 		want    int
 	}{
 		{0, 0},

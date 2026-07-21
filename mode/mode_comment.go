@@ -27,11 +27,11 @@ func lineHasCommentPrefix(line *buffer.Line, prefix []byte) bool {
 		return false
 	}
 	pos := line.FirstNonblank()
-	if line.Len() < pos+uint(len(prefix)) {
+	if line.Len() < pos+len(prefix) {
 		return false
 	}
 	for k := range prefix {
-		if line.Byte(pos+uint(k)) != prefix[k] {
+		if line.Byte(pos+k) != prefix[k] {
 			return false
 		}
 	}
@@ -45,7 +45,7 @@ func modeSupportsComments(info *ModeInfo) bool {
 	return info.CommentOpen != "" || info.CommentAppend != ""
 }
 
-func modeToggleCommentRegion(win *window.Window, buf *buffer.Buffer, info *ModeInfo, linePrefix []byte, startLine, endLine uint) bool {
+func modeToggleCommentRegion(win *window.Window, buf *buffer.Buffer, info *ModeInfo, linePrefix []byte, startLine, endLine int) bool {
 	prefixLen := len(linePrefix)
 	allCommented := true
 	for lineNum := startLine; lineNum <= endLine; lineNum++ {
@@ -66,7 +66,7 @@ func modeToggleCommentRegion(win *window.Window, buf *buffer.Buffer, info *ModeI
 			}
 			pos := line.FirstNonblank()
 			b := buffer.MakeLocation(lineNum, pos)
-			e := buffer.MakeLocation(lineNum, pos+uint(prefixLen))
+			e := buffer.MakeLocation(lineNum, pos+prefixLen)
 			if err := PackageHooks.SetText(buf, b, e, nil, nil); err != nil {
 				win.Cursor = savedCursor
 				win.Mark = savedMark
@@ -75,14 +75,14 @@ func modeToggleCommentRegion(win *window.Window, buf *buffer.Buffer, info *ModeI
 			}
 			if savedCursor.Line == lineNum {
 				if savedCursor.Offset >= e.Offset {
-					savedCursor.Offset -= uint(prefixLen)
+					savedCursor.Offset -= prefixLen
 				} else if savedCursor.Offset >= b.Offset {
 					savedCursor.Offset = b.Offset
 				}
 			}
 			if savedMark.Line == lineNum {
 				if savedMark.Offset >= e.Offset {
-					savedMark.Offset -= uint(prefixLen)
+					savedMark.Offset -= prefixLen
 				} else if savedMark.Offset >= b.Offset {
 					savedMark.Offset = b.Offset
 				}
@@ -140,7 +140,7 @@ func CmdModeToggleComment(f bool, n int) bool {
 			savedCursor := win.Cursor
 			savedMark := win.Mark
 			b := buffer.MakeLocation(win.Cursor.Line, pos)
-			e := buffer.MakeLocation(win.Cursor.Line, pos+uint(prefixLen))
+			e := buffer.MakeLocation(win.Cursor.Line, pos+prefixLen)
 			if err := PackageHooks.SetText(buf, b, e, nil, nil); err != nil {
 				win.Cursor = savedCursor
 				win.Mark = savedMark
@@ -149,14 +149,14 @@ func CmdModeToggleComment(f bool, n int) bool {
 			}
 			if savedCursor.Line == b.Line {
 				if savedCursor.Offset >= e.Offset {
-					savedCursor.Offset -= uint(prefixLen)
+					savedCursor.Offset -= prefixLen
 				} else if savedCursor.Offset >= b.Offset {
 					savedCursor.Offset = b.Offset
 				}
 			}
 			if savedMark.Line == b.Line {
 				if savedMark.Offset >= e.Offset {
-					savedMark.Offset -= uint(prefixLen)
+					savedMark.Offset -= prefixLen
 				} else if savedMark.Offset >= b.Offset {
 					savedMark.Offset = b.Offset
 				}

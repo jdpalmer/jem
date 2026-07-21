@@ -46,7 +46,7 @@ func fileSaveBuffer(fn string, onDone func(ok bool)) {
 }
 
 // fileReloadFromDisk reloads fname into the current buffer and restores lineNumber.
-func fileReloadFromDisk(fname string, lineNumber uint) bool {
+func fileReloadFromDisk(fname string, lineNumber int) bool {
 	return files.ReloadCurrentBufferFromDisk(fname, lineNumber, NoteBufferSaved, display.MBWrite) == nil
 }
 
@@ -206,7 +206,7 @@ func CmdRevertFile(f bool, n int) bool {
 		display.MBWrite("[no file associated with buffer]")
 		return false
 	}
-	lineNumber := uint(1)
+	lineNumber := 1
 	if win != nil {
 		lineNumber = win.Cursor.Line
 	}
@@ -239,19 +239,19 @@ func fileVisitLocation(path string, line, column uint32) bool {
 	if win == nil || win.Buffer == nil {
 		return false
 	}
-	if uint(line) > win.Buffer.LineCount {
+	if int(line) > len(win.Buffer.Lines) {
 		display.MBWrite("[file line out of range]")
 		return false
 	}
-	bline := win.Buffer.Line(uint(line))
-	off := uint(column)
+	bline := win.Buffer.Line(int(line))
+	off := int(column)
 	if column > 0 {
 		off--
 	}
 	if bline != nil && off > bline.Len() {
 		off = bline.Len()
 	}
-	win.SetCursor(buffer.MakeLocation(uint(line), off))
+	win.SetCursor(buffer.MakeLocation(int(line), off))
 	win.DidMove = true
 	win.ShouldUpdateModeLine = true
 	win.ShouldRedraw = true
@@ -298,16 +298,16 @@ func CmdSetEolMode(f bool, n int) bool {
 	}
 	choices := []string{"LF", "CRLF", "CR"}
 	modes := []buffer.EolMode{buffer.EModeLF, buffer.EModeCRLF, buffer.EModeCR}
-	defaultIdx := uint8(0)
+	defaultIdx := 0
 	for i, mode := range modes {
 		if buf.EolMode == mode {
-			defaultIdx = uint8(i)
+			defaultIdx = i
 			break
 		}
 	}
-	labelFn := func(ctx any, idx uint8) []byte {
+	labelFn := func(ctx any, idx int) []byte {
 		sl := ctx.([]string)
-		if int(idx) < len(sl) {
+		if idx < len(sl) {
 			return []byte(sl[idx])
 		}
 		return nil

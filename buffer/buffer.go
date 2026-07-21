@@ -4,7 +4,6 @@ import "time"
 
 type Buffer struct {
 	Lines                   []Line
-	LineCount               uint
 	Serial                  uint32
 	SavedUndoSerial         uint32
 	IsChanged               bool
@@ -38,7 +37,6 @@ func (buf *Buffer) Clear() bool {
 		return false
 	}
 	buf.Lines = nil
-	buf.LineCount = 0
 	buf.IsChanged = false
 	buf.Cursor = Location{Line: 1, Offset: 0}
 	buf.Mark = Location{Line: 0, Offset: 0}
@@ -47,28 +45,28 @@ func (buf *Buffer) Clear() bool {
 
 // EOF returns the location just past the last line (1-based lines).
 // For an empty buffer this is line 1; with N lines it is line N+1.
-func (buf *Buffer) EOF() uint {
+func (buf *Buffer) EOF() int {
 	if buf == nil {
 		return 1
 	}
-	return buf.LineCount + 1
+	return len(buf.Lines) + 1
 }
 
 // Line returns line lineNumber (1-based). The pointer is invalidated if
 // buf.Lines is reallocated; prefer line numbers across edits.
-func (buf *Buffer) Line(lineNumber uint) *Line {
-	if buf == nil || lineNumber == 0 || lineNumber > buf.LineCount {
+func (buf *Buffer) Line(lineNumber int) *Line {
+	if buf == nil || lineNumber <= 0 || lineNumber > len(buf.Lines) {
 		return nil
 	}
 	return &buf.Lines[lineNumber-1]
 }
 
-func (buf *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
-	if lineNumber == 0 || lineNumber > buf.LineCount {
+func (buf *Buffer) TrimTrailingWhitespace(lineNumber int) bool {
+	if lineNumber <= 0 || lineNumber > len(buf.Lines) {
 		return false
 	}
 	line := &buf.Lines[lineNumber-1]
-	newLen := uint(len(line.Data))
+	newLen := len(line.Data)
 	for newLen > 0 {
 		c := line.Data[newLen-1]
 		if c != ' ' && c != '\t' {
@@ -76,10 +74,10 @@ func (buf *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
 		}
 		newLen--
 	}
-	if newLen == uint(len(line.Data)) {
+	if newLen == len(line.Data) {
 		return false
 	}
 	begin := Location{Line: lineNumber, Offset: newLen}
-	end := Location{Line: lineNumber, Offset: uint(len(line.Data))}
+	end := Location{Line: lineNumber, Offset: len(line.Data)}
 	return buf.SetText(nil, begin, end, nil, nil) == nil
 }

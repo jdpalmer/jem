@@ -49,10 +49,10 @@ func checkMatchCase(win *window.Window, patLen int) matchCase {
 		return matchCaseLower
 	}
 	line := win.Buffer.Line(win.Cursor.Line)
-	if line == nil || win.Cursor.Offset < uint(patLen) {
+	if line == nil || win.Cursor.Offset < patLen {
 		return matchCaseLower
 	}
-	start := int(win.Cursor.Offset) - patLen
+	start := win.Cursor.Offset - patLen
 	text := line.Data[start : start+patLen]
 	if len(text) == 0 || !unicode.IsUpper(rune(text[0])) {
 		return matchCaseLower

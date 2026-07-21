@@ -105,8 +105,8 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 		}
 		t.Fatalf("buffer line 1 = %q, want %q", got, "alpha")
 	}
-	if buf.LineCount != 3 {
-		t.Fatalf("line_count = %d, want 3", buf.LineCount)
+	if len(buf.Lines) != 3 {
+		t.Fatalf("line_count = %d, want 3", len(buf.Lines))
 	}
 	if window.Active.CurrentWindow.Cursor.Line != 1 {
 		t.Fatalf("cursor line = %d, want 1", window.Active.CurrentWindow.Cursor.Line)

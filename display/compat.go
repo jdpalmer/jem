@@ -4,7 +4,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func gitLineDiff(buf *buffer.Buffer, lineNumber uint) int {
+func gitLineDiff(buf *buffer.Buffer, lineNumber int) int {
 	if PackageHooks.GitLineDiff == nil {
 		return 0
 	}

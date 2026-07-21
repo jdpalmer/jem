@@ -30,7 +30,7 @@ func NewTestEditor(t *testing.T) *TestEditor {
 	tools.InitBackgroundJobs()
 	AppInit("test")
 	if window.Active.CurrentWindow != nil {
-		window.Active.CurrentWindow.Height = uint32(term.Rows())
+		window.Active.CurrentWindow.Height = term.Rows()
 	}
 	return &TestEditor{t: t, e: e}
 }
@@ -68,9 +68,9 @@ func (te *TestEditor) LoadText(text string) {
 	for line := range strings.SplitSeq(text, "\n") {
 		buf.AppendLineBytes([]byte(line))
 	}
-	if buf.LineCount > 0 {
-		win.Cursor.Line = buf.LineCount
-		last := buf.Line(buf.LineCount)
+	if len(buf.Lines) > 0 {
+		win.Cursor.Line = len(buf.Lines)
+		last := buf.Line(len(buf.Lines))
 		if last != nil {
 			win.Cursor.Offset = last.Len()
 		} else {
@@ -89,8 +89,8 @@ func (te *TestEditor) BufferText() string {
 	if buf == nil {
 		return ""
 	}
-	lines := make([]string, 0, int(buf.LineCount))
-	for i := uint(1); i <= buf.LineCount; i++ {
+	lines := make([]string, 0, len(buf.Lines))
+	for i := 1; i <= len(buf.Lines); i++ {
 		line := buf.Line(i)
 		if line == nil {
 			lines = append(lines, "")
@@ -101,7 +101,7 @@ func (te *TestEditor) BufferText() string {
 	return strings.Join(lines, "\n")
 }
 
-func (te *TestEditor) SetCursor(line, offset uint) {
+func (te *TestEditor) SetCursor(line, offset int) {
 	te.t.Helper()
 	win := te.WP()
 	if win == nil {
@@ -213,14 +213,14 @@ func (te *TestEditor) ExpectText(want string) {
 	}
 }
 
-func (te *TestEditor) ExpectLineCount(want uint) {
+func (te *TestEditor) ExpectLineCount(want int) {
 	te.t.Helper()
-	if got := te.BP().LineCount; got != want {
+	if got := len(te.BP().Lines); got != want {
 		te.t.Fatalf("line_count = %d, want %d", got, want)
 	}
 }
 
-func (te *TestEditor) ExpectCursor(line, offset uint) {
+func (te *TestEditor) ExpectCursor(line, offset int) {
 	te.t.Helper()
 	cur := te.Cursor()
 	if cur.Line != line || cur.Offset != offset {
@@ -236,7 +236,7 @@ func (te *TestEditor) ExpectChanged(want bool) {
 }
 
 // NewlineIndent presses Enter once with undo grouping and returns the new column.
-func (te *TestEditor) NewlineIndent() uint {
+func (te *TestEditor) NewlineIndent() int {
 	te.t.Helper()
 	BeginCommand()
 	defer EndCommand()

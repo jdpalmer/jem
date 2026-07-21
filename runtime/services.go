@@ -85,13 +85,13 @@ func buildServices() *Services {
 			AskStringCap: func(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult)) {
 				AskStringCap(prompt, initial, capacity, onDone)
 			},
-			AskFuzzyEx: func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
+			AskFuzzyEx: func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
 				AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
 			},
 		},
 		Display: display.Hooks{
 			ApplyCtlxPrefix: applyCtlxPrefix,
-			GitLineDiff: func(buf *buffer.Buffer, lineNumber uint) int {
+			GitLineDiff: func(buf *buffer.Buffer, lineNumber int) int {
 				return int(tools.GitLineDiffAt(buf, lineNumber))
 			},
 			GitModelineText:             tools.GitModelineText,

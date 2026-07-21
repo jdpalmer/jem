@@ -11,9 +11,9 @@ import (
 
 // WinAt returns the window that occupies screen row r, or nil.
 func WinAt(r uint32) *window.Window {
-	for i := 0; i < int(len(window.Active.Windows)); i++ {
+	for i := 0; i < len(window.Active.Windows); i++ {
 		win := window.Active.Windows[i]
-		if win != nil && r >= win.ScreenTopRow && r < win.ScreenTopRow+win.Height {
+		if win != nil && int(r) >= win.ScreenTopRow && int(r) < win.ScreenTopRow+win.Height {
 			return win
 		}
 	}
@@ -21,28 +21,24 @@ func WinAt(r uint32) *window.Window {
 }
 
 // lineOffsetAtCol returns the byte offset at or before the given screen column goal.
-func lineOffsetAtCol(line *buffer.Line, goal uint32) uint {
+func lineOffsetAtCol(line *buffer.Line, goal int) int {
 	if line == nil {
 		return 0
 	}
-	var col uint = 0
-	var dbo uint = 0
-	goalCol := goal
-	if goalCol > 0x7FFFFFFF {
-		goalCol = 0x7FFFFFFF
-	}
+	col := 0
+	dbo := 0
 	for dbo < line.Len() {
 		newCol := col
-		var used uint = 1
+		used := 1
 		b := line.Data[dbo]
 		if b < 0x80 {
-			newCol = uint(lineMeasureAdvance(int(col), rune(b)))
+			newCol = lineMeasureAdvance(col, rune(b))
 		} else {
 			r, size := utf8.DecodeRune(line.Data[dbo:])
-			newCol = uint(lineMeasureAdvance(int(col), r))
-			used = uint(size)
+			newCol = lineMeasureAdvance(col, r)
+			used = size
 		}
-		if newCol > uint(goalCol) {
+		if newCol > goal {
 			break
 		}
 		col = newCol
@@ -56,21 +52,21 @@ func MouseLocationInWindow(win *window.Window) buffer.Location {
 	if win == nil {
 		return buffer.Location{}
 	}
-	rowInWin := Active.Mouse.Row - win.ScreenTopRow
+	rowInWin := int(Active.Mouse.Row) - win.ScreenTopRow
 	lineNumber := win.TopLine
-	for rowInWin > 0 && lineNumber < win.Buffer.LineCount {
+	for rowInWin > 0 && lineNumber < len(win.Buffer.Lines) {
 		lineNumber++
 		rowInWin--
 	}
 
 	loc := buffer.Location{Line: lineNumber, Offset: 0}
 	line := win.Buffer.Line(loc.Line)
-	textCol := int(Active.Mouse.Col) - int(win.GutterWidth()) + int(win.HScroll)
+	textCol := int(Active.Mouse.Col) - win.GutterWidth() + win.HScroll
 	if textCol < 0 {
 		textCol = 0
 	}
 	if line != nil {
-		loc.Offset = lineOffsetAtCol(line, uint32(textCol))
+		loc.Offset = lineOffsetAtCol(line, textCol)
 	}
 	return loc
 }

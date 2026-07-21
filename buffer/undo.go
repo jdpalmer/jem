@@ -16,10 +16,10 @@ const UndoHistoryMax = 64
 
 type UndoRecord struct {
 	Kind    UndoKind
-	LineNum uint
-	Offset  uint
+	LineNum int
+	Offset  int
 	Text    []byte
-	Len     uint
+	Len     int
 }
 
 type UndoGroup struct {
@@ -44,8 +44,8 @@ type UndoHistory struct {
 
 // UndoReplay provides editor callbacks used while replaying undo records.
 type UndoReplay struct {
-	InsertText     func(lineNumber, offset uint, text []byte) error
-	DeleteText     func(lineNumber, offset uint, text []byte) error
+	InsertText     func(lineNumber, offset int, text []byte) error
+	DeleteText     func(lineNumber, offset int, text []byte) error
 	SetCursor      func(loc Location)
 	SwitchBuffer   func(buf *Buffer)
 	CurrentBuffer  func() *Buffer
@@ -125,7 +125,7 @@ func (h *UndoHistory) NoteBufferSaved(buf *Buffer) {
 	}
 }
 
-func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, offset uint, kind UndoKind, text []byte) bool {
+func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, offset int, kind UndoKind, text []byte) bool {
 	if h == nil || h.IsReplaying || len(text) == 0 {
 		return true
 	}
@@ -161,7 +161,7 @@ func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, o
 	record.Kind = kind
 	record.LineNum = lineNumber
 	record.Offset = offset
-	record.Len = uint(len(text))
+	record.Len = len(text)
 	record.Text = append([]byte(nil), text...)
 	group.Count++
 	return true

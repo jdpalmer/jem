@@ -7,7 +7,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func lineColOfOffset(line *buffer.Line, offset uint) int {
+func lineColOfOffset(line *buffer.Line, offset int) int {
 	if line == nil {
 		return 0
 	}
@@ -15,7 +15,7 @@ func lineColOfOffset(line *buffer.Line, offset uint) int {
 		offset = line.Len()
 	}
 	col := 0
-	for i := uint(0); i < offset; i++ {
+	for i := 0; i < offset; i++ {
 		c := line.Data[i]
 		if c == '\t' {
 			col += 8 - (col % 8)
@@ -26,11 +26,11 @@ func lineColOfOffset(line *buffer.Line, offset uint) int {
 	return col
 }
 
-func lineFirstNonblankOffset(line *buffer.Line) (uint, byte) {
+func lineFirstNonblankOffset(line *buffer.Line) (int, byte) {
 	if line == nil {
 		return 0, 0
 	}
-	for i := uint(0); i < line.Len(); i++ {
+	for i := 0; i < line.Len(); i++ {
 		c := line.Data[i]
 		if c != ' ' && c != '\t' {
 			return i, c
@@ -48,13 +48,13 @@ func lineStartsWith(line *buffer.Line, text string) bool {
 	if off >= line.Len() {
 		return false
 	}
-	if off+uint(len(pat)) > line.Len() {
+	if off+len(pat) > line.Len() {
 		return false
 	}
-	return bytes.Equal(line.Data[off:off+uint(len(pat))], pat)
+	return bytes.Equal(line.Data[off:off+len(pat)], pat)
 }
 
-func lineIsCommentOrPreproc(buf *buffer.Buffer, lineNumber uint) bool {
+func lineIsCommentOrPreproc(buf *buffer.Buffer, lineNumber int) bool {
 	line := buf.Line(lineNumber)
 	if line == nil {
 		return false
@@ -78,7 +78,7 @@ func lineIsCommentOrPreproc(buf *buffer.Buffer, lineNumber uint) bool {
 	return false
 }
 
-func lineIsPreproc(buf *buffer.Buffer, lineNumber uint) bool {
+func lineIsPreproc(buf *buffer.Buffer, lineNumber int) bool {
 	line := buf.Line(lineNumber)
 	if line == nil || line.IsBlank() {
 		return false
@@ -87,7 +87,7 @@ func lineIsPreproc(buf *buffer.Buffer, lineNumber uint) bool {
 	return ch == '#'
 }
 
-func prevCodeLineNumber(buf *buffer.Buffer, lineNumber uint) uint {
+func prevCodeLineNumber(buf *buffer.Buffer, lineNumber int) int {
 	for ln := lineNumber; ln > 1; {
 		ln--
 		p := buf.Line(ln)
@@ -137,7 +137,7 @@ func lineEndsWithContinuation(line *buffer.Line) bool {
 	}
 }
 
-func calcCommentIndent(buf *buffer.Buffer, lineNumber uint) int {
+func calcCommentIndent(buf *buffer.Buffer, lineNumber int) int {
 	prevLine := lineNumber
 	for prevLine > 1 {
 		prevLine--
@@ -146,12 +146,12 @@ func calcCommentIndent(buf *buffer.Buffer, lineNumber uint) int {
 			continue
 		}
 		if lineStartsWith(prev, "/*") {
-			return int(prev.IndentColumn()) + 1
+			return prev.IndentColumn() + 1
 		}
 		if prev.FirstNonblank() < prev.Len() {
 			ch := prev.Data[prev.FirstNonblank()]
 			if ch == '*' || lineStartsWith(prev, "*/") {
-				return int(prev.IndentColumn())
+				return prev.IndentColumn()
 			}
 		}
 		break
@@ -159,16 +159,16 @@ func calcCommentIndent(buf *buffer.Buffer, lineNumber uint) int {
 	return 0
 }
 
-func findCaseIndent(buf *buffer.Buffer, lineNumber uint, offset uint) int {
+func findCaseIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 	cIndent := buf.CIndent
 	cColonOffset := buf.CColonOffset
-	for ln := int(lineNumber); ln >= 1; ln-- {
-		line := buf.Line(uint(ln))
+	for ln := lineNumber; ln >= 1; ln-- {
+		line := buf.Line(ln)
 		if line == nil {
 			continue
 		}
 		if bytes.IndexByte(line.Data, '{') != -1 {
-			base := int(line.IndentColumn()) + int(cIndent) + int(cColonOffset)
+			base := line.IndentColumn() + int(cIndent) + int(cColonOffset)
 			if base < 0 {
 				return 0
 			}
@@ -178,7 +178,7 @@ func findCaseIndent(buf *buffer.Buffer, lineNumber uint, offset uint) int {
 	return 0
 }
 
-func findClosingDelimiterIndent(buf *buffer.Buffer, lineNumber uint, offset uint) int {
+func findClosingDelimiterIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 	line := buf.Line(lineNumber)
 	if line == nil || offset >= line.Len() {
 		return 0
@@ -197,17 +197,17 @@ func findClosingDelimiterIndent(buf *buffer.Buffer, lineNumber uint, offset uint
 	}
 	// Search strictly before the closer so we do not depth++ the delimiter we are matching.
 	depth := 0
-	for ln := int(lineNumber); ln >= 1; ln-- {
-		line := buf.Line(uint(ln))
+	for ln := lineNumber; ln >= 1; ln-- {
+		line := buf.Line(ln)
 		if line == nil {
 			continue
 		}
 		start := len(line.Data) - 1
-		if ln == int(lineNumber) {
+		if ln == lineNumber {
 			if offset == 0 {
 				continue
 			}
-			start = int(offset) - 1
+			start = offset - 1
 		}
 		for i := start; i >= 0; i-- {
 			c := line.Data[i]
@@ -222,26 +222,26 @@ func findClosingDelimiterIndent(buf *buffer.Buffer, lineNumber uint, offset uint
 				}
 				// Braces align to the opening line's indent (gofmt / K&R), not the '{' column.
 				if open == '{' {
-					return int(line.IndentColumn())
+					return line.IndentColumn()
 				}
-				return lineColOfOffset(line, uint(i))
+				return lineColOfOffset(line, i)
 			}
 		}
 	}
 	return 0
 }
 
-func findUnmatchedOpenDelim(buf *buffer.Buffer, lineNumber, offset uint) (buffer.Location, byte, bool) {
+func findUnmatchedOpenDelim(buf *buffer.Buffer, lineNumber, offset int) (buffer.Location, byte, bool) {
 	depthParen := 0
 	depthBracket := 0
-	for ln := int(lineNumber); ln >= 1; ln-- {
-		line := buf.Line(uint(ln))
+	for ln := lineNumber; ln >= 1; ln-- {
+		line := buf.Line(ln)
 		if line == nil {
 			continue
 		}
 		limit := len(line.Data)
-		if ln == int(lineNumber) {
-			limit = int(offset)
+		if ln == lineNumber {
+			limit = offset
 		}
 		for i := limit - 1; i >= 0; i-- {
 			switch line.Data[i] {
@@ -251,7 +251,7 @@ func findUnmatchedOpenDelim(buf *buffer.Buffer, lineNumber, offset uint) (buffer
 				if depthParen > 0 {
 					depthParen--
 				} else {
-					return buffer.MakeLocation(uint(ln), uint(i)), '(', true
+					return buffer.MakeLocation(ln, i), '(', true
 				}
 			case ']':
 				depthBracket++
@@ -259,7 +259,7 @@ func findUnmatchedOpenDelim(buf *buffer.Buffer, lineNumber, offset uint) (buffer
 				if depthBracket > 0 {
 					depthBracket--
 				} else {
-					return buffer.MakeLocation(uint(ln), uint(i)), '[', true
+					return buffer.MakeLocation(ln, i), '[', true
 				}
 			}
 		}
@@ -267,7 +267,7 @@ func findUnmatchedOpenDelim(buf *buffer.Buffer, lineNumber, offset uint) (buffer
 	return buffer.Location{}, 0, false
 }
 
-func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber uint, offset uint) int {
+func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 	open, _, ok := findUnmatchedOpenDelim(buf, lineNumber, offset)
 	if !ok {
 		return -1
@@ -284,10 +284,10 @@ func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber uint, offset
 		}
 		tail++
 	}
-	return int(line.IndentColumn()) + int(buf.CIndent)
+	return line.IndentColumn() + int(buf.CIndent)
 }
 
-func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber uint, offset uint) int {
+func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 	open, ok := findUnmatchedOpenBrace(buf, lineNumber, offset)
 	if !ok {
 		return -1
@@ -296,19 +296,19 @@ func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber uint, offset uint) 
 	if line == nil {
 		return -1
 	}
-	return int(line.IndentColumn()) + int(buf.CIndent)
+	return line.IndentColumn() + int(buf.CIndent)
 }
 
-func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset uint) (buffer.Location, bool) {
+func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset int) (buffer.Location, bool) {
 	depth := 0
-	for ln := int(lineNumber); ln >= 1; ln-- {
-		line := buf.Line(uint(ln))
+	for ln := lineNumber; ln >= 1; ln-- {
+		line := buf.Line(ln)
 		if line == nil {
 			continue
 		}
 		limit := len(line.Data)
-		if ln == int(lineNumber) {
-			limit = int(offset)
+		if ln == lineNumber {
+			limit = offset
 		}
 		for i := limit - 1; i >= 0; i-- {
 			switch line.Data[i] {
@@ -318,7 +318,7 @@ func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset uint) (buffer
 				if depth > 0 {
 					depth--
 				} else {
-					return buffer.MakeLocation(uint(ln), uint(i)), true
+					return buffer.MakeLocation(ln, i), true
 				}
 			}
 		}
@@ -326,7 +326,7 @@ func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset uint) (buffer
 	return buffer.Location{}, false
 }
 
-func calcIndent(buf *buffer.Buffer, lineNumber uint) int {
+func calcIndent(buf *buffer.Buffer, lineNumber int) int {
 	line := buf.Line(lineNumber)
 	if line == nil {
 		return 0
@@ -364,7 +364,7 @@ func calcIndent(buf *buffer.Buffer, lineNumber uint) int {
 	if ref == nil {
 		return 0
 	}
-	ind := int(ref.IndentColumn())
+	ind := ref.IndentColumn()
 	if ref.LastByte() == ':' && lineIsCaseLabel(ref) {
 		ind += int(cIndent)
 	} else if lineEndsWithContinuation(ref) {
@@ -456,7 +456,7 @@ func cmdCMakeComment(f bool, n int) bool {
 		if startLine > endLine {
 			startLine, endLine = endLine, startLine
 		}
-		var endOffset uint
+		var endOffset int
 		if win.Mark.Line > win.Cursor.Line {
 			endOffset = win.Mark.Offset
 		} else {
@@ -517,18 +517,18 @@ func cmdCTopOfFunction(f bool, n int) bool {
 		return false
 	}
 	lineNumber := win.Cursor.Line
-	if buf.LineCount == 0 {
+	if len(buf.Lines) == 0 {
 		if PackageHooks.Message != nil {
 			PackageHooks.Message("[Not in a function]")
 		}
 		return false
 	}
 	if lineNumber == buf.EOF() {
-		lineNumber = buf.LineCount
+		lineNumber = len(buf.Lines)
 	}
 	depth := 0
-	for ln := int(lineNumber); ln >= 1; ln-- {
-		line := buf.Line(uint(ln))
+	for ln := lineNumber; ln >= 1; ln-- {
+		line := buf.Line(ln)
 		if line == nil {
 			continue
 		}
@@ -551,7 +551,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 			}
 		}
 		if found {
-			sigLine := uint(ln)
+			sigLine := ln
 			for sigLine > 1 && buf.Line(sigLine-1).IsBlank() {
 				sigLine--
 			}
@@ -578,18 +578,18 @@ func cmdCEndOfFunction(f bool, n int) bool {
 		return false
 	}
 	lineNumber := win.Cursor.Line
-	if buf.LineCount == 0 {
+	if len(buf.Lines) == 0 {
 		if PackageHooks.Message != nil {
 			PackageHooks.Message("[Not in a function]")
 		}
 		return false
 	}
 	if lineNumber == buf.EOF() {
-		lineNumber = buf.LineCount
+		lineNumber = len(buf.Lines)
 	}
 	depth := 0
-	for ln := int(lineNumber); ln <= int(buf.LineCount); ln++ {
-		line := buf.Line(uint(ln))
+	for ln := lineNumber; ln <= len(buf.Lines); ln++ {
+		line := buf.Line(ln)
 		if line == nil {
 			continue
 		}
@@ -602,7 +602,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 					depth--
 					continue
 				}
-				win.SetCursor(buffer.MakeLocation(uint(ln), uint(i)))
+				win.SetCursor(buffer.MakeLocation(ln, i))
 				win.DidMove = true
 				return true
 			}
@@ -661,7 +661,7 @@ func cmdCCloseBrace(f bool, n int) bool {
 	if line == nil {
 		return false
 	}
-	win.Cursor.Offset = uint(col + n)
+	win.Cursor.Offset = (col + n)
 	if win.Cursor.Offset > line.Len() {
 		win.Cursor.Offset = line.Len()
 	}

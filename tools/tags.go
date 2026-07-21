@@ -248,11 +248,11 @@ func tagSymbolAtPoint(win *window.Window, symbol []byte) bool {
 	return true
 }
 
-func tagVisitLocation(path string, line, offset uint32) bool {
+func tagVisitLocation(path string, line, offset int) bool {
 	if line == 0 {
 		return false
 	}
-	return fileVisitLocation(path, line, offset+1)
+	return fileVisitLocation(path, uint32(line), uint32(offset+1))
 }
 
 func tagMatchCount(name string, requireSignature bool) int {
@@ -329,14 +329,14 @@ type tagMatchList struct {
 	matches []*TagEntry
 }
 
-func (l *tagMatchList) provider(idx uint) []byte {
+func (l *tagMatchList) provider(idx int) []byte {
 	if l == nil || int(idx) >= len(l.matches) {
 		return nil
 	}
 	return []byte(l.matches[idx].Name)
 }
 
-func tagDisplayFormatter(out []byte, outSize uint, idx uint, ctx any) {
+func tagDisplayFormatter(out []byte, outSize int, idx int, ctx any) {
 	list, _ := ctx.(*tagMatchList)
 	if list == nil || int(idx) >= len(list.matches) {
 		if len(out) > 0 {
@@ -354,7 +354,7 @@ func tagDisplayFormatter(out []byte, outSize uint, idx uint, ctx any) {
 		text += " " + entry.Signature
 	}
 	n := copy(out, []byte(text))
-	if uint(n) < outSize {
+	if n < outSize {
 		out[n] = 0
 	}
 }
@@ -370,9 +370,9 @@ func tagChooseMatch(matches []*TagEntry, onDone func(choice int)) {
 	}
 
 	list := &tagMatchList{matches: matches[:count]}
-	askFuzzyEx("Tag: ", func(ctx any, idx uint) []byte {
+	askFuzzyEx("Tag: ", func(ctx any, idx int) []byte {
 		return ctx.(*tagMatchList).provider(idx)
-	}, list, uint(count), tagDisplayFormatter, list, func(selected string, r minibuffer.PromptResult) {
+	}, list, count, tagDisplayFormatter, list, func(selected string, r minibuffer.PromptResult) {
 		if r == minibuffer.PromptResultAbort {
 			CmdAbort(false, 1)
 			onDone(-1)
@@ -398,7 +398,7 @@ func tagVisitMatch(matches []*TagEntry, choice int) {
 	}
 	markPushCurrent()
 	entry := matches[choice]
-	_ = tagVisitLocation(entry.Path, entry.Line, 0)
+	_ = tagVisitLocation(entry.Path, int(entry.Line), 0)
 }
 
 // RunGotoTag jumps to the definition of the symbol at point (M-.).

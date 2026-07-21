@@ -71,8 +71,8 @@ func WindowRetile() {
 			rows++
 			extraRows--
 		}
-		win.ScreenTopRow = uint32(top)
-		win.Height = uint32(rows)
+		win.ScreenTopRow = top
+		win.Height = rows
 		win.ShouldRedraw = true
 		win.ShouldUpdateModeLine = true
 		top += rows + 1
@@ -90,7 +90,7 @@ func (win *Window) CenterCursor() {
 	win.SetTopLine(top)
 }
 
-func (win *Window) SetTopLine(line uint) {
+func (win *Window) SetTopLine(line int) {
 	if win == nil {
 		return
 	}
@@ -98,19 +98,19 @@ func (win *Window) SetTopLine(line uint) {
 	win.ShouldRedraw = true
 }
 
-func (win *Window) GutterWidth() uint32 {
+func (win *Window) GutterWidth() int {
 	if win == nil || win.Buffer == nil {
 		return 3
 	}
-	digits := uint32(1)
-	n := win.Buffer.LineCount
+	digits := 1
+	n := len(win.Buffer.Lines)
 	for n >= 10 {
 		n /= 10
 		digits++
 	}
 	width := digits + 2
-	if width >= uint32(term.Cols()) {
-		width = uint32(term.Cols()) - 1
+	if width >= term.Cols() {
+		width = term.Cols() - 1
 	}
 	if width < 3 {
 		width = 3

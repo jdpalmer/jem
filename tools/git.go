@@ -24,7 +24,7 @@ type gitModelineCache struct {
 	fileName    string
 	text        string
 	lineDiffs   []uint8
-	diffCount   uint
+	diffCount   int
 }
 
 var gitModelineCaches []gitModelineCache
@@ -44,7 +44,7 @@ func gitNextLine(data []byte, start int) (int, []byte) {
 	return lineEnd, line
 }
 
-func gitSetLineDiff(cache *gitModelineCache, lineNumber uint, marker GitLineDiff) {
+func gitSetLineDiff(cache *gitModelineCache, lineNumber int, marker GitLineDiff) {
 	if cache == nil || lineNumber == 0 || lineNumber > cache.diffCount {
 		return
 	}
@@ -126,7 +126,7 @@ func gitRefreshCache(cache *gitModelineCache, buf *buffer.Buffer, fname string, 
 	cache.fileName = fname
 	cache.text = ""
 	cache.lineDiffs = nil
-	cache.diffCount = buf.LineCount
+	cache.diffCount = len(buf.Lines)
 	if cache.diffCount > 0 {
 		cache.lineDiffs = make([]uint8, cache.diffCount)
 	}
@@ -203,7 +203,7 @@ func gitRefreshCache(cache *gitModelineCache, buf *buffer.Buffer, fname string, 
 	dirty := ""
 	if fileUntracked {
 		dirty = "[?]"
-		for i := uint(1); i <= cache.diffCount; i++ {
+		for i := 1; i <= cache.diffCount; i++ {
 			gitSetLineDiff(cache, i, GitLineDiffAdded)
 		}
 	} else if fileIndexStatus != '.' || fileWorktreeStatus != '.' {
@@ -260,7 +260,7 @@ func gitRefreshCache(cache *gitModelineCache, buf *buffer.Buffer, fname string, 
 			for i := 0; i < newCount; i++ {
 				lineNumber := newStart + i
 				if lineNumber > 0 {
-					gitSetLineDiff(cache, uint(lineNumber), GitLineDiffAdded)
+					gitSetLineDiff(cache, lineNumber, GitLineDiffAdded)
 				}
 			}
 			continue
@@ -270,22 +270,22 @@ func gitRefreshCache(cache *gitModelineCache, buf *buffer.Buffer, fname string, 
 			if target <= 0 {
 				target = 1
 			}
-			if uint(target) > cache.diffCount && cache.diffCount > 0 {
-				target = int(cache.diffCount)
+			if target > cache.diffCount && cache.diffCount > 0 {
+				target = cache.diffCount
 			}
-			gitSetLineDiff(cache, uint(target), GitLineDiffDeleted)
+			gitSetLineDiff(cache, target, GitLineDiffDeleted)
 			continue
 		}
 		for i := 0; i < newCount; i++ {
 			lineNumber := newStart + i
 			if lineNumber > 0 {
-				gitSetLineDiff(cache, uint(lineNumber), GitLineDiffModified)
+				gitSetLineDiff(cache, lineNumber, GitLineDiffModified)
 			}
 		}
 		if oldCount > newCount {
 			lineNumber := newStart + newCount
 			if lineNumber > 0 {
-				gitSetLineDiff(cache, uint(lineNumber), GitLineDiffDeleted)
+				gitSetLineDiff(cache, lineNumber, GitLineDiffDeleted)
 			}
 		}
 	}
@@ -319,7 +319,7 @@ func GitModelineText(buf *buffer.Buffer) string {
 }
 
 // GitLineDiffAt returns the gutter diff marker for a buffer line.
-func GitLineDiffAt(buf *buffer.Buffer, lineNumber uint) GitLineDiff {
+func GitLineDiffAt(buf *buffer.Buffer, lineNumber int) GitLineDiff {
 	cache := gitModelineCacheForBuffer(buf)
 	if cache == nil || !cache.hasRepo || lineNumber == 0 || lineNumber > cache.diffCount {
 		return GitLineDiffNone

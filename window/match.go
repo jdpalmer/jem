@@ -75,12 +75,12 @@ func HideMatchWindow() {
 }
 
 // ScrollMatchToSelection scrolls the *match* window so selected (0-based) is visible.
-func ScrollMatchToSelection(selected uint) {
+func ScrollMatchToSelection(selected int) {
 	mw := MatchWindow()
 	if mw == nil || selected == 0 {
 		return
 	}
-	line := uint(selected + 1)
+	line := int(selected + 1)
 	if line < mw.TopLine {
 		mw.TopLine = line
 		mw.ShouldRedraw = true
@@ -89,9 +89,9 @@ func ScrollMatchToSelection(selected uint) {
 	if mw.Height == 0 {
 		return
 	}
-	lastVisible := mw.TopLine + uint(mw.Height) - 1
+	lastVisible := mw.TopLine + mw.Height - 1
 	if line > lastVisible {
-		mw.TopLine = line - uint(mw.Height) + 1
+		mw.TopLine = line - mw.Height + 1
 		if mw.TopLine < 1 {
 			mw.TopLine = 1
 		}
@@ -115,7 +115,7 @@ func ensureMatchBuffer() *buffer.Buffer {
 
 // SetMatchBufferText replaces *match* buffer contents and shows/scrolls its window.
 // If text is empty, hides the match window instead.
-func SetMatchBufferText(text []byte, selected uint) {
+func SetMatchBufferText(text []byte, selected int) {
 	if len(text) == 0 {
 		if buffer.Find(matchBufferName) != nil {
 			HideMatchWindow()

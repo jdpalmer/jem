@@ -86,7 +86,7 @@ func TestDelimiterSummary(t *testing.T) {
 	if line.SyntaxSummary.OpenOffsets[0] != 0 {
 		t.Fatalf("expected open offset 0 got %d", line.SyntaxSummary.OpenOffsets[0])
 	}
-	if line.SyntaxSummary.CloseOffsets[0] == ^uint(0) {
+	if line.SyntaxSummary.CloseOffsets[0] == buffer.OffsetUnset {
 		t.Fatalf("expected close offset set, got sentinel")
 	}
 }
@@ -98,15 +98,14 @@ func makeBufferFromLines(lines []string) *buffer.Buffer {
 		line := buffer.Line{Data: b, CacheValid: false, LangMode: buffer.LModeGo, Buffer: buf}
 		buf.Lines = append(buf.Lines, line)
 	}
-	buf.LineCount = uint(len(buf.Lines))
 	return buf
 }
 
 func TestRainbowParensIncremental(t *testing.T) {
 	buf := makeBufferFromLines([]string{"(", "("})
 	// ensure rune caches
-	for i := 1; i <= int(buf.LineCount); i++ {
-		line := buf.Line(uint(i))
+	for i := 1; i <= int(len(buf.Lines)); i++ {
+		line := buf.Line(i)
 		line.EnsureCache()
 	}
 	// incremental reparse from first line

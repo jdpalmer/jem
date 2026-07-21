@@ -19,7 +19,7 @@ type ChoosePrompt struct {
 }
 
 // NewChoosePrompt builds a choice menu. defaultIdx is clamped into range.
-func NewChoosePrompt(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count uint8, defaultIdx uint8) *ChoosePrompt {
+func NewChoosePrompt(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count int, defaultIdx int) *ChoosePrompt {
 	n := int(count)
 	if n <= 0 {
 		return nil

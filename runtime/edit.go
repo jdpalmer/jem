@@ -54,14 +54,14 @@ func MarkPasteDirty() {
 	}
 }
 
-func undoInsertText(win *window.Window, lineNumber, offset uint, text []byte) error {
+func undoInsertText(win *window.Window, lineNumber, offset int, text []byte) error {
 	buf := win.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
 	buf.NoteEdit(false)
 	return buf.ReplaceRaw(loc, loc, text, nil)
 }
 
-func undoDeleteText(win *window.Window, lineNumber, offset uint, text []byte) error {
+func undoDeleteText(win *window.Window, lineNumber, offset int, text []byte) error {
 	buf := win.Buffer
 	begin := buffer.MakeLocation(lineNumber, offset)
 	endLine := lineNumber
@@ -86,13 +86,13 @@ func CmdUndo(f bool, n int) bool {
 	for i := 0; i < n; i++ {
 		win := window.Active.CurrentWindow
 		err := History.Undo(buffer.UndoReplay{
-			InsertText: func(lineNumber, offset uint, text []byte) error {
+			InsertText: func(lineNumber, offset int, text []byte) error {
 				if win == nil {
 					return window.ErrNilWindow
 				}
 				return undoInsertText(win, lineNumber, offset, text)
 			},
-			DeleteText: func(lineNumber, offset uint, text []byte) error {
+			DeleteText: func(lineNumber, offset int, text []byte) error {
 				if win == nil {
 					return window.ErrNilWindow
 				}

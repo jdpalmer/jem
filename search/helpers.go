@@ -93,10 +93,10 @@ func truncatePattern(s string) string {
 
 type ISearchSnapshot struct {
 	Buffer     *buffer.Buffer
-	Line       uint
-	Offset     uint
-	MarkLine   uint
-	MarkOff    uint
+	Line       int
+	Offset     int
+	MarkLine   int
+	MarkOff    int
 	PatternLen int
 }
 

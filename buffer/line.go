@@ -20,18 +20,18 @@ type Line struct {
 	Buffer         *Buffer
 }
 
-func (line *Line) Byte(n uint) byte {
-	if line == nil || n >= uint(len(line.Data)) {
+func (line *Line) Byte(n int) byte {
+	if line == nil || n < 0 || n >= len(line.Data) {
 		return 0
 	}
 	return line.Data[n]
 }
 
-func (line *Line) Len() uint {
+func (line *Line) Len() int {
 	if line == nil {
 		return 0
 	}
-	return uint(len(line.Data))
+	return len(line.Data)
 }
 
 // EnsureCache decodes UTF-8 runes for syntax and display helpers.
@@ -63,25 +63,25 @@ func (line *Line) EnsureCache() {
 	line.CacheValid = true
 }
 
-func (line *Line) FirstNonblank() uint {
+func (line *Line) FirstNonblank() int {
 	if line == nil {
 		return 0
 	}
-	for i := uint(0); i < uint(len(line.Data)); i++ {
+	for i := 0; i < len(line.Data); i++ {
 		c := line.Data[i]
 		if c != ' ' && c != '\t' {
 			return i
 		}
 	}
-	return uint(len(line.Data))
+	return len(line.Data)
 }
 
-func (line *Line) IndentColumn() uint {
+func (line *Line) IndentColumn() int {
 	if line == nil {
 		return 0
 	}
-	col := uint(0)
-	for i := uint(0); i < uint(len(line.Data)); i++ {
+	col := 0
+	for i := 0; i < len(line.Data); i++ {
 		c := line.Data[i]
 		if c == ' ' {
 			col++
@@ -112,7 +112,7 @@ func (line *Line) IsBlank() bool {
 	if line == nil || len(line.Data) == 0 {
 		return true
 	}
-	for i := uint(0); i < uint(len(line.Data)); i++ {
+	for i := 0; i < len(line.Data); i++ {
 		c := line.Data[i]
 		if c != ' ' && c != '\t' {
 			return false

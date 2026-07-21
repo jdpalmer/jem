@@ -13,7 +13,7 @@ type Hooks struct {
 	ReadKey       func() (uint32, bool)
 	AskString     func(prompt, initial string, onDone func(string, minibuffer.PromptResult))
 	AskStringCap  func(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult))
-	AskFuzzyEx    func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult))
+	AskFuzzyEx    func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult))
 }
 
 var PackageHooks Hooks

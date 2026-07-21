@@ -53,7 +53,7 @@ func bufferTextBytes(buf *buffer.Buffer) []byte {
 		return nil
 	}
 	var out bytes.Buffer
-	for lineNum := uint(1); lineNum <= buf.LineCount; lineNum++ {
+	for lineNum := 1; lineNum <= len(buf.Lines); lineNum++ {
 		if lineNum > 1 {
 			out.WriteByte('\n')
 		}
@@ -173,7 +173,7 @@ func CollectCandidates(buf *buffer.Buffer, prefix string) []string {
 	for _, word := range keywordsForLang(buf.LangMode) {
 		add(word)
 	}
-	for lineNum := uint(1); lineNum <= buf.LineCount; lineNum++ {
+	for lineNum := 1; lineNum <= len(buf.Lines); lineNum++ {
 		scanLineWords(buf.Line(lineNum), add)
 	}
 	if buf.LangMode == buffer.LModeGo {
@@ -193,7 +193,7 @@ func setPending(fullWord, prefix string) {
 	pending = suffix
 }
 
-func stringListProvider(ctx any, idx uint) []byte {
+func stringListProvider(ctx any, idx int) []byte {
 	names, ok := ctx.([]string)
 	if !ok || int(idx) >= len(names) {
 		return nil
@@ -210,7 +210,7 @@ func pickMatch(candidates []string, prefix string, onDone func(match string, ok 
 		onDone(candidates[0], true)
 		return
 	}
-	AskFuzzy("Complete: ", stringListProvider, candidates, uint(len(candidates)), func(label string, pr minibuffer.PromptResult) {
+	AskFuzzy("Complete: ", stringListProvider, candidates, len(candidates), func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			onDone("", false)
 			return

@@ -62,10 +62,13 @@ type SynState struct {
 	Curly   uint8
 }
 
+// OffsetUnset marks an unknown/absent byte offset in SyntaxLineSummary.
+const OffsetUnset = -1
+
 type SyntaxLineSummary struct {
-	FirstCodeOffset uint
-	OpenOffsets     [3]uint
-	CloseOffsets    [3]uint
+	FirstCodeOffset int
+	OpenOffsets     [3]int
+	CloseOffsets    [3]int
 	OpenMask        uint8
 	CloseMask       uint8
 }
@@ -73,6 +76,6 @@ type SyntaxLineSummary struct {
 type SyntaxBlock struct {
 	Open       Location
 	Close      Location
-	HeaderLine uint
+	HeaderLine int
 	Delimiter  byte
 }

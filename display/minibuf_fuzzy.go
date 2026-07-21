@@ -16,11 +16,11 @@ type fuzzyMatchCtx struct {
 	providerCtx      any
 	displayFormatter minibuffer.MbMatchFormatter
 	displayCtx       any
-	indices          []uint
+	indices          []int
 }
 
-func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize uint, listIdx uint) {
-	if int(listIdx) >= len(ctx.indices) {
+func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize int, listIdx int) {
+	if listIdx >= len(ctx.indices) {
 		return
 	}
 	provIdx := ctx.indices[listIdx]
@@ -36,8 +36,8 @@ func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize uint, listIdx 
 		return
 	}
 	n := len(name)
-	if uint(n) >= outSize {
-		n = int(outSize) - 1
+	if n >= outSize {
+		n = outSize - 1
 	}
 	if n < 0 {
 		n = 0
@@ -46,7 +46,7 @@ func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize uint, listIdx 
 	out[n] = 0
 }
 
-func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, count uint, selected uint) {
+func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, count int, selected int) {
 	if count == 0 {
 		window.SetMatchBufferText(nil, 0)
 		DisplayUpdate()
@@ -54,9 +54,9 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 	}
 
 	var out strings.Builder
-	for i := uint(0); i < count; i++ {
+	for i := 0; i < count; i++ {
 		line := make([]byte, 512)
-		formatter(line, uint(len(line)), i, ctx)
+		formatter(line, len(line), i, ctx)
 		end := 0
 		for end < len(line) && line[end] != 0 {
 			end++
@@ -74,30 +74,30 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 	DisplayUpdate()
 }
 
-func fuzzyMatchRefresh(matches []uint, sel int, ctx *fuzzyMatchCtx) {
+func fuzzyMatchRefresh(matches []int, sel int, ctx *fuzzyMatchCtx) {
 	ctx.indices = matches
-	count := uint(len(matches))
+	count := len(matches)
 	if count > fuzzyMaxMatches {
 		count = fuzzyMaxMatches
 	}
 	if count == 0 {
-		writeMatchBufferGeneric(func([]byte, uint, uint, any) {}, ctx, 0, 0)
+		writeMatchBufferGeneric(func([]byte, int, int, any) {}, ctx, 0, 0)
 		return
 	}
 	if sel < 0 {
 		sel = 0
 	}
-	if uint(sel) >= count {
-		sel = int(count) - 1
+	if sel >= count {
+		sel = count - 1
 	}
-	writeMatchBufferGeneric(func(out []byte, outSize uint, idx uint, c any) {
+	writeMatchBufferGeneric(func(out []byte, outSize int, idx int, c any) {
 		fuzzyMatchFormatLine(c.(*fuzzyMatchCtx), out, outSize, idx)
-	}, ctx, count, uint(sel))
+	}, ctx, count, sel)
 }
 
-func fuzzyListRedraw(prompt string, state *minibuffer.MinibufferState, ctx *fuzzyMatchCtx, matches []uint, sel int) {
+func fuzzyListRedraw(prompt string, state *minibuffer.MinibufferState, ctx *fuzzyMatchCtx, matches []int, sel int) {
 	fuzzyMatchRefresh(matches, sel, ctx)
-	MBWritePrompt(promptFormatWithCount(prompt, sel, len(matches)), state.Text, int(state.CursorPos))
+	MBWritePrompt(promptFormatWithCount(prompt, sel, len(matches)), state.Text, state.CursorPos)
 }
 
 // ---- Fuzzy list prompt (generic) --------------------------------------------
@@ -156,16 +156,16 @@ func fuzzyScore(name, query []byte) (bool, int) {
 
 // fuzzyMatches returns up to maxMatches indices from provider that best match
 // query, ordered by score descending.
-func fuzzyMatches(provider minibuffer.MbNameProviderFn, ctx any, count uint, query []byte, maxMatches int) []uint {
+func fuzzyMatches(provider minibuffer.MbNameProviderFn, ctx any, count int, query []byte, maxMatches int) []int {
 	if count == 0 || maxMatches <= 0 {
 		return nil
 	}
 	type entry struct {
-		idx   uint
+		idx   int
 		score int
 	}
 	matches := make([]entry, 0, maxMatches)
-	for i := uint(0); i < count; i++ {
+	for i := 0; i < count; i++ {
 		name := provider(ctx, i)
 		if name == nil {
 			continue
@@ -189,7 +189,7 @@ func fuzzyMatches(provider minibuffer.MbNameProviderFn, ctx any, count uint, que
 	if n > maxMatches {
 		n = maxMatches
 	}
-	out := make([]uint, 0, n)
+	out := make([]int, 0, n)
 	for i := 0; i < n; i++ {
 		out = append(out, matches[i].idx)
 	}

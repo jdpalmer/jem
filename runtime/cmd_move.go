@@ -30,8 +30,8 @@ func forwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 	off := int(loc.Offset)
 	// If past EOL, start at the next line; otherwise skip non-word on this line.
 	if off >= len(line.Data) {
-		if loc.Line >= buf.LineCount {
-			return buffer.Location{Line: buf.LineCount, Offset: line.Len()}
+		if loc.Line >= len(buf.Lines) {
+			return buffer.Location{Line: len(buf.Lines), Offset: line.Len()}
 		}
 		loc.Line++
 		off = 0
@@ -41,7 +41,7 @@ func forwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 		}
 	}
 	// Skip non-word then word, wrapping across lines as needed.
-	for loc.Line <= buf.LineCount {
+	for loc.Line <= len(buf.Lines) {
 		line = buf.Line(loc.Line)
 		if line == nil {
 			return loc
@@ -53,15 +53,15 @@ func forwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 			for off < len(line.Data) && isWordChar(line.Data[off]) {
 				off++
 			}
-			return buffer.Location{Line: loc.Line, Offset: uint(off)}
+			return buffer.Location{Line: loc.Line, Offset: off}
 		}
-		if loc.Line >= buf.LineCount {
-			return buffer.Location{Line: buf.LineCount, Offset: 0}
+		if loc.Line >= len(buf.Lines) {
+			return buffer.Location{Line: len(buf.Lines), Offset: 0}
 		}
 		loc.Line++
 		off = 0
 	}
-	return buffer.Location{Line: buf.LineCount, Offset: 0}
+	return buffer.Location{Line: len(buf.Lines), Offset: 0}
 }
 
 // move backward by one word: go left, skip non-word, then skip word backwards
@@ -93,8 +93,8 @@ func backwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 	}
 	// Step back to a word char, then skip non-word and word backwards.
 	for off > 0 {
-		offPrev := buffer.PrevOffset(line.Data, uint(off))
-		if offPrev == uint(off) {
+		offPrev := buffer.PrevOffset(line.Data, off)
+		if offPrev == off {
 			off--
 		} else {
 			off = int(offPrev)
@@ -113,7 +113,7 @@ func backwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 	for off > 0 && isWordChar(line.Data[off-1]) {
 		off--
 	}
-	return buffer.Location{Line: loc.Line, Offset: uint(off)}
+	return buffer.Location{Line: loc.Line, Offset: off}
 }
 
 // Move forward by a single codepoint, preserving UTF-8 boundaries.
@@ -128,7 +128,7 @@ func CmdForwardChar(f bool, n int) bool {
 		line := buf.Line(win.Cursor.Line)
 		if line != nil && win.Cursor.Offset < line.Len() {
 			win.Cursor.Offset = buffer.NextOffset(line.Data, win.Cursor.Offset)
-		} else if win.Cursor.Line < buf.LineCount {
+		} else if win.Cursor.Line < len(buf.Lines) {
 			win.Cursor.Line++
 			win.Cursor.Offset = 0
 		} else {
@@ -205,9 +205,9 @@ func CmdForwardPage(f bool, n int) bool {
 	if win == nil {
 		return false
 	}
-	pageLines := int(win.Height)
+	pageLines := win.Height
 	if pageLines > 2 {
-		pageLines = int(win.Height - 2)
+		pageLines = win.Height - 2
 	} else {
 		pageLines = 1
 	}
@@ -219,9 +219,9 @@ func CmdBackwardPage(f bool, n int) bool {
 	if win == nil {
 		return false
 	}
-	pageLines := int(win.Height)
+	pageLines := win.Height
 	if pageLines > 2 {
-		pageLines = int(win.Height - 2)
+		pageLines = win.Height - 2
 	} else {
 		pageLines = 1
 	}
@@ -235,10 +235,10 @@ func CmdForwardLine(f bool, n int) bool {
 		return false
 	}
 
-	if win.Cursor.Line+uint(n) <= buf.LineCount {
-		win.Cursor.Line += uint(n)
+	if win.Cursor.Line+n <= len(buf.Lines) {
+		win.Cursor.Line += n
 	} else {
-		win.Cursor.Line = buf.LineCount
+		win.Cursor.Line = len(buf.Lines)
 	}
 
 	line := buf.Line(win.Cursor.Line)
@@ -256,8 +256,8 @@ func CmdBackwardLine(f bool, n int) bool {
 		return false
 	}
 
-	if win.Cursor.Line > uint(n) {
-		win.Cursor.Line -= uint(n)
+	if win.Cursor.Line > n {
+		win.Cursor.Line -= n
 	} else {
 		win.Cursor.Line = 1
 	}
@@ -308,7 +308,7 @@ func CmdGotoEOF(f bool, n int) bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
 	if win != nil && buf != nil {
-		win.Cursor.Line = buf.LineCount
+		win.Cursor.Line = len(buf.Lines)
 		line := buf.Line(win.Cursor.Line)
 		if line != nil {
 			win.Cursor.Offset = line.Len()
@@ -346,13 +346,13 @@ func CmdGotoLine(f bool, n int) bool {
 	if buf == nil || win == nil {
 		return false
 	}
-	var target uint
+	var target int
 	if f {
 		if n <= 0 {
 			display.MBWrite("[line number out of range]")
 			return false
 		}
-		target = uint(n)
+		target = n
 	} else {
 		AskStringCap("Goto line: ", "", 32, func(lineStr string, pr minibuffer.PromptResult) {
 			if pr != minibuffer.PromptResultYes {
@@ -370,8 +370,8 @@ func CmdGotoLine(f bool, n int) bool {
 	return gotoLineNumber(buf, win, target)
 }
 
-func gotoLineNumber(buf *buffer.Buffer, win *window.Window, target uint) bool {
-	if target > buf.LineCount {
+func gotoLineNumber(buf *buffer.Buffer, win *window.Window, target int) bool {
+	if target > len(buf.Lines) {
 		display.MBWrite("[line number out of range]")
 		return false
 	}
@@ -383,17 +383,17 @@ func gotoLineNumber(buf *buffer.Buffer, win *window.Window, target uint) bool {
 	return true
 }
 
-func parsePositiveLineNumber(s string) (uint, bool) {
+func parsePositiveLineNumber(s string) (int, bool) {
 	if s == "" {
 		return 0, false
 	}
-	var n uint
+	var n int
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c < '0' || c > '9' {
 			return 0, false
 		}
-		n = n*10 + uint(c-'0')
+		n = n*10 + int(c-'0')
 		if n == 0 {
 			return 0, false
 		}

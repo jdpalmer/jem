@@ -66,11 +66,11 @@ func windowDeleteBytes(win *window.Window, n int, kill bool) bool {
 			take = avail
 		}
 		if take > 0 {
-			endLoc.Offset += uint(take)
+			endLoc.Offset += take
 			remaining -= take
 			continue
 		}
-		if endLoc.Line < buf.LineCount {
+		if endLoc.Line < len(buf.Lines) {
 			endLoc.Line++
 			endLoc.Offset = 0
 			remaining--
@@ -121,7 +121,7 @@ func CmdKill(f bool, n int) bool {
 		chunk = int(line.Len()-win.Cursor.Offset) + 1
 		for i := 1; i < n; i++ {
 			lineNumber++
-			if lineNumber > buf.LineCount {
+			if lineNumber > len(buf.Lines) {
 				return false
 			}
 			nlp := buf.Line(lineNumber)
@@ -231,7 +231,7 @@ func CmdTransposeChars(f bool, n int) bool {
 		return false
 	}
 	offset := win.Cursor.Offset
-	var rightStart, rightEnd uint
+	var rightStart, rightEnd int
 	if offset == line.Len() {
 		rightEnd = offset
 		rightStart = buffer.PrevOffset(line.Data, rightEnd)
@@ -267,7 +267,7 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 		return false
 	}
 	cur := win.Cursor.Line
-	if cur > buf.LineCount {
+	if cur > len(buf.Lines) {
 		return true
 	}
 	line := buf.Line(cur)
@@ -277,7 +277,7 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 			start--
 		}
 		end := cur
-		for end < buf.LineCount && buf.Line(end+1).Len() == 0 {
+		for end < len(buf.Lines) && buf.Line(end+1).Len() == 0 {
 			end++
 		}
 		if end-start+1 <= 1 {
@@ -285,9 +285,9 @@ func CmdDeleteBlankLines(f bool, n int) bool {
 		}
 		return bufferSetText(buf, buffer.MakeLocation(start+1, 0), buffer.MakeLocation(end+1, 0), nil, nil, false)
 	}
-	nld := uint(0)
+	nld := 0
 	lineNum := cur
-	for lineNum < buf.LineCount && buf.Line(lineNum+1).Len() == 0 {
+	for lineNum < len(buf.Lines) && buf.Line(lineNum+1).Len() == 0 {
 		lineNum++
 		nld++
 	}
@@ -364,7 +364,7 @@ func CmdTransposeLines(f bool, n int) bool {
 	p0 := buffer.MakeLocation(curr-1, 0)
 	p2 := buffer.MakeLocation(curr+1, 0)
 	original := buf.GetText(p0, p2)
-	total := uint(len(original))
+	total := len(original)
 	if original == nil && total > 0 {
 		display.MBWrite("[out of memory]")
 		return false
@@ -374,7 +374,7 @@ func CmdTransposeLines(f bool, n int) bool {
 		return false
 	}
 	len1 := prevLp.Len() + 1
-	if uint(len(original)) < len1 {
+	if len(original) < len1 {
 		return false
 	}
 	swapped := make([]byte, 0, len(original))
@@ -388,13 +388,13 @@ func CmdTransposeLines(f bool, n int) bool {
 }
 
 // bufferCharStats returns the character under point, chars before point, and total chars.
-func bufferCharStats(buf *buffer.Buffer, win *window.Window) (charAt int, before, total uint) {
+func bufferCharStats(buf *buffer.Buffer, win *window.Window) (charAt int, before, total int) {
 	if buf == nil || win == nil {
 		return '\n', 0, 0
 	}
-	cline := uint(1)
-	cbo := uint(0)
-	var nch uint
+	cline := 1
+	cbo := 0
+	var nch int
 	for {
 		line := buf.Line(cline)
 		if cline == win.Cursor.Line && cbo == win.Cursor.Offset {
@@ -406,7 +406,7 @@ func bufferCharStats(buf *buffer.Buffer, win *window.Window) (charAt int, before
 			}
 		}
 		if line == nil || cbo == line.Len() {
-			if cline >= buf.LineCount {
+			if cline >= len(buf.Lines) {
 				break
 			}
 			cline++
@@ -431,7 +431,7 @@ func CmdShowPosition(f bool, n int) bool {
 	}
 	charAt, before, total := bufferCharStats(buf, win)
 	col := display.WindowCursorScreenCol(win)
-	ratio := uint(0)
+	ratio := 0
 	if total > 0 {
 		ratio = (100 * before) / total
 	}

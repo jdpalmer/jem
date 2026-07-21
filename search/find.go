@@ -147,11 +147,11 @@ func searchCharsEqual(bc, pc int) bool {
 	return unicode.ToUpper(rune(bc)) == unicode.ToUpper(rune(pc))
 }
 
-func searchReadForward(buf *buffer.Buffer, lineNum *uint, offset *uint) (int, bool) {
+func searchReadForward(buf *buffer.Buffer, lineNum *int, offset *int) (int, bool) {
 	if buf == nil || lineNum == nil || offset == nil {
 		return -1, false
 	}
-	if *lineNum > buf.LineCount {
+	if *lineNum > len(buf.Lines) {
 		return -1, false
 	}
 	line := buf.Line(*lineNum)
@@ -168,7 +168,7 @@ func searchReadForward(buf *buffer.Buffer, lineNum *uint, offset *uint) (int, bo
 	return c, true
 }
 
-func searchReadBackward(buf *buffer.Buffer, lineNum *uint, offset *uint) (int, bool) {
+func searchReadBackward(buf *buffer.Buffer, lineNum *int, offset *int) (int, bool) {
 	if buf == nil || lineNum == nil || offset == nil {
 		return -1, false
 	}
@@ -202,7 +202,7 @@ func findNextPlain(win *window.Window, pattern []byte) bool {
 	cline := win.Cursor.Line
 	cbo := win.Cursor.Offset
 
-	for cline <= buf.LineCount {
+	for cline <= len(buf.Lines) {
 		c, ok := searchReadForward(buf, &cline, &cbo)
 		if !ok {
 			break
@@ -214,7 +214,7 @@ func findNextPlain(win *window.Window, pattern []byte) bool {
 		tbo := cbo
 		matched := true
 		for i := 1; i < len(pattern); i++ {
-			if tline > buf.LineCount {
+			if tline > len(buf.Lines) {
 				matched = false
 				break
 			}

@@ -7,7 +7,7 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-func prevNonblankLineNumber(buf *buffer.Buffer, lineNumber uint) uint {
+func prevNonblankLineNumber(buf *buffer.Buffer, lineNumber int) int {
 	for lineNumber > 1 {
 		lineNumber--
 		p := buf.Line(lineNumber)

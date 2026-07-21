@@ -34,11 +34,11 @@ func stylesEqual(a, b []buffer.TextStyle) bool {
 // IncrementalReparse reparses starting at line 'startLine' (1-based) in buffer buf
 // and continues until the computed end-state matches the previously stored end
 // state for a line (i.e., no further changes propagate).
-func IncrementalReparse(buf *buffer.Buffer, startLine uint) {
-	if buf == nil || startLine == 0 || startLine > buf.LineCount {
+func IncrementalReparse(buf *buffer.Buffer, startLine int) {
+	if buf == nil || startLine == 0 || startLine > len(buf.Lines) {
 		return
 	}
-	for ln := startLine; ln <= buf.LineCount; ln++ {
+	for ln := startLine; ln <= len(buf.Lines); ln++ {
 		line := buf.Line(ln)
 		if line == nil {
 			continue
@@ -74,10 +74,10 @@ func IncrementalReparse(buf *buffer.Buffer, startLine uint) {
 		f, err := os.OpenFile("/tmp/jem-syntax.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
 			defer f.Close()
-			fmt.Fprintf(f, "--- IncrementalReparse snapshot %s startLine=%d bufferLines=%d\n", time.Now().Format(time.RFC3339), startLine, buf.LineCount)
+			fmt.Fprintf(f, "--- IncrementalReparse snapshot %s startLine=%d bufferLines=%d\n", time.Now().Format(time.RFC3339), startLine, len(buf.Lines))
 			end := startLine + 9
-			if end > buf.LineCount {
-				end = buf.LineCount
+			if end > len(buf.Lines) {
+				end = len(buf.Lines)
 			}
 			for ln := startLine; ln <= end; ln++ {
 				line := buf.Line(ln)

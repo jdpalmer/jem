@@ -4,11 +4,11 @@ import "testing"
 
 func testUndoReplay(buf *Buffer) UndoReplay {
 	return UndoReplay{
-		InsertText: func(lineNumber, offset uint, text []byte) error {
+		InsertText: func(lineNumber, offset int, text []byte) error {
 			loc := MakeLocation(lineNumber, offset)
 			return buf.ReplaceRaw(loc, loc, text, nil)
 		},
-		DeleteText: func(lineNumber, offset uint, text []byte) error {
+		DeleteText: func(lineNumber, offset int, text []byte) error {
 			begin := MakeLocation(lineNumber, offset)
 			endLine, endOffset := lineNumber, offset
 			for i := 0; i < len(text); i++ {

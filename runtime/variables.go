@@ -312,7 +312,7 @@ func varFindByName(name string) *variable {
 	return nil
 }
 
-func varTableProvider(ctx any, idx uint) []byte {
+func varTableProvider(ctx any, idx int) []byte {
 	_ = ctx
 	if int(idx) >= len(varTable) {
 		return nil
@@ -329,7 +329,7 @@ func CmdSetVariable(f bool, n int) bool {
 	_ = f
 	_ = n
 	buf := buffer.All.Current
-	AskFuzzy("Set variable: ", varTableProvider, nil, uint(len(varTable)), func(name string, pr minibuffer.PromptResult) {
+	AskFuzzy("Set variable: ", varTableProvider, nil, len(varTable), func(name string, pr minibuffer.PromptResult) {
 		if pr == minibuffer.PromptResultAbort {
 			CmdAbort(false, 1)
 			return
@@ -362,7 +362,7 @@ func CmdSetVariable(f bool, n int) bool {
 func CmdDescribeVariable(f bool, n int) bool {
 	_ = f
 	_ = n
-	AskFuzzy("Describe variable: ", varTableProvider, nil, uint(len(varTable)), func(name string, pr minibuffer.PromptResult) {
+	AskFuzzy("Describe variable: ", varTableProvider, nil, len(varTable), func(name string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes {
 			return
 		}

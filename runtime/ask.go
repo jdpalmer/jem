@@ -116,12 +116,12 @@ func AskStringCap(prompt, initial string, capacity int, onDone PromptDone) {
 }
 
 // AskFuzzy pushes a fuzzy-list prompt listener.
-func AskFuzzy(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, onDone PromptDone) {
+func AskFuzzy(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, onDone PromptDone) {
 	AskFuzzyEx(prompt, provider, providerCtx, providerCount, nil, nil, onDone)
 }
 
 // AskFuzzyEx is AskFuzzy with a custom match formatter.
-func AskFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone PromptDone) {
+func AskFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone PromptDone) {
 	if text, pr, played := TakeMacroPromptReply(); played {
 		if onDone != nil {
 			onDone(text, pr)
@@ -147,7 +147,7 @@ func AskFilename(prompt, initial string, onDone PromptDone) {
 }
 
 // AskChoose pushes a horizontal choice menu listener.
-func AskChoose(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count uint8, defaultIdx uint8, onDone ChooseDone) {
+func AskChoose(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count int, defaultIdx int, onDone ChooseDone) {
 	p := display.NewChoosePrompt(prompt, ctx, labelFn, count, defaultIdx)
 	if p == nil {
 		if onDone != nil {

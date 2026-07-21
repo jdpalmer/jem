@@ -11,19 +11,19 @@ import (
 const wheelLines = 3
 
 var mouseAnchorWindow *window.Window
-var mouseAnchorLine uint
-var mouseAnchorOffset uint
+var mouseAnchorLine int
+var mouseAnchorOffset int
 
 func windowCursorIsVisible(win *window.Window) bool {
 	if win == nil {
 		return false
 	}
 	visibleLine := win.TopLine
-	for i := uint32(0); i < win.Height; i++ {
+	for i := 0; i < win.Height; i++ {
 		if visibleLine == win.Cursor.Line {
 			return true
 		}
-		if visibleLine > win.Buffer.LineCount {
+		if visibleLine > len(win.Buffer.Lines) {
 			break
 		}
 		visibleLine++
@@ -31,14 +31,14 @@ func windowCursorIsVisible(win *window.Window) bool {
 	return false
 }
 
-func windowLastVisibleLine(win *window.Window) uint {
+func windowLastVisibleLine(win *window.Window) int {
 	if win == nil {
 		return 1
 	}
 	visibleLine := win.TopLine
 	lastVisible := win.TopLine
-	for i := uint32(0); i < win.Height; i++ {
-		if visibleLine > win.Buffer.LineCount {
+	for i := 0; i < win.Height; i++ {
+		if visibleLine > len(win.Buffer.Lines) {
 			break
 		}
 		lastVisible = visibleLine
@@ -54,7 +54,7 @@ func windowScroll(win *window.Window, n int) {
 	}
 	lineNumber := win.TopLine
 	if n > 0 {
-		for i := 0; i < n && lineNumber < win.Buffer.LineCount; i++ {
+		for i := 0; i < n && lineNumber < len(win.Buffer.Lines); i++ {
 			lineNumber++
 		}
 	} else {
@@ -65,8 +65,8 @@ func windowScroll(win *window.Window, n int) {
 	if lineNumber < 1 {
 		lineNumber = 1
 	}
-	if lineNumber > win.Buffer.LineCount {
-		lineNumber = win.Buffer.LineCount
+	if lineNumber > len(win.Buffer.Lines) {
+		lineNumber = len(win.Buffer.Lines)
 	}
 	win.SetTopLine(lineNumber)
 	win.ShouldRedraw = true

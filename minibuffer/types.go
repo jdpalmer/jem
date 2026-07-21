@@ -21,26 +21,26 @@ const (
 type MinibufferState struct {
 	Prompt           string
 	Text             []byte
-	CursorPos        uint
-	Nbuf             uint
+	CursorPos        int
+	Nbuf             int
 	Style            buffer.TextStyle
 	HistoryPos       int16
 	HaveSavedEdit    bool
 	SavedEdit        []byte
-	SavedEditNbuf    uint
+	SavedEditNbuf    int
 	IsFilename       bool
 	IsCommand        bool
 	IsFuzzyList      bool
 	FuzzyCtx         any
-	FuzzyProvider    func(ctx any, index uint) []byte
-	FuzzyCount       uint
-	FuzzySelected    uint
-	DisplayFormatter func(out []byte, outSize uint, idx uint, ctx any)
+	FuzzyProvider    func(ctx any, index int) []byte
+	FuzzyCount       int
+	FuzzySelected    int
+	DisplayFormatter func(out []byte, outSize int, idx int, ctx any)
 	DisplayCtx       any
-	MatchCount       uint
-	MatchSelected    uint
+	MatchCount       int
+	MatchSelected    int
 }
 
-type MLChoiceLabelFn func(ctx any, index uint8) []byte
-type MbNameProviderFn func(ctx any, index uint) []byte
-type MbMatchFormatter func(out []byte, outSize uint, idx uint, ctx any)
+type MLChoiceLabelFn func(ctx any, index int) []byte
+type MbNameProviderFn func(ctx any, index int) []byte
+type MbMatchFormatter func(out []byte, outSize int, idx int, ctx any)
