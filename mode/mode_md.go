@@ -1,6 +1,8 @@
 package mode
 
 import (
+	"strconv"
+
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/window"
 )
@@ -78,21 +80,7 @@ func mdBuildPrefix(lp *buffer.Line) []byte {
 			del := p[i]
 			if (del == '.' || del == ')') && i+1 < len(p) && p[i+1] == ' ' {
 				next := num + 1
-				buf := []byte("")
-				temp := make([]byte, 0, 12)
-				if next == 0 {
-					temp = append(temp, '0')
-				} else {
-					nn := next
-					for nn > 0 {
-						temp = append(temp, byte('0'+(nn%10)))
-						nn /= 10
-					}
-					for k := len(temp) - 1; k >= 0; k-- {
-						buf = append(buf, temp[k])
-					}
-				}
-				out = append(out, buf...)
+				out = append(out, strconv.AppendInt(nil, int64(next), 10)...)
 				out = append(out, del, ' ')
 				return out
 			}

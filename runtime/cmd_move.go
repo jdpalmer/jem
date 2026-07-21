@@ -21,7 +21,6 @@ func isWordChar(b byte) bool {
 }
 
 // move forward by one word: skip non-word then skip word
-// move forward by one word: skip non-word then skip word
 func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 	if bp == nil || loc.Line == 0 {
 		return loc
@@ -31,28 +30,19 @@ func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 		return loc
 	}
 	off := int(loc.Offset)
-	// within line: if at or beyond used, move to next line start
-	for {
-		if off < len(line.Data) {
-			b := line.Data[off]
-			if !isWordChar(b) {
-				// skip non-word
-				off++
-				continue
-			}
-			break
-		} else {
-			// move to next line
-			if loc.Line >= bp.LineCount {
-				return buffer.Location{Line: bp.LineCount, Offset: line.Len()}
-			}
-			loc.Line++
-			line = bp.Line(loc.Line)
-			off = 0
+	// If past EOL, start at the next line; otherwise skip non-word on this line.
+	if off >= len(line.Data) {
+		if loc.Line >= bp.LineCount {
+			return buffer.Location{Line: bp.LineCount, Offset: line.Len()}
 		}
-		break
+		loc.Line++
+		off = 0
+	} else {
+		for off < len(line.Data) && !isWordChar(line.Data[off]) {
+			off++
+		}
 	}
-	// now skip non-word starting at original pos
+	// Skip non-word then word, wrapping across lines as needed.
 	for loc.Line <= bp.LineCount {
 		line = bp.Line(loc.Line)
 		if line == nil {
@@ -62,13 +52,11 @@ func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 			off++
 		}
 		if off < len(line.Data) {
-			// found start of word; now advance to end of word
 			for off < len(line.Data) && isWordChar(line.Data[off]) {
 				off++
 			}
 			return buffer.Location{Line: loc.Line, Offset: uint(off)}
 		}
-		// continue to next line
 		if loc.Line >= bp.LineCount {
 			return buffer.Location{Line: bp.LineCount, Offset: 0}
 		}
@@ -79,12 +67,10 @@ func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 }
 
 // move backward by one word: go left, skip non-word, then skip word backwards
-// move backward by one word: go left, skip non-word, then skip word backwards
 func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 	if bp == nil || loc.Line == 0 {
 		return loc
 	}
-	// If at start of buffer, return same
 	if loc.Line == 1 && loc.Offset == 0 {
 		return loc
 	}
@@ -93,9 +79,8 @@ func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 		return loc
 	}
 	off := int(loc.Offset)
-	// start by stepping left one position (if at offset 0, move to end of prev line)
+	// Step left one position (if at offset 0, move to end of previous line).
 	if off == 0 {
-		// move to end of previous line
 		if loc.Line > 1 {
 			loc.Line--
 			line = bp.Line(loc.Line)
@@ -108,42 +93,31 @@ func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 			return loc
 		}
 	}
-	// now off > 0 or at some position; step left over non-word then word
-	// step back to previous codepoint boundary and inspect bytes
-	for {
-		for off > 0 {
-			// move to previous UTF-8 rune start
-			offPrev := utf8PrevOffset(line.Data, uint(off))
-			if offPrev == uint(off) { // can't move
-				off--
-			} else {
-				off = int(offPrev)
-			}
-			b := byte(0)
-			if off < len(line.Data) {
-				b = line.Data[off]
-			}
-			if isWordChar(b) {
-				break
-			}
-			if off == 0 {
-				break
-			}
-		}
-		// skip non-word backwards
-		for off > 0 && !isWordChar(line.Data[off-1]) {
+	// Step back to a word char, then skip non-word and word backwards.
+	for off > 0 {
+		offPrev := utf8PrevOffset(line.Data, uint(off))
+		if offPrev == uint(off) {
 			off--
+		} else {
+			off = int(offPrev)
 		}
-		// now skip word backwards
-		for off > 0 && isWordChar(line.Data[off-1]) {
-			off--
+		b := byte(0)
+		if off < len(line.Data) {
+			b = line.Data[off]
 		}
-		return buffer.Location{Line: loc.Line, Offset: uint(off)}
+		if isWordChar(b) || off == 0 {
+			break
+		}
 	}
-	return loc
+	for off > 0 && !isWordChar(line.Data[off-1]) {
+		off--
+	}
+	for off > 0 && isWordChar(line.Data[off-1]) {
+		off--
+	}
+	return buffer.Location{Line: loc.Line, Offset: uint(off)}
 }
 
-// Move forward by a single codepoint, preserving UTF-8 boundaries.
 // Move forward by a single codepoint, preserving UTF-8 boundaries.
 func CmdForwardChar(f bool, n int) bool {
 	wp := window.Active.CurrentWindow
