@@ -12,7 +12,6 @@ import (
 	"github.com/jdpalmer/jem/window"
 	"os"
 	"path/filepath"
-	"strings"
 	"unicode"
 )
 
@@ -247,43 +246,6 @@ func tagSymbolAtPoint(wp *window.Window, symbol []byte) bool {
 	copy(symbol, line.Data[start:end])
 	symbol[end-start] = 0
 	return true
-}
-
-func tagMoveCursorToLine(wp *window.Window, target, offset uint32) bool {
-	if wp == nil || wp.Buffer == nil {
-		return false
-	}
-	bp := wp.Buffer
-	if target == 0 || uint(target) > bp.LineCount {
-		return false
-	}
-	lp := bp.Line(uint(target))
-	off := uint(offset)
-	if off > lp.Len() {
-		off = lp.Len()
-	}
-	wp.SetCursor(buffer.MakeLocation(uint(target), off))
-	wp.DidMove = true
-	wp.ShouldUpdateModeLine = true
-	wp.ShouldRedraw = true
-	wp.CenterCursor()
-	return true
-}
-
-func bufferNameFromPath(fname string) string {
-	base := filepath.Base(fname)
-	if i := strings.IndexByte(base, ';'); i >= 0 {
-		base = base[:i]
-	}
-	if buffer.Find(base) == nil {
-		return buffer.TruncateName(base)
-	}
-	for suffix := 2; ; suffix++ {
-		name := fmt.Sprintf("%s:%d", base, suffix)
-		if buffer.Find(name) == nil {
-			return buffer.TruncateName(name)
-		}
-	}
 }
 
 func tagVisitLocation(path string, line, offset uint32) bool {

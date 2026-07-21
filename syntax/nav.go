@@ -140,27 +140,6 @@ func syntaxCharIsStructural(bp *buffer.Buffer, lineNumber, offset uint) bool {
 	return syntaxContextIsStructural(syntaxContextFromState(&after))
 }
 
-func syntaxGetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *buffer.SyntaxLineSummary) bool {
-	if bp == nil || lineNumber == 0 || lineNumber >= bp.EOF() {
-		return false
-	}
-	lp := bp.Line(lineNumber)
-	if lp == nil {
-		return false
-	}
-	if !lp.SyntaxValid {
-		var st buffer.SynState
-		bufferSyntaxFindStart(bp, lineNumber, &st)
-		end, summary, styles := tokenizeLineFromState(lp, st)
-		lp.SyntaxEndState = end
-		lp.SyntaxSummary = summary
-		lp.SyntaxStyles = styles
-		lp.SyntaxValid = true
-	}
-	*summaryOut = lp.SyntaxSummary
-	return true
-}
-
 func syntaxFindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, matchOut *buffer.Location) bool {
 	if bp == nil || start.Line == 0 || start.Line >= bp.EOF() {
 		return false
@@ -236,20 +215,6 @@ func syntaxFindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, match
 	return false
 }
 
-func syntaxLocationHasDelimiter(bp *buffer.Buffer, loc buffer.Location) bool {
-	if bp == nil || loc.Line == 0 || loc.Line >= bp.EOF() {
-		return false
-	}
-	lp := bp.Line(loc.Line)
-	if lp == nil || loc.Offset >= lp.Len() {
-		return false
-	}
-	if _, _, _, ok := DelimiterPair(int(lp.Byte(loc.Offset))); !ok {
-		return false
-	}
-	return syntaxCharIsStructural(bp, loc.Line, loc.Offset)
-}
-
 // FindMatchingDelimiter finds the partner delimiter for start.
 func FindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, matchOut *buffer.Location) bool {
 	return syntaxFindMatchingDelimiter(bp, start, matchOut)
@@ -258,9 +223,4 @@ func FindMatchingDelimiter(bp *buffer.Buffer, start buffer.Location, matchOut *b
 // CharIsStructural reports whether offset on line is a structural delimiter char.
 func CharIsStructural(bp *buffer.Buffer, lineNumber, offset uint) bool {
 	return syntaxCharIsStructural(bp, lineNumber, offset)
-}
-
-// GetLineSummary ensures syntax summary for a line is computed.
-func GetLineSummary(bp *buffer.Buffer, lineNumber uint, summaryOut *buffer.SyntaxLineSummary) bool {
-	return syntaxGetLineSummary(bp, lineNumber, summaryOut)
 }

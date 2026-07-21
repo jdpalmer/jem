@@ -20,7 +20,6 @@ import (
 var (
 	ErrNoBuffer   = errors.New("no current buffer")
 	ErrReadonly   = errors.New("read-only buffer")
-	ErrCancelled  = errors.New("cancelled")
 	ErrNoFilename = errors.New("no filename")
 	// AutoRevertMode and Dispatching are process settings installed by runtime.
 	AutoRevertMode bool
@@ -164,21 +163,6 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	bp.FileMtime = FileMtime(resolved)
 	bp.DiskChangeNotifiedMtime = time.Time{}
 	return nil
-}
-
-func SaveCurrentBuffer(fn string, confirmOverwrite func(string) bool, writef func(string, ...any)) error {
-	bp := buffer.All.Current
-	if bp == nil {
-		return ErrNoBuffer
-	}
-
-	if NeedsOverwriteConfirm(fn) {
-		if confirmOverwrite == nil || !confirmOverwrite("file changed on disk. overwrite") {
-			return ErrCancelled
-		}
-	}
-
-	return SaveCurrentBufferForce(fn, writef)
 }
 
 // NeedsOverwriteConfirm reports whether fn's on-disk mtime differs from the buffer's.

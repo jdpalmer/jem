@@ -163,11 +163,6 @@ func IsPasteRedrawKey(k uint32) bool {
 	return k == pasteRedrawKey
 }
 
-// RequestDisplayRefresh wakes the main or minibuffer input loop to redraw.
-func RequestDisplayRefresh() {
-	event.Enqueue(event.KeyEvent{Code: pasteRedrawKey})
-}
-
 // pasteRepaintPending is set when a bracketed paste was applied this cycle so
 // DisplayUpdate can nudge terminals (e.g. iTerm2) that defer painting
 // already-flushed output until another input round-trip occurs.

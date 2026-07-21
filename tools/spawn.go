@@ -17,8 +17,6 @@ import (
 
 const CommandPromptCapacity = 256
 
-var Dispatching bool
-
 func spawnPrintNotice(label, command string) {
 	fmt.Fprint(os.Stdout, "\n[jem] ", label)
 	if command != "" {
@@ -60,9 +58,6 @@ func SpawnShell(command *string) int {
 	} else {
 		cmd = spawnRunCommand(*command)
 	}
-
-	// Keys enqueue to the event bus; clear Dispatching so spawn isn't treated as a prompt.
-	Dispatching = false
 
 	if !TermFreezeInput() {
 		mbWrite("[spawn unavailable: input reader did not pause]")

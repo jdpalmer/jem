@@ -380,51 +380,7 @@ func tickKillState() {
 	killring.Tick()
 }
 
-// EditKey applies one editing keystroke to a raw prompt buffer (used by isearch).
-func EditKey(buf []byte, cpos *int, nbuf int, k uint32) MinibufferEditResult {
-	if cpos == nil || nbuf <= 0 {
-		return MinibufEditUnhandled
-	}
-	end := 0
-	for end < nbuf && buf[end] != 0 {
-		end++
-	}
-	state := MinibufferState{
-		Text:       append(make([]byte, 0, nbuf), buf[:end]...),
-		Nbuf:       uint(nbuf),
-		CursorPos:  uint(*cpos),
-		HistoryPos: -1,
-	}
-	if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
-		return MinibufEditUnhandled
-	}
-	tickKillState()
-	switch k {
-	case 0x7F, term.CTL | 'H':
-		if !state.DeleteBackward() {
-			return MinibufEditNoChange
-		}
-	case term.CTL | 'U':
-		if !state.ClearText() {
-			return MinibufEditNoChange
-		}
-	default:
-		if (k&term.KeyMask) != 0 || k < 0x20 {
-			return MinibufEditUnhandled
-		}
-		if !state.InsertChar(rune(k)) {
-			return MinibufEditNoChange
-		}
-	}
-	copy(buf, state.Text)
-	if len(state.Text) < nbuf {
-		buf[len(state.Text)] = 0
-	}
-	*cpos = int(state.CursorPos)
-	return MinibufEditChanged
-}
-
-// EditKeyHistory is like EditKey but supports C-p/C-n history navigation.
+// EditKeyHistory applies one editing keystroke to a raw prompt buffer with C-p/C-n history.
 func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) MinibufferEditResult {
 	if cpos == nil || historyPos == nil || haveSavedEdit == nil || nbuf <= 0 {
 		return MinibufEditUnhandled

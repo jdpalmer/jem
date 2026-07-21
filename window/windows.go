@@ -49,19 +49,6 @@ func (wp *Window) SaveState() {
 	}
 }
 
-func BufferWindowCount(bp *buffer.Buffer) int {
-	if bp == nil {
-		return len(Active.Windows)
-	}
-	count := 0
-	for _, wp := range Active.Windows {
-		if wp != nil && wp.Buffer == bp {
-			count++
-		}
-	}
-	return count
-}
-
 func WindowRetile() {
 	n := len(Active.Windows)
 	if n == 0 {

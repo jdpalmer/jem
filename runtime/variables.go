@@ -72,19 +72,6 @@ var varTable = []variable{
 		write: func(bp *buffer.Buffer, v uint32) { bp.WhitespaceCleanup = v != 0 },
 	},
 	{
-		name: "startup-quote",
-		doc:  "Show a startup quote in the message line on launch: 0 off, 1 on.",
-		min:  0, max: 1, local: false,
-		read: func(bp *buffer.Buffer) uint32 {
-			_ = bp
-			return boolToU32(State.StartupQuote)
-		},
-		write: func(bp *buffer.Buffer, v uint32) {
-			_ = bp
-			State.StartupQuote = v != 0
-		},
-	},
-	{
 		name: "auto-revert-mode",
 		doc:  "Reload buffers from disk when the file changes externally: 0 prompt if modified, 1 always reload.",
 		min:  0, max: 1, local: false,
@@ -169,7 +156,6 @@ func VarsInit() {
 	display.Active.Theme.Mode = display.ThemeDark
 	search.DefaultState.SearchScopeSetting = search.SearchScopeBuffer
 	State.WhitespaceCleanup = true
-	State.StartupQuote = true
 	State.AutoRevertMode = false
 	files.AutoRevertMode = false
 	State.CIndent = 2

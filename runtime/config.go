@@ -11,8 +11,6 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-const keyCodeSpace uint32 = 0x40000000
-
 // ConfigLoad reads ~/.jem.json (if present) and applies settings.
 func ConfigLoad() {
 	VarsInit()

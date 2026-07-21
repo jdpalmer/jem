@@ -35,14 +35,6 @@ func PushListener(l Listener) {
 	listenerStack = append(listenerStack, l)
 }
 
-// PopListener removes the top listener if present.
-func PopListener() {
-	if len(listenerStack) == 0 {
-		return
-	}
-	listenerStack = listenerStack[:len(listenerStack)-1]
-}
-
 func clearListeners() {
 	listenerStack = nil
 }

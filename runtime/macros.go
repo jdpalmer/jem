@@ -79,9 +79,6 @@ func Execute(c int, f bool, n int) bool {
 		}
 	}
 
-	if State.MovementState > MovementNone {
-		State.MovementState--
-	}
 	killring.Tick()
 
 	keycode := uint32(c)

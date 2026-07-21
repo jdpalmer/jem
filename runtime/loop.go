@@ -149,9 +149,8 @@ func Run(e *App) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-	// Paste queue for bracketed paste; keys arrive only via event.Enqueue.
+	// Paste arrives via event.PasteEvent; keys via event.Enqueue.
 	// Background jobs post JobDoneEvent directly onto the bus.
-	display.InitInputChannels(4)
 	tools.InitBackgroundJobs()
 	display.StartKeyReader()
 

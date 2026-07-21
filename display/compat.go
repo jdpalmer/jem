@@ -5,11 +5,6 @@ import (
 	"github.com/jdpalmer/jem/minibuffer"
 )
 
-// InitInputChannels is retained for call-site compatibility (paste now uses PasteEvent).
-func InitInputChannels(pasteQueueSize int) {
-	_ = pasteQueueSize
-}
-
 // ShowMinibuffer marks the session minibuffer active for paste/display.
 func ShowMinibuffer(state *minibuffer.MinibufferState) {
 	minibuffer.Active = state

@@ -1,7 +1,6 @@
 package display
 
 import (
-	"sync"
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/buffer"
@@ -9,16 +8,10 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-type RenderSpan struct {
-	Style buffer.TextStyle
-	Bytes []byte
-}
-
 type ScreenRow struct {
 	Dirty bool
 	Text  []rune
 	Style []buffer.TextStyle
-	Spans []RenderSpan // kept for ScreenSync span-based emission; filled by renderRow
 }
 
 type Screen struct {
@@ -60,12 +53,6 @@ var clipLeftCol int
 
 // phantomTextRune stores the full rune for phantom cursor restore (types.go only has byte)
 var phantomTextRune rune
-
-// Row rendering pools.
-var runeSlicePool sync.Pool
-var widthSlicePool sync.Pool
-var rowBufPool sync.Pool
-var renderBufPool sync.Pool
 
 // ---- Init ------------------------------------------------------------------------
 
@@ -129,7 +116,6 @@ func allocScreen(rows int) Screen {
 	for i := range s.Rows {
 		s.Rows[i].Text = make([]rune, cols)
 		s.Rows[i].Style = make([]buffer.TextStyle, cols)
-		s.Rows[i].Spans = nil
 		for j := 0; j < cols; j++ {
 			s.Rows[i].Text[j] = ' '
 			s.Rows[i].Style[j] = Active.Theme.NormalStyle

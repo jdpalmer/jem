@@ -35,9 +35,6 @@ func TestVarsInitDefaults(t *testing.T) {
 	if State.CIndent != 2 {
 		t.Fatalf("CIndent = %d, want 2", State.CIndent)
 	}
-	if State.StartupQuote != true {
-		t.Fatal("StartupQuote should default to true")
-	}
 }
 
 func TestBufferCreateAppliesIndentDefaults(t *testing.T) {

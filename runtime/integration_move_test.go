@@ -38,12 +38,10 @@ func TestCmdMove(t *testing.T) {
 
 	te.LoadText("aaa\nbbb\nccc")
 	te.SetCursor(1, 0)
-	State.MovementState = MovementNone
 	te.Key(term.KeyDown)
 	te.ExpectCursor(2, 0)
 
 	te.SetCursor(3, 0)
-	State.MovementState = MovementNone
 	te.Key(term.KeyUp)
 	te.ExpectCursor(2, 0)
 }
