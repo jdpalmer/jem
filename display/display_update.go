@@ -113,9 +113,9 @@ func renderModeline(wp *window.Window) {
 	// Editor version
 	screenPutBytes([]byte("  jem " + Version + " | "))
 
-	// File name
+	// File name (display-truncated; stored Name is unbounded)
 	if bp.Name != "" {
-		displayPutBytesStyle([]byte(bp.Name), nameStyle)
+		displayPutBytesStyle([]byte(FitBufferName(bp.Name, BufferNameMaxCols)), nameStyle)
 	} else {
 		displayPutBytesStyle([]byte("[No File]"), nameStyle)
 	}

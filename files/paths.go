@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-// PromptPathCapacity is the maximum path length accepted from filename prompts.
+// PromptPathCapacity is the soft max length for filename prompt input
+// (initial minibuffer buffer size). Paths are otherwise unbounded strings.
 const PromptPathCapacity = 4096
 
 func ExpandPath(path string) string {

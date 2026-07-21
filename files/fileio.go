@@ -47,12 +47,12 @@ func BufferNameFromPath(fname string) string {
 		base = base[:i]
 	}
 	if buffer.Find(base) == nil {
-		return buffer.TruncateName(base)
+		return base
 	}
 	for suffix := 2; ; suffix++ {
 		name := fmt.Sprintf("%s:%d", base, suffix)
 		if buffer.Find(name) == nil {
-			return buffer.TruncateName(name)
+			return name
 		}
 	}
 }

@@ -81,7 +81,7 @@ func AppInit(firstBufferName string) {
 
 	bp := buffer.Create()
 	if bp != nil {
-		bp.Name = buffer.TruncateName(firstBufferName)
+		bp.Name = firstBufferName
 		buffer.SetCurrent(bp)
 	}
 

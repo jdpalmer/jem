@@ -3,7 +3,9 @@ package display
 import "github.com/jdpalmer/jem/buffer"
 
 const (
-	Version         = "26.1"
+	Version = "26.1"
+	// PatternCapacity is the soft max for search/prompt text and the size of
+	// fixed pattern scratch buffers in isearch.
 	PatternCapacity = 256
 )
 

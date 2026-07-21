@@ -2,6 +2,8 @@ package buffer
 
 import "strings"
 
+// MaxBuffers caps the open-buffer list. The choose UI indexes choices with
+// uint8, so this matches that presentation limit rather than a storage need.
 const MaxBuffers = 255
 
 // List is the process-wide open-buffer registry.
@@ -23,14 +25,6 @@ func BindList(l *List) {
 		return
 	}
 	All = l
-}
-
-// TruncateName truncates a buffer name to BufferNameCapacity.
-func TruncateName(name string) string {
-	if len(name) >= BufferNameCapacity {
-		return name[:BufferNameCapacity-1]
-	}
-	return name
 }
 
 // Create allocates a buffer and appends it to All.

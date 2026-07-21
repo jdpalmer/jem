@@ -164,7 +164,7 @@ func bufferChoiceLabel(ctx any, idx uint8) []byte {
 	if int(idx) >= len(list) || list[idx] == nil {
 		return nil
 	}
-	return []byte(list[idx].Name)
+	return []byte(display.FitBufferName(list[idx].Name, display.BufferNameMaxCols))
 }
 
 func findBufferByLabel(label string) *buffer.Buffer {
@@ -210,7 +210,7 @@ func CmdUseBuffer(f bool, n int) bool {
 	}
 
 	if State.IsPlaying() {
-		AskStringCap("buffer.Buffer: ", "", buffer.BufferNameCapacity, func(label string, pr minibuffer.PromptResult) {
+		AskString("buffer.Buffer: ", "", func(label string, pr minibuffer.PromptResult) {
 			if pr != minibuffer.PromptResultYes || label == "" {
 				return
 			}

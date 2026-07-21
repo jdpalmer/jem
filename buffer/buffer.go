@@ -2,8 +2,6 @@ package buffer
 
 import "time"
 
-const BufferNameCapacity = 16
-
 type Buffer struct {
 	Lines                   []Line
 	LineCount               uint
