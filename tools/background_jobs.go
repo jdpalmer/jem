@@ -159,13 +159,13 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(grepBuf)
-	if wp := window.Active.CurrentWindow; wp != nil {
-		wp.SetTopLine(1)
-		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
-		wp.Mark = buffer.Location{Line: 0, Offset: 0}
-		wp.HScroll = 0
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+	if win := window.Active.CurrentWindow; win != nil {
+		win.SetTopLine(1)
+		win.SetCursor(buffer.Location{Line: 1, Offset: 0})
+		win.Mark = buffer.Location{Line: 0, Offset: 0}
+		win.HScroll = 0
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 	}
 
 	if matchCount == 1 {
@@ -204,13 +204,13 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 
 	markPushCurrent()
 	editorSwitchBuffer(compileBuf)
-	if wp := window.Active.CurrentWindow; wp != nil {
-		wp.SetTopLine(1)
-		wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
-		wp.Mark = buffer.Location{Line: 0, Offset: 0}
-		wp.HScroll = 0
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+	if win := window.Active.CurrentWindow; win != nil {
+		win.SetTopLine(1)
+		win.SetCursor(buffer.Location{Line: 1, Offset: 0})
+		win.Mark = buffer.Location{Line: 0, Offset: 0}
+		win.HScroll = 0
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 	}
 
 	if done.CompileExit == 0 {

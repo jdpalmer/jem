@@ -77,13 +77,13 @@ func CmdKillBuffer(f bool, n int) bool {
 	// If numeric argument provided, kill that buffer (1-based index)
 	if n > 0 {
 		if n <= len(buffer.All.Buffers) {
-			bp := buffer.All.Buffers[n-1]
-			if bp == nil {
+			buf := buffer.All.Buffers[n-1]
+			if buf == nil {
 				display.MBWrite("[no such buffer]")
 				return false
 			}
 			AskYesNo("Kill buffer?", func() {
-				buffer.Release(bp)
+				buffer.Release(buf)
 				display.MBWrite("[buffer killed]")
 			}, func() {
 				display.MBWrite("[aborted]")
@@ -94,13 +94,13 @@ func CmdKillBuffer(f bool, n int) bool {
 		return false
 	}
 
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		display.MBWrite("[no buffer to kill]")
 		return false
 	}
 	AskYesNo("Kill current buffer?", func() {
-		buffer.Release(bp)
+		buffer.Release(buf)
 		display.MBWrite("[buffer killed]")
 	}, func() {
 		display.MBWrite("[aborted]")
@@ -114,11 +114,11 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 	_ = n
 	names := make([]string, 0, len(buffer.All.Buffers))
 	for i := 0; i < len(buffer.All.Buffers); i++ {
-		bp := buffer.All.Buffers[i]
-		if bp == nil {
+		buf := buffer.All.Buffers[i]
+		if buf == nil {
 			continue
 		}
-		names = append(names, bp.Name)
+		names = append(names, buf.Name)
 	}
 	if len(names) == 0 {
 		display.MBWrite("[no buffers]")
@@ -129,13 +129,13 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 			return
 		}
 		for i := 0; i < len(buffer.All.Buffers); i++ {
-			bp := buffer.All.Buffers[i]
-			if bp == nil {
+			buf := buffer.All.Buffers[i]
+			if buf == nil {
 				continue
 			}
-			if strings.EqualFold(bp.Name, label) {
+			if strings.EqualFold(buf.Name, label) {
 				AskYesNo("Kill buffer?", func() {
-					buffer.Release(bp)
+					buffer.Release(buf)
 					display.MBWrite("[buffer killed]")
 				}, func() {
 					display.MBWrite("[aborted]")
@@ -152,8 +152,8 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 func pickBufferList() []*buffer.Buffer {
 	list := make([]*buffer.Buffer, 0, len(buffer.All.Buffers))
 	for i := 0; i < len(buffer.All.Buffers); i++ {
-		if bp := buffer.All.Buffers[i]; bp != nil {
-			list = append(list, bp)
+		if buf := buffer.All.Buffers[i]; buf != nil {
+			list = append(list, buf)
 		}
 	}
 	return list
@@ -169,23 +169,23 @@ func bufferChoiceLabel(ctx any, idx uint8) []byte {
 
 func findBufferByLabel(label string) *buffer.Buffer {
 	for i := 0; i < len(buffer.All.Buffers); i++ {
-		bp := buffer.All.Buffers[i]
-		if bp == nil {
+		buf := buffer.All.Buffers[i]
+		if buf == nil {
 			continue
 		}
-		if strings.EqualFold(bp.Name, label) {
-			return bp
+		if strings.EqualFold(buf.Name, label) {
+			return buf
 		}
 	}
 	return nil
 }
 
-func switchToBuffer(bp *buffer.Buffer) {
-	if bp == nil {
+func switchToBuffer(buf *buffer.Buffer) {
+	if buf == nil {
 		return
 	}
-	macroRecordBufferName(bp)
-	window.SwitchBuffer(bp)
+	macroRecordBufferName(buf)
+	window.SwitchBuffer(buf)
 	display.DisplayUpdate()
 }
 
@@ -194,9 +194,9 @@ func switchToBuffer(bp *buffer.Buffer) {
 func CmdUseBuffer(f bool, n int) bool {
 	if f && n > 0 {
 		if n <= len(buffer.All.Buffers) {
-			bp := buffer.All.Buffers[n-1]
-			if bp != nil {
-				window.SwitchBuffer(bp)
+			buf := buffer.All.Buffers[n-1]
+			if buf != nil {
+				window.SwitchBuffer(buf)
 				return true
 			}
 		}
@@ -214,12 +214,12 @@ func CmdUseBuffer(f bool, n int) bool {
 			if pr != minibuffer.PromptResultYes || label == "" {
 				return
 			}
-			bp := findBufferByLabel(label)
-			if bp == nil {
+			buf := findBufferByLabel(label)
+			if buf == nil {
 				display.MBWrite("[no such buffer]")
 				return
 			}
-			switchToBuffer(bp)
+			switchToBuffer(buf)
 		})
 		return true
 	}

@@ -31,22 +31,22 @@ func stylesEqual(a, b []buffer.TextStyle) bool {
 	return true
 }
 
-// IncrementalReparse reparses starting at line 'startLine' (1-based) in buffer bp
+// IncrementalReparse reparses starting at line 'startLine' (1-based) in buffer buf
 // and continues until the computed end-state matches the previously stored end
 // state for a line (i.e., no further changes propagate).
-func IncrementalReparse(bp *buffer.Buffer, startLine uint) {
-	if bp == nil || startLine == 0 || startLine > bp.LineCount {
+func IncrementalReparse(buf *buffer.Buffer, startLine uint) {
+	if buf == nil || startLine == 0 || startLine > buf.LineCount {
 		return
 	}
-	for ln := startLine; ln <= bp.LineCount; ln++ {
-		lp := bp.Line(ln)
-		if lp == nil {
+	for ln := startLine; ln <= buf.LineCount; ln++ {
+		line := buf.Line(ln)
+		if line == nil {
 			continue
 		}
 		// determine start state from previous line
 		var start buffer.SynState
 		if ln > 1 {
-			prev := bp.Line(ln - 1)
+			prev := buf.Line(ln - 1)
 			if prev != nil {
 				start = prev.SyntaxEndState
 			} else {
@@ -55,14 +55,14 @@ func IncrementalReparse(bp *buffer.Buffer, startLine uint) {
 		} else {
 			start = buffer.SynState{DFA: SynStateNormal}
 		}
-		oldEnd := lp.SyntaxEndState
-		oldStyles := lp.SyntaxStyles
-		newEnd, newSummary, newStyles := tokenizeLineFromState(lp, start)
+		oldEnd := line.SyntaxEndState
+		oldStyles := line.SyntaxStyles
+		newEnd, newSummary, newStyles := tokenizeLineFromState(line, start)
 		// update line
-		lp.SyntaxStyles = newStyles
-		lp.SyntaxSummary = newSummary
-		lp.SyntaxEndState = newEnd
-		lp.SyntaxValid = true
+		line.SyntaxStyles = newStyles
+		line.SyntaxSummary = newSummary
+		line.SyntaxEndState = newEnd
+		line.SyntaxValid = true
 		// if end state matches previous stored end state and styles unchanged, stop
 		if synStateEqual(oldEnd, newEnd) && stylesEqual(oldStyles, newStyles) {
 			break
@@ -74,19 +74,19 @@ func IncrementalReparse(bp *buffer.Buffer, startLine uint) {
 		f, err := os.OpenFile("/tmp/jem-syntax.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
 			defer f.Close()
-			fmt.Fprintf(f, "--- IncrementalReparse snapshot %s startLine=%d bufferLines=%d\n", time.Now().Format(time.RFC3339), startLine, bp.LineCount)
+			fmt.Fprintf(f, "--- IncrementalReparse snapshot %s startLine=%d bufferLines=%d\n", time.Now().Format(time.RFC3339), startLine, buf.LineCount)
 			end := startLine + 9
-			if end > bp.LineCount {
-				end = bp.LineCount
+			if end > buf.LineCount {
+				end = buf.LineCount
 			}
 			for ln := startLine; ln <= end; ln++ {
-				lp := bp.Line(ln)
-				if lp == nil {
+				line := buf.Line(ln)
+				if line == nil {
 					fmt.Fprintf(f, "%d: <nil>\n", ln)
 					continue
 				}
-				fmt.Fprintf(f, "%d: data=%q styles=[", ln, lp.Data)
-				for i, s := range lp.SyntaxStyles {
+				fmt.Fprintf(f, "%d: data=%q styles=[", ln, line.Data)
+				for i, s := range line.SyntaxStyles {
 					if i > 0 {
 						fmt.Fprint(f, ",")
 					}

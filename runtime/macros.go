@@ -23,8 +23,8 @@ func macroInit() {
 
 func macroRefreshModelines() {
 	for i := 0; i < int(len(window.Active.Windows)); i++ {
-		if wp := window.Active.Windows[i]; wp != nil {
-			wp.ShouldUpdateModeLine = true
+		if win := window.Active.Windows[i]; win != nil {
+			win.ShouldUpdateModeLine = true
 		}
 	}
 }
@@ -66,13 +66,13 @@ func Execute(c int, f bool, n int) bool {
 		return false
 	}
 
-	if bp := buffer.All.Current; bp != nil && bp.Name == tools.GrepBufferName {
+	if buf := buffer.All.Current; buf != nil && buf.Name == tools.GrepBufferName {
 		keycode := uint32(c)
 		if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
 			return tools.VisitGrepMatch()
 		}
 	}
-	if bp := buffer.All.Current; bp != nil && bp.Name == tools.CompileBufferName {
+	if buf := buffer.All.Current; buf != nil && buf.Name == tools.CompileBufferName {
 		keycode := uint32(c)
 		if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
 			return tools.VisitCompileDiag()
@@ -254,11 +254,11 @@ func macroRecordMinibufferResult(text []byte) {
 }
 
 // macroRecordBufferName records a buffer name during macro recording.
-func macroRecordBufferName(bp *buffer.Buffer) {
-	if !State.IsRecording() || bp == nil {
+func macroRecordBufferName(buf *buffer.Buffer) {
+	if !State.IsRecording() || buf == nil {
 		return
 	}
-	_ = macroAppend(event.PromptReplyEvent{Text: bp.Name})
+	_ = macroAppend(event.PromptReplyEvent{Text: buf.Name})
 }
 
 func TakeMacroPromptReply() (text string, pr minibuffer.PromptResult, playing bool) {

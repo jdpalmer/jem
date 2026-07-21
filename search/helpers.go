@@ -77,11 +77,11 @@ func doBeep() {
 	term.Beep()
 }
 
-func setText(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
+func setText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
 	if PackageHooks.SetText == nil {
 		return buffer.ErrNilBuffer
 	}
-	return PackageHooks.SetText(bp, begin, end, newText, newEndOut)
+	return PackageHooks.SetText(buf, begin, end, newText, newEndOut)
 }
 
 func truncatePattern(s string) string {

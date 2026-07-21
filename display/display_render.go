@@ -15,16 +15,16 @@ func selectionStyle(base buffer.TextStyle) buffer.TextStyle {
 }
 
 // selInit initialises selection state from the window's mark and cursor.
-func selInit(ss *SelState, wp *window.Window) {
+func selInit(ss *SelState, win *window.Window) {
 	ss.active = false
 	ss.phase = selectionBefore
-	if wp.Mark.Line == 0 {
+	if win.Mark.Line == 0 {
 		return
 	}
-	markLine := wp.Mark.Line
-	dotLine := wp.Cursor.Line
-	marko := wp.Mark.Offset
-	doto := wp.Cursor.Offset
+	markLine := win.Mark.Line
+	dotLine := win.Cursor.Line
+	marko := win.Mark.Offset
+	doto := win.Cursor.Offset
 
 	if markLine == dotLine {
 		if marko == doto {
@@ -56,22 +56,22 @@ func selInit(ss *SelState, wp *window.Window) {
 		ss.endO = marko
 	}
 
-	if wp.TopLine > ss.endLine {
+	if win.TopLine > ss.endLine {
 		ss.active = false
-	} else if wp.TopLine > ss.startLine {
+	} else if win.TopLine > ss.startLine {
 		ss.phase = selectionInside
 	}
 }
 
 // selLine returns the byte range [s, e) to highlight for lineNumber.
 // Returns s==-1 if no selection on this line.
-func selLine(ss *SelState, lineNumber uint, lp *buffer.Line) (s, e int) {
+func selLine(ss *SelState, lineNumber uint, line *buffer.Line) (s, e int) {
 	s = -1
 	e = 0
 	if !ss.active {
 		return
 	}
-	length := int(lp.Len())
+	length := int(line.Len())
 
 	if ss.phase == selectionBefore {
 		if lineNumber != ss.startLine {
@@ -229,30 +229,30 @@ func renderBlankRow(row, gutter int) {
 
 // ---- Content rendering ----------------------------------------------------------
 
-// WindowCursorScreenCol returns the screen column of the cursor in wp.
-func WindowCursorScreenCol(wp *window.Window) int {
-	if wp == nil || wp.Buffer == nil {
+// WindowCursorScreenCol returns the screen column of the cursor in win.
+func WindowCursorScreenCol(win *window.Window) int {
+	if win == nil || win.Buffer == nil {
 		return 0
 	}
-	lp := wp.Buffer.Line(wp.Cursor.Line)
-	if lp == nil {
+	line := win.Buffer.Line(win.Cursor.Line)
+	if line == nil {
 		return 0
 	}
-	return lineColAtOffset(lp, wp.Cursor.Offset)
+	return lineColAtOffset(line, win.Cursor.Offset)
 }
 
 // screenPutPickerLine renders a full match-window row using the picker style.
-func screenPutPickerLine(lp *buffer.Line) {
+func screenPutPickerLine(line *buffer.Line) {
 	style := Active.Theme.PickerSelectionStyle
 	savedDrawStyle := drawStyle
 	drawStyle = style
-	n := len(lp.Data)
+	n := len(line.Data)
 	i := 0
 	for i < n {
-		c := rune(lp.Data[i])
+		c := rune(line.Data[i])
 		size := 1
-		if lp.Data[i] >= 0x80 {
-			r, sz := utf8.DecodeRune(lp.Data[i:n])
+		if line.Data[i] >= 0x80 {
+			r, sz := utf8.DecodeRune(line.Data[i:n])
 			if !(r == utf8.RuneError && sz == 1) {
 				c = r
 				size = sz
@@ -265,9 +265,9 @@ func screenPutPickerLine(lp *buffer.Line) {
 }
 
 // screenPutLine renders line content with syntax highlight and selection overlay.
-func screenPutLine(lp *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selStart, selEnd int) {
-	syntax.SyntaxEnsureLine(lp)
-	n := len(lp.Data)
+func screenPutLine(line *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selStart, selEnd int) {
+	syntax.SyntaxEnsureLine(line)
+	n := len(line.Data)
 
 	if n == 0 {
 		if selStart >= 0 {
@@ -282,8 +282,8 @@ func screenPutLine(lp *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selSt
 	for i < n {
 		// Get syntax style for this rune
 		style := Active.Theme.NormalStyle
-		if ri < len(lp.SyntaxStyles) {
-			style = lp.SyntaxStyles[ri]
+		if ri < len(line.SyntaxStyles) {
+			style = line.SyntaxStyles[ri]
 		}
 		// Apply selection overlay
 		if selStart >= 0 && i >= selStart && i < selEnd {
@@ -292,10 +292,10 @@ func screenPutLine(lp *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selSt
 		drawStyle = style
 
 		// Decode next rune
-		c := rune(lp.Data[i])
+		c := rune(line.Data[i])
 		size := 1
-		if lp.Data[i] >= 0x80 {
-			r, sz := utf8.DecodeRune(lp.Data[i:n])
+		if line.Data[i] >= 0x80 {
+			r, sz := utf8.DecodeRune(line.Data[i:n])
 			if !(r == utf8.RuneError && sz == 1) {
 				c = r
 				size = sz
@@ -309,32 +309,32 @@ func screenPutLine(lp *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selSt
 }
 
 // renderLine renders one buffer line (gutter + content + horizontal scroll) into row.
-func renderLine(wp *window.Window, lineNumber uint, row int, synSt *buffer.SynState, selSt *SelState) {
-	lp := wp.Buffer.Line(lineNumber)
-	if lp == nil {
+func renderLine(win *window.Window, lineNumber uint, row int, synSt *buffer.SynState, selSt *SelState) {
+	line := win.Buffer.Line(lineNumber)
+	if line == nil {
 		return
 	}
-	gutter := int(wp.GutterWidth())
-	marker := gitLineDiff(wp.Buffer, lineNumber)
+	gutter := int(win.GutterWidth())
+	marker := gitLineDiff(win.Buffer, lineNumber)
 
 	var ss, se int
 	if selSt != nil {
-		ss, se = selLine(selSt, lineNumber, lp)
+		ss, se = selLine(selSt, lineNumber, line)
 	} else {
 		ss = -1
 	}
 
 	screenMove(row, 0)
 	// Content starts at column gutter; horizontal scroll shifts content left
-	swCursorCol = gutter - int(wp.HScroll)
+	swCursorCol = gutter - int(win.HScroll)
 	tabOriginCol = swCursorCol
 	oldClipLeft := clipLeftCol
 	clipLeftCol = gutter
 
-	if wp.Buffer != nil && wp.Buffer.Name == "*match*" && lp != nil && lp.Len() >= 2 && lp.Data[0] == '>' && lp.Data[1] == ' ' {
-		screenPutPickerLine(lp)
+	if win.Buffer != nil && win.Buffer.Name == "*match*" && line != nil && line.Len() >= 2 && line.Data[0] == '>' && line.Data[1] == ' ' {
+		screenPutPickerLine(line)
 	} else {
-		screenPutLine(lp, wp.Buffer.LangMode, synSt, ss, se)
+		screenPutLine(line, win.Buffer.LangMode, synSt, ss, se)
 	}
 
 	clipLeftCol = oldClipLeft
@@ -346,7 +346,7 @@ func renderLine(wp *window.Window, lineNumber uint, row int, synSt *buffer.SynSt
 
 	// Render gutter last so it paints over any content that bled into gutter area
 	screenMove(row, 0)
-	screenPutLineno(gutter, int(lineNumber), marker, wp.HScroll > 0)
+	screenPutLineno(gutter, int(lineNumber), marker, win.HScroll > 0)
 }
 
 // ---- Modeline rendering ---------------------------------------------------------

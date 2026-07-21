@@ -53,8 +53,8 @@ func TestGrepProjectSearch(t *testing.T) {
 }
 
 func TestGrepFillBuffer(t *testing.T) {
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		t.Fatal("buffer create failed")
 	}
 	root := "/proj"
@@ -62,14 +62,14 @@ func TestGrepFillBuffer(t *testing.T) {
 		{path: "/proj/src/a.go", line: 10, column: 3, text: "fmt.Println"},
 		{path: "/proj/src/b.go", line: 2, column: 1, text: "var x int"},
 	}
-	count, ok := grepFillBuffer(bp, root, matches, "fmt", false)
+	count, ok := grepFillBuffer(buf, root, matches, "fmt", false)
 	if !ok || count != 2 {
 		t.Fatalf("fill failed ok=%v count=%d", ok, count)
 	}
-	if bp.Name != "" {
+	if buf.Name != "" {
 		// unnamed buffer is fine
 	}
-	line := bp.Line(3)
+	line := buf.Line(3)
 	if line == nil || line.Metadata == nil {
 		t.Fatal("expected metadata on match line")
 	}

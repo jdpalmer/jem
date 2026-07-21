@@ -98,8 +98,8 @@ func TestUniversalArgListenerDispatchesWithN(t *testing.T) {
 func TestCommandEventRunsNamedCommand(t *testing.T) {
 	te := NewTestEditor(t)
 	te.LoadText("hello")
-	wp := window.Active.CurrentWindow
-	wp.SetCursor(buffer.MakeLocation(1, 0))
+	win := window.Active.CurrentWindow
+	win.SetCursor(buffer.MakeLocation(1, 0))
 	if !Handle(State, event.CommandEvent{Name: "kill", F: false, N: 1}) {
 		t.Fatal("Handle CommandEvent failed")
 	}

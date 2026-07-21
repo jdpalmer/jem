@@ -18,42 +18,42 @@ const (
 	matchCaseCapitalized
 )
 
-func markMatchStart(wp *window.Window, patLen int) {
-	if wp == nil || wp.Buffer == nil || patLen == 0 {
+func markMatchStart(win *window.Window, patLen int) {
+	if win == nil || win.Buffer == nil || patLen == 0 {
 		return
 	}
-	line := wp.Cursor.Line
-	off := wp.Cursor.Offset
+	lineNum := win.Cursor.Line
+	off := win.Cursor.Offset
 	for i := 0; i < patLen; i++ {
 		if off > 0 {
 			off--
-		} else if line > 1 {
-			line--
-			lp := wp.Buffer.Line(line)
-			if lp != nil {
-				off = lp.Len()
+		} else if lineNum > 1 {
+			lineNum--
+			line := win.Buffer.Line(lineNum)
+			if line != nil {
+				off = line.Len()
 			}
 		}
 	}
-	wp.Mark = buffer.Location{Line: line, Offset: off}
+	win.Mark = buffer.Location{Line: lineNum, Offset: off}
 }
 
-func markMatchLocation(wp *window.Window, start buffer.Location) {
-	if wp != nil {
-		wp.Mark = start
+func markMatchLocation(win *window.Window, start buffer.Location) {
+	if win != nil {
+		win.Mark = start
 	}
 }
 
-func checkMatchCase(wp *window.Window, patLen int) matchCase {
-	if wp == nil || wp.Buffer == nil || patLen == 0 {
+func checkMatchCase(win *window.Window, patLen int) matchCase {
+	if win == nil || win.Buffer == nil || patLen == 0 {
 		return matchCaseLower
 	}
-	lp := wp.Buffer.Line(wp.Cursor.Line)
-	if lp == nil || wp.Cursor.Offset < uint(patLen) {
+	line := win.Buffer.Line(win.Cursor.Line)
+	if line == nil || win.Cursor.Offset < uint(patLen) {
 		return matchCaseLower
 	}
-	start := int(wp.Cursor.Offset) - patLen
-	text := lp.Data[start : start+patLen]
+	start := int(win.Cursor.Offset) - patLen
+	text := line.Data[start : start+patLen]
 	if len(text) == 0 || !unicode.IsUpper(rune(text[0])) {
 		return matchCaseLower
 	}
@@ -85,38 +85,38 @@ func applyMatchCase(mc matchCase, repl []byte, out []byte) int {
 	return n
 }
 
-func doReplace(wp *window.Window, patLen int, repl []byte) bool {
-	if wp == nil || wp.Buffer == nil {
+func doReplace(win *window.Window, patLen int, repl []byte) bool {
+	if win == nil || win.Buffer == nil {
 		return false
 	}
-	end := wp.Cursor
-	begin := end.RewindBytes(wp.Buffer, patLen)
-	return setText(wp.Buffer, begin, end, repl, nil) == nil
+	end := win.Cursor
+	begin := end.RewindBytes(win.Buffer, patLen)
+	return setText(win.Buffer, begin, end, repl, nil) == nil
 }
 
-func doReplacePreservingCase(wp *window.Window, patLen int, repl []byte, preserve bool) bool {
+func doReplacePreservingCase(win *window.Window, patLen int, repl []byte, preserve bool) bool {
 	if preserve {
-		mc := checkMatchCase(wp, patLen)
+		mc := checkMatchCase(win, patLen)
 		if mc != matchCaseLower {
 			var caseRepl [display.PatternCapacity]byte
 			n := applyMatchCase(mc, repl, caseRepl[:])
-			return doReplace(wp, patLen, caseRepl[:n])
+			return doReplace(win, patLen, caseRepl[:n])
 		}
 	}
-	return doReplace(wp, patLen, repl)
+	return doReplace(win, patLen, repl)
 }
 
-func doReplaceRange(wp *window.Window, start, end buffer.Location, repl []byte) bool {
-	if wp == nil || wp.Buffer == nil {
+func doReplaceRange(win *window.Window, start, end buffer.Location, repl []byte) bool {
+	if win == nil || win.Buffer == nil {
 		return false
 	}
-	return setText(wp.Buffer, start, end, repl, nil) == nil
+	return setText(win.Buffer, start, end, repl, nil) == nil
 }
 
-func writeReplacePrompt(bp *buffer.Buffer, from, to string) {
+func writeReplacePrompt(buf *buffer.Buffer, from, to string) {
 	prompt := ""
-	if searchScopeIsAllBuffers() && bp != nil {
-		prompt = "[" + bp.Name + "] "
+	if searchScopeIsAllBuffers() && buf != nil {
+		prompt = "[" + buf.Name + "] "
 	}
 	prompt += "replace '" + from + "' with '" + to + "' (y/n/!/+/q): "
 	mbWrite("%s", prompt)
@@ -155,9 +155,9 @@ func expandRegexReplacement(repl string, match RegexMatch) ([]byte, error) {
 }
 
 func SearchForward() bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	readPattern("Search", func(pr minibuffer.PromptResult) {
@@ -168,8 +168,8 @@ func SearchForward() bool {
 		if len(pat) == 0 {
 			return
 		}
-		scope := searchScopeInit(bp)
-		if !findNextInScope(wp, &scope, pat) {
+		scope := searchScopeInit(buf)
+		if !findNextInScope(win, &scope, pat) {
 			mbWrite("[not found]")
 		}
 	})
@@ -177,9 +177,9 @@ func SearchForward() bool {
 }
 
 func SearchBackward() bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	readPattern("Reverse search", func(pr minibuffer.PromptResult) {
@@ -190,8 +190,8 @@ func SearchBackward() bool {
 		if len(pat) == 0 {
 			return
 		}
-		scope := searchScopeInit(bp)
-		if !findPrevInScope(wp, &scope, pat) {
+		scope := searchScopeInit(buf)
+		if !findPrevInScope(win, &scope, pat) {
 			mbWrite("[not found]")
 		}
 	})
@@ -213,9 +213,9 @@ func ToggleSearchScope() bool {
 }
 
 func QueryReplace() bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	readPattern("replace", func(pr minibuffer.PromptResult) {
@@ -232,16 +232,16 @@ func QueryReplace() bool {
 			if pr == minibuffer.PromptResultAbort {
 				return
 			}
-			startQueryReplace(newQueryReplaceSession(bp, []byte(repl), pat, patLen, preserveCase))
+			startQueryReplace(newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase))
 		})
 	})
 	return true
 }
 
 func QueryReReplace() bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	askString(buildSearchPrompt("Query re-replace"), currentState().SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
@@ -252,7 +252,7 @@ func QueryReReplace() bool {
 			if pr == minibuffer.PromptResultAbort {
 				return
 			}
-			startQueryReplace(newQueryReReplaceSession(bp, pattern, replStr))
+			startQueryReplace(newQueryReReplaceSession(buf, pattern, replStr))
 		})
 	})
 	return true

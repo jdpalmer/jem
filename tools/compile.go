@@ -113,22 +113,22 @@ func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
 	return line, column, true
 }
 
-func compileAppendTextSection(bp *buffer.Buffer, title, text string, counts *compileDiagCounts) bool {
+func compileAppendTextSection(buf *buffer.Buffer, title, text string, counts *compileDiagCounts) bool {
 	heading := "## " + title
-	if bp.AppendLineBytes([]byte(heading)) == nil {
+	if buf.AppendLineBytes([]byte(heading)) == nil {
 		return false
 	}
 	if text == "" {
-		return bp.AppendLineBytes(nil) != nil
+		return buf.AppendLineBytes(nil) != nil
 	}
 	for _, raw := range strings.Split(text, "\n") {
-		line := strings.TrimSuffix(raw, "\r")
-		lp := bp.AppendLineBytes([]byte(line))
-		if lp == nil {
+		textLine := strings.TrimSuffix(raw, "\r")
+		line := buf.AppendLineBytes([]byte(textLine))
+		if line == nil {
 			return false
 		}
-		if len(line) > 0 {
-			if diag := compileParseColonDiag(line); diag != nil {
+		if len(textLine) > 0 {
+			if diag := compileParseColonDiag(textLine); diag != nil {
 				counts.diag++
 				switch diag.Severity {
 				case CompileDiagError:
@@ -136,7 +136,7 @@ func compileAppendTextSection(bp *buffer.Buffer, title, text string, counts *com
 				case CompileDiagWarning:
 					counts.warnings++
 				}
-				lp.Metadata = diag
+				line.Metadata = diag
 			}
 		}
 	}
@@ -147,71 +147,71 @@ type compileDiagCounts struct {
 	diag, errors, warnings uint32
 }
 
-func compileFillBuffer(bp *buffer.Buffer, command, stdout, stderr string, exitCode int, outTrunc, errTrunc bool) (compileDiagCounts, bool) {
+func compileFillBuffer(buf *buffer.Buffer, command, stdout, stderr string, exitCode int, outTrunc, errTrunc bool) (compileDiagCounts, bool) {
 	counts := compileDiagCounts{}
-	bp.Clear()
-	bp.IsChanged = false
-	bp.FileName = ""
-	bp.FileMtime = time.Time{}
-	bp.LangMode = buffer.LModeMarkdown
+	buf.Clear()
+	buf.IsChanged = false
+	buf.FileName = ""
+	buf.FileMtime = time.Time{}
+	buf.LangMode = buffer.LModeMarkdown
 
-	if bp.AppendLineBytes(nil) == nil {
+	if buf.AppendLineBytes(nil) == nil {
 		return counts, false
 	}
 	cmdLine := "$ " + command
-	if bp.AppendLineBytes([]byte(cmdLine)) == nil {
+	if buf.AppendLineBytes([]byte(cmdLine)) == nil {
 		return counts, false
 	}
-	if bp.AppendLineBytes(nil) == nil {
+	if buf.AppendLineBytes(nil) == nil {
 		return counts, false
 	}
-	if !compileAppendTextSection(bp, "stdout", stdout, &counts) {
+	if !compileAppendTextSection(buf, "stdout", stdout, &counts) {
 		return counts, false
 	}
-	if bp.AppendLineBytes(nil) == nil {
+	if buf.AppendLineBytes(nil) == nil {
 		return counts, false
 	}
-	if !compileAppendTextSection(bp, "stderr", stderr, &counts) {
+	if !compileAppendTextSection(buf, "stderr", stderr, &counts) {
 		return counts, false
 	}
 	if outTrunc || errTrunc {
-		if bp.AppendLineBytes(nil) == nil {
+		if buf.AppendLineBytes(nil) == nil {
 			return counts, false
 		}
 		msg := "[output truncated]"
-		if bp.AppendLineBytes([]byte(msg)) == nil {
+		if buf.AppendLineBytes([]byte(msg)) == nil {
 			return counts, false
 		}
 	}
 
 	summary := fmt.Sprintf("# compile exit=%d, diagnostics=%d, errors=%d, warnings=%d",
 		exitCode, counts.diag, counts.errors, counts.warnings)
-	summaryLine := bp.Line(1)
+	summaryLine := buf.Line(1)
 	if summaryLine == nil {
 		return counts, false
 	}
 	begin := buffer.MakeLocation(1, 0)
 	end := buffer.MakeLocation(1, summaryLine.Len())
-	if err := bp.SetText(nil, begin, end, []byte(summary), nil); err != nil {
+	if err := buf.SetText(nil, begin, end, []byte(summary), nil); err != nil {
 		return counts, false
 	}
 
-	bp.IsChanged = false
-	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
-	bp.Mark = buffer.Location{Line: 0, Offset: 0}
+	buf.IsChanged = false
+	buf.Cursor = buffer.Location{Line: 1, Offset: 0}
+	buf.Mark = buffer.Location{Line: 0, Offset: 0}
 	return counts, true
 }
 
 func compileEnsureBuffer() *buffer.Buffer {
-	if bp := buffer.Find(CompileBufferName); bp != nil {
-		return bp
+	if buf := buffer.Find(CompileBufferName); buf != nil {
+		return buf
 	}
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		return nil
 	}
-	bp.Name = CompileBufferName
-	return bp
+	buf.Name = CompileBufferName
+	return buf
 }
 
 func procRunShellContext(ctx context.Context, command string, outMax, errMax int) (stdout, stderr string, exitCode int, ran bool, outTrunc, errTrunc bool) {
@@ -260,10 +260,10 @@ func readProcessStream(r io.Reader, max int) (string, bool) {
 	if max <= 0 {
 		return "", false
 	}
-	var buf bytes.Buffer
+	var out bytes.Buffer
 	limited := io.LimitReader(r, int64(max)+1)
-	_, _ = io.Copy(&buf, limited)
-	data := buf.Bytes()
+	_, _ = io.Copy(&out, limited)
+	data := out.Bytes()
 	truncated := len(data) > max
 	if truncated {
 		data = data[:max]
@@ -290,16 +290,16 @@ func RunCompile() bool {
 
 // VisitCompileDiag jumps to the diagnostic at the current line in *compile*.
 func VisitCompileDiag() bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.Name != CompileBufferName {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.Name != CompileBufferName {
 		return false
 	}
-	lp := bp.Line(wp.Cursor.Line)
-	if lp == nil || lp.Len() == 0 || lp.Metadata == nil {
+	line := buf.Line(win.Cursor.Line)
+	if line == nil || line.Len() == 0 || line.Metadata == nil {
 		return false
 	}
-	data, ok := lp.Metadata.(*CompileLineData)
+	data, ok := line.Metadata.(*CompileLineData)
 	if !ok || data == nil || data.Path == "" || data.Line == 0 {
 		return false
 	}

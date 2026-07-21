@@ -53,8 +53,8 @@ type grepSearchResult struct {
 
 func grepSearchRoot() (string, error) {
 	start := ""
-	if bp := buffer.All.Current; bp != nil {
-		if fname := bp.FileName; fname != "" {
+	if buf := buffer.All.Current; buf != nil {
+		if fname := buf.FileName; fname != "" {
 			start = filepath.Dir(files.NormalizePath(fname))
 		}
 	}
@@ -227,17 +227,17 @@ func grepDisplayPath(root, abs string) string {
 	return abs
 }
 
-func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern string, truncated bool) (uint, bool) {
-	if bp == nil {
+func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, pattern string, truncated bool) (uint, bool) {
+	if buf == nil {
 		return 0, false
 	}
 
-	bp.IsChanged = false
-	bp.Clear()
-	bp.FileName = ""
-	bp.FileMtime = time.Time{}
-	bp.LangMode = buffer.LModeMarkdown
-	if bp.AppendLineBytes(nil) == nil {
+	buf.IsChanged = false
+	buf.Clear()
+	buf.FileName = ""
+	buf.FileMtime = time.Time{}
+	buf.LangMode = buffer.LModeMarkdown
+	if buf.AppendLineBytes(nil) == nil {
 		return 0, false
 	}
 
@@ -253,12 +253,12 @@ func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern
 			currentFile = displayPath
 			haveLastLine = false
 			if matchCount > 0 {
-				if bp.AppendLineBytes(nil) == nil {
+				if buf.AppendLineBytes(nil) == nil {
 					return 0, false
 				}
 			}
 			header := []byte("## " + displayPath)
-			if bp.AppendLineBytes(header) == nil {
+			if buf.AppendLineBytes(header) == nil {
 				return 0, false
 			}
 			fileCount++
@@ -268,11 +268,11 @@ func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern
 		}
 
 		lineText := fmt.Sprintf("L%d: %s", m.line, m.text)
-		lp := bp.AppendLineBytes([]byte(lineText))
-		if lp == nil {
+		line := buf.AppendLineBytes([]byte(lineText))
+		if line == nil {
 			return 0, false
 		}
-		lp.Metadata = &GrepLineData{
+		line.Metadata = &GrepLineData{
 			Path:   m.path,
 			Line:   m.line,
 			Column: m.column,
@@ -283,43 +283,43 @@ func grepFillBuffer(bp *buffer.Buffer, root string, matches []grepMatch, pattern
 	}
 
 	summary := fmt.Sprintf("# %d matches across %d files for `%s`", matchCount, fileCount, pattern)
-	if summaryLine := bp.Line(1); summaryLine != nil {
+	if summaryLine := buf.Line(1); summaryLine != nil {
 		begin := buffer.MakeLocation(1, 0)
 		end := buffer.MakeLocation(1, summaryLine.Len())
-		if err := bp.SetText(nil, begin, end, []byte(summary), nil); err != nil {
+		if err := buf.SetText(nil, begin, end, []byte(summary), nil); err != nil {
 			return 0, false
 		}
 	}
 
 	if matchCount == 0 {
 		msg := fmt.Sprintf("[no matches for: %s]", pattern)
-		if bp.AppendLineBytes([]byte(msg)) == nil {
+		if buf.AppendLineBytes([]byte(msg)) == nil {
 			return 0, false
 		}
 	}
 	if truncated {
 		msg := "[results truncated]"
-		if bp.AppendLineBytes([]byte(msg)) == nil {
+		if buf.AppendLineBytes([]byte(msg)) == nil {
 			return 0, false
 		}
 	}
 
-	bp.IsChanged = false
-	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
-	bp.Mark = buffer.Location{Line: 0, Offset: 0}
+	buf.IsChanged = false
+	buf.Cursor = buffer.Location{Line: 1, Offset: 0}
+	buf.Mark = buffer.Location{Line: 0, Offset: 0}
 	return matchCount, true
 }
 
 func grepEnsureBuffer() *buffer.Buffer {
-	if bp := buffer.Find(GrepBufferName); bp != nil {
-		return bp
+	if buf := buffer.Find(GrepBufferName); buf != nil {
+		return buf
 	}
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		return nil
 	}
-	bp.Name = GrepBufferName
-	return bp
+	buf.Name = GrepBufferName
+	return buf
 }
 
 // RunGrep searches the project and opens the *grep* results buffer.
@@ -346,16 +346,16 @@ func RunGrep() bool {
 
 // VisitGrepMatch jumps to the match at the current line in the *grep* buffer.
 func VisitGrepMatch() bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.Name != GrepBufferName {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.Name != GrepBufferName {
 		return false
 	}
-	lp := bp.Line(wp.Cursor.Line)
-	if lp == nil || lp.Len() == 0 || lp.Metadata == nil {
+	line := buf.Line(win.Cursor.Line)
+	if line == nil || line.Len() == 0 || line.Metadata == nil {
 		return false
 	}
-	data, ok := lp.Metadata.(*GrepLineData)
+	data, ok := line.Metadata.(*GrepLineData)
 	if !ok || data == nil {
 		return false
 	}

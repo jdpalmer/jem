@@ -29,17 +29,17 @@ var Active State
 type Hooks struct {
 	CurrentBuffer    func() *buffer.Buffer
 	Buffers          func() []*buffer.Buffer
-	SwitchBuffer     func(bp *buffer.Buffer)
-	SetCurrentBuffer func(bp *buffer.Buffer)
+	SwitchBuffer     func(buf *buffer.Buffer)
+	SetCurrentBuffer func(buf *buffer.Buffer)
 }
 
 // PackageHooks is set by the runtime during init.
 var PackageHooks Hooks
 
 func markUpdateModelines() {
-	for _, wp := range window.Active.Windows {
-		if wp != nil {
-			wp.ShouldUpdateModeLine = true
+	for _, win := range window.Active.Windows {
+		if win != nil {
+			win.ShouldUpdateModeLine = true
 		}
 	}
 }
@@ -54,20 +54,20 @@ func markEquals(a, b *Mark) bool {
 }
 
 func markCaptureCurrent(m *Mark) bool {
-	wp := window.Active.CurrentWindow
-	var bp *buffer.Buffer
+	win := window.Active.CurrentWindow
+	var buf *buffer.Buffer
 	if PackageHooks.CurrentBuffer != nil {
-		bp = PackageHooks.CurrentBuffer()
+		buf = PackageHooks.CurrentBuffer()
 	}
-	if wp == nil || bp == nil {
+	if win == nil || buf == nil {
 		return false
 	}
-	m.Buffer = bp
-	m.BufferSerial = bp.Serial
-	m.LineNumber = wp.Cursor.Line
-	m.Offset = wp.Cursor.Offset
-	m.TopLineNumber = wp.TopLine
-	m.HScroll = wp.HScroll
+	m.Buffer = buf
+	m.BufferSerial = buf.Serial
+	m.LineNumber = win.Cursor.Line
+	m.Offset = win.Cursor.Offset
+	m.TopLineNumber = win.TopLine
+	m.HScroll = win.HScroll
 	return true
 }
 
@@ -79,12 +79,12 @@ func marksPushEntry(mark *Mark) {
 	Active.Marks = append(Active.Marks, *mark)
 }
 
-func markBufferIsActive(buf *buffer.Buffer, serial uint32) bool {
+func markBufferIsActive(candidate *buffer.Buffer, serial uint32) bool {
 	if PackageHooks.Buffers == nil {
 		return false
 	}
-	for _, bp := range PackageHooks.Buffers() {
-		if bp == buf && bp.Serial == serial {
+	for _, buf := range PackageHooks.Buffers() {
+		if buf == candidate && buf.Serial == serial {
 			return true
 		}
 	}
@@ -122,21 +122,21 @@ func markRestore(m *Mark) bool {
 			}
 		}
 	}
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
-	lp := m.Buffer.Line(m.LineNumber)
+	line := m.Buffer.Line(m.LineNumber)
 	offset := m.Offset
-	if lp != nil && offset > lp.Len() {
-		offset = lp.Len()
+	if line != nil && offset > line.Len() {
+		offset = line.Len()
 	}
-	wp.SetCursor(buffer.MakeLocation(m.LineNumber, offset))
-	wp.SetTopLine(m.TopLineNumber)
-	wp.HScroll = m.HScroll
-	wp.DidMove = true
-	wp.ShouldRedraw = true
-	wp.ShouldUpdateModeLine = true
+	win.SetCursor(buffer.MakeLocation(m.LineNumber, offset))
+	win.SetTopLine(m.TopLineNumber)
+	win.HScroll = m.HScroll
+	win.DidMove = true
+	win.ShouldRedraw = true
+	win.ShouldUpdateModeLine = true
 	return true
 }
 

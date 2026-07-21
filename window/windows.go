@@ -5,25 +5,25 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-func WindowSelect(wp *Window) {
+func WindowSelect(win *Window) {
 	old := Active.CurrentWindow
-	if wp == nil {
+	if win == nil {
 		return
 	}
-	if old != nil && old != wp {
+	if old != nil && old != win {
 		old.ShouldUpdateModeLine = true
 	}
-	Active.CurrentWindow = wp
-	buffer.SetCurrent(wp.Buffer)
-	wp.ShouldRedraw = true
-	wp.ShouldUpdateModeLine = true
+	Active.CurrentWindow = win
+	buffer.SetCurrent(win.Buffer)
+	win.ShouldRedraw = true
+	win.ShouldUpdateModeLine = true
 }
 
 func WindowCreate() *Window {
 	if len(Active.Windows) >= MaxWindows {
 		return nil
 	}
-	wp := &Window{
+	win := &Window{
 		Buffer:               buffer.All.Current,
 		TopLine:              1,
 		Cursor:               buffer.Location{Line: 1, Offset: 0},
@@ -38,14 +38,14 @@ func WindowCreate() *Window {
 		ShouldUpdateModeLine: true,
 		HScroll:              0,
 	}
-	Active.Windows = append(Active.Windows, wp)
-	return wp
+	Active.Windows = append(Active.Windows, win)
+	return win
 }
 
-func (wp *Window) SaveState() {
-	if wp != nil && wp.Buffer != nil {
-		wp.Buffer.Cursor = wp.Cursor
-		wp.Buffer.Mark = wp.Mark
+func (win *Window) SaveState() {
+	if win != nil && win.Buffer != nil {
+		win.Buffer.Cursor = win.Cursor
+		win.Buffer.Mark = win.Mark
 	}
 }
 
@@ -62,8 +62,8 @@ func WindowRetile() {
 	extraRows := usable % n
 	top := 0
 
-	for _, wp := range Active.Windows {
-		if wp == nil {
+	for _, win := range Active.Windows {
+		if win == nil {
 			continue
 		}
 		rows := baseRows
@@ -71,39 +71,39 @@ func WindowRetile() {
 			rows++
 			extraRows--
 		}
-		wp.ScreenTopRow = uint32(top)
-		wp.Height = uint32(rows)
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+		win.ScreenTopRow = uint32(top)
+		win.Height = uint32(rows)
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 		top += rows + 1
 	}
 }
 
-func (wp *Window) CenterCursor() {
-	if wp == nil {
+func (win *Window) CenterCursor() {
+	if win == nil {
 		return
 	}
-	top := wp.Cursor.Line
-	for i := wp.Height / 2; i > 0 && top > 1; i-- {
+	top := win.Cursor.Line
+	for i := win.Height / 2; i > 0 && top > 1; i-- {
 		top--
 	}
-	wp.SetTopLine(top)
+	win.SetTopLine(top)
 }
 
-func (wp *Window) SetTopLine(line uint) {
-	if wp == nil {
+func (win *Window) SetTopLine(line uint) {
+	if win == nil {
 		return
 	}
-	wp.TopLine = line
-	wp.ShouldRedraw = true
+	win.TopLine = line
+	win.ShouldRedraw = true
 }
 
-func (wp *Window) GutterWidth() uint32 {
-	if wp == nil || wp.Buffer == nil {
+func (win *Window) GutterWidth() uint32 {
+	if win == nil || win.Buffer == nil {
 		return 3
 	}
 	digits := uint32(1)
-	n := wp.Buffer.LineCount
+	n := win.Buffer.LineCount
 	for n >= 10 {
 		n /= 10
 		digits++
@@ -118,65 +118,65 @@ func (wp *Window) GutterWidth() uint32 {
 	return width
 }
 
-func (wp *Window) SetCursor(loc buffer.Location) {
-	if wp == nil {
+func (win *Window) SetCursor(loc buffer.Location) {
+	if win == nil {
 		return
 	}
-	wp.Cursor = loc
-	wp.DidMove = true
-	wp.ShouldRedraw = true
+	win.Cursor = loc
+	win.DidMove = true
+	win.ShouldRedraw = true
 }
 
 // AdjustLocationsAfterReplace updates cursor, mark, and TopLine for every
-// window showing bp after a replacement of [begin, end) ending at newEnd.
-func AdjustLocationsAfterReplace(bp *buffer.Buffer, begin, end, newEnd buffer.Location) {
-	AdjustWindowLocations(Active.Windows, bp, begin, end, newEnd)
+// window showing buf after a replacement of [begin, end) ending at newEnd.
+func AdjustLocationsAfterReplace(buf *buffer.Buffer, begin, end, newEnd buffer.Location) {
+	AdjustWindowLocations(Active.Windows, buf, begin, end, newEnd)
 }
 
 // AdjustWindowLocations is the pure form of AdjustLocationsAfterReplace.
-func AdjustWindowLocations(windows []*Window, bp *buffer.Buffer, begin, end, newEnd buffer.Location) {
+func AdjustWindowLocations(windows []*Window, buf *buffer.Buffer, begin, end, newEnd buffer.Location) {
 	for i := 0; i < len(windows); i++ {
-		wp := windows[i]
-		if wp == nil || wp.Buffer != bp {
+		win := windows[i]
+		if win == nil || win.Buffer != buf {
 			continue
 		}
-		wp.Cursor.AdjustAfterReplace(begin, end, newEnd)
-		wp.Mark.AdjustAfterReplace(begin, end, newEnd)
-		if wp.TopLine >= begin.Line {
-			if wp.TopLine > end.Line {
+		win.Cursor.AdjustAfterReplace(begin, end, newEnd)
+		win.Mark.AdjustAfterReplace(begin, end, newEnd)
+		if win.TopLine >= begin.Line {
+			if win.TopLine > end.Line {
 				if newEnd.Line >= end.Line {
-					wp.TopLine += newEnd.Line - end.Line
+					win.TopLine += newEnd.Line - end.Line
 				} else {
 					removed := end.Line - newEnd.Line
-					if wp.TopLine >= removed {
-						wp.TopLine -= removed
+					if win.TopLine >= removed {
+						win.TopLine -= removed
 					} else {
-						wp.TopLine = 1
+						win.TopLine = 1
 					}
 				}
 			} else {
-				wp.TopLine = begin.Line
+				win.TopLine = begin.Line
 			}
 		}
 	}
 }
 
-// NoteBufferEdit marks windows showing bp for redraw / modeline after an edit.
-func NoteBufferEdit(bp *buffer.Buffer, isStructural bool) {
-	NoteBufferEditOnWindows(Active.Windows, bp, isStructural)
+// NoteBufferEdit marks windows showing buf for redraw / modeline after an edit.
+func NoteBufferEdit(buf *buffer.Buffer, isStructural bool) {
+	NoteBufferEditOnWindows(Active.Windows, buf, isStructural)
 }
 
 // NoteBufferEditOnWindows is the pure form of NoteBufferEdit.
-func NoteBufferEditOnWindows(windows []*Window, bp *buffer.Buffer, isStructural bool) {
-	if bp == nil {
+func NoteBufferEditOnWindows(windows []*Window, buf *buffer.Buffer, isStructural bool) {
+	if buf == nil {
 		return
 	}
-	firstChange := !bp.IsChanged
+	firstChange := !buf.IsChanged
 	shouldRedraw := isStructural
 	count := 0
 	for i := 0; i < len(windows); i++ {
-		wp := windows[i]
-		if wp != nil && wp.Buffer == bp {
+		win := windows[i]
+		if win != nil && win.Buffer == buf {
 			count++
 		}
 	}
@@ -184,17 +184,17 @@ func NoteBufferEditOnWindows(windows []*Window, bp *buffer.Buffer, isStructural 
 		shouldRedraw = true
 	}
 	for i := 0; i < len(windows); i++ {
-		wp := windows[i]
-		if wp == nil || wp.Buffer != bp {
+		win := windows[i]
+		if win == nil || win.Buffer != buf {
 			continue
 		}
 		if shouldRedraw {
-			wp.ShouldRedraw = true
+			win.ShouldRedraw = true
 		} else {
-			wp.DidEdit = true
+			win.DidEdit = true
 		}
 		if firstChange {
-			wp.ShouldUpdateModeLine = true
+			win.ShouldUpdateModeLine = true
 		}
 	}
 }

@@ -70,25 +70,25 @@ func CmdWindowSplit(f bool, n int) bool {
 		display.MBWrite("[window is too small to split]")
 		return false
 	}
-	wp := window.WindowCreate()
-	if wp == nil {
+	win := window.WindowCreate()
+	if win == nil {
 		display.MBWrite("[maximum number of windows has been reached]")
 		return false
 	}
 
 	curr := window.Active.CurrentWindow
-	wp.Buffer = buffer.All.Current
-	wp.TopLine = curr.TopLine
-	wp.Cursor = curr.Cursor
-	wp.Mark = curr.Mark
-	wp.ScreenTopRow = curr.ScreenTopRow
-	wp.Height = curr.Height
-	wp.HScroll = curr.HScroll
+	win.Buffer = buffer.All.Current
+	win.TopLine = curr.TopLine
+	win.Cursor = curr.Cursor
+	win.Mark = curr.Mark
+	win.ScreenTopRow = curr.ScreenTopRow
+	win.Height = curr.Height
+	win.HScroll = curr.HScroll
 
-	// Insert wp next to curr in Windows slice
+	// Insert win next to curr in Windows slice
 	for i := len(window.Active.Windows) - 1; i > 0; i-- {
 		if window.Active.Windows[i-1] == curr {
-			window.Active.Windows[i] = wp
+			window.Active.Windows[i] = win
 			break
 		}
 		window.Active.Windows[i] = window.Active.Windows[i-1]

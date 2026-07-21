@@ -57,35 +57,35 @@ func searchScopeInit(origin *buffer.Buffer) bufferSearchScope {
 	scope := bufferSearchScope{allBuffers: searchScopeIsAllBuffers()}
 	scope.buffers = append(scope.buffers, origin)
 	for i := 0; i < int(len(buffer.All.Buffers)); i++ {
-		bp := buffer.All.Buffers[i]
-		if bp != nil && bp != origin {
-			scope.buffers = append(scope.buffers, bp)
+		buf := buffer.All.Buffers[i]
+		if buf != nil && buf != origin {
+			scope.buffers = append(scope.buffers, buf)
 		}
 	}
 	return scope
 }
 
-func searchScopeIndex(scope *bufferSearchScope, bp *buffer.Buffer) int {
+func searchScopeIndex(scope *bufferSearchScope, buf *buffer.Buffer) int {
 	for i, b := range scope.buffers {
-		if b == bp {
+		if b == buf {
 			return i
 		}
 	}
 	return 0
 }
 
-func saveSearchSnapshot(wp *window.Window, patternLen int) ISearchSnapshot {
-	s := ISearchSnapshot{Buffer: wp.Buffer, PatternLen: patternLen}
-	if wp.Buffer != nil {
-		s.Line = wp.Cursor.Line
-		s.Offset = wp.Cursor.Offset
-		s.MarkLine = wp.Mark.Line
-		s.MarkOff = wp.Mark.Offset
+func saveSearchSnapshot(win *window.Window, patternLen int) ISearchSnapshot {
+	s := ISearchSnapshot{Buffer: win.Buffer, PatternLen: patternLen}
+	if win.Buffer != nil {
+		s.Line = win.Cursor.Line
+		s.Offset = win.Cursor.Offset
+		s.MarkLine = win.Mark.Line
+		s.MarkOff = win.Mark.Offset
 	}
 	return s
 }
 
-func restoreSearchSnapshot(wp *window.Window, snap *ISearchSnapshot) {
+func restoreSearchSnapshot(win *window.Window, snap *ISearchSnapshot) {
 	if snap == nil || snap.Buffer == nil || snap.Line == 0 {
 		return
 	}
@@ -95,49 +95,49 @@ func restoreSearchSnapshot(wp *window.Window, snap *ISearchSnapshot) {
 		} else {
 			buffer.SetCurrent(snap.Buffer)
 		}
-		wp = window.Active.CurrentWindow
+		win = window.Active.CurrentWindow
 	}
-	if wp == nil {
+	if win == nil {
 		return
 	}
-	wp.SetCursor(buffer.Location{Line: snap.Line, Offset: snap.Offset})
-	wp.Mark.Line = snap.MarkLine
-	wp.Mark.Offset = snap.MarkOff
-	wp.DidMove = true
+	win.SetCursor(buffer.Location{Line: snap.Line, Offset: snap.Offset})
+	win.Mark.Line = snap.MarkLine
+	win.Mark.Offset = snap.MarkOff
+	win.DidMove = true
 }
 
-func isearchClearHighlight(wp *window.Window) {
-	if wp == nil {
+func isearchClearHighlight(win *window.Window) {
+	if win == nil {
 		return
 	}
-	if wp.Mark.Line != 0 {
-		wp.ShouldRedraw = true
+	if win.Mark.Line != 0 {
+		win.ShouldRedraw = true
 	}
-	wp.Mark.Line = 0
-	wp.Mark.Offset = 0
+	win.Mark.Line = 0
+	win.Mark.Offset = 0
 }
 
-func searchSwitchBuffer(wp *window.Window, bp *buffer.Buffer, loc buffer.Location) {
-	if bp == nil || loc.Line == 0 {
+func searchSwitchBuffer(win *window.Window, buf *buffer.Buffer, loc buffer.Location) {
+	if buf == nil || loc.Line == 0 {
 		return
 	}
-	if buffer.All.Current != bp {
+	if buffer.All.Current != buf {
 		if true {
-			window.SwitchBuffer(bp)
+			window.SwitchBuffer(buf)
 		} else {
-			buffer.SetCurrent(bp)
+			buffer.SetCurrent(buf)
 		}
-		wp = window.Active.CurrentWindow
+		win = window.Active.CurrentWindow
 	}
-	if wp != nil {
-		wp.SetCursor(loc)
-		wp.DidMove = true
+	if win != nil {
+		win.SetCursor(loc)
+		win.DidMove = true
 	}
 }
 
-func bufferSearchStart(bp *buffer.Buffer) buffer.Location { return buffer.Location{Line: 1, Offset: 0} }
-func bufferSearchEnd(bp *buffer.Buffer) buffer.Location {
-	return buffer.Location{Line: bp.EOF(), Offset: 0}
+func bufferSearchStart(buf *buffer.Buffer) buffer.Location { return buffer.Location{Line: 1, Offset: 0} }
+func bufferSearchEnd(buf *buffer.Buffer) buffer.Location {
+	return buffer.Location{Line: buf.EOF(), Offset: 0}
 }
 
 func searchCharsEqual(bc, pc int) bool {
@@ -147,63 +147,63 @@ func searchCharsEqual(bc, pc int) bool {
 	return unicode.ToUpper(rune(bc)) == unicode.ToUpper(rune(pc))
 }
 
-func searchReadForward(bp *buffer.Buffer, line *uint, offset *uint) (int, bool) {
-	if bp == nil || line == nil || offset == nil {
+func searchReadForward(buf *buffer.Buffer, lineNum *uint, offset *uint) (int, bool) {
+	if buf == nil || lineNum == nil || offset == nil {
 		return -1, false
 	}
-	if *line > bp.LineCount {
+	if *lineNum > buf.LineCount {
 		return -1, false
 	}
-	lp := bp.Line(*line)
-	if lp == nil {
+	line := buf.Line(*lineNum)
+	if line == nil {
 		return -1, false
 	}
-	if *offset >= lp.Len() {
-		*line++
+	if *offset >= line.Len() {
+		*lineNum++
 		*offset = 0
 		return '\n', true
 	}
-	c := int(lp.Data[*offset])
+	c := int(line.Data[*offset])
 	*offset++
 	return c, true
 }
 
-func searchReadBackward(bp *buffer.Buffer, line *uint, offset *uint) (int, bool) {
-	if bp == nil || line == nil || offset == nil {
+func searchReadBackward(buf *buffer.Buffer, lineNum *uint, offset *uint) (int, bool) {
+	if buf == nil || lineNum == nil || offset == nil {
 		return -1, false
 	}
 	if *offset == 0 {
-		if *line <= 1 {
+		if *lineNum <= 1 {
 			return -1, false
 		}
-		*line--
-		lp := bp.Line(*line)
-		if lp == nil {
+		*lineNum--
+		line := buf.Line(*lineNum)
+		if line == nil {
 			return -1, false
 		}
-		*offset = lp.Len() + 1
+		*offset = line.Len() + 1
 	}
 	*offset--
-	lp := bp.Line(*line)
-	if lp == nil {
+	line := buf.Line(*lineNum)
+	if line == nil {
 		return -1, false
 	}
-	if *offset == lp.Len() {
+	if *offset == line.Len() {
 		return '\n', true
 	}
-	return int(lp.Data[*offset]), true
+	return int(line.Data[*offset]), true
 }
 
-func findNextPlain(wp *window.Window, pattern []byte) bool {
-	if wp == nil || wp.Buffer == nil || len(pattern) == 0 {
+func findNextPlain(win *window.Window, pattern []byte) bool {
+	if win == nil || win.Buffer == nil || len(pattern) == 0 {
 		return false
 	}
-	bp := wp.Buffer
-	cline := wp.Cursor.Line
-	cbo := wp.Cursor.Offset
+	buf := win.Buffer
+	cline := win.Cursor.Line
+	cbo := win.Cursor.Offset
 
-	for cline <= bp.LineCount {
-		c, ok := searchReadForward(bp, &cline, &cbo)
+	for cline <= buf.LineCount {
+		c, ok := searchReadForward(buf, &cline, &cbo)
 		if !ok {
 			break
 		}
@@ -214,36 +214,36 @@ func findNextPlain(wp *window.Window, pattern []byte) bool {
 		tbo := cbo
 		matched := true
 		for i := 1; i < len(pattern); i++ {
-			if tline > bp.LineCount {
+			if tline > buf.LineCount {
 				matched = false
 				break
 			}
-			nc, ok := searchReadForward(bp, &tline, &tbo)
+			nc, ok := searchReadForward(buf, &tline, &tbo)
 			if !ok || !searchCharsEqual(nc, int(pattern[i])) {
 				matched = false
 				break
 			}
 		}
 		if matched {
-			wp.SetCursor(buffer.Location{Line: tline, Offset: tbo})
-			wp.DidMove = true
+			win.SetCursor(buffer.Location{Line: tline, Offset: tbo})
+			win.DidMove = true
 			return true
 		}
 	}
 	return false
 }
 
-func findPrevPlain(wp *window.Window, pattern []byte) bool {
-	if wp == nil || wp.Buffer == nil || len(pattern) == 0 {
+func findPrevPlain(win *window.Window, pattern []byte) bool {
+	if win == nil || win.Buffer == nil || len(pattern) == 0 {
 		return false
 	}
-	bp := wp.Buffer
+	buf := win.Buffer
 	last := len(pattern) - 1
-	cline := wp.Cursor.Line
-	cbo := wp.Cursor.Offset
+	cline := win.Cursor.Line
+	cbo := win.Cursor.Offset
 
 	for {
-		c, ok := searchReadBackward(bp, &cline, &cbo)
+		c, ok := searchReadBackward(buf, &cline, &cbo)
 		if !ok {
 			return false
 		}
@@ -254,92 +254,92 @@ func findPrevPlain(wp *window.Window, pattern []byte) bool {
 		tbo := cbo
 		matched := true
 		for i := last - 1; i >= 0; i-- {
-			nc, ok := searchReadBackward(bp, &tline, &tbo)
+			nc, ok := searchReadBackward(buf, &tline, &tbo)
 			if !ok || !searchCharsEqual(nc, int(pattern[i])) {
 				matched = false
 				break
 			}
 		}
 		if matched {
-			wp.SetCursor(buffer.Location{Line: tline, Offset: tbo})
-			wp.DidMove = true
+			win.SetCursor(buffer.Location{Line: tline, Offset: tbo})
+			win.DidMove = true
 			return true
 		}
 	}
 }
 
-func findNextInScope(wp *window.Window, scope *bufferSearchScope, pattern []byte) bool {
-	if wp == nil || scope == nil {
+func findNextInScope(win *window.Window, scope *bufferSearchScope, pattern []byte) bool {
+	if win == nil || scope == nil {
 		return false
 	}
-	origin := wp.Buffer
+	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
-	if findNextPlain(wp, pattern) {
+	if findNextPlain(win, pattern) {
 		return true
 	}
 	if !scope.allBuffers {
 		return false
 	}
 	for step := 1; step < len(scope.buffers); step++ {
-		bp := scope.buffers[(idx+step)%len(scope.buffers)]
-		searchSwitchBuffer(wp, bp, bufferSearchStart(bp))
-		wp = window.Active.CurrentWindow
-		if wp != nil && findNextPlain(wp, pattern) {
+		buf := scope.buffers[(idx+step)%len(scope.buffers)]
+		searchSwitchBuffer(win, buf, bufferSearchStart(buf))
+		win = window.Active.CurrentWindow
+		if win != nil && findNextPlain(win, pattern) {
 			return true
 		}
 	}
 	return false
 }
 
-func findPrevInScope(wp *window.Window, scope *bufferSearchScope, pattern []byte) bool {
-	if wp == nil || scope == nil {
+func findPrevInScope(win *window.Window, scope *bufferSearchScope, pattern []byte) bool {
+	if win == nil || scope == nil {
 		return false
 	}
-	origin := wp.Buffer
+	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
-	if findPrevPlain(wp, pattern) {
+	if findPrevPlain(win, pattern) {
 		return true
 	}
 	if !scope.allBuffers {
 		return false
 	}
 	for step := 1; step < len(scope.buffers); step++ {
-		bp := scope.buffers[(idx+step)%len(scope.buffers)]
-		searchSwitchBuffer(wp, bp, bufferSearchEnd(bp))
-		wp = window.Active.CurrentWindow
-		if wp != nil && findPrevPlain(wp, pattern) {
+		buf := scope.buffers[(idx+step)%len(scope.buffers)]
+		searchSwitchBuffer(win, buf, bufferSearchEnd(buf))
+		win = window.Active.CurrentWindow
+		if win != nil && findPrevPlain(win, pattern) {
 			return true
 		}
 	}
 	return false
 }
 
-func isearchHighlightPlain(wp *window.Window, patLen int, backward bool) {
-	if wp == nil || patLen <= 0 {
+func isearchHighlightPlain(win *window.Window, patLen int, backward bool) {
+	if win == nil || patLen <= 0 {
 		return
 	}
-	cursor := wp.Cursor
+	cursor := win.Cursor
 	var mark buffer.Location
 	if backward {
-		mark = cursor.AdvanceBytes(wp.Buffer, patLen)
+		mark = cursor.AdvanceBytes(win.Buffer, patLen)
 	} else {
-		mark = cursor.RewindBytes(wp.Buffer, patLen)
+		mark = cursor.RewindBytes(win.Buffer, patLen)
 	}
-	wp.Mark.Line = mark.Line
-	wp.Mark.Offset = mark.Offset
-	wp.ShouldRedraw = true
+	win.Mark.Line = mark.Line
+	win.Mark.Offset = mark.Offset
+	win.ShouldRedraw = true
 }
 
-func isearchHighlightMatch(wp *window.Window, start, end buffer.Location, backward bool) {
-	if wp == nil {
+func isearchHighlightMatch(win *window.Window, start, end buffer.Location, backward bool) {
+	if win == nil {
 		return
 	}
 	if backward {
-		wp.Mark = end
+		win.Mark = end
 	} else {
-		wp.Mark = start
+		win.Mark = start
 	}
-	wp.ShouldRedraw = true
+	win.ShouldRedraw = true
 }
 
 func isearchSetPlainPattern(pattern string) {
@@ -347,29 +347,29 @@ func isearchSetPlainPattern(pattern string) {
 	updateSearchCase(currentState().SearchPattern)
 }
 
-func isearchRunPlain(wp *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
-	if wp == nil || scope == nil || start == nil || out == nil {
+func isearchRunPlain(win *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
+	if win == nil || scope == nil || start == nil || out == nil {
 		return false
 	}
-	restoreSearchSnapshot(wp, start)
-	wp = window.Active.CurrentWindow
+	restoreSearchSnapshot(win, start)
+	win = window.Active.CurrentWindow
 	if len(pattern) == 0 {
-		*out = saveSearchSnapshot(wp, 0)
+		*out = saveSearchSnapshot(win, 0)
 		return true
 	}
 	isearchSetPlainPattern(string(pattern))
 	ok := false
 	if backward {
-		ok = findPrevInScope(wp, scope, pattern)
+		ok = findPrevInScope(win, scope, pattern)
 	} else {
-		ok = findNextInScope(wp, scope, pattern)
+		ok = findNextInScope(win, scope, pattern)
 	}
 	if !ok {
 		return false
 	}
-	wp = window.Active.CurrentWindow
-	isearchHighlightPlain(wp, len(pattern), backward)
-	*out = saveSearchSnapshot(wp, len(pattern))
+	win = window.Active.CurrentWindow
+	isearchHighlightPlain(win, len(pattern), backward)
+	*out = saveSearchSnapshot(win, len(pattern))
 	return true
 }
 
@@ -389,15 +389,15 @@ func locationCompare(a, b buffer.Location) int {
 	return 0
 }
 
-func bufferSliceFrom(bp *buffer.Buffer, start buffer.Location) []byte {
-	if bp == nil || start.Line == 0 {
+func bufferSliceFrom(buf *buffer.Buffer, start buffer.Location) []byte {
+	if buf == nil || start.Line == 0 {
 		return nil
 	}
-	return bp.GetText(start, bufferSearchEnd(bp))
+	return buf.GetText(start, bufferSearchEnd(buf))
 }
 
-func findNextRegexMatchFrom(bp *buffer.Buffer, searchStart buffer.Location, pattern string) (RegexMatch, int) {
-	text := bufferSliceFrom(bp, searchStart)
+func findNextRegexMatchFrom(buf *buffer.Buffer, searchStart buffer.Location, pattern string) (RegexMatch, int) {
+	text := bufferSliceFrom(buf, searchStart)
 	if len(text) == 0 {
 		return RegexMatch{}, 0
 	}
@@ -417,18 +417,18 @@ func findNextRegexMatchFrom(bp *buffer.Buffer, searchStart buffer.Location, patt
 	match := RegexMatch{
 		Text:  text,
 		Index: re.FindSubmatchIndex(text),
-		Start: searchStart.AdvanceBytes(bp, loc[0]),
-		End:   searchStart.AdvanceBytes(bp, loc[1]),
+		Start: searchStart.AdvanceBytes(buf, loc[0]),
+		End:   searchStart.AdvanceBytes(buf, loc[1]),
 	}
 	return match, 1
 }
 
-func findPrevRegexMatchFrom(bp *buffer.Buffer, limit buffer.Location, pattern string) (RegexMatch, int) {
+func findPrevRegexMatchFrom(buf *buffer.Buffer, limit buffer.Location, pattern string) (RegexMatch, int) {
 	scan := buffer.Location{Line: 1, Offset: 0}
 	var best RegexMatch
 	haveBest := false
 	for {
-		candidate, found := findNextRegexMatchFrom(bp, scan, pattern)
+		candidate, found := findNextRegexMatchFrom(buf, scan, pattern)
 		if found < 0 {
 			return RegexMatch{}, -1
 		}
@@ -440,7 +440,7 @@ func findPrevRegexMatchFrom(bp *buffer.Buffer, limit buffer.Location, pattern st
 		}
 		best = candidate
 		haveBest = true
-		scan = candidate.Start.AdvanceBytes(bp, 1)
+		scan = candidate.Start.AdvanceBytes(buf, 1)
 	}
 	if !haveBest {
 		return RegexMatch{}, 0
@@ -448,24 +448,24 @@ func findPrevRegexMatchFrom(bp *buffer.Buffer, limit buffer.Location, pattern st
 	return best, 1
 }
 
-func findNextRegexInScope(wp *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
-	if wp == nil || scope == nil {
+func findNextRegexInScope(win *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
+	if win == nil || scope == nil {
 		return RegexMatch{}, 0
 	}
-	origin := wp.Buffer
+	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
-	match, found := findNextRegexMatchFrom(wp.Buffer, wp.Cursor, pattern)
+	match, found := findNextRegexMatchFrom(win.Buffer, win.Cursor, pattern)
 	if found != 0 || !scope.allBuffers {
 		return match, found
 	}
 	for step := 1; step < len(scope.buffers); step++ {
-		bp := scope.buffers[(idx+step)%len(scope.buffers)]
-		searchSwitchBuffer(wp, bp, bufferSearchStart(bp))
-		wp = window.Active.CurrentWindow
-		if wp == nil {
+		buf := scope.buffers[(idx+step)%len(scope.buffers)]
+		searchSwitchBuffer(win, buf, bufferSearchStart(buf))
+		win = window.Active.CurrentWindow
+		if win == nil {
 			continue
 		}
-		match, found = findNextRegexMatchFrom(bp, wp.Cursor, pattern)
+		match, found = findNextRegexMatchFrom(buf, win.Cursor, pattern)
 		if found != 0 {
 			return match, found
 		}
@@ -473,24 +473,24 @@ func findNextRegexInScope(wp *window.Window, scope *bufferSearchScope, pattern s
 	return RegexMatch{}, 0
 }
 
-func findPrevRegexInScope(wp *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
-	if wp == nil || scope == nil {
+func findPrevRegexInScope(win *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
+	if win == nil || scope == nil {
 		return RegexMatch{}, 0
 	}
-	origin := wp.Buffer
+	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
-	match, found := findPrevRegexMatchFrom(wp.Buffer, wp.Cursor, pattern)
+	match, found := findPrevRegexMatchFrom(win.Buffer, win.Cursor, pattern)
 	if found != 0 || !scope.allBuffers {
 		return match, found
 	}
 	for step := 1; step < len(scope.buffers); step++ {
-		bp := scope.buffers[(idx+step)%len(scope.buffers)]
-		searchSwitchBuffer(wp, bp, bufferSearchEnd(bp))
-		wp = window.Active.CurrentWindow
-		if wp == nil {
+		buf := scope.buffers[(idx+step)%len(scope.buffers)]
+		searchSwitchBuffer(win, buf, bufferSearchEnd(buf))
+		win = window.Active.CurrentWindow
+		if win == nil {
 			continue
 		}
-		match, found = findPrevRegexMatchFrom(bp, wp.Cursor, pattern)
+		match, found = findPrevRegexMatchFrom(buf, win.Cursor, pattern)
 		if found != 0 {
 			return match, found
 		}
@@ -498,39 +498,39 @@ func findPrevRegexInScope(wp *window.Window, scope *bufferSearchScope, pattern s
 	return RegexMatch{}, 0
 }
 
-func isearchRunRegex(wp *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
-	if wp == nil || scope == nil || start == nil || out == nil {
+func isearchRunRegex(win *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
+	if win == nil || scope == nil || start == nil || out == nil {
 		return false
 	}
-	restoreSearchSnapshot(wp, start)
-	wp = window.Active.CurrentWindow
+	restoreSearchSnapshot(win, start)
+	win = window.Active.CurrentWindow
 	if pattern == "" {
-		*out = saveSearchSnapshot(wp, 0)
+		*out = saveSearchSnapshot(win, 0)
 		return true
 	}
 	var match RegexMatch
 	var found int
 	if backward {
-		match, found = findPrevRegexInScope(wp, scope, pattern)
+		match, found = findPrevRegexInScope(win, scope, pattern)
 	} else {
-		match, found = findNextRegexInScope(wp, scope, pattern)
+		match, found = findNextRegexInScope(win, scope, pattern)
 	}
 	if found < 0 {
-		isearchClearHighlight(wp)
+		isearchClearHighlight(win)
 		return false
 	}
 	if found == 0 {
-		isearchClearHighlight(wp)
+		isearchClearHighlight(win)
 		return false
 	}
-	wp = window.Active.CurrentWindow
+	win = window.Active.CurrentWindow
 	if backward {
-		wp.SetCursor(match.Start)
+		win.SetCursor(match.Start)
 	} else {
-		wp.SetCursor(match.End)
+		win.SetCursor(match.End)
 	}
-	wp.DidMove = true
-	isearchHighlightMatch(wp, match.Start, match.End, backward)
-	*out = saveSearchSnapshot(wp, len(pattern))
+	win.DidMove = true
+	isearchHighlightMatch(win, match.Start, match.End, backward)
+	*out = saveSearchSnapshot(win, len(pattern))
 	return true
 }

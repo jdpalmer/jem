@@ -7,11 +7,11 @@ import (
 )
 
 func TestAdjustWindowLocationsMovesCursorAndTopLine(t *testing.T) {
-	bp := buffer.New()
-	bp.AppendLineBytes([]byte("aaa"))
-	bp.AppendLineBytes([]byte("bbb"))
-	wp := &Window{
-		Buffer:  bp,
+	buf := buffer.New()
+	buf.AppendLineBytes([]byte("aaa"))
+	buf.AppendLineBytes([]byte("bbb"))
+	win := &Window{
+		Buffer:  buf,
 		TopLine: 2,
 		Cursor:  buffer.MakeLocation(2, 1),
 		Mark:    buffer.MakeLocation(2, 2),
@@ -20,36 +20,36 @@ func TestAdjustWindowLocationsMovesCursorAndTopLine(t *testing.T) {
 	end := buffer.MakeLocation(1, 0)
 	newEnd := buffer.MakeLocation(2, 0) // inserted one line before
 
-	AdjustWindowLocations([]*Window{wp}, bp, begin, end, newEnd)
+	AdjustWindowLocations([]*Window{win}, buf, begin, end, newEnd)
 
-	if wp.Cursor.Line != 3 || wp.Mark.Line != 3 {
-		t.Fatalf("cursor/mark = (%d,%d)/(%d,%d), want lines 3", wp.Cursor.Line, wp.Cursor.Offset, wp.Mark.Line, wp.Mark.Offset)
+	if win.Cursor.Line != 3 || win.Mark.Line != 3 {
+		t.Fatalf("cursor/mark = (%d,%d)/(%d,%d), want lines 3", win.Cursor.Line, win.Cursor.Offset, win.Mark.Line, win.Mark.Offset)
 	}
-	if wp.TopLine != 3 {
-		t.Fatalf("TopLine = %d, want 3", wp.TopLine)
+	if win.TopLine != 3 {
+		t.Fatalf("TopLine = %d, want 3", win.TopLine)
 	}
 }
 
 func TestNoteBufferEditOnWindowsFirstChange(t *testing.T) {
-	bp := buffer.New()
-	bp.AppendLineBytes([]byte("x"))
-	wp := &Window{Buffer: bp}
+	buf := buffer.New()
+	buf.AppendLineBytes([]byte("x"))
+	win := &Window{Buffer: buf}
 
-	NoteBufferEditOnWindows([]*Window{wp}, bp, false)
-	if !wp.DidEdit {
+	NoteBufferEditOnWindows([]*Window{win}, buf, false)
+	if !win.DidEdit {
 		t.Fatal("expected DidEdit for non-structural single window")
 	}
-	if !wp.ShouldUpdateModeLine {
+	if !win.ShouldUpdateModeLine {
 		t.Fatal("expected modeline update on first change")
 	}
-	if wp.ShouldRedraw {
+	if win.ShouldRedraw {
 		t.Fatal("should not full-redraw non-structural single window")
 	}
 
-	bp.IsChanged = true
-	wp2 := &Window{Buffer: bp}
-	NoteBufferEditOnWindows([]*Window{wp, wp2}, bp, false)
-	if !wp.ShouldRedraw || !wp2.ShouldRedraw {
+	buf.IsChanged = true
+	wp2 := &Window{Buffer: buf}
+	NoteBufferEditOnWindows([]*Window{win, wp2}, buf, false)
+	if !win.ShouldRedraw || !wp2.ShouldRedraw {
 		t.Fatal("multi-window edit should force redraw")
 	}
 }

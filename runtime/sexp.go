@@ -9,31 +9,31 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-func cursorAtEob(wp *window.Window) bool {
-	if wp == nil || wp.Buffer == nil {
+func cursorAtEob(win *window.Window) bool {
+	if win == nil || win.Buffer == nil {
 		return true
 	}
-	return wp.Cursor.Line >= wp.Buffer.EOF()
+	return win.Cursor.Line >= win.Buffer.EOF()
 }
 
-func cursorChar(wp *window.Window, bp *buffer.Buffer) int {
-	if cursorAtEob(wp) {
+func cursorChar(win *window.Window, buf *buffer.Buffer) int {
+	if cursorAtEob(win) {
 		return -1
 	}
-	loc := wp.Cursor
-	lp := bp.Line(loc.Line)
-	if lp == nil {
+	loc := win.Cursor
+	line := buf.Line(loc.Line)
+	if line == nil {
 		return -1
 	}
-	if loc.Offset >= lp.Len() {
+	if loc.Offset >= line.Len() {
 		return '\n'
 	}
-	return int(lp.Byte(loc.Offset))
+	return int(line.Byte(loc.Offset))
 }
 
-func forwardSexpOnce(wp *window.Window, bp *buffer.Buffer) bool {
+func forwardSexpOnce(win *window.Window, buf *buffer.Buffer) bool {
 	for {
-		ch := cursorChar(wp, bp)
+		ch := cursorChar(win, buf)
 		if ch < 0 {
 			return false
 		}
@@ -44,34 +44,34 @@ func forwardSexpOnce(wp *window.Window, bp *buffer.Buffer) bool {
 			return false
 		}
 	}
-	loc := wp.Cursor
-	ch := cursorChar(wp, bp)
+	loc := win.Cursor
+	ch := cursorChar(win, buf)
 	if ch == '(' || ch == '[' || ch == '{' {
 		var match buffer.Location
-		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
+		if !syntax.FindMatchingDelimiter(buf, loc, &match) {
 			display.MBWrite("[no matching delimiter]")
 			return false
 		}
-		mlp := bp.Line(match.Line)
+		mlp := buf.Line(match.Line)
 		after := match.Offset + 1
 		if mlp == nil || after > mlp.Len() {
-			wp.SetCursor(buffer.MakeLocation(match.Line+1, 0))
+			win.SetCursor(buffer.MakeLocation(match.Line+1, 0))
 		} else {
-			wp.SetCursor(buffer.MakeLocation(match.Line, after))
+			win.SetCursor(buffer.MakeLocation(match.Line, after))
 		}
-		wp.DidMove = true
+		win.DidMove = true
 		return true
 	}
 	return CmdForwardWord(false, 1)
 }
 
-func backwardSexpOnce(wp *window.Window, bp *buffer.Buffer) bool {
-	orig := wp.Cursor
+func backwardSexpOnce(win *window.Window, buf *buffer.Buffer) bool {
+	orig := win.Cursor
 	if !CmdBackwardChar(false, 1) {
 		return false
 	}
 	for {
-		ch := cursorChar(wp, bp)
+		ch := cursorChar(win, buf)
 		if ch < 0 || (ch != ' ' && ch != '\t' && ch != '\n') {
 			break
 		}
@@ -79,20 +79,20 @@ func backwardSexpOnce(wp *window.Window, bp *buffer.Buffer) bool {
 			break
 		}
 	}
-	loc := wp.Cursor
-	ch := cursorChar(wp, bp)
+	loc := win.Cursor
+	ch := cursorChar(win, buf)
 	if ch == ')' || ch == ']' || ch == '}' {
 		var match buffer.Location
-		if !syntax.FindMatchingDelimiter(bp, loc, &match) {
+		if !syntax.FindMatchingDelimiter(buf, loc, &match) {
 			display.MBWrite("[no matching delimiter]")
-			wp.SetCursor(orig)
+			win.SetCursor(orig)
 			return false
 		}
-		wp.SetCursor(match)
-		wp.DidMove = true
+		win.SetCursor(match)
+		win.DidMove = true
 		return true
 	}
-	wp.SetCursor(orig)
+	win.SetCursor(orig)
 	return CmdBackwardWord(false, 1)
 }
 
@@ -102,16 +102,16 @@ func CmdForwardSexp(f bool, n int) bool {
 	if n < 0 {
 		return CmdBackwardSexp(false, -n)
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	if n == 0 {
 		return true
 	}
 	for i := 0; i < n; i++ {
-		if !forwardSexpOnce(wp, bp) {
+		if !forwardSexpOnce(win, buf) {
 			return false
 		}
 	}
@@ -124,16 +124,16 @@ func CmdBackwardSexp(f bool, n int) bool {
 	if n < 0 {
 		return CmdForwardSexp(false, -n)
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	if n == 0 {
 		return true
 	}
 	for i := 0; i < n; i++ {
-		if !backwardSexpOnce(wp, bp) {
+		if !backwardSexpOnce(win, buf) {
 			return false
 		}
 	}

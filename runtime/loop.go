@@ -63,8 +63,8 @@ func editorReadKey(keyOut *uint32) bool {
 
 func anyUnsavedBuffers() bool {
 	for i := 0; i < int(len(buffer.All.Buffers)); i++ {
-		bp := buffer.All.Buffers[i]
-		if bp != nil && bp.IsChanged {
+		buf := buffer.All.Buffers[i]
+		if buf != nil && buf.IsChanged {
 			return true
 		}
 	}

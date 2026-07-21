@@ -7,10 +7,10 @@ import (
 )
 
 func TestInsertPaste(t *testing.T) {
-	bp := buffer.New()
-	wp := &Window{Buffer: bp, Cursor: buffer.Location{Line: 1, Offset: 0}}
-	Active.CurrentWindow = wp
-	Active.Windows = []*Window{wp}
+	buf := buffer.New()
+	win := &Window{Buffer: buf, Cursor: buffer.Location{Line: 1, Offset: 0}}
+	Active.CurrentWindow = win
+	Active.Windows = []*Window{win}
 
 	old := PackageHooks
 	PackageHooks = Hooks{
@@ -22,16 +22,16 @@ func TestInsertPaste(t *testing.T) {
 	}
 	defer func() { PackageHooks = old }()
 
-	if err := InsertPaste(wp, []byte("hel\rlo")); err != nil {
+	if err := InsertPaste(win, []byte("hel\rlo")); err != nil {
 		t.Fatalf("InsertPaste failed: %v", err)
 	}
-	if got := string(bp.Line(1).Data); got != "hel" {
+	if got := string(buf.Line(1).Data); got != "hel" {
 		t.Fatalf("line 1 after paste = %q, want hel", got)
 	}
-	if bp.LineCount < 2 {
+	if buf.LineCount < 2 {
 		t.Fatal("paste with CR should create a second line")
 	}
-	if got := string(bp.Line(2).Data); got != "lo" {
+	if got := string(buf.Line(2).Data); got != "lo" {
 		t.Fatalf("line 2 after paste = %q, want lo", got)
 	}
 }

@@ -65,14 +65,14 @@ func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, load
 
 	for i := len(paths) - 1; i >= 1; i-- {
 		path := paths[i]
-		abp := buffer.Create()
-		if abp == nil {
+		otherBuf := buffer.Create()
+		if otherBuf == nil {
 			continue
 		}
 		if nameFromPath != nil {
-			abp.Name = nameFromPath(path)
+			otherBuf.Name = nameFromPath(path)
 		}
-		buffer.SetCurrent(abp)
+		buffer.SetCurrent(otherBuf)
 		_ = loadFile(path)
 	}
 
@@ -83,28 +83,28 @@ func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, load
 
 func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	resolved := NormalizePath(fname)
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		return ErrNoBuffer
 	}
-	if bp.IsReadonly {
+	if buf.IsReadonly {
 		writeMessage(writef, "[read-only buffer]")
 		return ErrReadonly
 	}
 
-	bp.Clear()
-	bp.IsChanged = false
-	bp.EolMode = buffer.EModeLF
-	bp.FileName = resolved
-	bp.LangMode = DetectLangMode(resolved)
-	mode.ApplyLangIndentDefaults(bp)
+	buf.Clear()
+	buf.IsChanged = false
+	buf.EolMode = buffer.EModeLF
+	buf.FileName = resolved
+	buf.LangMode = DetectLangMode(resolved)
+	mode.ApplyLangIndentDefaults(buf)
 
 	fh, err := os.Open(resolved)
 	if err != nil {
 		// Missing path is a successful "new file" buffer, matching historical behavior.
 		writeMessage(writef, "[New file]")
-		bp.Cursor = buffer.Location{Line: 1, Offset: 0}
-		bp.Mark = buffer.Location{Line: 0, Offset: 0}
+		buf.Cursor = buffer.Location{Line: 1, Offset: 0}
+		buf.Mark = buffer.Location{Line: 0, Offset: 0}
 		return nil
 	}
 	defer fh.Close()
@@ -120,13 +120,13 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 		if err != nil {
 			if err == io.EOF {
 				if lineBuf.Len() > 0 {
-					bp.AppendLineBytes(lineBuf.Bytes())
+					buf.AppendLineBytes(lineBuf.Bytes())
 					nline++
 				}
 				break
 			}
 			writeMessage(writef, "File read error")
-			bp.Clear()
+			buf.Clear()
 			return fmt.Errorf("file read: %w", err)
 		}
 
@@ -140,14 +140,14 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 			} else if eolMode == buffer.EModeLF {
 				eolMode = buffer.EModeCR
 			}
-			bp.AppendLineBytes(lineBuf.Bytes())
+			buf.AppendLineBytes(lineBuf.Bytes())
 			lineBuf.Reset()
 			nline++
 			continue
 		}
 
 		if b == '\n' {
-			bp.AppendLineBytes(lineBuf.Bytes())
+			buf.AppendLineBytes(lineBuf.Bytes())
 			lineBuf.Reset()
 			nline++
 			continue
@@ -156,49 +156,49 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 		lineBuf.WriteByte(b)
 	}
 
-	bp.EolMode = eolMode
+	buf.EolMode = eolMode
 	if nline == 1 {
 		writeMessage(writef, "[Read 1 line]")
 	} else {
 		writeMessage(writef, "[Read lines]")
 	}
 
-	bp.Cursor = buffer.Location{Line: 1, Offset: 0}
-	bp.Mark = buffer.Location{Line: 0, Offset: 0}
+	buf.Cursor = buffer.Location{Line: 1, Offset: 0}
+	buf.Mark = buffer.Location{Line: 0, Offset: 0}
 
-	if wp := window.Active.CurrentWindow; wp != nil && wp.Buffer == bp {
-		wp.TopLine = 1
-		wp.Cursor = buffer.Location{Line: 1, Offset: 0}
-		wp.Mark = buffer.Location{Line: 0, Offset: 0}
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+	if win := window.Active.CurrentWindow; win != nil && win.Buffer == buf {
+		win.TopLine = 1
+		win.Cursor = buffer.Location{Line: 1, Offset: 0}
+		win.Mark = buffer.Location{Line: 0, Offset: 0}
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 	}
 
-	bp.FileMtime = FileMtime(resolved)
-	bp.DiskChangeNotifiedMtime = time.Time{}
+	buf.FileMtime = FileMtime(resolved)
+	buf.DiskChangeNotifiedMtime = time.Time{}
 	return nil
 }
 
 // NeedsOverwriteConfirm reports whether fn's on-disk mtime differs from the buffer's.
 func NeedsOverwriteConfirm(fn string) bool {
-	bp := buffer.All.Current
-	if bp == nil || bp.FileMtime.IsZero() {
+	buf := buffer.All.Current
+	if buf == nil || buf.FileMtime.IsZero() {
 		return false
 	}
 	curMtime := FileMtime(fn)
-	return !curMtime.IsZero() && !curMtime.Equal(bp.FileMtime)
+	return !curMtime.IsZero() && !curMtime.Equal(buf.FileMtime)
 }
 
 // SaveCurrentBufferForce writes the buffer without the overwrite-mtime prompt.
 func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		return ErrNoBuffer
 	}
 
-	if bp.WhitespaceCleanup {
-		for i := uint(1); i <= bp.LineCount; i++ {
-			bp.TrimTrailingWhitespace(i)
+	if buf.WhitespaceCleanup {
+		for i := uint(1); i <= buf.LineCount; i++ {
+			buf.TrimTrailingWhitespace(i)
 		}
 	}
 
@@ -210,16 +210,16 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 	defer fh.Close()
 
 	eol := []byte("\n")
-	if bp.EolMode == buffer.EModeCRLF {
+	if buf.EolMode == buffer.EModeCRLF {
 		eol = []byte("\r\n")
-	} else if bp.EolMode == buffer.EModeCR {
+	} else if buf.EolMode == buffer.EModeCR {
 		eol = []byte("\r")
 	}
 
 	writer := bufio.NewWriter(fh)
 	nline := 0
-	for i := uint(1); i <= bp.LineCount; i++ {
-		line := bp.Line(i)
+	for i := uint(1); i <= buf.LineCount; i++ {
+		line := buf.Line(i)
 		if line == nil {
 			continue
 		}
@@ -247,16 +247,16 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 		writeMessage(writef, "[wrote lines]")
 	}
 
-	bp.FileMtime = FileMtime(fn)
-	bp.DiskChangeNotifiedMtime = time.Time{}
-	bp.IsChanged = false
+	buf.FileMtime = FileMtime(fn)
+	buf.DiskChangeNotifiedMtime = time.Time{}
+	buf.IsChanged = false
 	return nil
 }
 
 func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved func(*buffer.Buffer), writef func(string, ...any)) error {
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil {
 		return ErrNoBuffer
 	}
 	if fname == "" {
@@ -266,16 +266,16 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 		return err
 	}
 	if noteBufferSaved != nil {
-		noteBufferSaved(bp)
+		noteBufferSaved(buf)
 	}
-	bp.DiskChangeNotifiedMtime = time.Time{}
-	if wp != nil && lineNumber > 0 && lineNumber <= bp.LineCount {
-		wp.Cursor = buffer.MakeLocation(lineNumber, 0)
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+	buf.DiskChangeNotifiedMtime = time.Time{}
+	if win != nil && lineNumber > 0 && lineNumber <= buf.LineCount {
+		win.Cursor = buffer.MakeLocation(lineNumber, 0)
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 	}
 	for _, w := range window.Active.Windows {
-		if w != nil && w.Buffer == bp {
+		if w != nil && w.Buffer == buf {
 			w.ShouldRedraw = true
 			w.ShouldUpdateModeLine = true
 		}
@@ -290,43 +290,43 @@ func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func())
 	if minibuffer.Active != nil || isDispatching() {
 		return
 	}
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil || bp.IsReadonly {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil || buf.IsReadonly {
 		return
 	}
-	fname := bp.FileName
-	if fname == "" || bp.FileMtime.IsZero() {
+	fname := buf.FileName
+	if fname == "" || buf.FileMtime.IsZero() {
 		return
 	}
 
 	cur := FileMtime(fname)
-	if cur.IsZero() || cur.Equal(bp.FileMtime) {
-		if !bp.DiskChangeNotifiedMtime.IsZero() {
-			bp.DiskChangeNotifiedMtime = time.Time{}
-			if wp != nil {
-				wp.ShouldUpdateModeLine = true
+	if cur.IsZero() || cur.Equal(buf.FileMtime) {
+		if !buf.DiskChangeNotifiedMtime.IsZero() {
+			buf.DiskChangeNotifiedMtime = time.Time{}
+			if win != nil {
+				win.ShouldUpdateModeLine = true
 			}
 		}
 		return
 	}
 
 	lineNumber := uint(1)
-	if wp != nil {
-		lineNumber = wp.Cursor.Line
+	if win != nil {
+		lineNumber = win.Cursor.Line
 	}
 
-	if bp.IsChanged {
+	if buf.IsChanged {
 		if autoRevertMode() {
 			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			return
 		}
-		if cur.Equal(bp.DiskChangeNotifiedMtime) {
+		if cur.Equal(buf.DiskChangeNotifiedMtime) {
 			return
 		}
-		bp.DiskChangeNotifiedMtime = cur
-		if wp != nil {
-			wp.ShouldUpdateModeLine = true
+		buf.DiskChangeNotifiedMtime = cur
+		if win != nil {
+			win.ShouldUpdateModeLine = true
 		}
 		if askConfirm == nil {
 			writeMessage(writef, "[keeping edited buffer]")

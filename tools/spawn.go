@@ -127,9 +127,9 @@ func SpawnShell(command *string) int {
 	}
 
 	for i := 0; i < int(len(window.Active.Windows)); i++ {
-		if wp := window.Active.Windows[i]; wp != nil {
-			wp.ShouldRedraw = true
-			wp.ShouldUpdateModeLine = true
+		if win := window.Active.Windows[i]; win != nil {
+			win.ShouldRedraw = true
+			win.ShouldUpdateModeLine = true
 		}
 	}
 	windowRetile()

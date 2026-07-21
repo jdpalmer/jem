@@ -11,14 +11,14 @@ package buffer
 //
 // Set once during editor init via runtime.Services. Not safe for concurrent use.
 type Hooks struct {
-	NoteEdit                    func(bp *Buffer, isStructural bool)
-	AdjustLocationsAfterReplace func(bp *Buffer, begin, end, newEnd Location)
-	ReparseFrom                 func(bp *Buffer, lineNumber uint)
-	OnBufferCreate              func(bp *Buffer)
-	// OnBufferKill is called after bp is removed from All.
+	NoteEdit                    func(buf *Buffer, isStructural bool)
+	AdjustLocationsAfterReplace func(buf *Buffer, begin, end, newEnd Location)
+	ReparseFrom                 func(buf *Buffer, lineNumber uint)
+	OnBufferCreate              func(buf *Buffer)
+	// OnBufferKill is called after buf is removed from All.
 	// replacement may be nil when no buffers remain.
-	OnBufferKill     func(bp, replacement *Buffer)
-	UndoForgetBuffer func(bp *Buffer)
+	OnBufferKill     func(buf, replacement *Buffer)
+	UndoForgetBuffer func(buf *Buffer)
 }
 
 // PackageHooks is set by the editor during init.

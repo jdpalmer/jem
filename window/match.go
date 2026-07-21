@@ -13,9 +13,9 @@ func MatchWindow() *Window {
 		return nil
 	}
 	for i := 0; i < int(len(Active.Windows)); i++ {
-		wp := Active.Windows[i]
-		if wp != nil && wp.Buffer == mbp {
-			return wp
+		win := Active.Windows[i]
+		if win != nil && win.Buffer == mbp {
+			return win
 		}
 	}
 	return nil
@@ -30,16 +30,16 @@ func ShowMatchWindow() {
 	if MatchWindow() != nil {
 		return
 	}
-	wp := WindowCreate()
-	if wp == nil {
+	win := WindowCreate()
+	if win == nil {
 		return
 	}
-	wp.Buffer = mbp
-	wp.TopLine = 1
-	wp.Cursor = buffer.Location{Line: 1, Offset: 0}
-	wp.Mark = buffer.Location{Line: 0, Offset: 0}
-	wp.ShouldRedraw = true
-	wp.ShouldUpdateModeLine = true
+	win.Buffer = mbp
+	win.TopLine = 1
+	win.Cursor = buffer.Location{Line: 1, Offset: 0}
+	win.Mark = buffer.Location{Line: 0, Offset: 0}
+	win.ShouldRedraw = true
+	win.ShouldUpdateModeLine = true
 	WindowRetile()
 }
 

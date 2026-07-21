@@ -13,16 +13,16 @@ import (
 
 // Mark/region commands (kill, copy, case, sort, fill bounds).
 
-func getRegion(wp *window.Window, rp *window.Region) bool {
-	if wp == nil || rp == nil {
+func getRegion(win *window.Window, rp *window.Region) bool {
+	if win == nil || rp == nil {
 		return false
 	}
-	if wp.Mark.Line == 0 {
+	if win.Mark.Line == 0 {
 		display.MBWrite("[no mark set in this window]")
 		return false
 	}
-	cursor := wp.Cursor
-	mark := wp.Mark
+	cursor := win.Cursor
+	mark := win.Mark
 	cursorBefore := (cursor.Line < mark.Line) || (cursor.Line == mark.Line && cursor.Offset <= mark.Offset)
 	if cursorBefore {
 		rp.Start = cursor
@@ -38,35 +38,35 @@ func getRegion(wp *window.Window, rp *window.Region) bool {
 func CmdKillRegion(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil || wp.Buffer == nil {
+	win := window.Active.CurrentWindow
+	if win == nil || win.Buffer == nil {
 		return false
 	}
 	var region window.Region
-	if !getRegion(wp, &region) {
+	if !getRegion(win, &region) {
 		return false
 	}
 	killring.KillBegin()
 	// unset mark
-	wp.Mark = buffer.Location{Line: 0, Offset: 0}
-	wp.SetCursor(region.Start)
-	return bufferSetText(wp.Buffer, region.Start, region.End, nil, nil, true)
+	win.Mark = buffer.Location{Line: 0, Offset: 0}
+	win.SetCursor(region.Start)
+	return bufferSetText(win.Buffer, region.Start, region.End, nil, nil, true)
 }
 
 // CmdCopyRegion copies the active region to the kill buffer and clipboard.
 func CmdCopyRegion(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil || wp.Buffer == nil {
+	win := window.Active.CurrentWindow
+	if win == nil || win.Buffer == nil {
 		return false
 	}
 	var region window.Region
-	if !getRegion(wp, &region) {
+	if !getRegion(win, &region) {
 		return false
 	}
 	killring.KillBegin()
-	text := wp.Buffer.GetText(region.Start, region.End)
+	text := win.Buffer.GetText(region.Start, region.End)
 	length := uint(len(text))
 	if length > 0 && text == nil {
 		display.MBWrite("[out of memory]")
@@ -79,8 +79,8 @@ func CmdCopyRegion(f bool, n int) bool {
 	killring.KillWriteClipboard()
 	display.MBWrite("[region copied]")
 	// unset mark and mark window for redraw
-	wp.Mark = buffer.Location{Line: 0, Offset: 0}
-	wp.ShouldRedraw = true
+	win.Mark = buffer.Location{Line: 0, Offset: 0}
+	win.ShouldRedraw = true
 	return true
 }
 
@@ -120,18 +120,18 @@ func CmdYank(f bool, n int) bool {
 func CmdSetMark(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
-	if wp.Mark.Line != 0 {
-		wp.Mark = buffer.Location{Line: 0, Offset: 0}
-		wp.ShouldRedraw = true
+	if win.Mark.Line != 0 {
+		win.Mark = buffer.Location{Line: 0, Offset: 0}
+		win.ShouldRedraw = true
 		display.MBWrite("[mark unset]")
 		return true
 	}
-	wp.Mark = wp.Cursor
-	wp.ShouldRedraw = true
+	win.Mark = win.Cursor
+	win.ShouldRedraw = true
 	display.MBWrite("[mark set]")
 	return true
 }
@@ -140,18 +140,18 @@ func CmdSetMark(f bool, n int) bool {
 func CmdSwapMark(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
-	if wp.Mark.Line == 0 {
+	if win.Mark.Line == 0 {
 		display.MBWrite("[no mark in this window]")
 		return false
 	}
-	temp := wp.Cursor
-	wp.SetCursor(wp.Mark)
-	wp.Mark = temp
-	wp.DidMove = true
+	temp := win.Cursor
+	win.SetCursor(win.Mark)
+	win.Mark = temp
+	win.DidMove = true
 	return true
 }
 
@@ -159,29 +159,29 @@ func CmdSwapMark(f bool, n int) bool {
 func CmdMarkWholeBuffer(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
-	wp.Mark = buffer.MakeLocation(bp.EOF(), 0)
-	wp.SetCursor(buffer.MakeLocation(1, 0))
-	wp.ShouldRedraw = true
+	win.Mark = buffer.MakeLocation(buf.EOF(), 0)
+	win.SetCursor(buffer.MakeLocation(1, 0))
+	win.ShouldRedraw = true
 	display.MBWrite("[mark set]")
 	return true
 }
 
 func transformRegionCase(upper bool) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 	var region window.Region
-	if !getRegion(wp, &region) {
+	if !getRegion(win, &region) {
 		return false
 	}
-	text := bp.GetText(region.Start, region.End)
+	text := buf.GetText(region.Start, region.End)
 	length := uint(len(text))
 	if text == nil && length > 0 {
 		display.MBWrite("[out of memory]")
@@ -203,7 +203,7 @@ func transformRegionCase(upper bool) bool {
 	if !changed {
 		return true
 	}
-	return bufferSetText(bp, region.Start, region.End, text, nil, false)
+	return bufferSetText(buf, region.Start, region.End, text, nil, false)
 }
 
 // CmdLowerRegion lowercases the active region.
@@ -228,13 +228,13 @@ type sortLine struct {
 func CmdSortRegion(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 	var region window.Region
-	if !getRegion(wp, &region) {
+	if !getRegion(win, &region) {
 		return false
 	}
 	lastLine := region.End.Line
@@ -245,7 +245,7 @@ func CmdSortRegion(f bool, n int) bool {
 	}
 	start := buffer.MakeLocation(region.Start.Line, 0)
 	end := buffer.MakeLocation(lastLine+1, 0)
-	text := bp.GetText(start, end)
+	text := buf.GetText(start, end)
 	total := uint(len(text))
 	if text == nil && total > 0 {
 		display.MBWrite("[out of memory]")
@@ -280,12 +280,12 @@ func CmdSortRegion(f bool, n int) bool {
 		sorted = append(sorted, sl.text...)
 		sorted = append(sorted, '\n')
 	}
-	savedCursor := wp.Cursor
-	if !bufferSetText(bp, start, end, sorted, nil, false) {
+	savedCursor := win.Cursor
+	if !bufferSetText(buf, start, end, sorted, nil, false) {
 		return false
 	}
-	wp.Cursor = savedCursor
-	wp.Mark = buffer.Location{Line: 0, Offset: 0}
+	win.Cursor = savedCursor
+	win.Mark = buffer.Location{Line: 0, Offset: 0}
 	display.MBWrite("[region sorted]")
 	return true
 }

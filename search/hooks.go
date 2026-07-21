@@ -17,7 +17,7 @@ type KeySession interface {
 // Hooks are runtime-owned callbacks (import cycle avoidance).
 type Hooks struct {
 	PushKeySession func(s KeySession)
-	SetText        func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
+	SetText        func(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
 	AskString      func(prompt, initial string, onDone func(string, minibuffer.PromptResult))
 }
 

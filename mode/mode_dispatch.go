@@ -9,17 +9,17 @@ type Hooks struct {
 	DefaultGotoMatch func(f bool, n int) bool
 	BeginCommand     func()
 	EndCommand       func()
-	SetText          func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
+	SetText          func(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
 }
 
 var PackageHooks Hooks
 
 func CurrentModeInfo() *ModeInfo {
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		return LangModeInfo(buffer.LModeNone)
 	}
-	return LangModeInfo(bp.LangMode)
+	return LangModeInfo(buf.LangMode)
 }
 
 func ModeDispatch(fn func(f bool, n int) bool, f bool, n int) bool {

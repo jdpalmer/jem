@@ -7,10 +7,10 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-func prevNonblankLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
+func prevNonblankLineNumber(buf *buffer.Buffer, lineNumber uint) uint {
 	for lineNumber > 1 {
 		lineNumber--
-		p := bp.Line(lineNumber)
+		p := buf.Line(lineNumber)
 		if p != nil && !p.IsBlank() {
 			return lineNumber
 		}
@@ -18,34 +18,34 @@ func prevNonblankLineNumber(bp *buffer.Buffer, lineNumber uint) uint {
 	return 0
 }
 
-func setLinePrefix(wp *window.Window, prefix []byte) bool {
-	if wp == nil || wp.Buffer == nil {
+func setLinePrefix(win *window.Window, prefix []byte) bool {
+	if win == nil || win.Buffer == nil {
 		return false
 	}
-	bp := wp.Buffer
-	ln := wp.Cursor.Line
-	lp := bp.Line(ln)
-	if lp == nil {
+	buf := win.Buffer
+	ln := win.Cursor.Line
+	line := buf.Line(ln)
+	if line == nil {
 		return false
 	}
-	first := lp.FirstNonblank()
+	first := line.FirstNonblank()
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, first)
 	PackageHooks.BeginCommand()
-	err := PackageHooks.SetText(bp, begin, end, prefix, nil)
+	err := PackageHooks.SetText(buf, begin, end, prefix, nil)
 	ok := err == nil
 	PackageHooks.EndCommand()
 	if ok {
-		wp.DidEdit = true
+		win.DidEdit = true
 	}
 	return ok
 }
 
-func mdBuildPrefix(lp *buffer.Line) []byte {
-	if lp == nil || lp.Len() == 0 {
+func mdBuildPrefix(line *buffer.Line) []byte {
+	if line == nil || line.Len() == 0 {
 		return nil
 	}
-	p := lp.Data
+	p := line.Data
 	out := make([]byte, 0, 32)
 	i := 0
 	for i < len(p) && (p[i] == ' ' || p[i] == '\t') {
@@ -96,19 +96,19 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 	if n < 0 {
 		return false
 	}
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil || wp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil || win == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		lp := bp.Line(wp.Cursor.Line)
-		prefix := mdBuildPrefix(lp)
-		if err := window.InsertNewline(wp); err != nil {
+		line := buf.Line(win.Cursor.Line)
+		prefix := mdBuildPrefix(line)
+		if err := window.InsertNewline(win); err != nil {
 			return false
 		}
 		if len(prefix) > 0 {
-			if err := window.InsertText(wp, prefix); err != nil {
+			if err := window.InsertText(win, prefix); err != nil {
 				return false
 			}
 		}
@@ -119,18 +119,18 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 func cmdMdIndentLine(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil || wp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil || win == nil {
 		return false
 	}
-	refLine := prevNonblankLineNumber(bp, wp.Cursor.Line)
+	refLine := prevNonblankLineNumber(buf, win.Cursor.Line)
 	if refLine == 0 {
 		return true
 	}
-	prefix := mdBuildPrefix(bp.Line(refLine))
-	setLinePrefix(wp, prefix)
-	wp.DidEdit = true
+	prefix := mdBuildPrefix(buf.Line(refLine))
+	setLinePrefix(win, prefix)
+	win.DidEdit = true
 	return true
 }
 

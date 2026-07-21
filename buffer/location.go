@@ -9,29 +9,29 @@ func MakeLocation(line, offset uint) Location {
 	return Location{Line: line, Offset: offset}
 }
 
-func (loc Location) AdvanceBytes(bp *Buffer, bytes int) Location {
-	if bp == nil || bytes <= 0 {
+func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
+	if buf == nil || bytes <= 0 {
 		return loc
 	}
-	if loc.Line == bp.EOF() {
+	if loc.Line == buf.EOF() {
 		return loc
 	}
 	curLine := loc.Line
 	offset := int(loc.Offset)
 	for bytes > 0 {
-		if curLine == 0 || curLine > bp.LineCount {
-			return Location{Line: bp.EOF(), Offset: 0}
+		if curLine == 0 || curLine > buf.LineCount {
+			return Location{Line: buf.EOF(), Offset: 0}
 		}
-		lp := bp.Line(curLine)
-		if lp == nil {
-			return Location{Line: bp.EOF(), Offset: 0}
+		line := buf.Line(curLine)
+		if line == nil {
+			return Location{Line: buf.EOF(), Offset: 0}
 		}
-		avail := len(lp.Data) - offset
+		avail := len(line.Data) - offset
 		if avail >= bytes {
 			return Location{Line: curLine, Offset: uint(offset + bytes)}
 		}
 		bytes -= avail
-		if curLine < bp.LineCount {
+		if curLine < buf.LineCount {
 			if bytes == 0 {
 				return Location{Line: curLine + 1, Offset: 0}
 			}
@@ -40,13 +40,13 @@ func (loc Location) AdvanceBytes(bp *Buffer, bytes int) Location {
 			offset = 0
 			continue
 		}
-		return Location{Line: bp.EOF(), Offset: 0}
+		return Location{Line: buf.EOF(), Offset: 0}
 	}
 	return Location{Line: curLine, Offset: uint(offset)}
 }
 
-func (loc Location) RewindBytes(bp *Buffer, bytes int) Location {
-	if bp == nil || bytes <= 0 {
+func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
+	if buf == nil || bytes <= 0 {
 		return loc
 	}
 	curLine := loc.Line
@@ -65,11 +65,11 @@ func (loc Location) RewindBytes(bp *Buffer, bytes int) Location {
 			break
 		}
 		curLine--
-		lp := bp.Line(curLine)
-		if lp == nil {
+		line := buf.Line(curLine)
+		if line == nil {
 			break
 		}
-		offset = len(lp.Data)
+		offset = len(line.Data)
 		bytes--
 	}
 	return Location{Line: curLine, Offset: uint(offset)}

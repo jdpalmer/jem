@@ -39,18 +39,18 @@ func TestVarsInitDefaults(t *testing.T) {
 
 func TestBufferCreateAppliesIndentDefaults(t *testing.T) {
 	_ = NewTestEditor(t)
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		t.Fatal("no buffer")
 	}
-	if bp.CIndent != 2 {
-		t.Fatalf("buffer CIndent = %d, want 2 (OnBufferCreate)", bp.CIndent)
+	if buf.CIndent != 2 {
+		t.Fatalf("buffer CIndent = %d, want 2 (OnBufferCreate)", buf.CIndent)
 	}
-	if bp.PyIndent != 4 {
-		t.Fatalf("buffer PyIndent = %d, want 4", bp.PyIndent)
+	if buf.PyIndent != 4 {
+		t.Fatalf("buffer PyIndent = %d, want 4", buf.PyIndent)
 	}
-	if bp.FillCol != 80 {
-		t.Fatalf("buffer FillCol = %d, want 80", bp.FillCol)
+	if buf.FillCol != 80 {
+		t.Fatalf("buffer FillCol = %d, want 80", buf.FillCol)
 	}
 }
 

@@ -57,8 +57,8 @@ func tagFindTagsFile() (string, bool) {
 	}
 
 	dir := ""
-	if bp := buffer.All.Current; bp != nil {
-		if fname := bp.FileName; fname != "" {
+	if buf := buffer.All.Current; buf != nil {
+		if fname := buf.FileName; fname != "" {
 			dir = filepath.Dir(files.NormalizePath(fname))
 		}
 	}
@@ -214,16 +214,16 @@ func tagIsSymbolChar(c byte) bool {
 		(c >= '0' && c <= '9') || c == '_'
 }
 
-func tagSymbolAtPoint(wp *window.Window, symbol []byte) bool {
-	if wp == nil || wp.Buffer == nil {
+func tagSymbolAtPoint(win *window.Window, symbol []byte) bool {
+	if win == nil || win.Buffer == nil {
 		return false
 	}
-	line := wp.Buffer.Line(wp.Cursor.Line)
+	line := win.Buffer.Line(win.Cursor.Line)
 	if line == nil {
 		return false
 	}
 
-	start := int(wp.Cursor.Offset)
+	start := int(win.Cursor.Offset)
 	var end int
 	if start < len(line.Data) && tagIsSymbolChar(line.Data[start]) {
 		end = start
@@ -289,7 +289,7 @@ func tagCollectMatches(name string, requireSignature bool) []*TagEntry {
 	return matches
 }
 
-func tagSignatureScore(bp *buffer.Buffer, entry *TagEntry) int {
+func tagSignatureScore(buf *buffer.Buffer, entry *TagEntry) int {
 	score := 0
 	if entry.Signature != "" {
 		score += 8
@@ -302,13 +302,13 @@ func tagSignatureScore(bp *buffer.Buffer, entry *TagEntry) int {
 	case "macro":
 		score += 2
 	}
-	if bp != nil && bp.FileName != "" && files.PathsEqual(bp.FileName, entry.Path) {
+	if buf != nil && buf.FileName != "" && files.PathsEqual(buf.FileName, entry.Path) {
 		score += 6
 	}
 	return score
 }
 
-func tagBestSignature(bp *buffer.Buffer, name string) *TagEntry {
+func tagBestSignature(buf *buffer.Buffer, name string) *TagEntry {
 	var best *TagEntry
 	bestScore := int(^uint(0)>>1) * -1
 	for i := range tagDB.entries {
@@ -316,7 +316,7 @@ func tagBestSignature(bp *buffer.Buffer, name string) *TagEntry {
 		if entry.Name != name || entry.Signature == "" {
 			continue
 		}
-		score := tagSignatureScore(bp, entry)
+		score := tagSignatureScore(buf, entry)
 		if best == nil || score > bestScore {
 			best = entry
 			bestScore = score
@@ -403,7 +403,7 @@ func tagVisitMatch(matches []*TagEntry, choice int) {
 
 // RunGotoTag jumps to the definition of the symbol at point (M-.).
 func RunGotoTag() bool {
-	wp := window.Active.CurrentWindow
+	win := window.Active.CurrentWindow
 
 	if !EnsureTagsLoaded(false) {
 		return false
@@ -424,9 +424,9 @@ func RunGotoTag() bool {
 		})
 	}
 
-	var buf [display.PatternCapacity]byte
-	if tagSymbolAtPoint(wp, buf[:]) {
-		finish(promptStringFromBuf(buf[:]))
+	var scratch [display.PatternCapacity]byte
+	if tagSymbolAtPoint(win, scratch[:]) {
+		finish(promptStringFromBuf(scratch[:]))
 		return true
 	}
 	askString("Goto tag: ", "", func(symbol string, pr minibuffer.PromptResult) {
@@ -438,17 +438,17 @@ func RunGotoTag() bool {
 	return true
 }
 
-func tagCollectHintContext(wp *window.Window, out []byte) int {
-	if wp == nil || wp.Buffer == nil || len(out) == 0 {
+func tagCollectHintContext(win *window.Window, out []byte) int {
+	if win == nil || win.Buffer == nil || len(out) == 0 {
 		return 0
 	}
-	bp := wp.Buffer
+	buf := win.Buffer
 	reversed := make([]byte, 0, tagHintContextMax)
 	used := 0
 	lines := 1
-	lineNumber := wp.Cursor.Line
-	offset := int(wp.Cursor.Offset)
-	line := bp.Line(lineNumber)
+	lineNumber := win.Cursor.Line
+	offset := int(win.Cursor.Offset)
+	line := buf.Line(lineNumber)
 	if line == nil {
 		out[0] = 0
 		return 0
@@ -462,7 +462,7 @@ func tagCollectHintContext(wp *window.Window, out []byte) int {
 			reversed = append(reversed, '\n')
 			used++
 			lineNumber--
-			line = bp.Line(lineNumber)
+			line = buf.Line(lineNumber)
 			offset = int(line.Len())
 			lines++
 			continue
@@ -482,12 +482,12 @@ func tagCollectHintContext(wp *window.Window, out []byte) int {
 	return used
 }
 
-func tagFindCallHint(wp *window.Window, name []byte, argIndexOut *uint32) bool {
+func tagFindCallHint(win *window.Window, name []byte, argIndexOut *uint32) bool {
 	if len(name) == 0 || argIndexOut == nil {
 		return false
 	}
 	context := make([]byte, tagHintContextMax+1)
-	length := tagCollectHintContext(wp, context)
+	length := tagCollectHintContext(win, context)
 	if length == 0 {
 		return false
 	}
@@ -569,19 +569,19 @@ func MaybeShowCallHint() {
 		return
 	}
 
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil || wp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil || win == nil {
 		return
 	}
 	var name [display.PatternCapacity]byte
 	var argIndex uint32
-	if !tagFindCallHint(wp, name[:], &argIndex) {
+	if !tagFindCallHint(win, name[:], &argIndex) {
 		return
 	}
 
 	symbolName := promptStringFromBuf(name[:])
-	entry := tagBestSignature(bp, symbolName)
+	entry := tagBestSignature(buf, symbolName)
 	if entry == nil || entry.Signature == "" {
 		return
 	}

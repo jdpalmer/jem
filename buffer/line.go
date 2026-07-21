@@ -20,26 +20,26 @@ type Line struct {
 	Buffer         *Buffer
 }
 
-func (lp *Line) Byte(n uint) byte {
-	if lp == nil || n >= uint(len(lp.Data)) {
+func (line *Line) Byte(n uint) byte {
+	if line == nil || n >= uint(len(line.Data)) {
 		return 0
 	}
-	return lp.Data[n]
+	return line.Data[n]
 }
 
-func (lp *Line) Len() uint {
-	if lp == nil {
+func (line *Line) Len() uint {
+	if line == nil {
 		return 0
 	}
-	return uint(len(lp.Data))
+	return uint(len(line.Data))
 }
 
 // EnsureCache decodes UTF-8 runes for syntax and display helpers.
-func (lp *Line) EnsureCache() {
-	if lp == nil || lp.CacheValid {
+func (line *Line) EnsureCache() {
+	if line == nil || line.CacheValid {
 		return
 	}
-	bs := lp.Data
+	bs := line.Data
 	capNeeded := len(bs)/2 + 1
 	runes := make([]rune, 0, capNeeded)
 	widths := make([]int8, 0, capNeeded)
@@ -58,31 +58,31 @@ func (lp *Line) EnsureCache() {
 		widths = append(widths, int8(w))
 		i += size
 	}
-	lp.RuneCache = runes
-	lp.WidthCache = widths
-	lp.CacheValid = true
+	line.RuneCache = runes
+	line.WidthCache = widths
+	line.CacheValid = true
 }
 
-func (lp *Line) FirstNonblank() uint {
-	if lp == nil {
+func (line *Line) FirstNonblank() uint {
+	if line == nil {
 		return 0
 	}
-	for i := uint(0); i < uint(len(lp.Data)); i++ {
-		c := lp.Data[i]
+	for i := uint(0); i < uint(len(line.Data)); i++ {
+		c := line.Data[i]
 		if c != ' ' && c != '\t' {
 			return i
 		}
 	}
-	return uint(len(lp.Data))
+	return uint(len(line.Data))
 }
 
-func (lp *Line) IndentColumn() uint {
-	if lp == nil {
+func (line *Line) IndentColumn() uint {
+	if line == nil {
 		return 0
 	}
 	col := uint(0)
-	for i := uint(0); i < uint(len(lp.Data)); i++ {
-		c := lp.Data[i]
+	for i := uint(0); i < uint(len(line.Data)); i++ {
+		c := line.Data[i]
 		if c == ' ' {
 			col++
 		} else if c == '\t' {
@@ -94,26 +94,26 @@ func (lp *Line) IndentColumn() uint {
 	return col
 }
 
-func (lp *Line) FirstByte() byte {
-	if lp == nil || len(lp.Data) == 0 {
+func (line *Line) FirstByte() byte {
+	if line == nil || len(line.Data) == 0 {
 		return 0
 	}
-	return lp.Data[0]
+	return line.Data[0]
 }
 
-func (lp *Line) LastByte() byte {
-	if lp == nil || len(lp.Data) == 0 {
+func (line *Line) LastByte() byte {
+	if line == nil || len(line.Data) == 0 {
 		return 0
 	}
-	return lp.Data[len(lp.Data)-1]
+	return line.Data[len(line.Data)-1]
 }
 
-func (lp *Line) IsBlank() bool {
-	if lp == nil || len(lp.Data) == 0 {
+func (line *Line) IsBlank() bool {
+	if line == nil || len(line.Data) == 0 {
 		return true
 	}
-	for i := uint(0); i < uint(len(lp.Data)); i++ {
-		c := lp.Data[i]
+	for i := uint(0); i < uint(len(line.Data)); i++ {
+		c := line.Data[i]
 		if c != ' ' && c != '\t' {
 			return false
 		}

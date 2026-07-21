@@ -11,12 +11,12 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-func renderModeline(wp *window.Window) {
-	if wp == nil || wp.Buffer == nil {
+func renderModeline(win *window.Window) {
+	if win == nil || win.Buffer == nil {
 		return
 	}
-	bp := wp.Buffer
-	row := int(wp.ScreenTopRow + wp.Height)
+	buf := win.Buffer
+	row := int(win.ScreenTopRow + win.Height)
 	if row >= term.Rows() {
 		row = term.Rows() - 1
 	}
@@ -28,7 +28,7 @@ func renderModeline(wp *window.Window) {
 
 	// EOL label
 	eolLabel := "LF"
-	switch bp.EolMode {
+	switch buf.EolMode {
 	case buffer.EModeCRLF:
 		eolLabel = "CRLF"
 	case buffer.EModeCR:
@@ -36,18 +36,18 @@ func renderModeline(wp *window.Window) {
 	}
 
 	// Language label
-	langLabel := mode.LangModeInfo(bp.LangMode).DisplayName
+	langLabel := mode.LangModeInfo(buf.LangMode).DisplayName
 
 	// Position: percentage, line, column
-	lineno := wp.Cursor.Line
-	totallines := bp.LineCount
+	lineno := win.Cursor.Line
+	totallines := buf.LineCount
 	var pct uint32
 	if lineno >= totallines {
 		pct = 100
 	} else if totallines > 0 {
 		pct = uint32((lineno * 100) / totallines)
 	}
-	colno := uint32(WindowCursorScreenCol(wp)) + 1
+	colno := uint32(WindowCursorScreenCol(win)) + 1
 
 	// Format position text: "  1% L1 C1" (3-char pct field)
 	digits := 1
@@ -69,8 +69,8 @@ func renderModeline(wp *window.Window) {
 	nameStyle := buffer.MakeTextStyle(Active.Theme.ModelineNameColor, gutterBg, buffer.TextStyleBold)
 	dirtyStyle := buffer.MakeTextStyle(buffer.TermColorRed, gutterBg, buffer.TextStyleBold)
 
-	gutterW := int(wp.GutterWidth())
-	markerCol := gutterW + 79 - int(wp.HScroll)
+	gutterW := int(win.GutterWidth())
+	markerCol := gutterW + 79 - int(win.HScroll)
 	hintCol := term.Cols() - len(modelineHint)
 
 	screenMove(row, 0)
@@ -78,14 +78,14 @@ func renderModeline(wp *window.Window) {
 	drawStyle = gutterStyle
 
 	// Dirty indicator
-	if bp.IsChanged {
+	if buf.IsChanged {
 		displayPutBytesStyle([]byte("*"), dirtyStyle)
 	} else {
 		screenPutc(' ')
 	}
 
 	// Disk-changed indicator (modified buffer, user kept local edits)
-	if !bp.DiskChangeNotifiedMtime.IsZero() {
+	if !buf.DiskChangeNotifiedMtime.IsZero() {
 		displayPutGlyphStyle('D', dirtyStyle)
 	} else {
 		screenPutc(' ')
@@ -114,8 +114,8 @@ func renderModeline(wp *window.Window) {
 	screenPutBytes([]byte("  jem " + Version + " | "))
 
 	// File name (display-truncated; stored Name is unbounded)
-	if bp.Name != "" {
-		displayPutBytesStyle([]byte(FitBufferName(bp.Name, BufferNameMaxCols)), nameStyle)
+	if buf.Name != "" {
+		displayPutBytesStyle([]byte(FitBufferName(buf.Name, BufferNameMaxCols)), nameStyle)
 	} else {
 		displayPutBytesStyle([]byte("[No File]"), nameStyle)
 	}
@@ -124,7 +124,7 @@ func renderModeline(wp *window.Window) {
 	screenPutBytes([]byte(eolLabel))
 	screenPutBytes([]byte(" | "))
 	screenPutBytes([]byte(langLabel))
-	if gitText := gitModelineText(bp); gitText != "" {
+	if gitText := gitModelineText(buf); gitText != "" {
 		gitStyle := buffer.MakeTextStyle(Active.Theme.ModelineNameColor, gutterBg, 0)
 		screenPutBytes([]byte(" | "))
 		displayPutBytesStyle([]byte(gitText), gitStyle)
@@ -185,10 +185,10 @@ func DisplayUpdate() {
 
 	if Active.ScreenDirty {
 		for i := 0; i < int(len(window.Active.Windows)); i++ {
-			wp := window.Active.Windows[i]
-			if wp != nil {
-				wp.ShouldRedraw = true
-				wp.ShouldUpdateModeLine = true
+			win := window.Active.Windows[i]
+			if win != nil {
+				win.ShouldRedraw = true
+				win.ShouldUpdateModeLine = true
 			}
 		}
 		Active.PhantomCursorValid = false
@@ -202,48 +202,48 @@ func DisplayUpdate() {
 	}
 
 	for wi := 0; wi < int(len(window.Active.Windows)); wi++ {
-		wp := window.Active.Windows[wi]
-		if wp == nil || wp.Buffer == nil {
+		win := window.Active.Windows[wi]
+		if win == nil || win.Buffer == nil {
 			continue
 		}
 
-		if !wp.ShouldReframe && !wp.DidMove && !wp.DidEdit && !wp.ShouldRedraw && !wp.ShouldUpdateModeLine {
+		if !win.ShouldReframe && !win.DidMove && !win.DidEdit && !win.ShouldRedraw && !win.ShouldUpdateModeLine {
 			continue
 		}
 
-		oldTopLine := wp.TopLine
+		oldTopLine := win.TopLine
 
 		// Reframe: check whether cursor is visible in the current viewport
-		if !wp.ShouldReframe {
+		if !win.ShouldReframe {
 			cursorVisible := false
-			visLine := wp.TopLine
-			for i := uint32(0); i < wp.Height; i++ {
-				if visLine == wp.Cursor.Line {
+			visLine := win.TopLine
+			for i := uint32(0); i < win.Height; i++ {
+				if visLine == win.Cursor.Line {
 					cursorVisible = true
 					break
 				}
-				if visLine > wp.Buffer.LineCount {
+				if visLine > win.Buffer.LineCount {
 					break
 				}
 				visLine++
 			}
 			if !cursorVisible {
-				wp.ShouldReframe = true
+				win.ShouldReframe = true
 			}
 		}
 
-		if wp.ShouldReframe {
-			wp.CenterCursor()
-			wp.ShouldRedraw = true
+		if win.ShouldReframe {
+			win.CenterCursor()
+			win.ShouldRedraw = true
 		}
 
 		// Adjust horizontal scroll for the current window to keep cursor visible
-		if wp == window.Active.CurrentWindow {
-			gutterW := int(wp.GutterWidth())
-			cc := WindowCursorScreenCol(wp)
+		if win == window.Active.CurrentWindow {
+			gutterW := int(win.GutterWidth())
+			cc := WindowCursorScreenCol(win)
 			visible := term.Cols() - gutterW
 			margin := visible / 4
-			newHScroll := int(wp.HScroll)
+			newHScroll := int(win.HScroll)
 			if cc < newHScroll {
 				if cc > margin {
 					newHScroll = cc - margin
@@ -256,48 +256,48 @@ func DisplayUpdate() {
 			if newHScroll < 0 {
 				newHScroll = 0
 			}
-			if uint32(newHScroll) != wp.HScroll {
-				wp.HScroll = uint32(newHScroll)
-				wp.ShouldRedraw = true
+			if uint32(newHScroll) != win.HScroll {
+				win.HScroll = uint32(newHScroll)
+				win.ShouldRedraw = true
 			}
 		}
 
-		gutterW := int(wp.GutterWidth())
+		gutterW := int(win.GutterWidth())
 
 		// When region is active, force full redraw so selection highlights all affected lines
-		if wp.Mark.Line != 0 && !wp.ShouldRedraw {
-			wp.DidEdit = false
-			wp.DidMove = false
-			wp.ShouldRedraw = true
+		if win.Mark.Line != 0 && !win.ShouldRedraw {
+			win.DidEdit = false
+			win.DidMove = false
+			win.ShouldRedraw = true
 		}
 
-		if wp.DidEdit && !wp.DidMove && !wp.ShouldRedraw {
+		if win.DidEdit && !win.DidMove && !win.ShouldRedraw {
 			// Fast path: only re-render the cursor line
-			cursorRow := int(wp.ScreenTopRow) + int(wp.Cursor.Line-wp.TopLine)
+			cursorRow := int(win.ScreenTopRow) + int(win.Cursor.Line-win.TopLine)
 			var synSt buffer.SynState
 			var selSt SelState
-			selInit(&selSt, wp)
-			renderLine(wp, wp.Cursor.Line, cursorRow, &synSt, &selSt)
-		} else if wp.DidEdit || wp.ShouldRedraw {
+			selInit(&selSt, win)
+			renderLine(win, win.Cursor.Line, cursorRow, &synSt, &selSt)
+		} else if win.DidEdit || win.ShouldRedraw {
 			// Compute scroll delta
 			var scrollN int
-			if oldTopLine != wp.TopLine {
-				delta := int(oldTopLine) - int(wp.TopLine)
-				height := int(wp.Height)
+			if oldTopLine != win.TopLine {
+				delta := int(oldTopLine) - int(win.TopLine)
+				height := int(win.Height)
 				if delta < 0 {
 					delta = -delta
 				}
 				if delta >= height {
 					scrollN = height + 1 // force full redraw
 				} else {
-					scrollN = int(wp.TopLine) - int(oldTopLine)
+					scrollN = int(win.TopLine) - int(oldTopLine)
 				}
 			}
 
 			// Apply terminal scroll if partial scroll
-			if scrollN != 0 && scrollN > -int(wp.Height) && scrollN < int(wp.Height) {
-				top := int(wp.ScreenTopRow)
-				height := int(wp.Height)
+			if scrollN != 0 && scrollN > -int(win.Height) && scrollN < int(win.Height) {
+				top := int(win.ScreenTopRow)
+				height := int(win.Height)
 				absN := scrollN
 				if absN < 0 {
 					absN = -absN
@@ -341,15 +341,15 @@ func DisplayUpdate() {
 			// Full render of all rows in this window
 			var synSt buffer.SynState
 			var selSt SelState
-			selInit(&selSt, wp)
-			lineNumber := wp.TopLine
-			for r := uint32(0); r < wp.Height; r++ {
-				row := int(wp.ScreenTopRow + r)
+			selInit(&selSt, win)
+			lineNumber := win.TopLine
+			for r := uint32(0); r < win.Height; r++ {
+				row := int(win.ScreenTopRow + r)
 				if row >= term.Rows() {
 					break
 				}
-				if lineNumber <= wp.Buffer.LineCount {
-					renderLine(wp, lineNumber, row, &synSt, &selSt)
+				if lineNumber <= win.Buffer.LineCount {
+					renderLine(win, lineNumber, row, &synSt, &selSt)
 					lineNumber++
 				} else {
 					renderBlankRow(row, gutterW)
@@ -357,16 +357,16 @@ func DisplayUpdate() {
 			}
 		}
 
-		if wp.ShouldUpdateModeLine {
-			renderModeline(wp)
+		if win.ShouldUpdateModeLine {
+			renderModeline(win)
 		}
 
-		wp.ShouldReframe = false
-		wp.ForceReframe = false
-		wp.DidMove = false
-		wp.DidEdit = false
-		wp.ShouldRedraw = false
-		wp.ShouldUpdateModeLine = false
+		win.ShouldReframe = false
+		win.ForceReframe = false
+		win.DidMove = false
+		win.DidEdit = false
+		win.ShouldRedraw = false
+		win.ShouldUpdateModeLine = false
 	}
 
 	// Compute hardware cursor position (interactive minibuffer owns the cursor).

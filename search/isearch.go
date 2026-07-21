@@ -7,10 +7,10 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
-func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bp *buffer.Buffer) {
+func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, buf *buffer.Buffer) {
 	prompt := label
-	if searchScopeIsAllBuffers() && bp != nil {
-		prompt += "[all " + bp.Name + "]: "
+	if searchScopeIsAllBuffers() && buf != nil {
+		prompt += "[all " + buf.Name + "]: "
 	} else {
 		prompt += ": "
 	}

@@ -44,21 +44,21 @@ func lineMeasureAdvance(col int, c rune) int {
 	return col + 1
 }
 
-// lineColAtOffset returns the screen column corresponding to byte offset in lp.
-func lineColAtOffset(lp *buffer.Line, offset uint) int {
-	if lp == nil {
+// lineColAtOffset returns the screen column corresponding to byte offset in line.
+func lineColAtOffset(line *buffer.Line, offset uint) int {
+	if line == nil {
 		return 0
 	}
 	col := 0
 	i := uint(0)
-	for i < offset && i < lp.Len() {
-		b := lp.Data[i]
+	for i < offset && i < line.Len() {
+		b := line.Data[i]
 		if b < 0x80 {
 			col = lineMeasureAdvance(col, rune(b))
 			i++
 			continue
 		}
-		r, size := utf8.DecodeRune(lp.Data[i:])
+		r, size := utf8.DecodeRune(line.Data[i:])
 		if r == utf8.RuneError && size == 1 {
 			col = lineMeasureAdvance(col, rune(b))
 			i++

@@ -8,7 +8,7 @@ import (
 // Hooks are runtime-owned callbacks that tools cannot import directly (cycle).
 type Hooks struct {
 	VisitLocation func(path string, line, column uint32) bool
-	SwitchBuffer  func(bp *buffer.Buffer)
+	SwitchBuffer  func(buf *buffer.Buffer)
 	Abort         func()
 	ReadKey       func() (uint32, bool)
 	AskString     func(prompt, initial string, onDone func(string, minibuffer.PromptResult))

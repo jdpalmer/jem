@@ -14,12 +14,12 @@ func TestGoNewlineIndentUsesTab(t *testing.T) {
 
 	te.LoadText("func main() {")
 	_ = te.NewlineIndent()
-	lp := te.BP().Line(te.Cursor().Line)
-	if lp == nil || len(lp.Data) == 0 || lp.Data[0] != '\t' {
-		t.Fatalf("after open brace indent = %q, want leading tab", string(lp.Data))
+	line := te.BP().Line(te.Cursor().Line)
+	if line == nil || len(line.Data) == 0 || line.Data[0] != '\t' {
+		t.Fatalf("after open brace indent = %q, want leading tab", string(line.Data))
 	}
-	if lp.IndentColumn() != 8 {
-		t.Fatalf("IndentColumn = %d, want 8", lp.IndentColumn())
+	if line.IndentColumn() != 8 {
+		t.Fatalf("IndentColumn = %d, want 8", line.IndentColumn())
 	}
 }
 
@@ -32,9 +32,9 @@ func TestGoIndentLineInsideBlock(t *testing.T) {
 	if !mode.CmdModeIndentLine(false, 1) {
 		t.Fatal("indent-line failed")
 	}
-	lp := te.BP().Line(2)
-	if lp == nil || string(lp.Data) != "\tx := 1" {
-		t.Fatalf("line = %q, want %q", string(lp.Data), "\tx := 1")
+	line := te.BP().Line(2)
+	if line == nil || string(line.Data) != "\tx := 1" {
+		t.Fatalf("line = %q, want %q", string(line.Data), "\tx := 1")
 	}
 }
 
@@ -47,9 +47,9 @@ func TestGoCloseBraceAligns(t *testing.T) {
 	if !mode.CmdModeCloseBrace(false, 1) {
 		t.Fatal("close-brace failed")
 	}
-	lp := te.BP().Line(3)
-	if lp == nil || string(lp.Data) != "}" {
-		t.Fatalf("close brace line = %q, want %q", string(lp.Data), "}")
+	line := te.BP().Line(3)
+	if line == nil || string(line.Data) != "}" {
+		t.Fatalf("close brace line = %q, want %q", string(line.Data), "}")
 	}
 }
 
@@ -99,9 +99,9 @@ func TestGoTabDoesNotCollapseToColumnZero(t *testing.T) {
 	if !te.Key(term.KeyTab) {
 		t.Fatal("Tab failed")
 	}
-	lp := te.BP().Line(2)
-	if lp == nil || string(lp.Data) != "\tx := 1" {
-		t.Fatalf("after Tab = %q, want still tab-indented", string(lp.Data))
+	line := te.BP().Line(2)
+	if line == nil || string(line.Data) != "\tx := 1" {
+		t.Fatalf("after Tab = %q, want still tab-indented", string(line.Data))
 	}
 }
 
@@ -118,8 +118,8 @@ func TestCIndentStillUsesSpacesAfterDefaults(t *testing.T) {
 	if off != 2 {
 		t.Fatalf("C indent offset = %d, want 2 spaces", off)
 	}
-	lp := te.BP().Line(te.Cursor().Line)
-	if string(lp.Data) != "  " {
-		t.Fatalf("C indent line = %q, want two spaces", string(lp.Data))
+	line := te.BP().Line(te.Cursor().Line)
+	if string(line.Data) != "  " {
+		t.Fatalf("C indent line = %q, want two spaces", string(line.Data))
 	}
 }

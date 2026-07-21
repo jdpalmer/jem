@@ -7,14 +7,14 @@ const goIndentCols uint32 = 8
 
 // ApplyLangIndentDefaults adjusts per-language indent settings after LangMode is set.
 // Global buffer defaults (from OnBufferCreate) remain; Go overrides the C step to one tab.
-func ApplyLangIndentDefaults(bp *buffer.Buffer) {
-	if bp == nil {
+func ApplyLangIndentDefaults(buf *buffer.Buffer) {
+	if buf == nil {
 		return
 	}
-	switch bp.LangMode {
+	switch buf.LangMode {
 	case buffer.LModeGo:
-		bp.CIndent = goIndentCols
-		bp.CBrace = 0
-		bp.CColonOffset = 0
+		buf.CIndent = goIndentCols
+		buf.CBrace = 0
+		buf.CColonOffset = 0
 	}
 }

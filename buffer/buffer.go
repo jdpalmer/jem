@@ -33,41 +33,41 @@ func New() *Buffer {
 	}
 }
 
-func (bp *Buffer) Clear() bool {
-	if bp == nil {
+func (buf *Buffer) Clear() bool {
+	if buf == nil {
 		return false
 	}
-	bp.Lines = nil
-	bp.LineCount = 0
-	bp.IsChanged = false
-	bp.Cursor = Location{Line: 1, Offset: 0}
-	bp.Mark = Location{Line: 0, Offset: 0}
+	buf.Lines = nil
+	buf.LineCount = 0
+	buf.IsChanged = false
+	buf.Cursor = Location{Line: 1, Offset: 0}
+	buf.Mark = Location{Line: 0, Offset: 0}
 	return true
 }
 
 // EOF returns the location just past the last line (1-based lines).
 // For an empty buffer this is line 1; with N lines it is line N+1.
-func (bp *Buffer) EOF() uint {
-	if bp == nil {
+func (buf *Buffer) EOF() uint {
+	if buf == nil {
 		return 1
 	}
-	return bp.LineCount + 1
+	return buf.LineCount + 1
 }
 
 // Line returns line lineNumber (1-based). The pointer is invalidated if
-// bp.Lines is reallocated; prefer line numbers across edits.
-func (bp *Buffer) Line(lineNumber uint) *Line {
-	if bp == nil || lineNumber == 0 || lineNumber > bp.LineCount {
+// buf.Lines is reallocated; prefer line numbers across edits.
+func (buf *Buffer) Line(lineNumber uint) *Line {
+	if buf == nil || lineNumber == 0 || lineNumber > buf.LineCount {
 		return nil
 	}
-	return &bp.Lines[lineNumber-1]
+	return &buf.Lines[lineNumber-1]
 }
 
-func (bp *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
-	if lineNumber == 0 || lineNumber > bp.LineCount {
+func (buf *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
+	if lineNumber == 0 || lineNumber > buf.LineCount {
 		return false
 	}
-	line := &bp.Lines[lineNumber-1]
+	line := &buf.Lines[lineNumber-1]
 	newLen := uint(len(line.Data))
 	for newLen > 0 {
 		c := line.Data[newLen-1]
@@ -81,5 +81,5 @@ func (bp *Buffer) TrimTrailingWhitespace(lineNumber uint) bool {
 	}
 	begin := Location{Line: lineNumber, Offset: newLen}
 	end := Location{Line: lineNumber, Offset: uint(len(line.Data))}
-	return bp.SetText(nil, begin, end, nil, nil) == nil
+	return buf.SetText(nil, begin, end, nil, nil) == nil
 }

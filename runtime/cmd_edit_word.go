@@ -16,23 +16,23 @@ func CmdDeleteWordForward(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 	BeginCommand()
 	defer EndCommand()
 	for i := 0; i < n; i++ {
-		start := wp.Cursor
-		end := forwardWordLoc(bp, start)
+		start := win.Cursor
+		end := forwardWordLoc(buf, start)
 		var newEnd buffer.Location
-		if !bufferSetText(bp, start, end, nil, &newEnd, false) {
+		if !bufferSetText(buf, start, end, nil, &newEnd, false) {
 			return false
 		}
-		wp.Cursor = newEnd
+		win.Cursor = newEnd
 	}
-	wp.DidEdit = true
+	win.DidEdit = true
 	return true
 }
 
@@ -43,39 +43,39 @@ func CmdDeleteWordBackward(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 	BeginCommand()
 	defer EndCommand()
 	for i := 0; i < n; i++ {
-		end := wp.Cursor
-		start := backwardWordLoc(bp, end)
+		end := win.Cursor
+		start := backwardWordLoc(buf, end)
 		var newEnd buffer.Location
-		if !bufferSetText(bp, start, end, nil, &newEnd, false) {
+		if !bufferSetText(buf, start, end, nil, &newEnd, false) {
 			return false
 		}
-		wp.Cursor = newEnd
+		win.Cursor = newEnd
 	}
-	wp.DidEdit = true
+	win.DidEdit = true
 	return true
 }
 
 // helper: find start of next word from loc (skip non-word then return start)
 // helper: find start of next word from loc (skip non-word then return start)
-func nextWordStart(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
-	if bp == nil || loc.Line == 0 {
+func nextWordStart(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
+	if buf == nil || loc.Line == 0 {
 		return loc
 	}
-	line := bp.Line(loc.Line)
+	line := buf.Line(loc.Line)
 	if line == nil {
 		return loc
 	}
 	off := int(loc.Offset)
-	for ln := loc.Line; ln <= bp.LineCount; ln++ {
-		line = bp.Line(ln)
+	for ln := loc.Line; ln <= buf.LineCount; ln++ {
+		line = buf.Line(ln)
 		if line == nil {
 			continue
 		}
@@ -87,7 +87,7 @@ func nextWordStart(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 		}
 		off = 0
 	}
-	return buffer.Location{Line: bp.LineCount, Offset: 0}
+	return buffer.Location{Line: buf.LineCount, Offset: 0}
 }
 
 // Case transformations on a word at point
@@ -97,15 +97,15 @@ func CmdLowerWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 	// operate on word at point: find start and end
-	start := backwardWordLoc(bp, wp.Cursor)
-	end := forwardWordLoc(bp, start)
-	text := bp.GetText(start, end)
+	start := backwardWordLoc(buf, win.Cursor)
+	end := forwardWordLoc(buf, start)
+	text := buf.GetText(start, end)
 	length := uint(len(text))
 	if length == 0 || text == nil {
 		return false
@@ -114,10 +114,10 @@ func CmdLowerWord(f bool, n int) bool {
 	BeginCommand()
 	defer EndCommand()
 	var newEnd buffer.Location
-	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
+	ok := bufferSetText(buf, start, end, newText, &newEnd, false)
 	if ok {
-		wp.Cursor = newEnd
-		wp.DidEdit = true
+		win.Cursor = newEnd
+		win.DidEdit = true
 	}
 	return ok
 }
@@ -127,14 +127,14 @@ func CmdUpperWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
-	start := backwardWordLoc(bp, wp.Cursor)
-	end := forwardWordLoc(bp, start)
-	text := bp.GetText(start, end)
+	start := backwardWordLoc(buf, win.Cursor)
+	end := forwardWordLoc(buf, start)
+	text := buf.GetText(start, end)
 	length := uint(len(text))
 	if length == 0 || text == nil {
 		return false
@@ -143,10 +143,10 @@ func CmdUpperWord(f bool, n int) bool {
 	BeginCommand()
 	defer EndCommand()
 	var newEnd buffer.Location
-	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
+	ok := bufferSetText(buf, start, end, newText, &newEnd, false)
 	if ok {
-		wp.Cursor = newEnd
-		wp.DidEdit = true
+		win.Cursor = newEnd
+		win.DidEdit = true
 	}
 	return ok
 }
@@ -156,14 +156,14 @@ func CmdCapWord(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
-	start := backwardWordLoc(bp, wp.Cursor)
-	end := forwardWordLoc(bp, start)
-	text := bp.GetText(start, end)
+	start := backwardWordLoc(buf, win.Cursor)
+	end := forwardWordLoc(buf, start)
+	text := buf.GetText(start, end)
 	length := uint(len(text))
 	if length == 0 || text == nil {
 		return false
@@ -179,10 +179,10 @@ func CmdCapWord(f bool, n int) bool {
 	BeginCommand()
 	defer EndCommand()
 	var newEnd buffer.Location
-	ok := bufferSetText(bp, start, end, newText, &newEnd, false)
+	ok := bufferSetText(buf, start, end, newText, &newEnd, false)
 	if ok {
-		wp.Cursor = newEnd
-		wp.DidEdit = true
+		win.Cursor = newEnd
+		win.DidEdit = true
 	}
 	return ok
 }
@@ -194,24 +194,24 @@ func CmdTransposeWords(f bool, n int) bool {
 	if n <= 0 {
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 	// Find left word
-	leftStart := backwardWordLoc(bp, wp.Cursor)
-	leftEnd := forwardWordLoc(bp, leftStart)
+	leftStart := backwardWordLoc(buf, win.Cursor)
+	leftEnd := forwardWordLoc(buf, leftStart)
 	// Find right word start
-	rightStart := nextWordStart(bp, leftEnd)
+	rightStart := nextWordStart(buf, leftEnd)
 	if rightStart.Line == leftEnd.Line && rightStart.Offset == leftEnd.Offset {
 		// No right word
 		return false
 	}
-	rightEnd := forwardWordLoc(bp, rightStart)
+	rightEnd := forwardWordLoc(buf, rightStart)
 	// Extract texts
-	leftText := bp.GetText(leftStart, leftEnd)
-	rightText := bp.GetText(rightStart, rightEnd)
+	leftText := buf.GetText(leftStart, leftEnd)
+	rightText := buf.GetText(rightStart, rightEnd)
 	if leftText == nil || rightText == nil {
 		return false
 	}
@@ -220,14 +220,14 @@ func CmdTransposeWords(f bool, n int) bool {
 	defer EndCommand()
 	// replace right with leftText
 	var tmpEnd buffer.Location
-	if !bufferSetText(bp, rightStart, rightEnd, leftText, &tmpEnd, false) {
+	if !bufferSetText(buf, rightStart, rightEnd, leftText, &tmpEnd, false) {
 		return false
 	}
 	// After replacing right, left region unchanged; replace left with rightText
-	if !bufferSetText(bp, leftStart, leftEnd, rightText, &tmpEnd, false) {
+	if !bufferSetText(buf, leftStart, leftEnd, rightText, &tmpEnd, false) {
 		return false
 	}
-	wp.DidEdit = true
+	win.DidEdit = true
 	return true
 }
 
@@ -236,24 +236,24 @@ func CmdTransposeWords(f bool, n int) bool {
 func CmdFillParagraph(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
-	lineNum := wp.Cursor.Line
+	lineNum := win.Cursor.Line
 	// find paragraph start
 	start := lineNum
 	for start > 1 {
-		lp := bp.Line(start - 1)
-		if lp == nil || lp.IsBlank() {
+		line := buf.Line(start - 1)
+		if line == nil || line.IsBlank() {
 			break
 		}
 		start--
 	}
 	end := lineNum
-	for end < bp.LineCount {
-		nl := bp.Line(end + 1)
+	for end < buf.LineCount {
+		nl := buf.Line(end + 1)
 		if nl == nil || nl.IsBlank() {
 			break
 		}
@@ -262,17 +262,17 @@ func CmdFillParagraph(f bool, n int) bool {
 	// collect words from lines start..end
 	words := make([]string, 0)
 	for ln := start; ln <= end; ln++ {
-		lp := bp.Line(ln)
-		if lp == nil {
+		line := buf.Line(ln)
+		if line == nil {
 			continue
 		}
-		s := string(lp.Data)
+		s := string(line.Data)
 		words = append(words, strings.Fields(s)...)
 	}
 	if len(words) == 0 {
 		return true
 	}
-	fillCol := int(bp.FillCol)
+	fillCol := int(buf.FillCol)
 	if fillCol == 0 {
 		fillCol = 72
 	}
@@ -296,7 +296,7 @@ func CmdFillParagraph(f bool, n int) bool {
 	}
 	newText := strings.Join(outLines, "\n")
 	begin := buffer.MakeLocation(start, 0)
-	endLoc := bp.Line(end)
+	endLoc := buf.Line(end)
 	endOff := uint(0)
 	if endLoc != nil {
 		endOff = endLoc.Len()
@@ -305,9 +305,9 @@ func CmdFillParagraph(f bool, n int) bool {
 	BeginCommand()
 	defer EndCommand()
 	var newEnd buffer.Location
-	ok := bufferSetText(bp, begin, endLocation, []byte(newText), &newEnd, false)
+	ok := bufferSetText(buf, begin, endLocation, []byte(newText), &newEnd, false)
 	if ok {
-		wp.DidEdit = true
+		win.DidEdit = true
 	}
 	return ok
 }
@@ -317,27 +317,27 @@ func CmdDeleteBackward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteForward(f, -n)
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly || n == 0 {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly || n == 0 {
 		return false
 	}
 
 	BeginCommand()
 	defer EndCommand()
 
-	end := wp.Cursor
+	end := win.Cursor
 	CmdBackwardChar(f, n)
-	begin := wp.Cursor
+	begin := win.Cursor
 	if begin == end {
 		return false
 	}
 	var newEnd buffer.Location
-	if !bufferSetText(bp, begin, end, nil, &newEnd, false) {
+	if !bufferSetText(buf, begin, end, nil, &newEnd, false) {
 		return false
 	}
-	wp.Cursor = begin
-	wp.DidEdit = true
+	win.Cursor = begin
+	win.DidEdit = true
 	return true
 }
 
@@ -345,44 +345,44 @@ func CmdDeleteForward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteBackward(f, -n)
 	}
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly || n == 0 {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly || n == 0 {
 		return false
 	}
 
 	BeginCommand()
 	defer EndCommand()
 
-	begin := wp.Cursor
+	begin := win.Cursor
 	CmdForwardChar(f, n)
-	end := wp.Cursor
+	end := win.Cursor
 	if begin == end {
 		return false
 	}
-	wp.Cursor = begin
-	if !bufferSetText(bp, begin, end, nil, nil, false) {
+	win.Cursor = begin
+	if !bufferSetText(buf, begin, end, nil, nil, false) {
 		return false
 	}
-	wp.DidEdit = true
+	win.DidEdit = true
 	return true
 }
 
 func CmdInsertChar(c byte) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil || bp.IsReadonly {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil || buf.IsReadonly {
 		return false
 	}
 
 	BeginCommand()
 	defer EndCommand()
 
-	begin := wp.Cursor
+	begin := win.Cursor
 	var newEnd buffer.Location
-	if bufferSetText(bp, begin, begin, []byte{c}, &newEnd, false) {
-		wp.Cursor = newEnd
-		wp.DidEdit = true
+	if bufferSetText(buf, begin, begin, []byte{c}, &newEnd, false) {
+		win.Cursor = newEnd
+		win.DidEdit = true
 		return true
 	}
 	return false

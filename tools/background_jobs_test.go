@@ -60,11 +60,11 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
 	display.Reset()
-	bp := buffer.Create()
-	wp := window.WindowCreate()
-	window.WindowSelect(wp)
-	buffer.SetCurrent(bp)
-	wp.Buffer = bp
+	buf := buffer.Create()
+	win := window.WindowCreate()
+	window.WindowSelect(win)
+	buffer.SetCurrent(buf)
+	win.Buffer = buf
 	PackageHooks = Hooks{
 		SwitchBuffer: func(next *buffer.Buffer) {
 			buffer.SetCurrent(next)
@@ -101,11 +101,11 @@ func TestBackgroundJobCancel(t *testing.T) {
 	InitBackgroundJobs()
 	ResetBackgroundJobsForTests()
 	display.Reset()
-	bp := buffer.Create()
-	wp := window.WindowCreate()
-	window.WindowSelect(wp)
-	buffer.SetCurrent(bp)
-	wp.Buffer = bp
+	buf := buffer.Create()
+	win := window.WindowCreate()
+	window.WindowSelect(win)
+	buffer.SetCurrent(buf)
+	win.Buffer = buf
 	PackageHooks = Hooks{}
 
 	dir := t.TempDir()

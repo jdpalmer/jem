@@ -40,14 +40,14 @@ func TestSyntaxOperatorHighlight(t *testing.T) {
 		{buffer.LModePython, "a ** 2", 2},
 	}
 	for _, tc := range cases {
-		lp := makeLine(tc.line)
-		lp.LangMode = tc.lang
-		SyntaxEnsureLine(lp)
-		if lp.SyntaxStyles == nil {
+		line := makeLine(tc.line)
+		line.LangMode = tc.lang
+		SyntaxEnsureLine(line)
+		if line.SyntaxStyles == nil {
 			t.Fatalf("SyntaxStyles nil for %q", tc.line)
 		}
-		if lp.SyntaxStyles[tc.at] != keywordStyle {
-			t.Fatalf("%v at %d in %q: expected keyword style, got %v", tc.lang, tc.at, tc.line, lp.SyntaxStyles[tc.at])
+		if line.SyntaxStyles[tc.at] != keywordStyle {
+			t.Fatalf("%v at %d in %q: expected keyword style, got %v", tc.lang, tc.at, tc.line, line.SyntaxStyles[tc.at])
 		}
 	}
 }

@@ -27,11 +27,11 @@ func TestIndentBytesForCol(t *testing.T) {
 }
 
 func TestEditorlyLangIndentDefaultsGo(t *testing.T) {
-	bp := buffer.New()
-	bp.CIndent = 2
-	bp.LangMode = buffer.LModeGo
-	mode.ApplyLangIndentDefaults(bp)
-	if bp.CIndent != 8 {
-		t.Fatalf("Go CIndent = %d, want 8", bp.CIndent)
+	buf := buffer.New()
+	buf.CIndent = 2
+	buf.LangMode = buffer.LModeGo
+	mode.ApplyLangIndentDefaults(buf)
+	if buf.CIndent != 8 {
+		t.Fatalf("Go CIndent = %d, want 8", buf.CIndent)
 	}
 }

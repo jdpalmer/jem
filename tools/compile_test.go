@@ -65,11 +65,11 @@ func TestCompileParseColonDiag(t *testing.T) {
 }
 
 func TestCompileFillBuffer(t *testing.T) {
-	bp := buffer.New()
-	wp := &window.Window{Buffer: bp}
-	window.Active.CurrentWindow = wp
-	buffer.All.Current = bp
-	counts, ok := compileFillBuffer(bp, "make -k",
+	buf := buffer.New()
+	win := &window.Window{Buffer: buf}
+	window.Active.CurrentWindow = win
+	buffer.All.Current = buf
+	counts, ok := compileFillBuffer(buf, "make -k",
 		"main.go:2:3: error: boom\n",
 		"warning: something\n",
 		1, false, false)
@@ -79,7 +79,7 @@ func TestCompileFillBuffer(t *testing.T) {
 	if counts.diag < 1 {
 		t.Fatalf("diag count = %d", counts.diag)
 	}
-	summary := bp.Line(1)
+	summary := buf.Line(1)
 	if summary == nil || !strings.Contains(string(summary.Data), "compile exit=1") {
 		t.Fatalf("summary = %q", summary.Data)
 	}

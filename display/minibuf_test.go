@@ -14,11 +14,11 @@ import (
 func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	DisplayInit()
 	Reset()
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		t.Fatal("buffer create failed")
 	}
-	bp.Name = "alpha"
+	buf.Name = "alpha"
 
 	clipLeftCol = 10
 	label := func(ctx any, idx uint8) []byte {
@@ -28,7 +28,7 @@ func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 		}
 		return []byte(buffers[idx].Name)
 	}
-	mlChoiceRender("Buffer: ", []*buffer.Buffer{bp}, label, 1, 0, 0, 0)
+	mlChoiceRender("Buffer: ", []*buffer.Buffer{buf}, label, 1, 0, 0, 0)
 	clipLeftCol = 0
 
 	row := &backScreen.Rows[term.Rows()]

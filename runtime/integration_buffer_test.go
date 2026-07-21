@@ -57,12 +57,12 @@ func TestCmdUseBufferDirectIndex(t *testing.T) {
 	}
 	bp1.Name = "one"
 	bp2.Name = "two"
-	wp := window.WindowCreate()
-	if wp == nil {
+	win := window.WindowCreate()
+	if win == nil {
 		t.Fatal("window create failed")
 	}
-	wp.Buffer = bp1
-	window.WindowSelect(wp)
+	win.Buffer = bp1
+	window.WindowSelect(win)
 
 	if !CmdUseBuffer(true, 2) {
 		t.Fatal("CmdUseBuffer with universal arg n=2 failed")

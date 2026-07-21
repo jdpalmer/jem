@@ -63,13 +63,13 @@ func fileCheckReload() {
 func CmdFileSave(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		display.MBWrite("[no buffer]")
 		return false
 	}
-	if bp.FileName != "" {
-		fileSaveBuffer(bp.FileName, func(ok bool) {
+	if buf.FileName != "" {
+		fileSaveBuffer(buf.FileName, func(ok bool) {
 			if ok {
 				display.MBWrite("[Saved]")
 			}
@@ -82,7 +82,7 @@ func CmdFileSave(f bool, n int) bool {
 		}
 		fileSaveBuffer(fname, func(ok bool) {
 			if ok {
-				bp.FileName = fname
+				buf.FileName = fname
 				display.MBWrite("[Saved]")
 			}
 		})
@@ -99,9 +99,9 @@ func visitFilePath(path string) bool {
 
 	var found *buffer.Buffer
 	for i := 0; i < int(len(buffer.All.Buffers)); i++ {
-		bp := buffer.All.Buffers[i]
-		if bp != nil && files.PathsEqual(bp.FileName, fileName) {
-			found = bp
+		buf := buffer.All.Buffers[i]
+		if buf != nil && files.PathsEqual(buf.FileName, fileName) {
+			found = buf
 			break
 		}
 	}
@@ -109,29 +109,29 @@ func visitFilePath(path string) bool {
 	if found != nil {
 		markring.PushCurrent()
 		window.SwitchBuffer(found)
-		if wp := window.Active.CurrentWindow; wp != nil {
-			wp.ShouldRedraw = true
-			wp.ShouldUpdateModeLine = true
+		if win := window.Active.CurrentWindow; win != nil {
+			win.ShouldRedraw = true
+			win.ShouldUpdateModeLine = true
 		}
 		display.MBWrite("[old buffer]")
 		return true
 	}
 
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		display.MBWrite("[cannot create buffer]")
 		return false
 	}
 	markring.PushCurrent()
-	bp.Name = files.BufferNameFromPath(fileName)
-	window.SwitchBuffer(bp)
+	buf.Name = files.BufferNameFromPath(fileName)
+	window.SwitchBuffer(buf)
 	if !fileLoad(fileName) {
 		return false
 	}
-	if wp := window.Active.CurrentWindow; wp != nil {
-		wp.CenterCursor()
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+	if win := window.Active.CurrentWindow; win != nil {
+		win.CenterCursor()
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 	}
 	return true
 }
@@ -142,8 +142,8 @@ func CmdFileVisit(f bool, n int) bool {
 	_ = f
 	_ = n
 	initial := ""
-	if bp := buffer.All.Current; bp != nil {
-		if fname := bp.FileName; fname != "" {
+	if buf := buffer.All.Current; buf != nil {
+		if fname := buf.FileName; fname != "" {
 			dir := filepath.Dir(files.ExpandPath(fname))
 			initial = dir + string(filepath.Separator)
 		}
@@ -161,12 +161,12 @@ func CmdFileVisit(f bool, n int) bool {
 func CmdFileWrite(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		display.MBWrite("[no buffer]")
 		return false
 	}
-	AskFilename("Write file: ", bp.FileName, func(path string, pr minibuffer.PromptResult) {
+	AskFilename("Write file: ", buf.FileName, func(path string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || path == "" {
 			return
 		}
@@ -175,14 +175,14 @@ func CmdFileWrite(f bool, n int) bool {
 			if !ok {
 				return
 			}
-			bp.FileName = path
-			bp.LangMode = files.DetectLangMode(path)
-			NoteBufferSaved(bp)
+			buf.FileName = path
+			buf.LangMode = files.DetectLangMode(path)
+			NoteBufferSaved(buf)
 			for i := 0; i < int(len(window.Active.Windows)); i++ {
-				wp := window.Active.Windows[i]
-				if wp != nil && wp.Buffer == bp {
-					wp.ShouldRedraw = true
-					wp.ShouldUpdateModeLine = true
+				win := window.Active.Windows[i]
+				if win != nil && win.Buffer == buf {
+					win.ShouldRedraw = true
+					win.ShouldUpdateModeLine = true
 				}
 			}
 		})
@@ -195,20 +195,20 @@ func CmdFileWrite(f bool, n int) bool {
 func CmdRevertFile(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil {
 		display.MBWrite("[no buffer]")
 		return false
 	}
-	fname := bp.FileName
+	fname := buf.FileName
 	if fname == "" {
 		display.MBWrite("[no file associated with buffer]")
 		return false
 	}
 	lineNumber := uint(1)
-	if wp != nil {
-		lineNumber = wp.Cursor.Line
+	if win != nil {
+		lineNumber = win.Cursor.Line
 	}
 	doRevert := func() {
 		if !fileReloadFromDisk(fname, lineNumber) {
@@ -216,7 +216,7 @@ func CmdRevertFile(f bool, n int) bool {
 		}
 		display.MBWrite("[Reverted]")
 	}
-	if bp.IsChanged {
+	if buf.IsChanged {
 		AskYesNo("Buffer modified; revert anyway", doRevert, func() {
 			display.MBWrite("[not reverted]")
 		})
@@ -235,27 +235,27 @@ func fileVisitLocation(path string, line, column uint32) bool {
 		return false
 	}
 
-	wp := window.Active.CurrentWindow
-	if wp == nil || wp.Buffer == nil {
+	win := window.Active.CurrentWindow
+	if win == nil || win.Buffer == nil {
 		return false
 	}
-	if uint(line) > wp.Buffer.LineCount {
+	if uint(line) > win.Buffer.LineCount {
 		display.MBWrite("[file line out of range]")
 		return false
 	}
-	lp := wp.Buffer.Line(uint(line))
+	bline := win.Buffer.Line(uint(line))
 	off := uint(column)
 	if column > 0 {
 		off--
 	}
-	if off > lp.Len() {
-		off = lp.Len()
+	if bline != nil && off > bline.Len() {
+		off = bline.Len()
 	}
-	wp.SetCursor(buffer.MakeLocation(uint(line), off))
-	wp.DidMove = true
-	wp.ShouldUpdateModeLine = true
-	wp.ShouldRedraw = true
-	wp.CenterCursor()
+	win.SetCursor(buffer.MakeLocation(uint(line), off))
+	win.DidMove = true
+	win.ShouldUpdateModeLine = true
+	win.ShouldRedraw = true
+	win.CenterCursor()
 	return true
 }
 
@@ -287,12 +287,12 @@ func eolModeLabel(mode buffer.EolMode) string {
 func CmdSetEolMode(f bool, n int) bool {
 	_ = f
 	_ = n
-	bp := buffer.All.Current
-	if bp == nil {
+	buf := buffer.All.Current
+	if buf == nil {
 		display.MBWrite("[no buffer]")
 		return false
 	}
-	if bp.IsReadonly {
+	if buf.IsReadonly {
 		display.MBWrite("[read-only buffer]")
 		return false
 	}
@@ -300,7 +300,7 @@ func CmdSetEolMode(f bool, n int) bool {
 	modes := []buffer.EolMode{buffer.EModeLF, buffer.EModeCRLF, buffer.EModeCR}
 	defaultIdx := uint8(0)
 	for i, mode := range modes {
-		if bp.EolMode == mode {
+		if buf.EolMode == mode {
 			defaultIdx = uint8(i)
 			break
 		}
@@ -321,13 +321,13 @@ func CmdSetEolMode(f bool, n int) bool {
 			return
 		}
 		chosen := modes[selected]
-		if bp.EolMode != chosen {
-			bp.EolMode = chosen
-			bp.IsChanged = true
+		if buf.EolMode != chosen {
+			buf.EolMode = chosen
+			buf.IsChanged = true
 			for i := 0; i < int(len(window.Active.Windows)); i++ {
-				wp := window.Active.Windows[i]
-				if wp != nil && wp.Buffer == bp {
-					wp.ShouldUpdateModeLine = true
+				win := window.Active.Windows[i]
+				if win != nil && win.Buffer == buf {
+					win.ShouldUpdateModeLine = true
 				}
 			}
 		}

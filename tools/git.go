@@ -29,16 +29,16 @@ type gitModelineCache struct {
 
 var gitModelineCaches []gitModelineCache
 
-func gitNextLine(buf []byte, start int) (int, []byte) {
-	if start >= len(buf) {
-		return len(buf), nil
+func gitNextLine(data []byte, start int) (int, []byte) {
+	if start >= len(data) {
+		return len(data), nil
 	}
 	lineEnd := start
-	for lineEnd < len(buf) && buf[lineEnd] != '\n' && buf[lineEnd] != '\r' {
+	for lineEnd < len(data) && data[lineEnd] != '\n' && data[lineEnd] != '\r' {
 		lineEnd++
 	}
-	line := buf[start:lineEnd]
-	for lineEnd < len(buf) && (buf[lineEnd] == '\n' || buf[lineEnd] == '\r') {
+	line := data[start:lineEnd]
+	for lineEnd < len(data) && (data[lineEnd] == '\n' || data[lineEnd] == '\r') {
 		lineEnd++
 	}
 	return lineEnd, line
@@ -77,14 +77,14 @@ func gitRun(argv []string, maxOut int) (stdout string, exitCode int, ran bool) {
 	return out.String(), 0, true
 }
 
-func gitModelineCacheForBuffer(bp *buffer.Buffer) *gitModelineCache {
-	if bp == nil || bp.FileName == "" {
+func gitModelineCacheForBuffer(buf *buffer.Buffer) *gitModelineCache {
+	if buf == nil || buf.FileName == "" {
 		return nil
 	}
 
 	var cache *gitModelineCache
 	for i := range gitModelineCaches {
-		if gitModelineCaches[i].buffer == bp {
+		if gitModelineCaches[i].buffer == buf {
 			cache = &gitModelineCaches[i]
 			break
 		}
@@ -101,7 +101,7 @@ func gitModelineCacheForBuffer(bp *buffer.Buffer) *gitModelineCache {
 	}
 
 	if cache.buffer == nil {
-		cache.buffer = bp
+		cache.buffer = buf
 		cache.valid = false
 		cache.hasRepo = false
 		cache.refreshedAt = 0
@@ -112,21 +112,21 @@ func gitModelineCacheForBuffer(bp *buffer.Buffer) *gitModelineCache {
 	}
 
 	now := time.Now().Unix()
-	fname := bp.FileName
+	fname := buf.FileName
 	if !cache.valid || cache.fileName != fname || cache.refreshedAt != now {
-		gitRefreshCache(cache, bp, fname, now)
+		gitRefreshCache(cache, buf, fname, now)
 	}
 	return cache
 }
 
-func gitRefreshCache(cache *gitModelineCache, bp *buffer.Buffer, fname string, now int64) {
+func gitRefreshCache(cache *gitModelineCache, buf *buffer.Buffer, fname string, now int64) {
 	cache.valid = true
 	cache.hasRepo = false
 	cache.refreshedAt = now
 	cache.fileName = fname
 	cache.text = ""
 	cache.lineDiffs = nil
-	cache.diffCount = bp.LineCount
+	cache.diffCount = buf.LineCount
 	if cache.diffCount > 0 {
 		cache.lineDiffs = make([]uint8, cache.diffCount)
 	}
@@ -310,8 +310,8 @@ func gitParseHunkHeader(line string) (oldStart, oldCount, newStart, newCount int
 }
 
 // GitModelineText returns branch/status text for the modeline, or "" when unavailable.
-func GitModelineText(bp *buffer.Buffer) string {
-	cache := gitModelineCacheForBuffer(bp)
+func GitModelineText(buf *buffer.Buffer) string {
+	cache := gitModelineCacheForBuffer(buf)
 	if cache == nil || !cache.hasRepo || cache.text == "" {
 		return ""
 	}
@@ -319,8 +319,8 @@ func GitModelineText(bp *buffer.Buffer) string {
 }
 
 // GitLineDiffAt returns the gutter diff marker for a buffer line.
-func GitLineDiffAt(bp *buffer.Buffer, lineNumber uint) GitLineDiff {
-	cache := gitModelineCacheForBuffer(bp)
+func GitLineDiffAt(buf *buffer.Buffer, lineNumber uint) GitLineDiff {
+	cache := gitModelineCacheForBuffer(buf)
 	if cache == nil || !cache.hasRepo || lineNumber == 0 || lineNumber > cache.diffCount {
 		return GitLineDiffNone
 	}

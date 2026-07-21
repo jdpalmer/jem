@@ -2,10 +2,10 @@ package window
 
 import "github.com/jdpalmer/jem/buffer"
 
-// SwitchBuffer makes bp current in the active window, restoring cursor/mark
-// from another window showing bp when possible, else from the buffer.
-func SwitchBuffer(bp *buffer.Buffer) {
-	if bp == nil {
+// SwitchBuffer makes buf current in the active window, restoring cursor/mark
+// from another window showing buf when possible, else from the buffer.
+func SwitchBuffer(buf *buffer.Buffer) {
+	if buf == nil {
 		return
 	}
 	cw := Active.CurrentWindow
@@ -15,8 +15,8 @@ func SwitchBuffer(bp *buffer.Buffer) {
 
 	cw.SaveState()
 
-	buffer.SetCurrent(bp)
-	cw.Buffer = bp
+	buffer.SetCurrent(buf)
+	cw.Buffer = buf
 	cw.ShouldUpdateModeLine = true
 	cw.ShouldReframe = true
 	cw.ShouldRedraw = true
@@ -24,22 +24,22 @@ func SwitchBuffer(bp *buffer.Buffer) {
 	cw.HScroll = 0
 
 	for i := 0; i < int(len(Active.Windows)); i++ {
-		wp := Active.Windows[i]
-		if wp != nil && wp != cw && wp.Buffer == bp {
-			cw.TopLine = wp.TopLine
-			cw.Cursor = wp.Cursor
-			cw.Mark = wp.Mark
-			cw.HScroll = wp.HScroll
+		win := Active.Windows[i]
+		if win != nil && win != cw && win.Buffer == buf {
+			cw.TopLine = win.TopLine
+			cw.Cursor = win.Cursor
+			cw.Mark = win.Mark
+			cw.HScroll = win.HScroll
 			return
 		}
 	}
 
-	if bp.Cursor.Line >= 1 {
-		cw.SetCursor(bp.Cursor)
+	if buf.Cursor.Line >= 1 {
+		cw.SetCursor(buf.Cursor)
 	} else {
 		cw.SetCursor(buffer.Location{Line: 1, Offset: 0})
 	}
-	cw.Mark = bp.Mark
+	cw.Mark = buf.Mark
 }
 
 // RetargetAfterBufferKill updates windows that showed killed to use replacement.
@@ -48,28 +48,28 @@ func RetargetAfterBufferKill(killed, replacement *buffer.Buffer) {
 	if killed == nil {
 		return
 	}
-	for _, wp := range Active.Windows {
-		if wp == nil || wp.Buffer != killed {
+	for _, win := range Active.Windows {
+		if win == nil || win.Buffer != killed {
 			continue
 		}
 		rep := replacement
 		if rep == nil {
 			rep = buffer.Create()
 			if rep == nil {
-				wp.Buffer = nil
+				win.Buffer = nil
 				continue
 			}
 			replacement = rep // reuse for subsequent windows
 		}
-		wp.Buffer = rep
+		win.Buffer = rep
 		if rep.Cursor.Line >= 1 {
-			wp.Cursor = rep.Cursor
+			win.Cursor = rep.Cursor
 		} else {
-			wp.Cursor = buffer.Location{Line: 1, Offset: 0}
+			win.Cursor = buffer.Location{Line: 1, Offset: 0}
 		}
-		wp.Mark = rep.Mark
-		wp.TopLine = 1
-		wp.ShouldRedraw = true
-		wp.ShouldUpdateModeLine = true
+		win.Mark = rep.Mark
+		win.TopLine = 1
+		win.ShouldRedraw = true
+		win.ShouldUpdateModeLine = true
 	}
 }

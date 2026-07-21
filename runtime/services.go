@@ -91,8 +91,8 @@ func buildServices() *Services {
 		},
 		Display: display.Hooks{
 			ApplyCtlxPrefix: applyCtlxPrefix,
-			GitLineDiff: func(bp *buffer.Buffer, lineNumber uint) int {
-				return int(tools.GitLineDiffAt(bp, lineNumber))
+			GitLineDiff: func(buf *buffer.Buffer, lineNumber uint) int {
+				return int(tools.GitLineDiffAt(buf, lineNumber))
 			},
 			GitModelineText:             tools.GitModelineText,
 			MacroRecordMinibufferResult: macroRecordMinibufferResult,

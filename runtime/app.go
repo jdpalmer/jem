@@ -79,15 +79,15 @@ func AppInit(firstBufferName string) {
 	window.Active.Windows = nil
 	window.Active.CurrentWindow = nil
 
-	bp := buffer.Create()
-	if bp != nil {
-		bp.Name = firstBufferName
-		buffer.SetCurrent(bp)
+	buf := buffer.Create()
+	if buf != nil {
+		buf.Name = firstBufferName
+		buffer.SetCurrent(buf)
 	}
 
-	wp := window.WindowCreate()
-	if wp != nil {
-		window.WindowSelect(wp)
+	win := window.WindowCreate()
+	if win != nil {
+		window.WindowSelect(win)
 	}
 	window.WindowRetile()
 

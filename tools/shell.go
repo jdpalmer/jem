@@ -10,12 +10,12 @@ import (
 	"github.com/jdpalmer/jem/display"
 )
 
-func promptStringFromBuf(buf []byte) string {
-	n := bytes.IndexByte(buf, 0)
+func promptStringFromBuf(data []byte) string {
+	n := bytes.IndexByte(data, 0)
 	if n < 0 {
-		n = len(buf)
+		n = len(data)
 	}
-	return string(buf[:n])
+	return string(data[:n])
 }
 
 func mbWrite(format string, args ...interface{}) {
@@ -71,12 +71,12 @@ func fileVisitLocation(path string, line, column uint32) bool {
 	return PackageHooks.VisitLocation(path, line, column)
 }
 
-func editorSwitchBuffer(bp *buffer.Buffer) {
+func editorSwitchBuffer(buf *buffer.Buffer) {
 	if PackageHooks.SwitchBuffer != nil {
-		PackageHooks.SwitchBuffer(bp)
+		PackageHooks.SwitchBuffer(buf)
 		return
 	}
-	window.SwitchBuffer(bp)
+	window.SwitchBuffer(buf)
 }
 
 func CmdAbort(_ bool, _ int) bool {

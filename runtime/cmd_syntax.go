@@ -17,17 +17,17 @@ const (
 	syntaxMatchUnbalanced
 )
 
-func syntaxMatchTarget(wp *window.Window, matchOut *buffer.Location) syntaxMatchResult {
-	if wp == nil || wp.Buffer == nil {
+func syntaxMatchTarget(win *window.Window, matchOut *buffer.Location) syntaxMatchResult {
+	if win == nil || win.Buffer == nil {
 		return syntaxMatchNone
 	}
-	bp := wp.Buffer
-	cursor := buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset)
-	if cursor.Line == 0 || cursor.Line >= bp.EOF() {
+	buf := win.Buffer
+	cursor := buffer.MakeLocation(win.Cursor.Line, win.Cursor.Offset)
+	if cursor.Line == 0 || cursor.Line >= buf.EOF() {
 		return syntaxMatchNone
 	}
-	if syntaxLocationHasDelimiter(bp, cursor) {
-		if syntax.FindMatchingDelimiter(bp, cursor, matchOut) {
+	if syntaxLocationHasDelimiter(buf, cursor) {
+		if syntax.FindMatchingDelimiter(buf, cursor, matchOut) {
 			return syntaxMatchFound
 		}
 		return syntaxMatchUnbalanced
@@ -36,8 +36,8 @@ func syntaxMatchTarget(wp *window.Window, matchOut *buffer.Location) syntaxMatch
 		return syntaxMatchNone
 	}
 	prior := buffer.MakeLocation(cursor.Line, cursor.Offset-1)
-	if syntaxLocationHasDelimiter(bp, prior) {
-		if syntax.FindMatchingDelimiter(bp, prior, matchOut) {
+	if syntaxLocationHasDelimiter(buf, prior) {
+		if syntax.FindMatchingDelimiter(buf, prior, matchOut) {
 			return syntaxMatchFound
 		}
 		return syntaxMatchUnbalanced
@@ -45,30 +45,30 @@ func syntaxMatchTarget(wp *window.Window, matchOut *buffer.Location) syntaxMatch
 	return syntaxMatchNone
 }
 
-func syntaxLocationHasDelimiter(bp *buffer.Buffer, loc buffer.Location) bool {
-	if bp == nil || loc.Line == 0 || loc.Line >= bp.EOF() {
+func syntaxLocationHasDelimiter(buf *buffer.Buffer, loc buffer.Location) bool {
+	if buf == nil || loc.Line == 0 || loc.Line >= buf.EOF() {
 		return false
 	}
-	lp := bp.Line(loc.Line)
-	if lp == nil || loc.Offset >= lp.Len() {
+	line := buf.Line(loc.Line)
+	if line == nil || loc.Offset >= line.Len() {
 		return false
 	}
-	ch := int(lp.Byte(loc.Offset))
+	ch := int(line.Byte(loc.Offset))
 	if _, _, _, ok := syntax.DelimiterPair(ch); !ok {
 		return false
 	}
-	return syntax.CharIsStructural(bp, loc.Line, loc.Offset)
+	return syntax.CharIsStructural(buf, loc.Line, loc.Offset)
 }
 
 func CmdSyntaxGotoMatch(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
 	var match buffer.Location
-	switch syntaxMatchTarget(wp, &match) {
+	switch syntaxMatchTarget(win, &match) {
 	case syntaxMatchNone:
 		display.MBWrite("[No bracket here]")
 		return false
@@ -76,8 +76,8 @@ func CmdSyntaxGotoMatch(f bool, n int) bool {
 		display.MBWrite("[No matching bracket]")
 		return false
 	default:
-		wp.SetCursor(match)
-		wp.DidMove = true
+		win.SetCursor(match)
+		win.DidMove = true
 		return true
 	}
 }

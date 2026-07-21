@@ -21,24 +21,24 @@ func BindHistory(h *buffer.UndoHistory) {
 }
 
 func BeginCommand() {
-	wp := window.Active.CurrentWindow
-	if History.IsReplaying || buffer.All.Current == nil || wp == nil {
+	win := window.Active.CurrentWindow
+	if History.IsReplaying || buffer.All.Current == nil || win == nil {
 		return
 	}
-	History.BeginCommand(buffer.All.Current, buffer.MakeLocation(wp.Cursor.Line, wp.Cursor.Offset))
+	History.BeginCommand(buffer.All.Current, buffer.MakeLocation(win.Cursor.Line, win.Cursor.Offset))
 }
 
 func EndCommand() { History.EndCommand() }
 
-func ForgetBuffer(bp *buffer.Buffer) { History.ForgetBuffer(bp) }
+func ForgetBuffer(buf *buffer.Buffer) { History.ForgetBuffer(buf) }
 
-func NoteBufferSaved(bp *buffer.Buffer) { History.NoteBufferSaved(bp) }
+func NoteBufferSaved(buf *buffer.Buffer) { History.NoteBufferSaved(buf) }
 
-func SetText(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
-	if bp == nil {
+func SetText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
+	if buf == nil {
 		return buffer.ErrNilBuffer
 	}
-	return bp.SetText(History, begin, end, newText, newEndOut)
+	return buf.SetText(History, begin, end, newText, newEndOut)
 }
 
 func MarkPasteDirty() {
@@ -46,23 +46,23 @@ func MarkPasteDirty() {
 		return
 	}
 	display.Active.ScreenDirty = true
-	for _, wp := range window.Active.Windows {
-		if wp != nil {
-			wp.ShouldRedraw = true
-			wp.ShouldUpdateModeLine = true
+	for _, win := range window.Active.Windows {
+		if win != nil {
+			win.ShouldRedraw = true
+			win.ShouldUpdateModeLine = true
 		}
 	}
 }
 
-func undoInsertText(wp *window.Window, lineNumber, offset uint, text []byte) error {
-	bp := wp.Buffer
+func undoInsertText(win *window.Window, lineNumber, offset uint, text []byte) error {
+	buf := win.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
-	bp.NoteEdit(false)
-	return bp.ReplaceRaw(loc, loc, text, nil)
+	buf.NoteEdit(false)
+	return buf.ReplaceRaw(loc, loc, text, nil)
 }
 
-func undoDeleteText(wp *window.Window, lineNumber, offset uint, text []byte) error {
-	bp := wp.Buffer
+func undoDeleteText(win *window.Window, lineNumber, offset uint, text []byte) error {
+	buf := win.Buffer
 	begin := buffer.MakeLocation(lineNumber, offset)
 	endLine := lineNumber
 	endOffset := offset
@@ -74,8 +74,8 @@ func undoDeleteText(wp *window.Window, lineNumber, offset uint, text []byte) err
 			endOffset++
 		}
 	}
-	bp.NoteEdit(endLine != lineNumber)
-	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
+	buf.NoteEdit(endLine != lineNumber)
+	return buf.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
 }
 
 func CmdUndo(f bool, n int) bool {
@@ -84,36 +84,36 @@ func CmdUndo(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		wp := window.Active.CurrentWindow
+		win := window.Active.CurrentWindow
 		err := History.Undo(buffer.UndoReplay{
 			InsertText: func(lineNumber, offset uint, text []byte) error {
-				if wp == nil {
+				if win == nil {
 					return window.ErrNilWindow
 				}
-				return undoInsertText(wp, lineNumber, offset, text)
+				return undoInsertText(win, lineNumber, offset, text)
 			},
 			DeleteText: func(lineNumber, offset uint, text []byte) error {
-				if wp == nil {
+				if win == nil {
 					return window.ErrNilWindow
 				}
-				return undoDeleteText(wp, lineNumber, offset, text)
+				return undoDeleteText(win, lineNumber, offset, text)
 			},
 			SetCursor: func(loc buffer.Location) {
-				if wp != nil {
-					wp.SetCursor(loc)
-					wp.DidMove = true
+				if win != nil {
+					win.SetCursor(loc)
+					win.DidMove = true
 				}
 			},
-			SwitchBuffer: func(bp *buffer.Buffer) {
-				window.SwitchBuffer(bp)
+			SwitchBuffer: func(buf *buffer.Buffer) {
+				window.SwitchBuffer(buf)
 			},
 			CurrentBuffer: func() *buffer.Buffer {
 				return buffer.All.Current
 			},
-			OnRestoredSave: func(bp *buffer.Buffer) {
-				bp.IsChanged = false
-				if wp != nil {
-					wp.ShouldUpdateModeLine = true
+			OnRestoredSave: func(buf *buffer.Buffer) {
+				buf.IsChanged = false
+				if win != nil {
+					win.ShouldUpdateModeLine = true
 				}
 			},
 		})

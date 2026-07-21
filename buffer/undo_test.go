@@ -2,11 +2,11 @@ package buffer
 
 import "testing"
 
-func testUndoReplay(bp *Buffer) UndoReplay {
+func testUndoReplay(buf *Buffer) UndoReplay {
 	return UndoReplay{
 		InsertText: func(lineNumber, offset uint, text []byte) error {
 			loc := MakeLocation(lineNumber, offset)
-			return bp.ReplaceRaw(loc, loc, text, nil)
+			return buf.ReplaceRaw(loc, loc, text, nil)
 		},
 		DeleteText: func(lineNumber, offset uint, text []byte) error {
 			begin := MakeLocation(lineNumber, offset)
@@ -19,27 +19,27 @@ func testUndoReplay(bp *Buffer) UndoReplay {
 					endOffset++
 				}
 			}
-			return bp.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil)
+			return buf.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil)
 		},
 	}
 }
 
 func TestUndoMultiEditGroup(t *testing.T) {
-	bp := New()
-	bp.AppendLineBytes([]byte("abcdef"))
+	buf := New()
+	buf.AppendLineBytes([]byte("abcdef"))
 
 	var undo UndoHistory
-	undo.BeginCommand(bp, MakeLocation(1, 0))
-	if err := bp.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil); err != nil {
+	undo.BeginCommand(buf, MakeLocation(1, 0))
+	if err := buf.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil); err != nil {
 		t.Fatal("first SetText failed")
 	}
-	if err := bp.SetText(&undo, MakeLocation(1, 4), MakeLocation(1, 4), []byte("Y"), nil); err != nil {
+	if err := buf.SetText(&undo, MakeLocation(1, 4), MakeLocation(1, 4), []byte("Y"), nil); err != nil {
 		t.Fatal("second SetText failed")
 	}
 	undo.EndCommand()
 
-	if string(bp.Line(1).Data) != "abcXYdef" {
-		t.Fatalf("after edits: %q", bp.Line(1).Data)
+	if string(buf.Line(1).Data) != "abcXYdef" {
+		t.Fatalf("after edits: %q", buf.Line(1).Data)
 	}
 	if undo.Pending.Count != 0 {
 		t.Fatalf("pending count = %d, want 0", undo.Pending.Count)
@@ -48,11 +48,11 @@ func TestUndoMultiEditGroup(t *testing.T) {
 		t.Fatalf("group record count = %d, want 2", undo.Groups[0].Count)
 	}
 
-	if err := undo.Undo(testUndoReplay(bp)); err != nil {
+	if err := undo.Undo(testUndoReplay(buf)); err != nil {
 		t.Fatalf("undo failed: %v", err)
 	}
-	if string(bp.Line(1).Data) != "abcdef" {
-		t.Fatalf("after undo: %q", bp.Line(1).Data)
+	if string(buf.Line(1).Data) != "abcdef" {
+		t.Fatalf("after undo: %q", buf.Line(1).Data)
 	}
 }
 
@@ -92,27 +92,27 @@ func TestForgetBuffer(t *testing.T) {
 }
 
 func TestNoteBufferSavedOnRestoredSave(t *testing.T) {
-	bp := New()
-	bp.AppendLineBytes([]byte("hello"))
+	buf := New()
+	buf.AppendLineBytes([]byte("hello"))
 
 	var undo UndoHistory
-	undo.BeginCommand(bp, MakeLocation(1, 5))
-	if err := bp.SetText(&undo, MakeLocation(1, 5), MakeLocation(1, 5), []byte("!"), nil); err != nil {
+	undo.BeginCommand(buf, MakeLocation(1, 5))
+	if err := buf.SetText(&undo, MakeLocation(1, 5), MakeLocation(1, 5), []byte("!"), nil); err != nil {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
-	undo.NoteBufferSaved(bp)
+	undo.NoteBufferSaved(buf)
 
-	undo.BeginCommand(bp, MakeLocation(1, 6))
-	if err := bp.SetText(&undo, MakeLocation(1, 6), MakeLocation(1, 6), []byte("?"), nil); err != nil {
+	undo.BeginCommand(buf, MakeLocation(1, 6))
+	if err := buf.SetText(&undo, MakeLocation(1, 6), MakeLocation(1, 6), []byte("?"), nil); err != nil {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
 
 	restored := false
-	replay := testUndoReplay(bp)
+	replay := testUndoReplay(buf)
 	replay.OnRestoredSave = func(b *Buffer) {
-		if b != bp {
+		if b != buf {
 			t.Fatal("unexpected buffer in OnRestoredSave")
 		}
 		restored = true
@@ -124,38 +124,38 @@ func TestNoteBufferSavedOnRestoredSave(t *testing.T) {
 	if !restored {
 		t.Fatal("OnRestoredSave should run when undo reaches saved state")
 	}
-	if string(bp.Line(1).Data) != "hello!" {
-		t.Fatalf("after undo: %q", bp.Line(1).Data)
+	if string(buf.Line(1).Data) != "hello!" {
+		t.Fatalf("after undo: %q", buf.Line(1).Data)
 	}
 }
 
 func TestUndoStaleSerial(t *testing.T) {
-	bp := New()
-	bp.AppendLineBytes([]byte("abc"))
+	buf := New()
+	buf.AppendLineBytes([]byte("abc"))
 
 	var undo UndoHistory
-	undo.BeginCommand(bp, MakeLocation(1, 0))
-	if err := bp.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil); err != nil {
+	undo.BeginCommand(buf, MakeLocation(1, 0))
+	if err := buf.SetText(&undo, MakeLocation(1, 3), MakeLocation(1, 3), []byte("X"), nil); err != nil {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
 
-	bp.Serial++
-	if err := undo.Undo(testUndoReplay(bp)); err != ErrUndoStale {
+	buf.Serial++
+	if err := undo.Undo(testUndoReplay(buf)); err != ErrUndoStale {
 		t.Fatalf("undo with stale serial: got %v, want ErrUndoStale", err)
 	}
-	if string(bp.Line(1).Data) != "abcX" {
-		t.Fatalf("buffer should be unchanged after stale undo: %q", bp.Line(1).Data)
+	if string(buf.Line(1).Data) != "abcX" {
+		t.Fatalf("buffer should be unchanged after stale undo: %q", buf.Line(1).Data)
 	}
 }
 
 func TestRecordEditSkipsIdentityReplace(t *testing.T) {
-	bp := New()
-	bp.AppendLineBytes([]byte("hello"))
+	buf := New()
+	buf.AppendLineBytes([]byte("hello"))
 
 	var undo UndoHistory
-	undo.BeginCommand(bp, MakeLocation(1, 0))
-	if err := bp.SetText(&undo, MakeLocation(1, 1), MakeLocation(1, 4), []byte("ell"), nil); err != nil {
+	undo.BeginCommand(buf, MakeLocation(1, 0))
+	if err := buf.SetText(&undo, MakeLocation(1, 1), MakeLocation(1, 4), []byte("ell"), nil); err != nil {
 		t.Fatal("identity SetText failed")
 	}
 	undo.EndCommand()

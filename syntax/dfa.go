@@ -255,11 +255,11 @@ func noteSummaryDelimiter(summary *buffer.SyntaxLineSummary, ch int, offset int)
 // ------------------------------------------------------------------
 
 // lineGetcR returns the character at rune index i as an int, or 0 if out of range.
-func lineGetcR(lp *buffer.Line, i int) int {
-	if lp == nil || i < 0 || i >= len(lp.RuneCache) {
+func lineGetcR(line *buffer.Line, i int) int {
+	if line == nil || i < 0 || i >= len(line.RuneCache) {
 		return 0
 	}
-	return int(lp.RuneCache[i])
+	return int(line.RuneCache[i])
 }
 
 func isNumberCont(c int) bool {
@@ -320,7 +320,7 @@ func isIdentCont(c int, flags uint32) bool {
 // ------------------------------------------------------------------
 
 // doBuiltinOnEnter is the default (non-override) on_enter handler.
-func doBuiltinOnEnter(state int, lp *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int, lm buffer.LangMode) {
+func doBuiltinOnEnter(state int, line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int, lm buffer.LangMode) {
 	n := len(styles)
 	idx := *i
 	switch state {
@@ -329,7 +329,7 @@ func doBuiltinOnEnter(state int, lp *buffer.Line, syn *buffer.SynState, i *int, 
 			paintDelimiter(syn, pendingChar, *tokenStart, styles, summary)
 			return
 		}
-		c := lineGetcR(lp, idx)
+		c := lineGetcR(line, idx)
 		if c != ' ' && c != '\t' {
 			noteSummaryCode(summary, idx)
 		}
@@ -346,7 +346,7 @@ func doBuiltinOnEnter(state int, lp *buffer.Line, syn *buffer.SynState, i *int, 
 		putPaint(styles, n, idx, aComment())
 
 	case SynStateLuaDash:
-		c := lineGetcR(lp, idx)
+		c := lineGetcR(line, idx)
 		if c == '-' {
 			putPaint(styles, n, *tokenStart, aComment())
 			putPaint(styles, n, idx, aComment())
@@ -382,7 +382,7 @@ func skipEnterOnStringClose(cur, newState, c int) bool {
 }
 
 // paintOperatorRange highlights the longest known operator prefix in [start, end).
-func paintOperatorRange(lp *buffer.Line, start, end int, lm buffer.LangMode, styles []buffer.TextStyle) {
+func paintOperatorRange(line *buffer.Line, start, end int, lm buffer.LangMode, styles []buffer.TextStyle) {
 	if start >= end || end > len(styles) {
 		return
 	}
@@ -390,7 +390,7 @@ func paintOperatorRange(lp *buffer.Line, start, end int, lm buffer.LangMode, sty
 	if !ok || len(ops) == 0 {
 		return
 	}
-	text := string(lp.RuneCache[start:end])
+	text := string(line.RuneCache[start:end])
 	matchLen := 0
 	for n := len(text); n > 0; n-- {
 		if ops[text[:n]] {
@@ -409,11 +409,11 @@ func paintOperatorRange(lp *buffer.Line, start, end int, lm buffer.LangMode, sty
 }
 
 // paintIdentRange applies keyword/type coloring to an identifier token span.
-func paintIdentRange(lp *buffer.Line, start, end int, lm buffer.LangMode, styles []buffer.TextStyle) {
+func paintIdentRange(line *buffer.Line, start, end int, lm buffer.LangMode, styles []buffer.TextStyle) {
 	if start >= end || end > len(styles) {
 		return
 	}
-	text := string(lp.RuneCache[start:end])
+	text := string(line.RuneCache[start:end])
 	a := identColorForLang(lm, text)
 	if a == buffer.TextStyleDefault {
 		a = aNormal()
@@ -422,12 +422,12 @@ func paintIdentRange(lp *buffer.Line, start, end int, lm buffer.LangMode, styles
 }
 
 // doBuiltinOnExit is the default (non-override) on_exit handler.
-func doBuiltinOnExit(state int, lp *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int, lm buffer.LangMode) {
+func doBuiltinOnExit(state int, line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int, lm buffer.LangMode) {
 	switch state {
 	case SynStateIdent:
-		paintIdentRange(lp, *tokenStart, *i, lm, styles)
+		paintIdentRange(line, *tokenStart, *i, lm, styles)
 	case SynStateOperator:
-		paintOperatorRange(lp, *tokenStart, *i, lm, styles)
+		paintOperatorRange(line, *tokenStart, *i, lm, styles)
 	}
 }
 
@@ -436,32 +436,32 @@ func doBuiltinOnExit(state int, lp *buffer.Line, syn *buffer.SynState, i *int, t
 // ------------------------------------------------------------------
 
 // highlightMarkdown applies markdown-specific style overrides on a line.
-func highlightMarkdown(lp *buffer.Line, styles []buffer.TextStyle, n int) {
-	if n == 0 || len(lp.RuneCache) == 0 {
+func highlightMarkdown(line *buffer.Line, styles []buffer.TextStyle, n int) {
+	if n == 0 || len(line.RuneCache) == 0 {
 		return
 	}
 	i := 0
 	// Skip leading whitespace
-	for i < n && (lineGetcR(lp, i) == ' ' || lineGetcR(lp, i) == '\t') {
+	for i < n && (lineGetcR(line, i) == ' ' || lineGetcR(line, i) == '\t') {
 		i++
 	}
 	if i >= n {
 		return
 	}
 	// Heading: line starting with '#'
-	if lineGetcR(lp, i) == '#' {
+	if lineGetcR(line, i) == '#' {
 		fillPaint(styles, n, 0, n, aHeading())
 		return
 	}
 	// Optional line-number prefix "L<digits>:"
-	if lineGetcR(lp, i) == 'L' && i+1 < n {
+	if lineGetcR(line, i) == 'L' && i+1 < n {
 		checkpoint := i
 		i++ // skip 'L'
 		start := i
-		for i < n && lineGetcR(lp, i) >= '0' && lineGetcR(lp, i) <= '9' {
+		for i < n && lineGetcR(line, i) >= '0' && lineGetcR(line, i) <= '9' {
 			i++
 		}
-		if i > start && i < n && lineGetcR(lp, i) == ':' {
+		if i > start && i < n && lineGetcR(line, i) == ':' {
 			i++ // include ':'
 			fillPaint(styles, n, checkpoint, i, aNumber())
 		} else {
@@ -472,8 +472,8 @@ func highlightMarkdown(lp *buffer.Line, styles []buffer.TextStyle, n int) {
 	inBold, boldStart := false, 0
 	inCode, codeStart := false, 0
 	for i < n {
-		c := lineGetcR(lp, i)
-		nc := lineGetcR(lp, i+1)
+		c := lineGetcR(line, i)
+		nc := lineGetcR(line, i+1)
 		if !inCode && c == '*' && nc == '*' {
 			if !inBold {
 				inBold = true
@@ -506,9 +506,9 @@ func highlightMarkdown(lp *buffer.Line, styles []buffer.TextStyle, n int) {
 }
 
 // highlightHTML applies HTML/XML-specific style overrides on a line.
-func highlightHTML(lp *buffer.Line, styles []buffer.TextStyle, n int, syn *buffer.SynState) {
+func highlightHTML(line *buffer.Line, styles []buffer.TextStyle, n int, syn *buffer.SynState) {
 	for i := 0; i < n; i++ {
-		c := lineGetcR(lp, i)
+		c := lineGetcR(line, i)
 		dfa := int(syn.DFA)
 		if dfa == SynStateHTMLCmt || dfa == SynStateHTMLCmtD1 || dfa == SynStateHTMLCmtD2 {
 			putPaint(styles, n, i, aComment())
@@ -525,9 +525,9 @@ func highlightHTML(lp *buffer.Line, styles []buffer.TextStyle, n int, syn *buffe
 			}
 		} else if c == '<' &&
 			i+3 < n &&
-			lineGetcR(lp, i+1) == '!' &&
-			lineGetcR(lp, i+2) == '-' &&
-			lineGetcR(lp, i+3) == '-' {
+			lineGetcR(line, i+1) == '!' &&
+			lineGetcR(line, i+2) == '-' &&
+			lineGetcR(line, i+3) == '-' {
 			fillPaint(styles, n, i, i+4, aComment())
 			syn.DFA = SynStateHTMLCmt
 			i += 3
@@ -541,24 +541,24 @@ func highlightHTML(lp *buffer.Line, styles []buffer.TextStyle, n int, syn *buffe
 // 10. Main Tokenizer
 // ------------------------------------------------------------------
 
-// tokenizeLineFromState runs the DFA syntax highlighter on lp from start state.
+// tokenizeLineFromState runs the DFA syntax highlighter on line from start state.
 // Returns the end state, line summary, and per-rune style slice.
-func tokenizeLineFromState(lp *buffer.Line, start buffer.SynState) (buffer.SynState, buffer.SyntaxLineSummary, []buffer.TextStyle) {
-	return tokenizeLineFromStateLimit(lp, start, -1)
+func tokenizeLineFromState(line *buffer.Line, start buffer.SynState) (buffer.SynState, buffer.SyntaxLineSummary, []buffer.TextStyle) {
+	return tokenizeLineFromStateLimit(line, start, -1)
 }
 
 // tokenizeLineFromStateLimit scans up to scanLimit runes (-1 = full line).
-func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimit int) (buffer.SynState, buffer.SyntaxLineSummary, []buffer.TextStyle) {
-	lp.EnsureCache()
+func tokenizeLineFromStateLimit(line *buffer.Line, start buffer.SynState, scanLimit int) (buffer.SynState, buffer.SyntaxLineSummary, []buffer.TextStyle) {
+	line.EnsureCache()
 
-	lm := lp.LangMode
-	if lm == buffer.LModeNone && lp.Buffer != nil {
-		lm = lp.Buffer.LangMode
+	lm := line.LangMode
+	if lm == buffer.LModeNone && line.Buffer != nil {
+		lm = line.Buffer.LangMode
 	}
 	info := For(lm)
 
 	syn := start
-	n := len(lp.RuneCache)
+	n := len(line.RuneCache)
 	loopEnd := n
 	fullScan := scanLimit < 0 || scanLimit >= n
 	if !fullScan {
@@ -572,7 +572,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 
 	getc := func(i int) int {
 		if i >= 0 && i < n {
-			return int(lp.RuneCache[i])
+			return int(line.RuneCache[i])
 		}
 		return 0
 	}
@@ -583,9 +583,9 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 	case ModeSyntaxNone:
 		syn = buffer.SynState{}
 		if fullScan {
-			lp.SyntaxEndState = syn
-			lp.SyntaxSummary = summary
-			lp.SyntaxValid = true
+			line.SyntaxEndState = syn
+			line.SyntaxSummary = summary
+			line.SyntaxValid = true
 		}
 		return syn, summary, styles
 
@@ -599,30 +599,30 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 			}
 		}
 		if fullScan {
-			lp.SyntaxEndState = syn
-			lp.SyntaxSummary = summary
-			lp.SyntaxValid = true
+			line.SyntaxEndState = syn
+			line.SyntaxSummary = summary
+			line.SyntaxValid = true
 		}
 		return syn, summary, styles
 
 	case ModeSyntaxMarkdown:
-		highlightMarkdown(lp, styles, n)
+		highlightMarkdown(line, styles, n)
 		if fullScan {
-			lp.SyntaxEndState = syn
-			lp.SyntaxSummary = summary
-			lp.SyntaxValid = true
+			line.SyntaxEndState = syn
+			line.SyntaxSummary = summary
+			line.SyntaxValid = true
 		}
 		return syn, summary, styles
 
 	case ModeSyntaxHTML:
-		highlightHTML(lp, styles, n, &syn)
+		highlightHTML(line, styles, n, &syn)
 		syn.Paren = 0
 		syn.Bracket = 0
 		syn.Curly = 0
 		if fullScan {
-			lp.SyntaxEndState = syn
-			lp.SyntaxSummary = summary
-			lp.SyntaxValid = true
+			line.SyntaxEndState = syn
+			line.SyntaxSummary = summary
+			line.SyntaxValid = true
 		}
 		return syn, summary, styles
 	}
@@ -641,9 +641,9 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 			syn.DFA = SynStateNormal
 		}
 		if fullScan {
-			lp.SyntaxEndState = syn
-			lp.SyntaxSummary = summary
-			lp.SyntaxValid = true
+			line.SyntaxEndState = syn
+			line.SyntaxSummary = summary
+			line.SyntaxValid = true
 		}
 		return syn, summary, styles
 	}
@@ -657,18 +657,18 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 	// callEnter dispatches on_enter for state, honoring hook overrides.
 	callEnter := func(state int, i *int) {
 		if state >= 0 && state < ssStateCount && onEnterHooks[state] != nil {
-			onEnterHooks[state](lp, &syn, i, &tokenStart, &summary, styles, pendingChar)
+			onEnterHooks[state](line, &syn, i, &tokenStart, &summary, styles, pendingChar)
 		} else {
-			doBuiltinOnEnter(state, lp, &syn, i, &tokenStart, &summary, styles, pendingChar, lm)
+			doBuiltinOnEnter(state, line, &syn, i, &tokenStart, &summary, styles, pendingChar, lm)
 		}
 	}
 
 	// callExit dispatches on_exit for state, honoring hook overrides.
 	callExit := func(state int, i *int) {
 		if state >= 0 && state < ssStateCount && onExitHooks[state] != nil {
-			onExitHooks[state](lp, &syn, i, &tokenStart, &summary, styles, pendingChar)
+			onExitHooks[state](line, &syn, i, &tokenStart, &summary, styles, pendingChar)
 		} else {
-			doBuiltinOnExit(state, lp, &syn, i, &tokenStart, &summary, styles, pendingChar, lm)
+			doBuiltinOnExit(state, line, &syn, i, &tokenStart, &summary, styles, pendingChar, lm)
 		}
 	}
 
@@ -803,7 +803,7 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 				if delimiterIndex(c) >= 0 {
 					pendingChar = c
 					tokenStart = i
-					reenterState(lp, &syn, &i, tokenStart, pendingChar, styles, &summary)
+					reenterState(line, &syn, &i, tokenStart, pendingChar, styles, &summary)
 					pendingChar = 0
 					goto afterTransition
 				}
@@ -972,11 +972,11 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 
 	// Finalize identifier token if we hit EOL inside one
 	if syn.DFA == SynStateIdent {
-		paintIdentRange(lp, tokenStart, n, lm, styles)
+		paintIdentRange(line, tokenStart, n, lm, styles)
 		syn.DFA = SynStateNormal
 	}
 	if syn.DFA == SynStateOperator {
-		paintOperatorRange(lp, tokenStart, n, lm, styles)
+		paintOperatorRange(line, tokenStart, n, lm, styles)
 		syn.DFA = SynStateNormal
 	}
 
@@ -991,9 +991,9 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 	// SynStateCmtBlock/Star/Brace/Paren*, SynStateLuaBlock/BlkEnd,
 	// SynStateHTMLCmt*, SynStatePreproc are all left as-is.
 
-	lp.SyntaxEndState = syn
-	lp.SyntaxSummary = summary
-	lp.SyntaxValid = true
+	line.SyntaxEndState = syn
+	line.SyntaxSummary = summary
+	line.SyntaxValid = true
 	return syn, summary, styles
 }
 
@@ -1001,24 +1001,24 @@ func tokenizeLineFromStateLimit(lp *buffer.Line, start buffer.SynState, scanLimi
 // 11. SyntaxEnsureLine
 // ------------------------------------------------------------------
 
-// SyntaxEnsureLine ensures lp has up-to-date syntax styles.
+// SyntaxEnsureLine ensures line has up-to-date syntax styles.
 // It walks back through the buffer to find a valid start state when possible.
-func SyntaxEnsureLine(lp *buffer.Line) {
-	if lp == nil {
+func SyntaxEnsureLine(line *buffer.Line) {
+	if line == nil {
 		return
 	}
-	if lp.SyntaxValid && lp.SyntaxStyles != nil {
+	if line.SyntaxValid && line.SyntaxStyles != nil {
 		return
 	}
 
 	// Find start state: use previous line's end state if available.
 	start := buffer.SynState{DFA: SynStateNormal}
-	if lp.Buffer != nil {
-		bp := lp.Buffer
+	if line.Buffer != nil {
+		buf := line.Buffer
 		// Find this line's index in the buffer.
-		lineNum := lineNumberInBuffer(bp, lp)
+		lineNum := lineNumberInBuffer(buf, line)
 		if lineNum > 1 {
-			prev := bp.Line(lineNum - 1)
+			prev := buf.Line(lineNum - 1)
 			if prev != nil {
 				if !prev.SyntaxValid {
 					SyntaxEnsureLine(prev) // ensure prev is computed first
@@ -1028,18 +1028,18 @@ func SyntaxEnsureLine(lp *buffer.Line) {
 		}
 	}
 
-	_, summary, styles := tokenizeLineFromState(lp, start)
-	lp.SyntaxStyles = styles
-	lp.SyntaxSummary = summary
+	_, summary, styles := tokenizeLineFromState(line, start)
+	line.SyntaxStyles = styles
+	line.SyntaxSummary = summary
 }
 
-// lineNumberInBuffer returns the 1-based line number of lp within bp, or 0.
-func lineNumberInBuffer(bp *buffer.Buffer, lp *buffer.Line) uint {
-	if bp == nil || lp == nil {
+// lineNumberInBuffer returns the 1-based line number of line within buf, or 0.
+func lineNumberInBuffer(buf *buffer.Buffer, line *buffer.Line) uint {
+	if buf == nil || line == nil {
 		return 0
 	}
-	for i := range bp.Lines {
-		if &bp.Lines[i] == lp {
+	for i := range buf.Lines {
+		if &buf.Lines[i] == line {
 			return uint(i + 1)
 		}
 	}

@@ -30,39 +30,39 @@ func isIdentByte(b byte) bool {
 }
 
 // PrefixAtPoint returns the identifier prefix ending at the window cursor.
-func PrefixAtPoint(wp *window.Window) string {
-	if wp == nil || wp.Buffer == nil {
+func PrefixAtPoint(win *window.Window) string {
+	if win == nil || win.Buffer == nil {
 		return ""
 	}
-	lp := wp.Buffer.Line(wp.Cursor.Line)
-	if lp == nil || wp.Cursor.Offset == 0 {
+	line := win.Buffer.Line(win.Cursor.Line)
+	if line == nil || win.Cursor.Offset == 0 {
 		return ""
 	}
-	start := wp.Cursor.Offset
-	for start > 0 && isIdentByte(lp.Data[start-1]) {
+	start := win.Cursor.Offset
+	for start > 0 && isIdentByte(line.Data[start-1]) {
 		start--
 	}
-	if start == wp.Cursor.Offset {
+	if start == win.Cursor.Offset {
 		return ""
 	}
-	return string(lp.Data[start:wp.Cursor.Offset])
+	return string(line.Data[start:win.Cursor.Offset])
 }
 
-func bufferTextBytes(bp *buffer.Buffer) []byte {
-	if bp == nil {
+func bufferTextBytes(buf *buffer.Buffer) []byte {
+	if buf == nil {
 		return nil
 	}
-	var buf bytes.Buffer
-	for lineNum := uint(1); lineNum <= bp.LineCount; lineNum++ {
+	var out bytes.Buffer
+	for lineNum := uint(1); lineNum <= buf.LineCount; lineNum++ {
 		if lineNum > 1 {
-			buf.WriteByte('\n')
+			out.WriteByte('\n')
 		}
-		lp := bp.Line(lineNum)
-		if lp != nil && lp.Len() > 0 {
-			buf.Write(lp.Data)
+		line := buf.Line(lineNum)
+		if line != nil && line.Len() > 0 {
+			out.Write(line.Data)
 		}
 	}
-	return buf.Bytes()
+	return out.Bytes()
 }
 
 func keywordsForLang(lang buffer.LangMode) []string {
@@ -108,30 +108,30 @@ func keywordsForLang(lang buffer.LangMode) []string {
 	}
 }
 
-func scanLineWords(lp *buffer.Line, add func(string)) {
-	if lp == nil {
+func scanLineWords(line *buffer.Line, add func(string)) {
+	if line == nil {
 		return
 	}
 	i := 0
-	n := len(lp.Data)
+	n := len(line.Data)
 	for i < n {
-		if !isIdentByte(lp.Data[i]) {
+		if !isIdentByte(line.Data[i]) {
 			i++
 			continue
 		}
 		start := i
-		for i < n && isIdentByte(lp.Data[i]) {
+		for i < n && isIdentByte(line.Data[i]) {
 			i++
 		}
-		word := string(lp.Data[start:i])
+		word := string(line.Data[start:i])
 		if len(word) > 0 && (unicode.IsLetter(rune(word[0])) || word[0] == '_') {
 			add(word)
 		}
 	}
 }
 
-func goIdents(bp *buffer.Buffer) []string {
-	src := bufferTextBytes(bp)
+func goIdents(buf *buffer.Buffer) []string {
+	src := bufferTextBytes(buf)
 	if len(src) == 0 {
 		return nil
 	}
@@ -154,8 +154,8 @@ func goIdents(bp *buffer.Buffer) []string {
 	return out
 }
 
-// CollectCandidates returns identifier completions for prefix in bp.
-func CollectCandidates(bp *buffer.Buffer, prefix string) []string {
+// CollectCandidates returns identifier completions for prefix in buf.
+func CollectCandidates(buf *buffer.Buffer, prefix string) []string {
 	if prefix == "" {
 		return nil
 	}
@@ -170,14 +170,14 @@ func CollectCandidates(bp *buffer.Buffer, prefix string) []string {
 			out = append(out, word)
 		}
 	}
-	for _, word := range keywordsForLang(bp.LangMode) {
+	for _, word := range keywordsForLang(buf.LangMode) {
 		add(word)
 	}
-	for lineNum := uint(1); lineNum <= bp.LineCount; lineNum++ {
-		scanLineWords(bp.Line(lineNum), add)
+	for lineNum := uint(1); lineNum <= buf.LineCount; lineNum++ {
+		scanLineWords(buf.Line(lineNum), add)
 	}
-	if bp.LangMode == buffer.LModeGo {
-		for _, word := range goIdents(bp) {
+	if buf.LangMode == buffer.LModeGo {
+		for _, word := range goIdents(buf) {
 			add(word)
 		}
 	}
@@ -229,24 +229,24 @@ func CmdComplete(f bool, n int) bool {
 	_ = n
 	pending = ""
 
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		display.MBWrite("[no buffer]")
 		return false
 	}
-	if bp.IsReadonly {
+	if buf.IsReadonly {
 		display.MBWrite("[read-only buffer]")
 		return false
 	}
 
-	prefix := PrefixAtPoint(wp)
+	prefix := PrefixAtPoint(win)
 	if prefix == "" {
 		display.MBWrite("[completion: no prefix at point]")
 		return false
 	}
 
-	candidates := CollectCandidates(bp, prefix)
+	candidates := CollectCandidates(buf, prefix)
 	if len(candidates) == 0 {
 		display.MBWrite("[completion: no matches]")
 		return false
@@ -274,8 +274,8 @@ func CmdAccept(f bool, n int) bool {
 		display.MBWrite("[completion: no pending suggestion]")
 		return false
 	}
-	wp := window.Active.CurrentWindow
-	if wp == nil || wp.Buffer == nil || wp.Buffer.IsReadonly {
+	win := window.Active.CurrentWindow
+	if win == nil || win.Buffer == nil || win.Buffer.IsReadonly {
 		return false
 	}
 
@@ -288,14 +288,14 @@ func CmdAccept(f bool, n int) bool {
 			seg = text[:nl]
 		}
 		if len(seg) > 0 {
-			if err := window.InsertText(wp, []byte(seg)); err != nil {
+			if err := window.InsertText(win, []byte(seg)); err != nil {
 				return false
 			}
 		}
 		if nl < 0 {
 			break
 		}
-		if err := window.InsertNewline(wp); err != nil {
+		if err := window.InsertNewline(win); err != nil {
 			return false
 		}
 		text = text[nl+1:]

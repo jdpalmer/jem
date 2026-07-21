@@ -3,8 +3,8 @@ package buffer
 import "testing"
 
 func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
-	bp := New()
-	if bp.IsChanged {
+	buf := New()
+	if buf.IsChanged {
 		t.Fatal("new buffer should not be changed")
 	}
 
@@ -17,16 +17,16 @@ func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
 			called = true
 			structural = isStructural
 			sawUnchanged = !b.IsChanged
-			if b != bp {
+			if b != buf {
 				t.Fatal("unexpected buffer in NoteEdit")
 			}
 		},
 	}
 	defer func() { PackageHooks = old }()
 
-	bp.NoteEdit(true)
+	buf.NoteEdit(true)
 
-	if !bp.IsChanged {
+	if !buf.IsChanged {
 		t.Fatal("NoteEdit should set IsChanged")
 	}
 	if !called || !structural {
@@ -38,28 +38,28 @@ func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
 }
 
 func TestInvalidateSyntaxFromLine(t *testing.T) {
-	bp := New()
-	bp.AppendLineBytes([]byte("a"))
-	bp.AppendLineBytes([]byte("b"))
-	bp.AppendLineBytes([]byte("c"))
-	for i := uint(1); i <= bp.LineCount; i++ {
-		if lp := bp.Line(i); lp != nil {
-			lp.SyntaxValid = true
+	buf := New()
+	buf.AppendLineBytes([]byte("a"))
+	buf.AppendLineBytes([]byte("b"))
+	buf.AppendLineBytes([]byte("c"))
+	for i := uint(1); i <= buf.LineCount; i++ {
+		if line := buf.Line(i); line != nil {
+			line.SyntaxValid = true
 		}
 	}
 
-	bp.InvalidateSyntaxFrom(2)
-	if bp.Line(1).SyntaxValid != true {
+	buf.InvalidateSyntaxFrom(2)
+	if buf.Line(1).SyntaxValid != true {
 		t.Fatal("line 1 should stay valid")
 	}
-	if bp.Line(2).SyntaxValid != false || bp.Line(3).SyntaxValid != false {
+	if buf.Line(2).SyntaxValid != false || buf.Line(3).SyntaxValid != false {
 		t.Fatal("lines 2-3 should be invalidated")
 	}
 }
 
 func TestReplaceRawUsesPackageHooks(t *testing.T) {
-	bp := New()
-	bp.AppendLineBytes([]byte("hello"))
+	buf := New()
+	buf.AppendLineBytes([]byte("hello"))
 
 	var adjusted bool
 	var reparsed uint
@@ -67,7 +67,7 @@ func TestReplaceRawUsesPackageHooks(t *testing.T) {
 	PackageHooks = Hooks{
 		AdjustLocationsAfterReplace: func(b *Buffer, begin, end, newEnd Location) {
 			adjusted = true
-			if b != bp || begin.Line != 1 || newEnd.Offset != 6 {
+			if b != buf || begin.Line != 1 || newEnd.Offset != 6 {
 				t.Fatalf("unexpected adjust args: begin=%v newEnd=%v", begin, newEnd)
 			}
 		},
@@ -77,7 +77,7 @@ func TestReplaceRawUsesPackageHooks(t *testing.T) {
 	}
 	defer func() { PackageHooks = old }()
 
-	if err := bp.ReplaceRaw(MakeLocation(1, 5), MakeLocation(1, 5), []byte("!"), nil); err != nil {
+	if err := buf.ReplaceRaw(MakeLocation(1, 5), MakeLocation(1, 5), []byte("!"), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,7 +87,7 @@ func TestReplaceRawUsesPackageHooks(t *testing.T) {
 	if reparsed != 1 {
 		t.Fatalf("reparse line = %d, want 1", reparsed)
 	}
-	if bp.Line(1).SyntaxValid {
+	if buf.Line(1).SyntaxValid {
 		t.Fatal("syntax should be invalidated locally")
 	}
 }

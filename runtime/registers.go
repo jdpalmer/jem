@@ -12,16 +12,16 @@ import (
 func CmdCopyRegister(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	var region window.Region
-	if !getRegion(wp, &region) {
+	if !getRegion(win, &region) {
 		return false
 	}
-	text := bp.GetText(region.Start, region.End)
+	text := buf.GetText(region.Start, region.End)
 	length := uint(len(text))
 	if text == nil && length > 0 {
 		display.MBWrite("[out of memory]")
@@ -39,8 +39,8 @@ func CmdCopyRegister(f bool, n int) bool {
 			return
 		}
 		display.MBWrite("Register '%s' copied.", name)
-		wp.Mark = buffer.Location{Line: 0, Offset: 0}
-		wp.ShouldRedraw = true
+		win.Mark = buffer.Location{Line: 0, Offset: 0}
+		win.ShouldRedraw = true
 	})
 	return true
 }
@@ -49,8 +49,8 @@ func CmdCopyRegister(f bool, n int) bool {
 func CmdInsertRegister(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
 	AskString("Register Name: ", "", func(name string, pr minibuffer.PromptResult) {
@@ -62,7 +62,7 @@ func CmdInsertRegister(f bool, n int) bool {
 			display.MBWrite("[register '%s' not found]", name)
 			return
 		}
-		if err := window.InsertText(wp, text); err != nil {
+		if err := window.InsertText(win, text); err != nil {
 			return
 		}
 		display.MBWrite("Register '%s' inserted.", name)

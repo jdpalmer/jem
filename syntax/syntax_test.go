@@ -8,8 +8,8 @@ import (
 
 func makeLine(s string) *buffer.Line {
 	b := []byte(s)
-	lp := &buffer.Line{Data: b, CacheValid: false}
-	return lp
+	line := &buffer.Line{Data: b, CacheValid: false}
+	return line
 }
 
 func TestSyntaxLineComment(t *testing.T) {
@@ -17,15 +17,15 @@ func TestSyntaxLineComment(t *testing.T) {
 	defer func() { PackagePalette.CommentStyle = old }()
 	PackagePalette.CommentStyle = buffer.MakeTextStyle(buffer.TermColorRed, buffer.TermColorDefault, 0)
 
-	lp := makeLine("  // hello world")
-	lp.LangMode = buffer.LModeGo
-	SyntaxEnsureLine(lp)
-	if lp.SyntaxStyles == nil {
+	line := makeLine("  // hello world")
+	line.LangMode = buffer.LModeGo
+	SyntaxEnsureLine(line)
+	if line.SyntaxStyles == nil {
 		t.Fatalf("SyntaxStyles nil")
 	}
 	// find first slash
 	first := -1
-	for i, r := range lp.RuneCache {
+	for i, r := range line.RuneCache {
 		if r == '/' {
 			first = i
 			break
@@ -35,85 +35,85 @@ func TestSyntaxLineComment(t *testing.T) {
 		t.Fatalf("could not find '//' in rune cache")
 	}
 	// all runes from first to end should be comment style
-	for i := first; i < len(lp.RuneCache); i++ {
-		if lp.SyntaxStyles[i] != PackagePalette.CommentStyle {
-			t.Fatalf("expected comment style at %d got %v", i, lp.SyntaxStyles[i])
+	for i := first; i < len(line.RuneCache); i++ {
+		if line.SyntaxStyles[i] != PackagePalette.CommentStyle {
+			t.Fatalf("expected comment style at %d got %v", i, line.SyntaxStyles[i])
 		}
 	}
 }
 
 func TestSyntaxString(t *testing.T) {
-	lp := makeLine("\"hello\" world")
-	lp.LangMode = buffer.LModeGo
-	SyntaxEnsureLine(lp)
-	if lp.SyntaxStyles == nil {
+	line := makeLine("\"hello\" world")
+	line.LangMode = buffer.LModeGo
+	SyntaxEnsureLine(line)
+	if line.SyntaxStyles == nil {
 		t.Fatalf("SyntaxStyles nil")
 	}
-	if len(lp.RuneCache) < 7 {
-		t.Fatalf("unexpected rune cache length: %d", len(lp.RuneCache))
+	if len(line.RuneCache) < 7 {
+		t.Fatalf("unexpected rune cache length: %d", len(line.RuneCache))
 	}
 	strStyle := buffer.MakeTextStyle(buffer.TermColorCyan, buffer.TermColorDefault, 0)
 	// Opening quote, contents, and closing quote are all A_STRING.
 	for i := 0; i < 7; i++ {
-		if lp.SyntaxStyles[i] != strStyle {
-			t.Fatalf("expected string style at %d got %v", i, lp.SyntaxStyles[i])
+		if line.SyntaxStyles[i] != strStyle {
+			t.Fatalf("expected string style at %d got %v", i, line.SyntaxStyles[i])
 		}
 	}
 }
 
 func TestSyntaxSingleQuotedString(t *testing.T) {
-	lp := makeLine("'hello' world")
-	lp.LangMode = buffer.LModeGo
-	SyntaxEnsureLine(lp)
-	if lp.SyntaxStyles == nil {
+	line := makeLine("'hello' world")
+	line.LangMode = buffer.LModeGo
+	SyntaxEnsureLine(line)
+	if line.SyntaxStyles == nil {
 		t.Fatalf("SyntaxStyles nil")
 	}
-	if len(lp.RuneCache) < 7 {
-		t.Fatalf("unexpected rune cache length: %d", len(lp.RuneCache))
+	if len(line.RuneCache) < 7 {
+		t.Fatalf("unexpected rune cache length: %d", len(line.RuneCache))
 	}
 	strStyle := buffer.MakeTextStyle(buffer.TermColorCyan, buffer.TermColorDefault, 0)
 	for i := 0; i < 7; i++ {
-		if lp.SyntaxStyles[i] != strStyle {
-			t.Fatalf("expected string style at %d got %v", i, lp.SyntaxStyles[i])
+		if line.SyntaxStyles[i] != strStyle {
+			t.Fatalf("expected string style at %d got %v", i, line.SyntaxStyles[i])
 		}
 	}
 }
 
 func TestDelimiterSummary(t *testing.T) {
-	lp := makeLine("( )")
-	lp.LangMode = buffer.LModeGo
-	SyntaxEnsureLine(lp)
-	if lp.SyntaxSummary.OpenOffsets[0] != 0 {
-		t.Fatalf("expected open offset 0 got %d", lp.SyntaxSummary.OpenOffsets[0])
+	line := makeLine("( )")
+	line.LangMode = buffer.LModeGo
+	SyntaxEnsureLine(line)
+	if line.SyntaxSummary.OpenOffsets[0] != 0 {
+		t.Fatalf("expected open offset 0 got %d", line.SyntaxSummary.OpenOffsets[0])
 	}
-	if lp.SyntaxSummary.CloseOffsets[0] == ^uint(0) {
+	if line.SyntaxSummary.CloseOffsets[0] == ^uint(0) {
 		t.Fatalf("expected close offset set, got sentinel")
 	}
 }
 
 func makeBufferFromLines(lines []string) *buffer.Buffer {
-	bp := &buffer.Buffer{LangMode: buffer.LModeGo}
+	buf := &buffer.Buffer{LangMode: buffer.LModeGo}
 	for _, l := range lines {
 		b := []byte(l)
-		line := buffer.Line{Data: b, CacheValid: false, LangMode: buffer.LModeGo, Buffer: bp}
-		bp.Lines = append(bp.Lines, line)
+		line := buffer.Line{Data: b, CacheValid: false, LangMode: buffer.LModeGo, Buffer: buf}
+		buf.Lines = append(buf.Lines, line)
 	}
-	bp.LineCount = uint(len(bp.Lines))
-	return bp
+	buf.LineCount = uint(len(buf.Lines))
+	return buf
 }
 
 func TestRainbowParensIncremental(t *testing.T) {
-	bp := makeBufferFromLines([]string{"(", "("})
+	buf := makeBufferFromLines([]string{"(", "("})
 	// ensure rune caches
-	for i := 1; i <= int(bp.LineCount); i++ {
-		lp := bp.Line(uint(i))
-		lp.EnsureCache()
+	for i := 1; i <= int(buf.LineCount); i++ {
+		line := buf.Line(uint(i))
+		line.EnsureCache()
 	}
 	// incremental reparse from first line
-	IncrementalReparse(bp, 1)
+	IncrementalReparse(buf, 1)
 	// check styles
-	first := bp.Line(1)
-	second := bp.Line(2)
+	first := buf.Line(1)
+	second := buf.Line(2)
 	if first == nil || second == nil {
 		t.Fatalf("buffer lines missing")
 	}
@@ -131,11 +131,11 @@ func TestRainbowParensIncremental(t *testing.T) {
 }
 
 func TestRainbowParensSingleLine(t *testing.T) {
-	lp := makeLine("((()))")
-	lp.LangMode = buffer.LModeGo
-	lp.EnsureCache()
+	line := makeLine("((()))")
+	line.LangMode = buffer.LModeGo
+	line.EnsureCache()
 	// Tokenize the single line
-	syn, summary, styles := tokenizeLineFromStateExported(lp, buffer.SynState{DFA: SynStateNormal})
+	syn, summary, styles := tokenizeLineFromStateExported(line, buffer.SynState{DFA: SynStateNormal})
 	_ = syn
 	_ = summary
 	if styles == nil || len(styles) == 0 {

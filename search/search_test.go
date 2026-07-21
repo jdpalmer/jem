@@ -12,58 +12,58 @@ func makeTestWindow(t *testing.T, text string) *window.Window {
 	t.Helper()
 	display.Reset()
 	DefaultState = &State{}
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		t.Fatal("buffer create failed")
 	}
-	bp.Name = "*test*"
-	wp := window.WindowCreate()
-	if wp == nil {
+	buf.Name = "*test*"
+	win := window.WindowCreate()
+	if win == nil {
 		t.Fatal("window create failed")
 	}
-	wp.Buffer = bp
-	window.WindowSelect(wp)
-	eof := buffer.MakeLocation(bp.EOF(), 0)
+	win.Buffer = buf
+	window.WindowSelect(win)
+	eof := buffer.MakeLocation(buf.EOF(), 0)
 	data := []byte(text)
-	if err := bp.SetText(nil, buffer.MakeLocation(1, 0), eof, data, nil); err != nil {
+	if err := buf.SetText(nil, buffer.MakeLocation(1, 0), eof, data, nil); err != nil {
 		t.Fatal("buffer.SetText failed")
 	}
-	return wp
+	return win
 }
 
 func TestFindNextPlain(t *testing.T) {
-	wp := makeTestWindow(t, "hello world\nfoo bar\n")
-	wp.SetCursor(buffer.Location{Line: 1, Offset: 0})
+	win := makeTestWindow(t, "hello world\nfoo bar\n")
+	win.SetCursor(buffer.Location{Line: 1, Offset: 0})
 	DefaultState.SearchCaseSensitive = true
-	if !findNextPlain(wp, []byte("world")) {
+	if !findNextPlain(win, []byte("world")) {
 		t.Fatal("expected to find world")
 	}
-	if wp.Cursor.Line != 1 || wp.Cursor.Offset != 11 {
-		t.Fatalf("cursor at %+v, want line 1 offset 11", wp.Cursor)
+	if win.Cursor.Line != 1 || win.Cursor.Offset != 11 {
+		t.Fatalf("cursor at %+v, want line 1 offset 11", win.Cursor)
 	}
-	if !findNextPlain(wp, []byte("foo")) {
+	if !findNextPlain(win, []byte("foo")) {
 		t.Fatal("expected to find foo")
 	}
-	if wp.Cursor.Line != 2 || wp.Cursor.Offset != 3 {
-		t.Fatalf("cursor at %+v, want line 2 offset 3", wp.Cursor)
+	if win.Cursor.Line != 2 || win.Cursor.Offset != 3 {
+		t.Fatalf("cursor at %+v, want line 2 offset 3", win.Cursor)
 	}
 }
 
 func TestFindPrevPlain(t *testing.T) {
-	wp := makeTestWindow(t, "abc abc\n")
-	wp.SetCursor(buffer.Location{Line: 1, Offset: 7})
+	win := makeTestWindow(t, "abc abc\n")
+	win.SetCursor(buffer.Location{Line: 1, Offset: 7})
 	DefaultState.SearchCaseSensitive = true
-	if !findPrevPlain(wp, []byte("abc")) {
+	if !findPrevPlain(win, []byte("abc")) {
 		t.Fatal("expected to find abc")
 	}
-	if wp.Cursor.Line != 1 || wp.Cursor.Offset != 4 {
-		t.Fatalf("cursor at %+v, want line 1 offset 4", wp.Cursor)
+	if win.Cursor.Line != 1 || win.Cursor.Offset != 4 {
+		t.Fatalf("cursor at %+v, want line 1 offset 4", win.Cursor)
 	}
 }
 
 func TestRegexMatchForward(t *testing.T) {
-	wp := makeTestWindow(t, "foo123bar\n")
-	match, found := findNextRegexMatchFrom(wp.Buffer, buffer.Location{Line: 1, Offset: 0}, `[0-9]+`)
+	win := makeTestWindow(t, "foo123bar\n")
+	match, found := findNextRegexMatchFrom(win.Buffer, buffer.Location{Line: 1, Offset: 0}, `[0-9]+`)
 	if found != 1 {
 		t.Fatalf("found=%d want 1", found)
 	}

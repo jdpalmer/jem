@@ -14,16 +14,16 @@ var mouseAnchorWindow *window.Window
 var mouseAnchorLine uint
 var mouseAnchorOffset uint
 
-func windowCursorIsVisible(wp *window.Window) bool {
-	if wp == nil {
+func windowCursorIsVisible(win *window.Window) bool {
+	if win == nil {
 		return false
 	}
-	visibleLine := wp.TopLine
-	for i := uint32(0); i < wp.Height; i++ {
-		if visibleLine == wp.Cursor.Line {
+	visibleLine := win.TopLine
+	for i := uint32(0); i < win.Height; i++ {
+		if visibleLine == win.Cursor.Line {
 			return true
 		}
-		if visibleLine > wp.Buffer.LineCount {
+		if visibleLine > win.Buffer.LineCount {
 			break
 		}
 		visibleLine++
@@ -31,14 +31,14 @@ func windowCursorIsVisible(wp *window.Window) bool {
 	return false
 }
 
-func windowLastVisibleLine(wp *window.Window) uint {
-	if wp == nil {
+func windowLastVisibleLine(win *window.Window) uint {
+	if win == nil {
 		return 1
 	}
-	visibleLine := wp.TopLine
-	lastVisible := wp.TopLine
-	for i := uint32(0); i < wp.Height; i++ {
-		if visibleLine > wp.Buffer.LineCount {
+	visibleLine := win.TopLine
+	lastVisible := win.TopLine
+	for i := uint32(0); i < win.Height; i++ {
+		if visibleLine > win.Buffer.LineCount {
 			break
 		}
 		lastVisible = visibleLine
@@ -48,13 +48,13 @@ func windowLastVisibleLine(wp *window.Window) uint {
 }
 
 // windowScroll scrolls the window viewport by n lines (positive = down).
-func windowScroll(wp *window.Window, n int) {
-	if wp == nil || wp.Buffer == nil {
+func windowScroll(win *window.Window, n int) {
+	if win == nil || win.Buffer == nil {
 		return
 	}
-	lineNumber := wp.TopLine
+	lineNumber := win.TopLine
 	if n > 0 {
-		for i := 0; i < n && lineNumber < wp.Buffer.LineCount; i++ {
+		for i := 0; i < n && lineNumber < win.Buffer.LineCount; i++ {
 			lineNumber++
 		}
 	} else {
@@ -65,21 +65,21 @@ func windowScroll(wp *window.Window, n int) {
 	if lineNumber < 1 {
 		lineNumber = 1
 	}
-	if lineNumber > wp.Buffer.LineCount {
-		lineNumber = wp.Buffer.LineCount
+	if lineNumber > win.Buffer.LineCount {
+		lineNumber = win.Buffer.LineCount
 	}
-	wp.SetTopLine(lineNumber)
-	wp.ShouldRedraw = true
+	win.SetTopLine(lineNumber)
+	win.ShouldRedraw = true
 
-	if wp == window.Active.CurrentWindow {
-		if !windowCursorIsVisible(wp) {
+	if win == window.Active.CurrentWindow {
+		if !windowCursorIsVisible(win) {
 			var loc buffer.Location
 			if n > 0 {
-				loc = buffer.Location{Line: windowLastVisibleLine(wp), Offset: 0}
+				loc = buffer.Location{Line: windowLastVisibleLine(win), Offset: 0}
 			} else {
-				loc = buffer.Location{Line: wp.TopLine, Offset: 0}
+				loc = buffer.Location{Line: win.TopLine, Offset: 0}
 			}
-			wp.SetCursor(loc)
+			win.SetCursor(loc)
 		}
 	}
 }
@@ -89,16 +89,16 @@ func windowScroll(wp *window.Window, n int) {
 func CmdMouseLeft(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := display.WinAt(display.Active.Mouse.Row)
-	if wp == nil {
+	win := display.WinAt(display.Active.Mouse.Row)
+	if win == nil {
 		return false
 	}
 
-	if wp != window.Active.CurrentWindow {
-		window.WindowSelect(wp)
+	if win != window.Active.CurrentWindow {
+		window.WindowSelect(win)
 	}
 
-	loc := display.MouseLocationInWindow(wp)
+	loc := display.MouseLocationInWindow(win)
 	window.Active.CurrentWindow.SetCursor(loc)
 	window.Active.CurrentWindow.Mark.Line = 0
 	window.Active.CurrentWindow.Mark.Offset = 0
@@ -114,12 +114,12 @@ func CmdMouseLeft(f bool, n int) bool {
 func CmdMouseDrag(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := display.WinAt(display.Active.Mouse.Row)
-	if wp == nil || wp != window.Active.CurrentWindow || mouseAnchorWindow != window.Active.CurrentWindow {
+	win := display.WinAt(display.Active.Mouse.Row)
+	if win == nil || win != window.Active.CurrentWindow || mouseAnchorWindow != window.Active.CurrentWindow {
 		return false
 	}
 
-	loc := display.MouseLocationInWindow(wp)
+	loc := display.MouseLocationInWindow(win)
 
 	window.Active.CurrentWindow.Mark.Line = mouseAnchorLine
 	window.Active.CurrentWindow.Mark.Offset = mouseAnchorOffset
@@ -133,15 +133,15 @@ func CmdMouseDrag(f bool, n int) bool {
 func CmdMouseWheelUp(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := display.WinAt(display.Active.Mouse.Row)
-	if wp == nil {
-		wp = window.Active.CurrentWindow
+	win := display.WinAt(display.Active.Mouse.Row)
+	if win == nil {
+		win = window.Active.CurrentWindow
 	}
-	if wp == nil || wp.Buffer == nil {
+	if win == nil || win.Buffer == nil {
 		return false
 	}
 
-	windowScroll(wp, -wheelLines)
+	windowScroll(win, -wheelLines)
 	return true
 }
 
@@ -149,15 +149,15 @@ func CmdMouseWheelUp(f bool, n int) bool {
 func CmdMouseWheelDown(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := display.WinAt(display.Active.Mouse.Row)
-	if wp == nil {
-		wp = window.Active.CurrentWindow
+	win := display.WinAt(display.Active.Mouse.Row)
+	if win == nil {
+		win = window.Active.CurrentWindow
 	}
-	if wp == nil || wp.Buffer == nil {
+	if win == nil || win.Buffer == nil {
 		return false
 	}
 
-	windowScroll(wp, wheelLines)
+	windowScroll(win, wheelLines)
 	return true
 }
 
@@ -166,12 +166,12 @@ func ApplyWheelTicks(net int) {
 	if net == 0 {
 		return
 	}
-	wp := display.WinAt(display.Active.Mouse.Row)
-	if wp == nil {
-		wp = window.Active.CurrentWindow
+	win := display.WinAt(display.Active.Mouse.Row)
+	if win == nil {
+		win = window.Active.CurrentWindow
 	}
-	if wp == nil || wp.Buffer == nil {
+	if win == nil || win.Buffer == nil {
 		return
 	}
-	windowScroll(wp, net*wheelLines)
+	windowScroll(win, net*wheelLines)
 }

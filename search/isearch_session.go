@@ -13,7 +13,7 @@ import (
 type isearchSession struct {
 	backward      bool
 	regex         bool
-	wp            *window.Window
+	win            *window.Window
 	scope         bufferSearchScope
 	origin        ISearchSnapshot
 	lastSuccess   ISearchSnapshot
@@ -53,16 +53,16 @@ func newISearchSession(backward, regex bool) *isearchSession {
 }
 
 func (s *isearchSession) Open() (done bool) {
-	s.wp = window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if s.wp == nil || bp == nil {
+	s.win = window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if s.win == nil || buf == nil {
 		return true
 	}
-	s.scope = searchScopeInit(bp)
+	s.scope = searchScopeInit(buf)
 	if !s.regex {
 		markPushCurrent()
 	}
-	s.origin = saveSearchSnapshot(s.wp, 0)
+	s.origin = saveSearchSnapshot(s.win, 0)
 	s.lastSuccess = s.origin
 	minibuffer.Active = &s.mbState
 	display.Active.ShowPhantomCursor = true
@@ -78,11 +78,11 @@ func (s *isearchSession) Close() {
 
 func (s *isearchSession) redraw() {
 	displayUpdate()
-	bp := (*buffer.Buffer)(nil)
-	if s.wp != nil {
-		bp = s.wp.Buffer
+	buf := (*buffer.Buffer)(nil)
+	if s.win != nil {
+		buf = s.win.Buffer
 	}
-	writeISearchPrompt(s.label, s.pat[:], s.cpos, s.failing, bp)
+	writeISearchPrompt(s.label, s.pat[:], s.cpos, s.failing, buf)
 }
 
 func (s *isearchSession) plen() int {
@@ -96,7 +96,7 @@ func (s *isearchSession) plen() int {
 func (s *isearchSession) HandleKey(k uint32) (done bool) {
 	plen := s.plen()
 	if k == (term.CTL|'G') || k == 0x1B {
-		restoreSearchSnapshot(s.wp, &s.origin)
+		restoreSearchSnapshot(s.win, &s.origin)
 		mbWrite("[cancelled]")
 		return true
 	}
@@ -132,25 +132,25 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 		return false
 	}
 	if plen == 0 {
-		restoreSearchSnapshot(s.wp, &s.origin)
+		restoreSearchSnapshot(s.win, &s.origin)
 		s.lastSuccess = s.origin
 		s.failing = false
 		s.redraw()
 		return false
 	}
 	var next ISearchSnapshot
-	s.wp = window.Active.CurrentWindow
+	s.win = window.Active.CurrentWindow
 	ok := false
 	if s.regex {
-		ok = isearchRunRegex(s.wp, &s.scope, &s.origin, string(s.pat[:plen]), s.backward, &next)
+		ok = isearchRunRegex(s.win, &s.scope, &s.origin, string(s.pat[:plen]), s.backward, &next)
 	} else {
-		ok = isearchRunPlain(s.wp, &s.scope, &s.origin, s.pat[:plen], s.backward, &next)
+		ok = isearchRunPlain(s.win, &s.scope, &s.origin, s.pat[:plen], s.backward, &next)
 	}
 	if ok {
 		s.lastSuccess = next
 		s.failing = false
 	} else {
-		restoreSearchSnapshot(s.wp, &s.lastSuccess)
+		restoreSearchSnapshot(s.win, &s.lastSuccess)
 		s.failing = true
 	}
 	s.redraw()
@@ -193,18 +193,18 @@ func (s *isearchSession) handleRepeat(plen int) {
 		return
 	}
 	var next ISearchSnapshot
-	s.wp = window.Active.CurrentWindow
+	s.win = window.Active.CurrentWindow
 	ok := false
 	if s.regex {
-		ok = isearchRunRegex(s.wp, &s.scope, &s.lastSuccess, string(s.pat[:plen]), s.backward, &next)
+		ok = isearchRunRegex(s.win, &s.scope, &s.lastSuccess, string(s.pat[:plen]), s.backward, &next)
 	} else {
-		ok = isearchRunPlain(s.wp, &s.scope, &s.lastSuccess, s.pat[:plen], s.backward, &next)
+		ok = isearchRunPlain(s.win, &s.scope, &s.lastSuccess, s.pat[:plen], s.backward, &next)
 	}
 	if ok {
 		s.lastSuccess = next
 		s.failing = false
 	} else {
-		restoreSearchSnapshot(s.wp, &s.lastSuccess)
+		restoreSearchSnapshot(s.win, &s.lastSuccess)
 		s.failing = true
 	}
 }

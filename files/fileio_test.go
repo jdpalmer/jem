@@ -18,18 +18,18 @@ func resetAppForFileIoTests() {
 
 func initBufferWindowForFileIoTests(t *testing.T) *buffer.Buffer {
 	t.Helper()
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		t.Fatal("buffer create failed")
 	}
-	buffer.SetCurrent(bp)
-	wp := window.WindowCreate()
-	if wp == nil {
+	buffer.SetCurrent(buf)
+	win := window.WindowCreate()
+	if win == nil {
 		t.Fatal("window create failed")
 	}
-	wp.Buffer = bp
-	window.WindowSelect(wp)
-	return bp
+	win.Buffer = buf
+	window.WindowSelect(win)
+	return buf
 }
 
 func TestReloadCurrentBufferFromDiskRequiresFilename(t *testing.T) {
@@ -48,8 +48,8 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	}
 
 	resetAppForFileIoTests()
-	bp := initBufferWindowForFileIoTests(t)
-	bp.FileName = path
+	buf := initBufferWindowForFileIoTests(t)
+	buf.FileName = path
 
 	if err := LoadCurrentBuffer(path, nil); err != nil {
 		t.Fatal(err)
@@ -62,10 +62,10 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	if err := ReloadCurrentBufferFromDisk(path, 1, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if bp.IsChanged {
+	if buf.IsChanged {
 		t.Fatal("buffer should be clean after reload")
 	}
-	line := bp.Line(1)
+	line := buf.Line(1)
 	if line == nil || string(line.Data) != "second" {
 		got := ""
 		if line != nil {
@@ -83,8 +83,8 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	}
 
 	resetAppForFileIoTests()
-	bp := initBufferWindowForFileIoTests(t)
-	bp.FileName = path
+	buf := initBufferWindowForFileIoTests(t)
+	buf.FileName = path
 
 	if err := LoadCurrentBuffer(path, nil); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(nil, nil, nil)
 
-	line := bp.Line(1)
+	line := buf.Line(1)
 	if line == nil || string(line.Data) != "alpha" {
 		got := ""
 		if line != nil {
@@ -105,13 +105,13 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 		}
 		t.Fatalf("buffer line 1 = %q, want %q", got, "alpha")
 	}
-	if bp.LineCount != 3 {
-		t.Fatalf("line_count = %d, want 3", bp.LineCount)
+	if buf.LineCount != 3 {
+		t.Fatalf("line_count = %d, want 3", buf.LineCount)
 	}
 	if window.Active.CurrentWindow.Cursor.Line != 1 {
 		t.Fatalf("cursor line = %d, want 1", window.Active.CurrentWindow.Cursor.Line)
 	}
-	if bp.IsChanged {
+	if buf.IsChanged {
 		t.Fatal("buffer should be clean after auto-reload")
 	}
 }
@@ -139,11 +139,11 @@ func TestLoadCommandLineFiles(t *testing.T) {
 	if len(buffer.All.Buffers) != 3 {
 		t.Fatalf("buffer_count = %d, want 3", len(buffer.All.Buffers))
 	}
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		t.Fatal("no window")
 	}
-	if buffer.All.Current != wp.Buffer {
+	if buffer.All.Current != win.Buffer {
 		t.Fatal("current buffer should be the first file's buffer")
 	}
 	line := buffer.All.Current.Line(1)
@@ -155,9 +155,9 @@ func TestLoadCommandLineFiles(t *testing.T) {
 		t.Fatalf("first buffer text = %q, want %q", got, "a.go")
 	}
 	names := map[string]bool{}
-	for _, bp := range buffer.All.Buffers {
-		if bp != nil {
-			names[bp.Name] = true
+	for _, buf := range buffer.All.Buffers {
+		if buf != nil {
+			names[buf.Name] = true
 		}
 	}
 	for _, want := range []string{"a.go", "b.go", "c.go"} {
@@ -175,24 +175,24 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	}
 
 	resetAppForFileIoTests()
-	bp := initBufferWindowForFileIoTests(t)
-	bp.FileName = path
+	buf := initBufferWindowForFileIoTests(t)
+	buf.FileName = path
 
 	if err := LoadCurrentBuffer(path, nil); err != nil {
 		t.Fatal(err)
 	}
-	bp.IsChanged = true
+	buf.IsChanged = true
 
 	if err := os.WriteFile(path, []byte("second\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Avoid prompting by simulating that the user already declined for this mtime.
-	bp.DiskChangeNotifiedMtime = FileMtime(path)
+	buf.DiskChangeNotifiedMtime = FileMtime(path)
 
 	CheckReloadCurrentBuffer(nil, nil, nil)
 
-	line := bp.Line(1)
+	line := buf.Line(1)
 	if line == nil || string(line.Data) != "first" {
 		got := ""
 		if line != nil {
@@ -204,8 +204,8 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 
 func TestLoadCurrentBufferReadonly(t *testing.T) {
 	resetAppForFileIoTests()
-	bp := initBufferWindowForFileIoTests(t)
-	bp.IsReadonly = true
+	buf := initBufferWindowForFileIoTests(t)
+	buf.IsReadonly = true
 	err := LoadCurrentBuffer("anything.txt", nil)
 	if !errors.Is(err, ErrReadonly) {
 		t.Fatalf("err = %v, want ErrReadonly", err)

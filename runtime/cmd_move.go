@@ -19,19 +19,19 @@ func isWordChar(b byte) bool {
 }
 
 // move forward by one word: skip non-word then skip word
-func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
-	if bp == nil || loc.Line == 0 {
+func forwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
+	if buf == nil || loc.Line == 0 {
 		return loc
 	}
-	line := bp.Line(loc.Line)
+	line := buf.Line(loc.Line)
 	if line == nil {
 		return loc
 	}
 	off := int(loc.Offset)
 	// If past EOL, start at the next line; otherwise skip non-word on this line.
 	if off >= len(line.Data) {
-		if loc.Line >= bp.LineCount {
-			return buffer.Location{Line: bp.LineCount, Offset: line.Len()}
+		if loc.Line >= buf.LineCount {
+			return buffer.Location{Line: buf.LineCount, Offset: line.Len()}
 		}
 		loc.Line++
 		off = 0
@@ -41,8 +41,8 @@ func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 		}
 	}
 	// Skip non-word then word, wrapping across lines as needed.
-	for loc.Line <= bp.LineCount {
-		line = bp.Line(loc.Line)
+	for loc.Line <= buf.LineCount {
+		line = buf.Line(loc.Line)
 		if line == nil {
 			return loc
 		}
@@ -55,24 +55,24 @@ func forwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 			}
 			return buffer.Location{Line: loc.Line, Offset: uint(off)}
 		}
-		if loc.Line >= bp.LineCount {
-			return buffer.Location{Line: bp.LineCount, Offset: 0}
+		if loc.Line >= buf.LineCount {
+			return buffer.Location{Line: buf.LineCount, Offset: 0}
 		}
 		loc.Line++
 		off = 0
 	}
-	return buffer.Location{Line: bp.LineCount, Offset: 0}
+	return buffer.Location{Line: buf.LineCount, Offset: 0}
 }
 
 // move backward by one word: go left, skip non-word, then skip word backwards
-func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
-	if bp == nil || loc.Line == 0 {
+func backwardWordLoc(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
+	if buf == nil || loc.Line == 0 {
 		return loc
 	}
 	if loc.Line == 1 && loc.Offset == 0 {
 		return loc
 	}
-	line := bp.Line(loc.Line)
+	line := buf.Line(loc.Line)
 	if line == nil {
 		return loc
 	}
@@ -81,7 +81,7 @@ func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 	if off == 0 {
 		if loc.Line > 1 {
 			loc.Line--
-			line = bp.Line(loc.Line)
+			line = buf.Line(loc.Line)
 			if line != nil {
 				off = len(line.Data)
 			} else {
@@ -118,51 +118,51 @@ func backwardWordLoc(bp *buffer.Buffer, loc buffer.Location) buffer.Location {
 
 // Move forward by a single codepoint, preserving UTF-8 boundaries.
 func CmdForwardChar(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 
 	for i := 0; i < n; i++ {
-		line := bp.Line(wp.Cursor.Line)
-		if line != nil && wp.Cursor.Offset < line.Len() {
-			wp.Cursor.Offset = buffer.NextOffset(line.Data, wp.Cursor.Offset)
-		} else if wp.Cursor.Line < bp.LineCount {
-			wp.Cursor.Line++
-			wp.Cursor.Offset = 0
+		line := buf.Line(win.Cursor.Line)
+		if line != nil && win.Cursor.Offset < line.Len() {
+			win.Cursor.Offset = buffer.NextOffset(line.Data, win.Cursor.Offset)
+		} else if win.Cursor.Line < buf.LineCount {
+			win.Cursor.Line++
+			win.Cursor.Offset = 0
 		} else {
 			break
 		}
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
 func CmdBackwardChar(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 
 	for i := 0; i < n; i++ {
-		line := bp.Line(wp.Cursor.Line)
-		if line != nil && wp.Cursor.Offset > 0 {
-			wp.Cursor.Offset = buffer.PrevOffset(line.Data, wp.Cursor.Offset)
-		} else if wp.Cursor.Line > 1 {
-			wp.Cursor.Line--
-			prevLine := bp.Line(wp.Cursor.Line)
+		line := buf.Line(win.Cursor.Line)
+		if line != nil && win.Cursor.Offset > 0 {
+			win.Cursor.Offset = buffer.PrevOffset(line.Data, win.Cursor.Offset)
+		} else if win.Cursor.Line > 1 {
+			win.Cursor.Line--
+			prevLine := buf.Line(win.Cursor.Line)
 			if prevLine != nil {
-				wp.Cursor.Offset = prevLine.Len()
+				win.Cursor.Offset = prevLine.Len()
 			} else {
-				wp.Cursor.Offset = 0
+				win.Cursor.Offset = 0
 			}
 		} else {
 			break
 		}
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
@@ -170,15 +170,15 @@ func CmdBackwardChar(f bool, n int) bool {
 // CmdForwardWord moves forward by words (ASCII words: letters, digits, underscore)
 func CmdForwardWord(f bool, n int) bool {
 	_ = f
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		wp.Cursor = forwardWordLoc(bp, wp.Cursor)
+		win.Cursor = forwardWordLoc(buf, win.Cursor)
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
@@ -186,28 +186,28 @@ func CmdForwardWord(f bool, n int) bool {
 // CmdBackwardWord moves backward by words
 func CmdBackwardWord(f bool, n int) bool {
 	_ = f
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		wp.Cursor = backwardWordLoc(bp, wp.Cursor)
+		win.Cursor = backwardWordLoc(buf, win.Cursor)
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
 // delete forward word
 // Page-wise movement
 func CmdForwardPage(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
-	pageLines := int(wp.Height)
+	pageLines := int(win.Height)
 	if pageLines > 2 {
-		pageLines = int(wp.Height - 2)
+		pageLines = int(win.Height - 2)
 	} else {
 		pageLines = 1
 	}
@@ -215,13 +215,13 @@ func CmdForwardPage(f bool, n int) bool {
 }
 
 func CmdBackwardPage(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
-	pageLines := int(wp.Height)
+	pageLines := int(win.Height)
 	if pageLines > 2 {
-		pageLines = int(wp.Height - 2)
+		pageLines = int(win.Height - 2)
 	} else {
 		pageLines = 1
 	}
@@ -229,93 +229,93 @@ func CmdBackwardPage(f bool, n int) bool {
 }
 
 func CmdForwardLine(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 
-	if wp.Cursor.Line+uint(n) <= bp.LineCount {
-		wp.Cursor.Line += uint(n)
+	if win.Cursor.Line+uint(n) <= buf.LineCount {
+		win.Cursor.Line += uint(n)
 	} else {
-		wp.Cursor.Line = bp.LineCount
+		win.Cursor.Line = buf.LineCount
 	}
 
-	line := bp.Line(wp.Cursor.Line)
-	if line != nil && wp.Cursor.Offset > line.Len() {
-		wp.Cursor.Offset = line.Len()
+	line := buf.Line(win.Cursor.Line)
+	if line != nil && win.Cursor.Offset > line.Len() {
+		win.Cursor.Offset = line.Len()
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
 func CmdBackwardLine(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp == nil || bp == nil {
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win == nil || buf == nil {
 		return false
 	}
 
-	if wp.Cursor.Line > uint(n) {
-		wp.Cursor.Line -= uint(n)
+	if win.Cursor.Line > uint(n) {
+		win.Cursor.Line -= uint(n)
 	} else {
-		wp.Cursor.Line = 1
+		win.Cursor.Line = 1
 	}
 
-	line := bp.Line(wp.Cursor.Line)
-	if line != nil && wp.Cursor.Offset > line.Len() {
-		wp.Cursor.Offset = line.Len()
+	line := buf.Line(win.Cursor.Line)
+	if line != nil && win.Cursor.Offset > line.Len() {
+		win.Cursor.Offset = line.Len()
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
 func CmdGotoBol(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	if wp != nil {
-		wp.Cursor.Offset = 0
-		wp.DidMove = true
+	win := window.Active.CurrentWindow
+	if win != nil {
+		win.Cursor.Offset = 0
+		win.DidMove = true
 	}
 	return true
 }
 
 func CmdGotoEol(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp != nil && bp != nil {
-		line := bp.Line(wp.Cursor.Line)
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win != nil && buf != nil {
+		line := buf.Line(win.Cursor.Line)
 		if line != nil {
-			wp.Cursor.Offset = line.Len()
+			win.Cursor.Offset = line.Len()
 		} else {
-			wp.Cursor.Offset = 0
+			win.Cursor.Offset = 0
 		}
-		wp.DidMove = true
+		win.DidMove = true
 	}
 	return true
 }
 
 func CmdGotoBof(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	if wp != nil {
-		wp.Cursor.Line = 1
-		wp.Cursor.Offset = 0
-		wp.DidMove = true
+	win := window.Active.CurrentWindow
+	if win != nil {
+		win.Cursor.Line = 1
+		win.Cursor.Offset = 0
+		win.DidMove = true
 	}
 	return true
 }
 
 func CmdGotoEOF(f bool, n int) bool {
-	wp := window.Active.CurrentWindow
-	bp := buffer.All.Current
-	if wp != nil && bp != nil {
-		wp.Cursor.Line = bp.LineCount
-		line := bp.Line(wp.Cursor.Line)
+	win := window.Active.CurrentWindow
+	buf := buffer.All.Current
+	if win != nil && buf != nil {
+		win.Cursor.Line = buf.LineCount
+		line := buf.Line(win.Cursor.Line)
 		if line != nil {
-			wp.Cursor.Offset = line.Len()
+			win.Cursor.Offset = line.Len()
 		} else {
-			wp.Cursor.Offset = 0
+			win.Cursor.Offset = 0
 		}
-		wp.DidMove = true
+		win.DidMove = true
 	}
 	return true
 }
@@ -324,26 +324,26 @@ func CmdGotoEOF(f bool, n int) bool {
 func CmdBackToIndentation(f bool, n int) bool {
 	_ = f
 	_ = n
-	wp := window.Active.CurrentWindow
-	if wp == nil {
+	win := window.Active.CurrentWindow
+	if win == nil {
 		return false
 	}
-	lp := wp.Buffer.Line(wp.Cursor.Line)
-	if lp != nil {
-		wp.Cursor.Offset = lp.FirstNonblank()
+	line := win.Buffer.Line(win.Cursor.Line)
+	if line != nil {
+		win.Cursor.Offset = line.FirstNonblank()
 	} else {
-		wp.Cursor.Offset = 0
+		win.Cursor.Offset = 0
 	}
-	wp.DidMove = true
+	win.DidMove = true
 	return true
 }
 
 // CmdGotoLine jumps to a specific line number.
 // CmdGotoLine jumps to a specific line number.
 func CmdGotoLine(f bool, n int) bool {
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil || wp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil || win == nil {
 		return false
 	}
 	var target uint
@@ -363,23 +363,23 @@ func CmdGotoLine(f bool, n int) bool {
 				display.MBWrite("[invalid line number]")
 				return
 			}
-			gotoLineNumber(bp, wp, parsed)
+			gotoLineNumber(buf, win, parsed)
 		})
 		return true
 	}
-	return gotoLineNumber(bp, wp, target)
+	return gotoLineNumber(buf, win, target)
 }
 
-func gotoLineNumber(bp *buffer.Buffer, wp *window.Window, target uint) bool {
-	if target > bp.LineCount {
+func gotoLineNumber(buf *buffer.Buffer, win *window.Window, target uint) bool {
+	if target > buf.LineCount {
 		display.MBWrite("[line number out of range]")
 		return false
 	}
-	if wp.Cursor.Line != target || wp.Cursor.Offset != 0 {
+	if win.Cursor.Line != target || win.Cursor.Offset != 0 {
 		markring.PushCurrent()
 	}
-	wp.SetCursor(buffer.MakeLocation(target, 0))
-	wp.ShouldRedraw = true
+	win.SetCursor(buffer.MakeLocation(target, 0))
+	win.ShouldRedraw = true
 	return true
 }
 

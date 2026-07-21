@@ -32,25 +32,25 @@ func Create() *Buffer {
 	if len(All.Buffers) >= MaxBuffers {
 		return nil
 	}
-	bp := New()
-	bp.Serial = All.NextSerial
+	buf := New()
+	buf.Serial = All.NextSerial
 	All.NextSerial++
-	All.Buffers = append(All.Buffers, bp)
+	All.Buffers = append(All.Buffers, buf)
 	if PackageHooks.OnBufferCreate != nil {
-		PackageHooks.OnBufferCreate(bp)
+		PackageHooks.OnBufferCreate(buf)
 	}
-	return bp
+	return buf
 }
 
-// Release removes bp from All and retargets dependents via hooks.
+// Release removes buf from All and retargets dependents via hooks.
 // The buffer is left for the garbage collector once no longer referenced.
-func Release(bp *Buffer) {
-	if bp == nil {
+func Release(buf *Buffer) {
+	if buf == nil {
 		return
 	}
 	idx := -1
 	for i, b := range All.Buffers {
-		if b == bp {
+		if b == buf {
 			idx = i
 			break
 		}
@@ -67,26 +67,26 @@ func Release(bp *Buffer) {
 	}
 
 	if PackageHooks.OnBufferKill != nil {
-		PackageHooks.OnBufferKill(bp, replacement)
+		PackageHooks.OnBufferKill(buf, replacement)
 	}
 
-	if All.Current == bp {
+	if All.Current == buf {
 		All.Current = replacement
 	}
 
 	if PackageHooks.UndoForgetBuffer != nil {
-		PackageHooks.UndoForgetBuffer(bp)
+		PackageHooks.UndoForgetBuffer(buf)
 	}
 }
 
-// SetCurrent makes bp the current buffer and moves it to the front of All.Buffers.
-func SetCurrent(bp *Buffer) {
-	if bp == nil {
+// SetCurrent makes buf the current buffer and moves it to the front of All.Buffers.
+func SetCurrent(buf *Buffer) {
+	if buf == nil {
 		return
 	}
 	index := -1
 	for i, b := range All.Buffers {
-		if b == bp {
+		if b == buf {
 			index = i
 			break
 		}
@@ -95,16 +95,16 @@ func SetCurrent(bp *Buffer) {
 		for i := index; i > 0; i-- {
 			All.Buffers[i] = All.Buffers[i-1]
 		}
-		All.Buffers[0] = bp
+		All.Buffers[0] = buf
 	}
-	All.Current = bp
+	All.Current = buf
 }
 
 // Find returns the first buffer whose name equals name (case-insensitive).
 func Find(name string) *Buffer {
-	for _, bp := range All.Buffers {
-		if bp != nil && strings.EqualFold(bp.Name, name) {
-			return bp
+	for _, buf := range All.Buffers {
+		if buf != nil && strings.EqualFold(buf.Name, name) {
+			return buf
 		}
 	}
 	return nil

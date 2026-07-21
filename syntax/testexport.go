@@ -17,8 +17,8 @@ func callReenterState(line *buffer.Line, syn *buffer.SynState, i *int, tokenStar
 	reenterState(line, syn, i, tokenStart, pendingChar, styles, summary)
 }
 
-func tokenizeLineFromStateExported(lp *buffer.Line, start buffer.SynState) (buffer.SynState, buffer.SyntaxLineSummary, []buffer.TextStyle) {
-	return tokenizeLineFromState(lp, start)
+func tokenizeLineFromStateExported(line *buffer.Line, start buffer.SynState) (buffer.SynState, buffer.SyntaxLineSummary, []buffer.TextStyle) {
+	return tokenizeLineFromState(line, start)
 }
 
 func parenStyleExported(baseColor buffer.TermColor, depth int) buffer.TextStyle {

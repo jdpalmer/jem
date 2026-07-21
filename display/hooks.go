@@ -9,8 +9,8 @@ import (
 // only paints prompts and uses these for input decode, git gutters, and macros.
 type Hooks struct {
 	ApplyCtlxPrefix             func(second uint32) uint32
-	GitLineDiff                 func(bp *buffer.Buffer, lineNumber uint) int
-	GitModelineText             func(bp *buffer.Buffer) string
+	GitLineDiff                 func(buf *buffer.Buffer, lineNumber uint) int
+	GitModelineText             func(buf *buffer.Buffer) string
 	MacroRecordMinibufferResult func(text []byte)
 }
 

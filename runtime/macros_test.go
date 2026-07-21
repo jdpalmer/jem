@@ -57,12 +57,12 @@ func TestMacroRecording(t *testing.T) {
 func TestMacroPlayback(t *testing.T) {
 	resetMacroState()
 	AppInit("test")
-	bp := buffer.All.Current
-	wp := window.Active.CurrentWindow
-	if bp == nil || wp == nil {
+	buf := buffer.All.Current
+	win := window.Active.CurrentWindow
+	if buf == nil || win == nil {
 		t.Fatal("editor init failed")
 	}
-	wp.Cursor = buffer.Location{Line: 1, Offset: 0}
+	win.Cursor = buffer.Location{Line: 1, Offset: 0}
 
 	if !CmdMacroStart(false, 1) {
 		t.Fatal("macro start failed")
@@ -77,7 +77,7 @@ func TestMacroPlayback(t *testing.T) {
 	if !CmdMacroExec(false, 1) {
 		t.Fatal("macro playback failed")
 	}
-	line := bp.Line(1)
+	line := buf.Line(1)
 	if line == nil || string(line.Data) != "a" {
 		t.Fatalf("after one playback got %q, want %q", string(line.Data), "a")
 	}
@@ -85,7 +85,7 @@ func TestMacroPlayback(t *testing.T) {
 	if !CmdMacroExec(true, 3) {
 		t.Fatal("macro repeat playback failed")
 	}
-	line = bp.Line(1)
+	line = buf.Line(1)
 	if line == nil || string(line.Data) != "aaaa" {
 		t.Fatalf("after repeat playback got %q, want %q", string(line.Data), "aaaa")
 	}

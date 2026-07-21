@@ -18,20 +18,20 @@ func splitInsertLines(insert []byte) [][]byte {
 	return parts
 }
 
-func makeBufferLine(bp *Buffer, data []byte) Line {
+func makeBufferLine(buf *Buffer, data []byte) Line {
 	return Line{
 		Data:        data,
 		SyntaxValid: false,
-		LangMode:    bp.LangMode,
-		Buffer:      bp,
+		LangMode:    buf.LangMode,
+		Buffer:      buf,
 	}
 }
 
-func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) error {
-	if bp == nil {
+func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) error {
+	if buf == nil {
 		return ErrNilBuffer
 	}
-	if bp.IsReadonly {
+	if buf.IsReadonly {
 		return ErrReadonly
 	}
 	insert := newText
@@ -50,23 +50,23 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 		return nil
 	}
 
-	if bp.LineCount == 0 {
-		_ = bp.AppendLineBytes(nil)
+	if buf.LineCount == 0 {
+		_ = buf.AppendLineBytes(nil)
 	}
 
-	beginIsEOF := begin.Line == bp.EOF()
-	endIsEOF := end.Line == bp.EOF()
+	beginIsEOF := begin.Line == buf.EOF()
+	endIsEOF := end.Line == buf.EOF()
 	endReal := end.Line
 	if endIsEOF {
-		endReal = bp.LineCount
+		endReal = buf.LineCount
 	}
 
-	oldLineCount := bp.LineCount
+	oldLineCount := buf.LineCount
 
 	var prefix []byte
 	var bline *Line
 	if !beginIsEOF {
-		bline = bp.Line(begin.Line)
+		bline = buf.Line(begin.Line)
 		if bline == nil {
 			return ErrBadRange
 		}
@@ -82,7 +82,7 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 	var eline *Line
 	eOffset := 0
 	if !endIsEOF {
-		eline = bp.Line(end.Line)
+		eline = buf.Line(end.Line)
 		if eline == nil {
 			return ErrBadRange
 		}
@@ -95,18 +95,18 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 
 	var linesBefore []Line
 	if beginIsEOF {
-		linesBefore = append(linesBefore, bp.Lines...)
+		linesBefore = append(linesBefore, buf.Lines...)
 	} else if begin.Line > 1 {
-		linesBefore = append(linesBefore, bp.Lines[:begin.Line-1]...)
+		linesBefore = append(linesBefore, buf.Lines[:begin.Line-1]...)
 	}
 
-	tailIdx := int(bp.LineCount)
+	tailIdx := int(buf.LineCount)
 	if !endIsEOF {
 		tailIdx = int(end.Line)
 	}
 	var linesAfter []Line
-	if tailIdx < len(bp.Lines) {
-		linesAfter = append(linesAfter, bp.Lines[tailIdx:]...)
+	if tailIdx < len(buf.Lines) {
+		linesAfter = append(linesAfter, buf.Lines[tailIdx:]...)
 	}
 
 	parts := splitInsertLines(insert)
@@ -122,32 +122,32 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 		merged = append(merged, prefix...)
 		merged = append(merged, parts[0]...)
 		merged = append(merged, suffix...)
-		newLines = append(newLines, makeBufferLine(bp, merged))
+		newLines = append(newLines, makeBufferLine(buf, merged))
 	} else {
 		first := make([]byte, 0, prefixLen+len(parts[0]))
 		first = append(first, prefix...)
 		first = append(first, parts[0]...)
-		newLines = append(newLines, makeBufferLine(bp, first))
+		newLines = append(newLines, makeBufferLine(buf, first))
 
 		for i := 1; i < len(parts)-1; i++ {
 			p := append([]byte(nil), parts[i]...)
-			newLines = append(newLines, makeBufferLine(bp, p))
+			newLines = append(newLines, makeBufferLine(buf, p))
 		}
 
 		last := make([]byte, 0, len(parts[len(parts)-1])+suffixLen)
 		last = append(last, parts[len(parts)-1]...)
 		last = append(last, suffix...)
-		newLines = append(newLines, makeBufferLine(bp, last))
+		newLines = append(newLines, makeBufferLine(buf, last))
 	}
 
 	newLines = append(newLines, linesAfter...)
 
 	for i := range newLines {
-		newLines[i].Buffer = bp
+		newLines[i].Buffer = buf
 	}
 
-	bp.Lines = newLines
-	bp.LineCount = uint(len(bp.Lines))
+	buf.Lines = newLines
+	buf.LineCount = uint(len(buf.Lines))
 
 	var newEnd Location
 	lineNum := uint(len(linesBefore) + len(parts))
@@ -178,74 +178,74 @@ func (bp *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Loc
 		resultFirstLine = begin.Line
 	}
 
-	callAdjustLocations(bp, begin, normEnd, newEnd)
-	bp.InvalidateSyntaxFrom(resultFirstLine)
-	callReparseFrom(bp, resultFirstLine)
+	callAdjustLocations(buf, begin, normEnd, newEnd)
+	buf.InvalidateSyntaxFrom(resultFirstLine)
+	callReparseFrom(buf, resultFirstLine)
 
 	return nil
 }
 
-func callReparseFrom(bp *Buffer, lineNumber uint) {
+func callReparseFrom(buf *Buffer, lineNumber uint) {
 	if PackageHooks.ReparseFrom != nil {
-		PackageHooks.ReparseFrom(bp, lineNumber)
+		PackageHooks.ReparseFrom(buf, lineNumber)
 	}
 }
 
 // InvalidateSyntaxFrom clears syntax validity from lineNumber through end of buffer.
-func (bp *Buffer) InvalidateSyntaxFrom(lineNumber uint) {
-	if bp == nil || lineNumber == 0 || lineNumber > bp.LineCount {
+func (buf *Buffer) InvalidateSyntaxFrom(lineNumber uint) {
+	if buf == nil || lineNumber == 0 || lineNumber > buf.LineCount {
 		return
 	}
-	for ln := lineNumber; ln <= bp.LineCount; ln++ {
-		lp := bp.Line(ln)
-		if lp != nil {
-			lp.SyntaxValid = false
+	for ln := lineNumber; ln <= buf.LineCount; ln++ {
+		line := buf.Line(ln)
+		if line != nil {
+			line.SyntaxValid = false
 		}
 	}
 }
 
 // NoteEdit marks the buffer changed and notifies PackageHooks when installed.
-func (bp *Buffer) NoteEdit(isStructural bool) {
-	callNoteEdit(bp, isStructural)
+func (buf *Buffer) NoteEdit(isStructural bool) {
+	callNoteEdit(buf, isStructural)
 }
 
-func callNoteEdit(bp *Buffer, isStructural bool) {
-	if bp == nil {
+func callNoteEdit(buf *Buffer, isStructural bool) {
+	if buf == nil {
 		return
 	}
 	// Hooks run before IsChanged so NoteEdit can detect first-change.
 	if PackageHooks.NoteEdit != nil {
-		PackageHooks.NoteEdit(bp, isStructural)
+		PackageHooks.NoteEdit(buf, isStructural)
 	}
-	bp.IsChanged = true
+	buf.IsChanged = true
 }
 
-func callAdjustLocations(bp *Buffer, begin, end, newEnd Location) {
+func callAdjustLocations(buf *Buffer, begin, end, newEnd Location) {
 	if PackageHooks.AdjustLocationsAfterReplace != nil {
-		PackageHooks.AdjustLocationsAfterReplace(bp, begin, end, newEnd)
+		PackageHooks.AdjustLocationsAfterReplace(buf, begin, end, newEnd)
 	}
 }
 
-func (bp *Buffer) GetText(begin, end Location) []byte {
-	if bp == nil {
+func (buf *Buffer) GetText(begin, end Location) []byte {
+	if buf == nil {
 		return nil
 	}
 
-	// EOF handling: EOF is virtual line bp.LineCount+1 with offset 0
-	endIsEOF := end.Line == bp.EOF()
+	// EOF handling: EOF is virtual line buf.LineCount+1 with offset 0
+	endIsEOF := end.Line == buf.EOF()
 	var n uint = 0
 
 	if begin.Line == end.Line {
 		// Same line (may be EOF virtual line)
-		if begin.Line == bp.EOF() {
+		if begin.Line == buf.EOF() {
 			return nil
 		}
-		lp := bp.Line(begin.Line)
-		if lp == nil {
+		line := buf.Line(begin.Line)
+		if line == nil {
 			return nil
 		}
 		b := begin.Offset
-		used := lp.Len()
+		used := line.Len()
 		if b > used {
 			b = used
 		}
@@ -256,7 +256,7 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 		if e > b {
 			n = e - b
 			out := make([]byte, n)
-			copy(out, lp.Data[b:e])
+			copy(out, line.Data[b:e])
 			return out
 		}
 		return nil
@@ -265,13 +265,13 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 	// Different lines
 	lastReal := end.Line
 	if endIsEOF {
-		lastReal = bp.LineCount
+		lastReal = buf.LineCount
 	}
 
 	// compute required size
 	// tail of start line
-	if begin.Line <= bp.LineCount {
-		sl := bp.Line(begin.Line)
+	if begin.Line <= buf.LineCount {
+		sl := buf.Line(begin.Line)
 		if sl != nil {
 			slUsed := sl.Len()
 			if slUsed > begin.Offset {
@@ -282,24 +282,24 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 	// interior lines
 	if begin.Line < lastReal {
 		for ln := begin.Line + 1; ln < lastReal; ln++ {
-			lp := bp.Line(ln)
-			if lp != nil {
-				n += lp.Len() + 1 // plus '\n'
+			line := buf.Line(ln)
+			if line != nil {
+				n += line.Len() + 1 // plus '\n'
 			}
 		}
 		// final segment
 		if endIsEOF {
-			if lastReal >= 1 && lastReal <= bp.LineCount {
-				lp := bp.Line(lastReal)
-				if lp != nil {
-					n += lp.Len()
+			if lastReal >= 1 && lastReal <= buf.LineCount {
+				line := buf.Line(lastReal)
+				if line != nil {
+					n += line.Len()
 				}
 			}
 		} else {
-			if lastReal >= 1 && lastReal <= bp.LineCount {
-				lp := bp.Line(lastReal)
-				if lp != nil {
-					lpUsed := lp.Len()
+			if lastReal >= 1 && lastReal <= buf.LineCount {
+				line := buf.Line(lastReal)
+				if line != nil {
+					lpUsed := line.Len()
 					if end.Offset <= lpUsed {
 						n += end.Offset
 					} else {
@@ -317,8 +317,8 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 	out := make([]byte, 0, n)
 
 	// copy start line tail
-	if begin.Line <= bp.LineCount {
-		sl := bp.Line(begin.Line)
+	if begin.Line <= buf.LineCount {
+		sl := buf.Line(begin.Line)
 		if sl != nil {
 			b := begin.Offset
 			slUsed := sl.Len()
@@ -335,28 +335,28 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 	if begin.Line < lastReal {
 		out = append(out, '\n')
 		for ln := begin.Line + 1; ln < lastReal; ln++ {
-			lp := bp.Line(ln)
-			if lp != nil {
-				out = append(out, lp.Data...)
+			line := buf.Line(ln)
+			if line != nil {
+				out = append(out, line.Data...)
 			}
 			out = append(out, '\n')
 		}
 		// final segment
 		if endIsEOF {
-			lp := bp.Line(lastReal)
-			if lp != nil {
-				out = append(out, lp.Data...)
+			line := buf.Line(lastReal)
+			if line != nil {
+				out = append(out, line.Data...)
 			}
 		} else {
-			lp := bp.Line(lastReal)
-			if lp != nil {
+			line := buf.Line(lastReal)
+			if line != nil {
 				e := end.Offset
-				lpUsed := lp.Len()
+				lpUsed := line.Len()
 				if e > lpUsed {
 					e = lpUsed
 				}
 				if e > 0 {
-					out = append(out, lp.Data[:e]...)
+					out = append(out, line.Data[:e]...)
 				}
 			}
 		}
@@ -368,16 +368,16 @@ func (bp *Buffer) GetText(begin, end Location) []byte {
 // SetText is the interactive edit entry: optional undo recording, NoteEdit
 // (PackageHooks + IsChanged), then ReplaceRaw (location adjust, syntax
 // invalidate, reparse via PackageHooks).
-func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) error {
-	if bp == nil {
+func (buf *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) error {
+	if buf == nil {
 		return ErrNilBuffer
 	}
-	if bp.IsReadonly {
+	if buf.IsReadonly {
 		return ErrReadonly
 	}
 	if undo != nil {
-		oldText := bp.GetText(begin, end)
-		undo.RecordEdit(bp, undo.Pending.Before, begin, oldText, newText)
+		oldText := buf.GetText(begin, end)
+		undo.RecordEdit(buf, undo.Pending.Before, begin, oldText, newText)
 	}
 	hasNewline := false
 	for i := 0; i < len(newText); i++ {
@@ -387,12 +387,12 @@ func (bp *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte
 		}
 	}
 	isStructural := begin.Line != end.Line || hasNewline
-	callNoteEdit(bp, isStructural)
-	return bp.ReplaceRaw(begin, end, newText, newEndOut)
+	callNoteEdit(buf, isStructural)
+	return buf.ReplaceRaw(begin, end, newText, newEndOut)
 }
 
-func (bp *Buffer) AppendLineBytes(text []byte) *Line {
-	if bp == nil {
+func (buf *Buffer) AppendLineBytes(text []byte) *Line {
+	if buf == nil {
 		return nil
 	}
 	var data []byte
@@ -402,10 +402,10 @@ func (bp *Buffer) AppendLineBytes(text []byte) *Line {
 	newLine := Line{
 		Data:        data,
 		SyntaxValid: false,
-		LangMode:    bp.LangMode,
-		Buffer:      bp,
+		LangMode:    buf.LangMode,
+		Buffer:      buf,
 	}
-	bp.Lines = append(bp.Lines, newLine)
-	bp.LineCount = uint(len(bp.Lines))
-	return &bp.Lines[bp.LineCount-1]
+	buf.Lines = append(buf.Lines, newLine)
+	buf.LineCount = uint(len(buf.Lines))
+	return &buf.Lines[buf.LineCount-1]
 }

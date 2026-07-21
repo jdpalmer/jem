@@ -7,7 +7,7 @@ import (
 )
 
 type queryReplaceSession struct {
-	bp           *buffer.Buffer
+	buf           *buffer.Buffer
 	pat          []byte
 	patLen       int
 	replBytes    []byte
@@ -25,25 +25,25 @@ type queryReplaceSession struct {
 	hasPending   bool
 }
 
-func newQueryReplaceSession(bp *buffer.Buffer, replBytes, pat []byte, patLen int, preserveCase bool) *queryReplaceSession {
+func newQueryReplaceSession(buf *buffer.Buffer, replBytes, pat []byte, patLen int, preserveCase bool) *queryReplaceSession {
 	return &queryReplaceSession{
-		bp:           bp,
+		buf:           buf,
 		pat:          pat,
 		patLen:       patLen,
 		replBytes:    replBytes,
 		repl:         string(replBytes),
 		preserveCase: preserveCase,
-		scope:        searchScopeInit(bp),
+		scope:        searchScopeInit(buf),
 	}
 }
 
-func newQueryReReplaceSession(bp *buffer.Buffer, pattern, replStr string) *queryReplaceSession {
+func newQueryReReplaceSession(buf *buffer.Buffer, pattern, replStr string) *queryReplaceSession {
 	return &queryReplaceSession{
-		bp:      bp,
+		buf:      buf,
 		regex:   true,
 		pattern: pattern,
 		replStr: replStr,
-		scope:   searchScopeInit(bp),
+		scope:   searchScopeInit(buf),
 	}
 }
 
@@ -57,9 +57,9 @@ func (s *queryReplaceSession) Open() (done bool) {
 func (s *queryReplaceSession) Close() {
 	transientClear()
 	minibuffer.Active = nil
-	if wp := window.Active.CurrentWindow; wp != nil {
-		wp.Mark.Line = 0
-		wp.ShouldRedraw = true
+	if win := window.Active.CurrentWindow; win != nil {
+		win.Mark.Line = 0
+		win.ShouldRedraw = true
 	}
 }
 
@@ -73,9 +73,9 @@ func (s *queryReplaceSession) finishMessage() {
 
 func (s *queryReplaceSession) advance() (done bool) {
 	for {
-		wp := window.Active.CurrentWindow
+		win := window.Active.CurrentWindow
 		if s.regex {
-			match, found := findNextRegexInScope(wp, &s.scope, s.pattern)
+			match, found := findNextRegexInScope(win, &s.scope, s.pattern)
 			if found < 0 {
 				return true
 			}
@@ -88,7 +88,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 				return true
 			}
 			if s.replaceAll {
-				if !doReplaceRange(wp, match.Start, match.End, expanded) {
+				if !doReplaceRange(win, match.Start, match.End, expanded) {
 					return true
 				}
 				s.nReplaced++
@@ -98,29 +98,29 @@ func (s *queryReplaceSession) advance() (done bool) {
 			s.hasPending = true
 			s.replBytes = expanded
 			matchText := string(match.Text[match.Index[0]:match.Index[1]])
-			markMatchLocation(wp, match.Start)
-			wp.ShouldRedraw = true
+			markMatchLocation(win, match.Start)
+			win.ShouldRedraw = true
 			displayUpdate()
-			writeReplacePrompt(s.bp, matchText, string(expanded))
+			writeReplacePrompt(s.buf, matchText, string(expanded))
 			s.awaitingKey = true
 			return false
 		}
 
-		if !findNextInScope(wp, &s.scope, s.pat) {
+		if !findNextInScope(win, &s.scope, s.pat) {
 			s.finishMessage()
 			return true
 		}
 		if s.replaceAll {
-			if !doReplacePreservingCase(wp, s.patLen, s.replBytes, s.preserveCase) {
+			if !doReplacePreservingCase(win, s.patLen, s.replBytes, s.preserveCase) {
 				return true
 			}
 			s.nReplaced++
 			continue
 		}
-		markMatchStart(wp, s.patLen)
-		wp.ShouldRedraw = true
+		markMatchStart(win, s.patLen)
+		win.ShouldRedraw = true
 		displayUpdate()
-		writeReplacePrompt(s.bp, string(s.pat), s.repl)
+		writeReplacePrompt(s.buf, string(s.pat), s.repl)
 		s.awaitingKey = true
 		return false
 	}
@@ -133,15 +133,15 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 		return false
 	}
 
-	wp := window.Active.CurrentWindow
+	win := window.Active.CurrentWindow
 	switch action {
 	case replaceActionYes:
-		if !s.applyCurrent(wp) {
+		if !s.applyCurrent(win) {
 			return true
 		}
 		s.nReplaced++
 	case replaceActionYesQuit:
-		if !s.applyCurrent(wp) {
+		if !s.applyCurrent(win) {
 			return true
 		}
 		s.nReplaced++
@@ -154,7 +154,7 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 	case replaceActionNo:
 		// skip
 	case replaceActionAll:
-		if !s.applyCurrent(wp) {
+		if !s.applyCurrent(win) {
 			return true
 		}
 		s.nReplaced++
@@ -167,22 +167,22 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 		mbWrite("Replaced %d occurrence%s", s.nReplaced, suffix)
 		return true
 	}
-	if wp != nil {
-		wp.Mark.Line = 0
-		wp.ShouldRedraw = true
+	if win != nil {
+		win.Mark.Line = 0
+		win.ShouldRedraw = true
 	}
 	s.awaitingKey = false
 	s.hasPending = false
 	return s.advance()
 }
 
-func (s *queryReplaceSession) applyCurrent(wp *window.Window) bool {
+func (s *queryReplaceSession) applyCurrent(win *window.Window) bool {
 	if s.regex {
 		if !s.hasPending {
 			return false
 		}
 		m := s.pendingMatch
-		return doReplaceRange(wp, m.Start, m.End, s.replBytes)
+		return doReplaceRange(win, m.Start, m.End, s.replBytes)
 	}
-	return doReplacePreservingCase(wp, s.patLen, s.replBytes, s.preserveCase)
+	return doReplacePreservingCase(win, s.patLen, s.replBytes, s.preserveCase)
 }

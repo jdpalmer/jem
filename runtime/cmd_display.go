@@ -26,10 +26,10 @@ func CmdThemeToggle(f bool, n int) bool {
 	display.ThemeUpdate()
 	display.Active.ScreenDirty = true
 	for i := 0; i < int(len(window.Active.Windows)); i++ {
-		wp := window.Active.Windows[i]
-		if wp != nil {
-			wp.ShouldRedraw = true
-			wp.ShouldUpdateModeLine = true
+		win := window.Active.Windows[i]
+		if win != nil {
+			win.ShouldRedraw = true
+			win.ShouldUpdateModeLine = true
 		}
 	}
 	if theme.Mode == display.ThemeLight {

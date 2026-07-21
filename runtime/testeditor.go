@@ -58,73 +58,73 @@ func (te *TestEditor) WP() *window.Window {
 // LoadText replaces buffer content and parks the cursor at end-of-buffer.
 func (te *TestEditor) LoadText(text string) {
 	te.t.Helper()
-	bp := te.BP()
-	wp := te.WP()
-	if bp == nil || wp == nil {
+	buf := te.BP()
+	win := te.WP()
+	if buf == nil || win == nil {
 		te.t.Fatal("no buffer/window")
 	}
-	bp.IsChanged = false
-	bp.Clear()
+	buf.IsChanged = false
+	buf.Clear()
 	for line := range strings.SplitSeq(text, "\n") {
-		bp.AppendLineBytes([]byte(line))
+		buf.AppendLineBytes([]byte(line))
 	}
-	if bp.LineCount > 0 {
-		wp.Cursor.Line = bp.LineCount
-		last := bp.Line(bp.LineCount)
+	if buf.LineCount > 0 {
+		win.Cursor.Line = buf.LineCount
+		last := buf.Line(buf.LineCount)
 		if last != nil {
-			wp.Cursor.Offset = last.Len()
+			win.Cursor.Offset = last.Len()
 		} else {
-			wp.Cursor.Offset = 0
+			win.Cursor.Offset = 0
 		}
 	} else {
-		wp.Cursor = buffer.Location{Line: bp.EOF(), Offset: 0}
+		win.Cursor = buffer.Location{Line: buf.EOF(), Offset: 0}
 	}
-	wp.Mark = wp.Cursor
-	bp.IsChanged = false
+	win.Mark = win.Cursor
+	buf.IsChanged = false
 }
 
 // BufferText returns buffer lines joined with newlines (C buffer_to_string).
 func (te *TestEditor) BufferText() string {
-	bp := te.BP()
-	if bp == nil {
+	buf := te.BP()
+	if buf == nil {
 		return ""
 	}
-	lines := make([]string, 0, int(bp.LineCount))
-	for i := uint(1); i <= bp.LineCount; i++ {
-		lp := bp.Line(i)
-		if lp == nil {
+	lines := make([]string, 0, int(buf.LineCount))
+	for i := uint(1); i <= buf.LineCount; i++ {
+		line := buf.Line(i)
+		if line == nil {
 			lines = append(lines, "")
 			continue
 		}
-		lines = append(lines, string(lp.Data))
+		lines = append(lines, string(line.Data))
 	}
 	return strings.Join(lines, "\n")
 }
 
 func (te *TestEditor) SetCursor(line, offset uint) {
 	te.t.Helper()
-	wp := te.WP()
-	if wp == nil {
+	win := te.WP()
+	if win == nil {
 		te.t.Fatal("no window")
 	}
-	wp.Cursor = buffer.Location{Line: line, Offset: offset}
+	win.Cursor = buffer.Location{Line: line, Offset: offset}
 }
 
 func (te *TestEditor) Cursor() buffer.Location {
-	wp := te.WP()
-	if wp == nil {
+	win := te.WP()
+	if win == nil {
 		return buffer.Location{}
 	}
-	return wp.Cursor
+	return win.Cursor
 }
 
 func (te *TestEditor) SetLangMode(lang buffer.LangMode) {
-	bp := te.BP()
-	if bp == nil {
+	buf := te.BP()
+	if buf == nil {
 		te.t.Fatal("no buffer")
 	}
-	bp.LangMode = lang
-	mode.ApplyLangIndentDefaults(bp)
+	buf.LangMode = lang
+	mode.ApplyLangIndentDefaults(buf)
 }
 
 // Key dispatches one editor key through the event Handle path.
@@ -186,22 +186,22 @@ func (te *TestEditor) Undo() {
 }
 
 func (te *TestEditor) ForgetUndo() {
-	bp := te.BP()
-	if bp != nil {
-		ForgetBuffer(bp)
+	buf := te.BP()
+	if buf != nil {
+		ForgetBuffer(buf)
 	}
 }
 
 func (te *TestEditor) Edit(begin, end buffer.Location, text string) {
 	te.t.Helper()
-	bp := te.BP()
-	if bp == nil {
+	buf := te.BP()
+	if buf == nil {
 		te.t.Fatal("no buffer")
 	}
 	BeginCommand()
 	defer EndCommand()
 	data := []byte(text)
-	if !bufferSetText(bp, begin, end, data, nil, false) {
+	if !bufferSetText(buf, begin, end, data, nil, false) {
 		te.t.Fatalf("bufferSetText(%q) failed", text)
 	}
 }

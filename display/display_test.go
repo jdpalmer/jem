@@ -10,26 +10,26 @@ import (
 
 func TestTabWidth(t *testing.T) {
 	t.Run("lineColAtOffset", func(t *testing.T) {
-		lp := &buffer.Line{Data: []byte("\t")}
-		if got := lineColAtOffset(lp, 1); got != 8 {
+		line := &buffer.Line{Data: []byte("\t")}
+		if got := lineColAtOffset(line, 1); got != 8 {
 			t.Fatalf("tab at col 0: got %d, want 8", got)
 		}
 
-		lp = &buffer.Line{Data: []byte("hello\t")}
-		if got := lineColAtOffset(lp, 5); got != 5 {
+		line = &buffer.Line{Data: []byte("hello\t")}
+		if got := lineColAtOffset(line, 5); got != 5 {
 			t.Fatalf("before tab: got %d, want 5", got)
 		}
-		if got := lineColAtOffset(lp, 6); got != 8 {
+		if got := lineColAtOffset(line, 6); got != 8 {
 			t.Fatalf("after tab at col 5: got %d, want 8", got)
 		}
 	})
 
 	t.Run("lineOffsetAtCol", func(t *testing.T) {
-		lp := &buffer.Line{Data: []byte("\t")}
-		if got := lineOffsetAtCol(lp, 8); got != 1 {
+		line := &buffer.Line{Data: []byte("\t")}
+		if got := lineOffsetAtCol(line, 8); got != 1 {
 			t.Fatalf("offset at col 8: got %d, want 1", got)
 		}
-		if got := lineOffsetAtCol(lp, 7); got != 0 {
+		if got := lineOffsetAtCol(line, 7); got != 0 {
 			t.Fatalf("offset at col 7: got %d, want 0", got)
 		}
 	})
@@ -83,11 +83,11 @@ func TestLineMeasureAdvanceWideRune(t *testing.T) {
 }
 
 func TestLineColAtOffsetWideRune(t *testing.T) {
-	lp := &buffer.Line{Data: []byte("a世b")}
-	if got := lineColAtOffset(lp, 1); got != 1 {
+	line := &buffer.Line{Data: []byte("a世b")}
+	if got := lineColAtOffset(line, 1); got != 1 {
 		t.Fatalf("before wide rune: got %d, want 1", got)
 	}
-	if got := lineColAtOffset(lp, 4); got != 3 {
+	if got := lineColAtOffset(line, 4); got != 3 {
 		t.Fatalf("after wide rune: got %d, want 3", got)
 	}
 }
@@ -95,18 +95,18 @@ func TestLineColAtOffsetWideRune(t *testing.T) {
 func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 	DisplayInit()
 	Reset()
-	bp := buffer.Create()
-	if bp == nil {
+	buf := buffer.Create()
+	if buf == nil {
 		t.Fatal("buffer create failed")
 	}
-	wp := window.WindowCreate()
-	if wp == nil {
+	win := window.WindowCreate()
+	if win == nil {
 		t.Fatal("window create failed")
 	}
-	wp.Buffer = bp
-	window.WindowSelect(wp)
-	wp.Cursor = buffer.Location{Line: 1, Offset: 3}
-	wp.TopLine = 1
+	win.Buffer = buf
+	window.WindowSelect(win)
+	win.Cursor = buffer.Location{Line: 1, Offset: 3}
+	win.TopLine = 1
 	window.WindowRetile()
 
 	MBWrite("[region copied]")
