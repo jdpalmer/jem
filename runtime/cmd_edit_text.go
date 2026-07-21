@@ -7,6 +7,7 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/event"
 	"github.com/jdpalmer/jem/mode"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
@@ -162,22 +163,35 @@ func CmdOpenLine(f bool, n int) bool {
 }
 
 // CmdQuote reads the next key and inserts it literally n times.
+// Interactively this pushes a listener; during macro play it consumes the next
+// MacroStepEvent from the tape (so playback does not block on the terminal).
 func CmdQuote(f bool, n int) bool {
 	_ = f
 	if n < 0 {
 		return false
 	}
-	if n == 0 {
-		k, ok := term.ReadKey()
+	if State.IsPlaying() {
+		if State.PlayPos >= len(State.Macro) {
+			return false
+		}
+		ev, ok := State.Macro[State.PlayPos].(event.MacroStepEvent)
 		if !ok {
 			return false
 		}
-		_ = k
-		return true
+		State.PlayPos++
+		if n == 0 {
+			return true
+		}
+		return quoteInsertKey(ev.Code, n)
 	}
-	k, ok := term.ReadKey()
-	if !ok {
-		return false
+	beginQuote(n)
+	return true
+}
+
+// quoteInsertKey inserts k literally n times (newline or character/codepoint).
+func quoteInsertKey(k uint32, n int) bool {
+	if n <= 0 {
+		return true
 	}
 	wp := window.Active.CurrentWindow
 	if wp == nil {

@@ -105,3 +105,35 @@ func TestCommandEventRunsNamedCommand(t *testing.T) {
 	}
 	te.ExpectText("")
 }
+
+func TestQuoteListenerInsertsNextKey(t *testing.T) {
+	te := NewTestEditor(t)
+	te.LoadText("")
+	if !CmdQuote(false, 3) {
+		t.Fatal("CmdQuote failed")
+	}
+	if len(listenerStack) != 1 {
+		t.Fatalf("stack len = %d, want 1", len(listenerStack))
+	}
+	if !Handle(State, event.KeyEvent{Code: 'x'}) {
+		t.Fatal("Handle returned false")
+	}
+	if len(listenerStack) != 0 {
+		t.Fatalf("stack len = %d after quote, want 0", len(listenerStack))
+	}
+	te.ExpectText("xxx")
+}
+
+func TestQuoteDuringMacroPlayConsumesNextStep(t *testing.T) {
+	te := NewTestEditor(t)
+	te.LoadText("")
+	resetMacroState()
+	State.Macro = []event.Event{
+		event.MacroStepEvent{Code: term.CTL | 'Q', F: false, N: 1},
+		event.MacroStepEvent{Code: 'z', F: false, N: 1},
+	}
+	if !CmdMacroExec(false, 1) {
+		t.Fatal("macro play failed")
+	}
+	te.ExpectText("z")
+}
