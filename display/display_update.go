@@ -85,7 +85,7 @@ func renderModeline(win *window.Window) {
 	}
 
 	// Disk-changed indicator (modified buffer, user kept local edits)
-	if !buf.DiskChangeNotifiedMtime.IsZero() {
+	if !buf.NotifiedModTime.IsZero() {
 		displayPutGlyphStyle('D', dirtyStyle)
 	} else {
 		screenPutc(' ')

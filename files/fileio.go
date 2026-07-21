@@ -29,7 +29,7 @@ func writeMessage(writef func(string, ...any), format string, args ...any) {
 	}
 }
 
-func FileMtime(fname string) time.Time {
+func FileModTime(fname string) time.Time {
 	if fname == "" {
 		return time.Time{}
 	}
@@ -174,19 +174,19 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 		win.ShouldUpdateModeLine = true
 	}
 
-	buf.FileMtime = FileMtime(resolved)
-	buf.DiskChangeNotifiedMtime = time.Time{}
+	buf.FileModTime = FileModTime(resolved)
+	buf.NotifiedModTime = time.Time{}
 	return nil
 }
 
 // NeedsOverwriteConfirm reports whether fn's on-disk mtime differs from the buffer's.
 func NeedsOverwriteConfirm(fn string) bool {
 	buf := buffer.All.Current
-	if buf == nil || buf.FileMtime.IsZero() {
+	if buf == nil || buf.FileModTime.IsZero() {
 		return false
 	}
-	curMtime := FileMtime(fn)
-	return !curMtime.IsZero() && !curMtime.Equal(buf.FileMtime)
+	curModTime := FileModTime(fn)
+	return !curModTime.IsZero() && !curModTime.Equal(buf.FileModTime)
 }
 
 // SaveCurrentBufferForce writes the buffer without the overwrite-mtime prompt.
@@ -247,8 +247,8 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 		writeMessage(writef, "[wrote lines]")
 	}
 
-	buf.FileMtime = FileMtime(fn)
-	buf.DiskChangeNotifiedMtime = time.Time{}
+	buf.FileModTime = FileModTime(fn)
+	buf.NotifiedModTime = time.Time{}
 	buf.IsChanged = false
 	return nil
 }
@@ -268,7 +268,7 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber int, noteBufferSaved f
 	if noteBufferSaved != nil {
 		noteBufferSaved(buf)
 	}
-	buf.DiskChangeNotifiedMtime = time.Time{}
+	buf.NotifiedModTime = time.Time{}
 	if win != nil && lineNumber > 0 && lineNumber <= len(buf.Lines) {
 		win.Cursor = buffer.MakeLocation(lineNumber, 0)
 		win.ShouldRedraw = true
@@ -296,14 +296,14 @@ func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func())
 		return
 	}
 	fname := buf.FileName
-	if fname == "" || buf.FileMtime.IsZero() {
+	if fname == "" || buf.FileModTime.IsZero() {
 		return
 	}
 
-	cur := FileMtime(fname)
-	if cur.IsZero() || cur.Equal(buf.FileMtime) {
-		if !buf.DiskChangeNotifiedMtime.IsZero() {
-			buf.DiskChangeNotifiedMtime = time.Time{}
+	cur := FileModTime(fname)
+	if cur.IsZero() || cur.Equal(buf.FileModTime) {
+		if !buf.NotifiedModTime.IsZero() {
+			buf.NotifiedModTime = time.Time{}
 			if win != nil {
 				win.ShouldUpdateModeLine = true
 			}
@@ -321,10 +321,10 @@ func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func())
 			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			return
 		}
-		if cur.Equal(buf.DiskChangeNotifiedMtime) {
+		if cur.Equal(buf.NotifiedModTime) {
 			return
 		}
-		buf.DiskChangeNotifiedMtime = cur
+		buf.NotifiedModTime = cur
 		if win != nil {
 			win.ShouldUpdateModeLine = true
 		}

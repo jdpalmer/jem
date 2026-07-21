@@ -188,7 +188,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	}
 
 	// Avoid prompting by simulating that the user already declined for this mtime.
-	buf.DiskChangeNotifiedMtime = FileMtime(path)
+	buf.NotifiedModTime = FileModTime(path)
 
 	CheckReloadCurrentBuffer(nil, nil, nil)
 

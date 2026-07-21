@@ -152,7 +152,7 @@ func compileFillBuffer(buf *buffer.Buffer, command, stdout, stderr string, exitC
 	buf.Clear()
 	buf.IsChanged = false
 	buf.FileName = ""
-	buf.FileMtime = time.Time{}
+	buf.FileModTime = time.Time{}
 	buf.LangMode = buffer.LModeMarkdown
 
 	if buf.AppendLineBytes(nil) == nil {

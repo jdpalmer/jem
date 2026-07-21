@@ -235,7 +235,7 @@ func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, patter
 	buf.IsChanged = false
 	buf.Clear()
 	buf.FileName = ""
-	buf.FileMtime = time.Time{}
+	buf.FileModTime = time.Time{}
 	buf.LangMode = buffer.LModeMarkdown
 	if buf.AppendLineBytes(nil) == nil {
 		return 0, false

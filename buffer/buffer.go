@@ -15,8 +15,8 @@ type Buffer struct {
 	WhitespaceCleanup       bool
 	Name                    string
 	FileName                string
-	FileMtime               time.Time
-	DiskChangeNotifiedMtime time.Time
+	FileModTime               time.Time
+	NotifiedModTime time.Time
 	Cursor                  Location // last-known cursor; windows own live cursor state
 	Mark                    Location // Line == 0 means unset; otherwise 1-based line index
 }
