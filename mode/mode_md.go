@@ -104,11 +104,13 @@ func cmdMdNewlineAndIndent(f bool, n int) bool {
 	for i := 0; i < n; i++ {
 		lp := bp.Line(wp.Cursor.Line)
 		prefix := mdBuildPrefix(lp)
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
-		if len(prefix) > 0 && !window.InsertText(wp, prefix) {
-			return false
+		if len(prefix) > 0 {
+			if err := window.InsertText(wp, prefix); err != nil {
+				return false
+			}
 		}
 	}
 	return true

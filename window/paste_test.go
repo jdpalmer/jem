@@ -22,8 +22,8 @@ func TestInsertPaste(t *testing.T) {
 	}
 	defer func() { PackageHooks = old }()
 
-	if !InsertPaste(wp, []byte("hel\rlo")) {
-		t.Fatal("InsertPaste failed")
+	if err := InsertPaste(wp, []byte("hel\rlo")); err != nil {
+		t.Fatalf("InsertPaste failed: %v", err)
 	}
 	if got := string(bp.Line(1).Data); got != "hel" {
 		t.Fatalf("line 1 after paste = %q, want hel", got)

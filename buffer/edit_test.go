@@ -121,11 +121,11 @@ func TestSetTextUndoDelete(t *testing.T) {
 		t.Fatalf("after delete: %q", bp.Line(1).Data)
 	}
 	replay := UndoReplay{
-		InsertText: func(lineNumber, offset uint, text []byte) bool {
+		InsertText: func(lineNumber, offset uint, text []byte) error {
 			loc := MakeLocation(lineNumber, offset)
-			return bp.ReplaceRaw(loc, loc, text, nil) == nil
+			return bp.ReplaceRaw(loc, loc, text, nil)
 		},
-		DeleteText: func(lineNumber, offset uint, text []byte) bool {
+		DeleteText: func(lineNumber, offset uint, text []byte) error {
 			begin := MakeLocation(lineNumber, offset)
 			endLine, endOffset := lineNumber, offset
 			for i := 0; i < len(text); i++ {
@@ -136,11 +136,11 @@ func TestSetTextUndoDelete(t *testing.T) {
 					endOffset++
 				}
 			}
-			return bp.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil) == nil
+			return bp.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil)
 		},
 	}
-	if !undo.Undo(replay) {
-		t.Fatal("undo failed")
+	if err := undo.Undo(replay); err != nil {
+		t.Fatalf("undo failed: %v", err)
 	}
 	if string(bp.Line(1).Data) != "hello world" {
 		t.Fatalf("after undo: %q", bp.Line(1).Data)

@@ -80,7 +80,7 @@ func cmdGoNewlineAndIndent(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
 		indent := calcIndentGo(bp, wp.Cursor.Line)
@@ -121,7 +121,7 @@ func cmdGoCloseBrace(f bool, n int) bool {
 	}
 	wp.Cursor.Offset = 0
 	for i := 0; i < n; i++ {
-		if !window.InsertCodepoint(wp, '}') {
+		if err := window.InsertCodepoint(wp, '}'); err != nil {
 			return false
 		}
 	}
@@ -173,7 +173,7 @@ func cmdGoMakeComment(f bool, n int) bool {
 	} else {
 		wp.Cursor.Offset = 0
 	}
-	if !window.InsertText(wp, []byte("  // ")) {
+	if err := window.InsertText(wp, []byte("  // ")); err != nil {
 		return false
 	}
 	wp.DidMove = true

@@ -82,13 +82,13 @@ func handlePasteEvent(ev event.PasteEvent) bool {
 	if len(ev.Data) == 0 {
 		return true
 	}
-	var ok bool
+	applied := false
 	if minibuffer.Active != nil {
-		ok = minibuffer.InsertPaste(ev.Data)
-	} else {
-		ok = window.InsertPaste(window.Active.CurrentWindow, ev.Data)
+		applied = minibuffer.InsertPaste(ev.Data)
+	} else if err := window.InsertPaste(window.Active.CurrentWindow, ev.Data); err == nil {
+		applied = true
 	}
-	if ok {
+	if applied {
 		MarkPasteDirty()
 		display.NotePasteApplied()
 	}

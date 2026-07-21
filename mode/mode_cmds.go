@@ -11,7 +11,7 @@ func ModeNewlineAndIndent(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
 	}
@@ -31,7 +31,7 @@ func ModeCloseBrace(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !window.InsertCodepoint(wp, '}') {
+		if err := window.InsertCodepoint(wp, '}'); err != nil {
 			return false
 		}
 	}

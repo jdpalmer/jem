@@ -7,9 +7,9 @@ import (
 )
 
 // InsertText inserts text at the window cursor and advances the cursor.
-func InsertText(wp *Window, text []byte) bool {
+func InsertText(wp *Window, text []byte) error {
 	if wp == nil || wp.Buffer == nil {
-		return false
+		return ErrNilWindow
 	}
 	bp := wp.Buffer
 	if PackageHooks.BeginCommand != nil {
@@ -21,23 +21,23 @@ func InsertText(wp *Window, text []byte) bool {
 	begin := wp.Cursor
 	var newEnd buffer.Location
 	if PackageHooks.SetText == nil {
-		return false
+		return ErrNoEditHook
 	}
 	if err := PackageHooks.SetText(bp, begin, begin, text, &newEnd); err != nil {
-		return false
+		return err
 	}
 	wp.Cursor = newEnd
 	wp.DidEdit = true
-	return true
+	return nil
 }
 
 // InsertCodepoint inserts a Unicode codepoint at the window cursor.
-func InsertCodepoint(wp *Window, cp rune) bool {
+func InsertCodepoint(wp *Window, cp rune) error {
 	if wp == nil || wp.Buffer == nil {
-		return false
+		return ErrNilWindow
 	}
 	if cp < 0 {
-		return false
+		return ErrBadRune
 	}
 	if cp < 0x80 {
 		return InsertText(wp, []byte{byte(cp)})
@@ -48,14 +48,17 @@ func InsertCodepoint(wp *Window, cp rune) bool {
 }
 
 // InsertNewline inserts a single newline at the window cursor.
-func InsertNewline(wp *Window) bool {
+func InsertNewline(wp *Window) error {
 	return InsertText(wp, []byte{'\n'})
 }
 
 // InsertPaste inserts bracketed-paste text at the window cursor (\r → \n).
-func InsertPaste(wp *Window, text []byte) bool {
-	if wp == nil || wp.Buffer == nil || len(text) == 0 {
-		return false
+func InsertPaste(wp *Window, text []byte) error {
+	if wp == nil || wp.Buffer == nil {
+		return ErrNilWindow
+	}
+	if len(text) == 0 {
+		return nil
 	}
 	paste := append([]byte(nil), text...)
 	for i := range paste {

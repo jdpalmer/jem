@@ -44,8 +44,8 @@ type UndoHistory struct {
 
 // UndoReplay provides editor callbacks used while replaying undo records.
 type UndoReplay struct {
-	InsertText     func(lineNumber, offset uint, text []byte) bool
-	DeleteText     func(lineNumber, offset uint, text []byte) bool
+	InsertText     func(lineNumber, offset uint, text []byte) error
+	DeleteText     func(lineNumber, offset uint, text []byte) error
 	SetCursor      func(loc Location)
 	SwitchBuffer   func(bp *Buffer)
 	CurrentBuffer  func() *Buffer
@@ -180,9 +180,9 @@ func (h *UndoHistory) RecordEdit(bp *Buffer, before Location, begin Location, ol
 }
 
 // Undo replays the most recent undo group using editor-provided callbacks.
-func (h *UndoHistory) Undo(replay UndoReplay) bool {
+func (h *UndoHistory) Undo(replay UndoReplay) error {
 	if h == nil || h.Count == 0 {
-		return false
+		return ErrNoUndo
 	}
 	group := h.Groups[0]
 	for j := 0; j < int(h.Count)-1; j++ {
@@ -193,7 +193,7 @@ func (h *UndoHistory) Undo(replay UndoReplay) bool {
 
 	if group.Buffer == nil || group.BufferSerial != group.Buffer.Serial {
 		group.reset()
-		return false
+		return ErrUndoStale
 	}
 
 	if replay.CurrentBuffer != nil && replay.SwitchBuffer != nil {
@@ -205,24 +205,25 @@ func (h *UndoHistory) Undo(replay UndoReplay) bool {
 	h.IsReplaying = true
 	defer func() { h.IsReplaying = false }()
 
-	ok := true
 	for j := uint16(group.Count); j > 0; j-- {
 		record := &group.Records[j-1]
+		var err error
 		if record.Kind == UndoInsert {
 			if replay.DeleteText != nil {
-				ok = replay.DeleteText(record.LineNum, record.Offset, record.Text)
+				err = replay.DeleteText(record.LineNum, record.Offset, record.Text)
 			}
 		} else if replay.InsertText != nil {
-			ok = replay.InsertText(record.LineNum, record.Offset, record.Text)
+			err = replay.InsertText(record.LineNum, record.Offset, record.Text)
 		}
-		if !ok {
-			break
+		if err != nil {
+			group.reset()
+			return err
 		}
 	}
-	if ok && replay.SetCursor != nil {
+	if replay.SetCursor != nil {
 		replay.SetCursor(group.Before)
 	}
-	if ok && replay.OnRestoredSave != nil {
+	if replay.OnRestoredSave != nil {
 		gbp := group.Buffer
 		topSerial := uint32(0)
 		if h.Count > 0 && h.Groups[0].Buffer == gbp {
@@ -233,5 +234,5 @@ func (h *UndoHistory) Undo(replay UndoReplay) bool {
 		}
 	}
 	group.reset()
-	return ok
+	return nil
 }

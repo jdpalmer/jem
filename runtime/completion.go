@@ -288,14 +288,14 @@ func CmdAccept(f bool, n int) bool {
 			seg = text[:nl]
 		}
 		if len(seg) > 0 {
-			if !window.InsertText(wp, []byte(seg)) {
+			if err := window.InsertText(wp, []byte(seg)); err != nil {
 				return false
 			}
 		}
 		if nl < 0 {
 			break
 		}
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
 		text = text[nl+1:]

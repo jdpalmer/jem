@@ -315,7 +315,7 @@ func cmdMiscNewlineAndIndent(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
 		spec := calcMiscIndent(bp, wp.Cursor.Line)

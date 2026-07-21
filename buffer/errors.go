@@ -6,4 +6,6 @@ var (
 	ErrNilBuffer = errors.New("nil buffer")
 	ErrReadonly  = errors.New("read-only buffer")
 	ErrBadRange  = errors.New("invalid edit range")
+	ErrNoUndo    = errors.New("no undo")
+	ErrUndoStale = errors.New("stale undo")
 )

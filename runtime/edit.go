@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"errors"
+
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
@@ -52,14 +54,14 @@ func MarkPasteDirty() {
 	}
 }
 
-func undoInsertText(wp *window.Window, lineNumber, offset uint, text []byte) bool {
+func undoInsertText(wp *window.Window, lineNumber, offset uint, text []byte) error {
 	bp := wp.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
 	bp.NoteEdit(false)
-	return bp.ReplaceRaw(loc, loc, text, nil) == nil
+	return bp.ReplaceRaw(loc, loc, text, nil)
 }
 
-func undoDeleteText(wp *window.Window, lineNumber, offset uint, text []byte) bool {
+func undoDeleteText(wp *window.Window, lineNumber, offset uint, text []byte) error {
 	bp := wp.Buffer
 	begin := buffer.MakeLocation(lineNumber, offset)
 	endLine := lineNumber
@@ -73,7 +75,7 @@ func undoDeleteText(wp *window.Window, lineNumber, offset uint, text []byte) boo
 		}
 	}
 	bp.NoteEdit(endLine != lineNumber)
-	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil) == nil
+	return bp.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
 }
 
 func CmdUndo(f bool, n int) bool {
@@ -82,21 +84,17 @@ func CmdUndo(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if History.Count == 0 {
-			display.MBWrite("[no undo]")
-			return false
-		}
 		wp := window.Active.CurrentWindow
-		ok := History.Undo(buffer.UndoReplay{
-			InsertText: func(lineNumber, offset uint, text []byte) bool {
+		err := History.Undo(buffer.UndoReplay{
+			InsertText: func(lineNumber, offset uint, text []byte) error {
 				if wp == nil {
-					return false
+					return window.ErrNilWindow
 				}
 				return undoInsertText(wp, lineNumber, offset, text)
 			},
-			DeleteText: func(lineNumber, offset uint, text []byte) bool {
+			DeleteText: func(lineNumber, offset uint, text []byte) error {
 				if wp == nil {
-					return false
+					return window.ErrNilWindow
 				}
 				return undoDeleteText(wp, lineNumber, offset, text)
 			},
@@ -119,8 +117,12 @@ func CmdUndo(f bool, n int) bool {
 				}
 			},
 		})
-		if !ok {
-			display.MBWrite("[undo failed]")
+		if err != nil {
+			if errors.Is(err, buffer.ErrNoUndo) {
+				display.MBWrite("[no undo]")
+			} else {
+				display.MBWrite("[undo failed]")
+			}
 			return false
 		}
 	}

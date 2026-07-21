@@ -417,7 +417,7 @@ func cmdCNewlineAndIndent(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
 		indent := calcIndent(bp, wp.Cursor.Line)
@@ -653,7 +653,7 @@ func cmdCCloseBrace(f bool, n int) bool {
 	col := calcIndent(bp, wp.Cursor.Line)
 	setLineIndent(wp, col)
 	for i := 0; i < n; i++ {
-		if !window.InsertCodepoint(wp, '}') {
+		if err := window.InsertCodepoint(wp, '}'); err != nil {
 			return false
 		}
 	}

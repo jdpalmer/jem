@@ -213,7 +213,7 @@ func cmdPyNewlineAndIndent(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !window.InsertNewline(wp) {
+		if err := window.InsertNewline(wp); err != nil {
 			return false
 		}
 		indent := calcIndentPy(bp, wp.Cursor.Line)
@@ -265,7 +265,7 @@ func cmdPyMakeComment(f bool, n int) bool {
 		wp.Cursor.Offset = 0
 	}
 	cmt := []byte("  # ")
-	if !window.InsertText(wp, cmt) {
+	if err := window.InsertText(wp, cmt); err != nil {
 		return false
 	}
 	wp.DidMove = true
