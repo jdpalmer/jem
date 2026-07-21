@@ -12,7 +12,7 @@ func MatchWindow() *Window {
 	if mbp == nil {
 		return nil
 	}
-	for i := 0; i < int(len(Active.Windows)); i++ {
+	for i := 0; i < len(Active.Windows); i++ {
 		win := Active.Windows[i]
 		if win != nil && win.Buffer == mbp {
 			return win
@@ -50,7 +50,7 @@ func HideMatchWindow() {
 		return
 	}
 	idx := -1
-	for i := 0; i < int(len(Active.Windows)); i++ {
+	for i := 0; i < len(Active.Windows); i++ {
 		if Active.Windows[i] == mw {
 			idx = i
 			break

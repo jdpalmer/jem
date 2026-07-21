@@ -104,7 +104,7 @@ func makeBufferFromLines(lines []string) *buffer.Buffer {
 func TestRainbowParensIncremental(t *testing.T) {
 	buf := makeBufferFromLines([]string{"(", "("})
 	// ensure rune caches
-	for i := 1; i <= int(len(buf.Lines)); i++ {
+	for i := 1; i <= len(buf.Lines); i++ {
 		line := buf.Line(i)
 		line.EnsureCache()
 	}

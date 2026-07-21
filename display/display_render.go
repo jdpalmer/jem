@@ -106,8 +106,8 @@ func restorePhantomCursor() {
 	if !Active.PhantomCursorValid {
 		return
 	}
-	row := int(Active.PhantomCursor.Row)
-	col := int(Active.PhantomCursor.Col)
+	row := Active.PhantomCursor.Row
+	col := Active.PhantomCursor.Col
 	Active.PhantomCursorValid = false
 	if row < 0 || row >= len(backScreen.Rows) || col < 0 || col >= term.Cols() {
 		return
@@ -123,8 +123,8 @@ func overlayPhantomCursor() {
 	if !Active.ShowPhantomCursor {
 		return
 	}
-	row := int(Active.Cursor.Row)
-	col := int(Active.Cursor.Col)
+	row := Active.Cursor.Row
+	col := Active.Cursor.Col
 	if row < 0 || row >= len(backScreen.Rows) || col < 0 || col >= term.Cols() {
 		return
 	}

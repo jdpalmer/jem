@@ -26,7 +26,7 @@ type TagEntry struct {
 	Path      string
 	Kind      string
 	Signature string
-	Line      uint32
+	Line      int
 }
 
 type tagDBState struct {
@@ -107,7 +107,7 @@ func tagEntryParse(line []byte, tagsDir string) (TagEntry, bool) {
 
 	entry := TagEntry{
 		Name: name,
-		Line: uint32(lineNum),
+		Line: int(lineNum),
 	}
 	if filepath.IsAbs(rawPath) {
 		entry.Path = rawPath
@@ -252,7 +252,7 @@ func tagVisitLocation(path string, line, offset int) bool {
 	if line == 0 {
 		return false
 	}
-	return fileVisitLocation(path, uint32(line), uint32(offset+1))
+	return fileVisitLocation(path, line, offset+1)
 }
 
 func tagMatchCount(name string, requireSignature bool) int {
@@ -398,7 +398,7 @@ func tagVisitMatch(matches []*TagEntry, choice int) {
 	}
 	markPushCurrent()
 	entry := matches[choice]
-	_ = tagVisitLocation(entry.Path, int(entry.Line), 0)
+	_ = tagVisitLocation(entry.Path, entry.Line, 0)
 }
 
 // RunGotoTag jumps to the definition of the symbol at point (M-.).

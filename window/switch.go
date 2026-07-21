@@ -23,7 +23,7 @@ func SwitchBuffer(buf *buffer.Buffer) {
 	cw.SetTopLine(1)
 	cw.HScroll = 0
 
-	for i := 0; i < int(len(Active.Windows)); i++ {
+	for i := 0; i < len(Active.Windows); i++ {
 		win := Active.Windows[i]
 		if win != nil && win != cw && win.Buffer == buf {
 			cw.TopLine = win.TopLine

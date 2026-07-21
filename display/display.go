@@ -299,8 +299,8 @@ func screenFlushRow(row, cursorCol int) {
 	}
 	rowSync(row)
 	if row == term.Rows() {
-		Active.Cursor.Row = uint32(term.Rows())
-		Active.Cursor.Col = uint32(cursorCol)
+		Active.Cursor.Row = term.Rows()
+		Active.Cursor.Col = cursorCol
 	}
 	term.Move(row, cursorCol)
 	term.Flush()
@@ -463,7 +463,7 @@ func ScreenSync() {
 	}
 
 	displaySetStyle(Active.Theme.NormalStyle)
-	term.Move(int(Active.Cursor.Row), int(Active.Cursor.Col))
+	term.Move(Active.Cursor.Row, Active.Cursor.Col)
 	term.Flush()
 
 	if pasteRepaintPending {

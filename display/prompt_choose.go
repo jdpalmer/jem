@@ -61,11 +61,11 @@ func (p *ChoosePrompt) redraw() {
 }
 
 // HandleKey applies one key. When done, sel is the result (-1/-2/≥0).
-func (p *ChoosePrompt) HandleKey(k uint32) (done bool, sel int16) {
+func (p *ChoosePrompt) HandleKey(k uint32) (done bool, sel int) {
 	switch {
 	case k == 0x0D || k == 0x0A || k == term.KeyEnter || k == (term.CTL|'M') || k == (term.CTL|'J'):
 		MBClear()
-		return true, int16(p.selected)
+		return true, p.selected
 	case k == 0x07 || k == (term.CTL|'G'):
 		MBClear()
 		return true, -2

@@ -28,7 +28,7 @@ type UndoGroup struct {
 	GroupSerial  uint32
 	Before       Location
 	Records      []UndoRecord
-	Count        uint16
+	Count        int
 }
 
 // UndoHistory stores editor undo groups (Emacs-style command grouping).
@@ -141,7 +141,7 @@ func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, o
 	if group.Buffer != buf || group.BufferSerial != buf.Serial {
 		return true
 	}
-	need := int(group.Count) + 1
+	need := group.Count + 1
 	if need > cap(group.Records) {
 		newCap := 16
 		if c := cap(group.Records); c > 0 {
@@ -154,7 +154,7 @@ func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, o
 		copy(newRecords, group.Records)
 		group.Records = newRecords
 	}
-	if int(group.Count) >= len(group.Records) {
+	if group.Count >= len(group.Records) {
 		group.Records = group.Records[:group.Count+1]
 	}
 	record := &group.Records[group.Count]
@@ -205,7 +205,7 @@ func (h *UndoHistory) Undo(replay UndoReplay) error {
 	h.IsReplaying = true
 	defer func() { h.IsReplaying = false }()
 
-	for j := uint16(group.Count); j > 0; j-- {
+	for j := group.Count; j > 0; j-- {
 		record := &group.Records[j-1]
 		var err error
 		if record.Kind == UndoInsert {

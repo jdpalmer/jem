@@ -3,7 +3,7 @@ package mode
 import "github.com/jdpalmer/jem/buffer"
 
 // goIndentCols is one gofmt indent step in display columns (one tab).
-const goIndentCols uint32 = 8
+const goIndentCols = 8
 
 // ApplyLangIndentDefaults adjusts per-language indent settings after LangMode is set.
 // Global buffer defaults (from OnBufferCreate) remain; Go overrides the C step to one tab.

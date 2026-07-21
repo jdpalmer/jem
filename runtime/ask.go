@@ -11,7 +11,7 @@ type PromptDone func(text string, pr minibuffer.PromptResult)
 
 // ChooseDone is called when an async choose menu finishes.
 // sel ≥0 selected, -1 cancel, -2 abort.
-type ChooseDone func(sel int16)
+type ChooseDone func(sel int)
 
 type stringListener struct {
 	prompt *display.StringPrompt

@@ -7,7 +7,7 @@ import (
 
 // Hooks are runtime-owned callbacks that tools cannot import directly (cycle).
 type Hooks struct {
-	VisitLocation func(path string, line, column uint32) bool
+	VisitLocation func(path string, line, column int) bool
 	SwitchBuffer  func(buf *buffer.Buffer)
 	Abort         func()
 	ReadKey       func() (uint32, bool)

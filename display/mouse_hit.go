@@ -10,10 +10,10 @@ import (
 )
 
 // WinAt returns the window that occupies screen row r, or nil.
-func WinAt(r uint32) *window.Window {
+func WinAt(r int) *window.Window {
 	for i := 0; i < len(window.Active.Windows); i++ {
 		win := window.Active.Windows[i]
-		if win != nil && int(r) >= win.ScreenTopRow && int(r) < win.ScreenTopRow+win.Height {
+		if win != nil && r >= win.ScreenTopRow && r < win.ScreenTopRow+win.Height {
 			return win
 		}
 	}
@@ -52,7 +52,7 @@ func MouseLocationInWindow(win *window.Window) buffer.Location {
 	if win == nil {
 		return buffer.Location{}
 	}
-	rowInWin := int(Active.Mouse.Row) - win.ScreenTopRow
+	rowInWin := Active.Mouse.Row - win.ScreenTopRow
 	lineNumber := win.TopLine
 	for rowInWin > 0 && lineNumber < len(win.Buffer.Lines) {
 		lineNumber++
@@ -61,7 +61,7 @@ func MouseLocationInWindow(win *window.Window) buffer.Location {
 
 	loc := buffer.Location{Line: lineNumber, Offset: 0}
 	line := win.Buffer.Line(loc.Line)
-	textCol := int(Active.Mouse.Col) - win.GutterWidth() + win.HScroll
+	textCol := Active.Mouse.Col - win.GutterWidth() + win.HScroll
 	if textCol < 0 {
 		textCol = 0
 	}

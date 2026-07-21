@@ -361,5 +361,5 @@ func VisitGrepMatch() bool {
 	}
 
 	markPushCurrent()
-	return fileVisitLocation(data.Path, uint32(data.Line), uint32(data.Column))
+	return fileVisitLocation(data.Path, data.Line, data.Column)
 }

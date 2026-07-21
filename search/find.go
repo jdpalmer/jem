@@ -56,7 +56,7 @@ func readPattern(label string, onDone func(pr minibuffer.PromptResult)) {
 func searchScopeInit(origin *buffer.Buffer) bufferSearchScope {
 	scope := bufferSearchScope{allBuffers: searchScopeIsAllBuffers()}
 	scope.buffers = append(scope.buffers, origin)
-	for i := 0; i < int(len(buffer.All.Buffers)); i++ {
+	for i := 0; i < len(buffer.All.Buffers); i++ {
 		buf := buffer.All.Buffers[i]
 		if buf != nil && buf != origin {
 			scope.buffers = append(scope.buffers, buf)

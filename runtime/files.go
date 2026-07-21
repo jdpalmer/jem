@@ -98,7 +98,7 @@ func visitFilePath(path string) bool {
 	fileName := files.NormalizePath(path)
 
 	var found *buffer.Buffer
-	for i := 0; i < int(len(buffer.All.Buffers)); i++ {
+	for i := 0; i < len(buffer.All.Buffers); i++ {
 		buf := buffer.All.Buffers[i]
 		if buf != nil && files.PathsEqual(buf.FileName, fileName) {
 			found = buf
@@ -178,7 +178,7 @@ func CmdFileWrite(f bool, n int) bool {
 			buf.FileName = path
 			buf.LangMode = files.DetectLangMode(path)
 			NoteBufferSaved(buf)
-			for i := 0; i < int(len(window.Active.Windows)); i++ {
+			for i := 0; i < len(window.Active.Windows); i++ {
 				win := window.Active.Windows[i]
 				if win != nil && win.Buffer == buf {
 					win.ShouldRedraw = true
@@ -227,7 +227,7 @@ func CmdRevertFile(f bool, n int) bool {
 }
 
 // fileVisitLocation opens path in a buffer and moves the cursor to line/column (1-based).
-func fileVisitLocation(path string, line, column uint32) bool {
+func fileVisitLocation(path string, line, column int) bool {
 	if line == 0 {
 		return false
 	}
@@ -239,19 +239,19 @@ func fileVisitLocation(path string, line, column uint32) bool {
 	if win == nil || win.Buffer == nil {
 		return false
 	}
-	if int(line) > len(win.Buffer.Lines) {
+	if line > len(win.Buffer.Lines) {
 		display.MBWrite("[file line out of range]")
 		return false
 	}
-	bline := win.Buffer.Line(int(line))
-	off := int(column)
+	bline := win.Buffer.Line(line)
+	off := column
 	if column > 0 {
 		off--
 	}
 	if bline != nil && off > bline.Len() {
 		off = bline.Len()
 	}
-	win.SetCursor(buffer.MakeLocation(int(line), off))
+	win.SetCursor(buffer.MakeLocation(line, off))
 	win.DidMove = true
 	win.ShouldUpdateModeLine = true
 	win.ShouldRedraw = true
@@ -312,7 +312,7 @@ func CmdSetEolMode(f bool, n int) bool {
 		}
 		return nil
 	}
-	AskChoose("EOL mode: ", choices, labelFn, 3, defaultIdx, func(selected int16) {
+	AskChoose("EOL mode: ", choices, labelFn, 3, defaultIdx, func(selected int) {
 		if selected == -2 {
 			CmdAbort(false, 1)
 			return
@@ -324,7 +324,7 @@ func CmdSetEolMode(f bool, n int) bool {
 		if buf.EolMode != chosen {
 			buf.EolMode = chosen
 			buf.IsChanged = true
-			for i := 0; i < int(len(window.Active.Windows)); i++ {
+			for i := 0; i < len(window.Active.Windows); i++ {
 				win := window.Active.Windows[i]
 				if win != nil && win.Buffer == buf {
 					win.ShouldUpdateModeLine = true

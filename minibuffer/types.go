@@ -24,7 +24,7 @@ type MinibufferState struct {
 	CursorPos        int
 	Nbuf             int
 	Style            buffer.TextStyle
-	HistoryPos       int16
+	HistoryPos       int
 	HaveSavedEdit    bool
 	SavedEdit        []byte
 	SavedEditNbuf    int

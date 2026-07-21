@@ -22,7 +22,7 @@ func macroInit() {
 }
 
 func macroRefreshModelines() {
-	for i := 0; i < int(len(window.Active.Windows)); i++ {
+	for i := 0; i < len(window.Active.Windows); i++ {
 		if win := window.Active.Windows[i]; win != nil {
 			win.ShouldUpdateModeLine = true
 		}

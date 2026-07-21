@@ -10,12 +10,12 @@ type Buffer struct {
 	IsReadonly              bool
 	EolMode                 EolMode
 	LangMode                LangMode
-	FillCol                 uint32
-	CIndent                 uint32
-	CBrace                  uint32
-	CColonOffset            uint32
-	PyIndent                uint32
-	PyContinuedOffset       uint32
+	FillCol                 int
+	CIndent                 int
+	CBrace                  int
+	CColonOffset            int
+	PyIndent                int
+	PyContinuedOffset       int
 	WhitespaceCleanup       bool
 	Name                    string
 	FileName                string

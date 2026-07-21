@@ -9,7 +9,7 @@ import (
 func TestParseNumericText(t *testing.T) {
 	tests := []struct {
 		in   string
-		want uint32
+		want int
 		ok   bool
 	}{
 		{"72", 72, true},

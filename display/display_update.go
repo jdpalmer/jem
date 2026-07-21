@@ -184,7 +184,7 @@ func DisplayUpdate() {
 	}
 
 	if Active.ScreenDirty {
-		for i := 0; i < int(len(window.Active.Windows)); i++ {
+		for i := 0; i < len(window.Active.Windows); i++ {
 			win := window.Active.Windows[i]
 			if win != nil {
 				win.ShouldRedraw = true
@@ -201,7 +201,7 @@ func DisplayUpdate() {
 		window.Active.CurrentWindow.ShouldUpdateModeLine = true
 	}
 
-	for wi := 0; wi < int(len(window.Active.Windows)); wi++ {
+	for wi := 0; wi < len(window.Active.Windows); wi++ {
 		win := window.Active.Windows[wi]
 		if win == nil || win.Buffer == nil {
 			continue
@@ -362,7 +362,6 @@ func DisplayUpdate() {
 		}
 
 		win.ShouldReframe = false
-		win.ForceReframe = false
 		win.DidMove = false
 		win.DidEdit = false
 		win.ShouldRedraw = false
@@ -374,7 +373,7 @@ func DisplayUpdate() {
 		if window.Active.CurrentWindow != nil {
 			cw := window.Active.CurrentWindow
 			cursorLineDelta := cw.Cursor.Line - cw.TopLine
-			Active.Cursor.Row = uint32(cw.ScreenTopRow + cursorLineDelta)
+			Active.Cursor.Row = cw.ScreenTopRow + cursorLineDelta
 
 			gutterW := cw.GutterWidth()
 			contentCol := WindowCursorScreenCol(cw)
@@ -390,7 +389,7 @@ func DisplayUpdate() {
 					cursorCol = term.Cols() - 1
 				}
 			}
-			Active.Cursor.Col = uint32(cursorCol)
+			Active.Cursor.Col = cursorCol
 		}
 		overlayPhantomCursor()
 	}

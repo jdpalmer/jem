@@ -19,11 +19,11 @@ import (
 type variable struct {
 	name     string
 	doc      string
-	min      uint32
-	max      uint32
+	min      int
+	max      int
 	local    bool
-	read     func(buf *buffer.Buffer) uint32
-	write    func(buf *buffer.Buffer, value uint32)
+	read     func(buf *buffer.Buffer) int
+	write    func(buf *buffer.Buffer, value int)
 	onChange func()
 }
 
@@ -32,18 +32,18 @@ var varTable = []variable{
 		name: "fill-column",
 		doc:  "Wrap/fill column used by paragraph filling.",
 		min:  0, max: 1000, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return buf.FillCol },
-		write: func(buf *buffer.Buffer, v uint32) { buf.FillCol = v },
+		read:  func(buf *buffer.Buffer) int { return buf.FillCol },
+		write: func(buf *buffer.Buffer, v int) { buf.FillCol = v },
 	},
 	{
 		name: "theme-mode",
 		doc:  "Editor palette mode: 0 dark, 1 light.",
-		min:  0, max: uint32(display.ThemeLight), local: false,
-		read: func(buf *buffer.Buffer) uint32 {
+		min:  0, max: int(display.ThemeLight), local: false,
+		read: func(buf *buffer.Buffer) int {
 			_ = buf
-			return uint32(display.Active.Theme.Mode)
+			return int(display.Active.Theme.Mode)
 		},
-		write: func(buf *buffer.Buffer, v uint32) {
+		write: func(buf *buffer.Buffer, v int) {
 			_ = buf
 			display.Active.Theme.Mode = display.ThemeMode(v)
 		},
@@ -52,12 +52,12 @@ var varTable = []variable{
 	{
 		name: "search-scope",
 		doc:  "Search scope: 0 current buffer, 1 all buffers.",
-		min:  0, max: uint32(search.SearchScopeAllBuffers), local: false,
-		read: func(buf *buffer.Buffer) uint32 {
+		min:  0, max: int(search.SearchScopeAllBuffers), local: false,
+		read: func(buf *buffer.Buffer) int {
 			_ = buf
-			return uint32(search.DefaultState.SearchScopeSetting)
+			return int(search.DefaultState.SearchScopeSetting)
 		},
-		write: func(buf *buffer.Buffer, v uint32) {
+		write: func(buf *buffer.Buffer, v int) {
 			_ = buf
 			search.DefaultState.SearchScopeSetting = search.SearchScopeMode(v)
 		},
@@ -67,18 +67,18 @@ var varTable = []variable{
 		name: "whitespace-cleanup",
 		doc:  "Trim trailing whitespace from every line before saving: 0 off, 1 on.",
 		min:  0, max: 1, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return boolToU32(buf.WhitespaceCleanup) },
-		write: func(buf *buffer.Buffer, v uint32) { buf.WhitespaceCleanup = v != 0 },
+		read:  func(buf *buffer.Buffer) int { return boolToInt(buf.WhitespaceCleanup) },
+		write: func(buf *buffer.Buffer, v int) { buf.WhitespaceCleanup = v != 0 },
 	},
 	{
 		name: "auto-revert-mode",
 		doc:  "Reload buffers from disk when the file changes externally: 0 prompt if modified, 1 always reload.",
 		min:  0, max: 1, local: false,
-		read: func(buf *buffer.Buffer) uint32 {
+		read: func(buf *buffer.Buffer) int {
 			_ = buf
-			return boolToU32(State.AutoRevertMode)
+			return boolToInt(State.AutoRevertMode)
 		},
-		write: func(buf *buffer.Buffer, v uint32) {
+		write: func(buf *buffer.Buffer, v int) {
 			_ = buf
 			State.AutoRevertMode = v != 0
 		},
@@ -87,40 +87,40 @@ var varTable = []variable{
 		name: "c-indent",
 		doc:  "C-family block indent width in spaces.",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return buf.CIndent },
-		write: func(buf *buffer.Buffer, v uint32) { buf.CIndent = v },
+		read:  func(buf *buffer.Buffer) int { return buf.CIndent },
+		write: func(buf *buffer.Buffer, v int) { buf.CIndent = v },
 	},
 	{
 		name: "c-brace",
 		doc:  "Extra indent for a standalone opening brace line in C-like modes.",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return buf.CBrace },
-		write: func(buf *buffer.Buffer, v uint32) { buf.CBrace = v },
+		read:  func(buf *buffer.Buffer) int { return buf.CBrace },
+		write: func(buf *buffer.Buffer, v int) { buf.CBrace = v },
 	},
 	{
 		name: "c-colon-offset",
 		doc:  "Extra offset applied to C-family case/default labels.",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return buf.CColonOffset },
-		write: func(buf *buffer.Buffer, v uint32) { buf.CColonOffset = v },
+		read:  func(buf *buffer.Buffer) int { return buf.CColonOffset },
+		write: func(buf *buffer.Buffer, v int) { buf.CColonOffset = v },
 	},
 	{
 		name: "py-indent",
 		doc:  "Python block indent width in spaces.",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return buf.PyIndent },
-		write: func(buf *buffer.Buffer, v uint32) { buf.PyIndent = v },
+		read:  func(buf *buffer.Buffer) int { return buf.PyIndent },
+		write: func(buf *buffer.Buffer, v int) { buf.PyIndent = v },
 	},
 	{
 		name: "py-continued-offset",
 		doc:  "Extra indent for explicit Python continuation lines.",
 		min:  0, max: 32, local: true,
-		read:  func(buf *buffer.Buffer) uint32 { return buf.PyContinuedOffset },
-		write: func(buf *buffer.Buffer, v uint32) { buf.PyContinuedOffset = v },
+		read:  func(buf *buffer.Buffer) int { return buf.PyContinuedOffset },
+		write: func(buf *buffer.Buffer, v int) { buf.PyContinuedOffset = v },
 	},
 }
 
-func boolToU32(b bool) uint32 {
+func boolToInt(b bool) int {
 	if b {
 		return 1
 	}
@@ -130,7 +130,7 @@ func boolToU32(b bool) uint32 {
 func configThemeChanged() {
 	display.ThemeUpdate()
 	syncSyntaxPalette()
-	for i := 0; i < int(len(window.Active.Windows)); i++ {
+	for i := 0; i < len(window.Active.Windows); i++ {
 		win := window.Active.Windows[i]
 		if win != nil {
 			win.ShouldRedraw = true
@@ -140,7 +140,7 @@ func configThemeChanged() {
 }
 
 func configSearchScopeChanged() {
-	for i := 0; i < int(len(window.Active.Windows)); i++ {
+	for i := 0; i < len(window.Active.Windows); i++ {
 		win := window.Active.Windows[i]
 		if win != nil {
 			win.ShouldUpdateModeLine = true
@@ -177,7 +177,7 @@ func bufferApplyVarDefaults(buf *buffer.Buffer) {
 	buf.WhitespaceCleanup = State.WhitespaceCleanup
 }
 
-func varGlobalWrite(v *variable, value uint32) {
+func varGlobalWrite(v *variable, value int) {
 	switch v.name {
 	case "fill-column":
 		display.Active.FillCol = value
@@ -198,7 +198,7 @@ func varGlobalWrite(v *variable, value uint32) {
 	}
 }
 
-func varGlobalRead(v *variable) uint32 {
+func varGlobalRead(v *variable) int {
 	switch v.name {
 	case "fill-column":
 		return display.Active.FillCol
@@ -213,20 +213,20 @@ func varGlobalRead(v *variable) uint32 {
 	case "py-continued-offset":
 		return State.PyContinuedOffset
 	case "whitespace-cleanup":
-		return boolToU32(State.WhitespaceCleanup)
+		return boolToInt(State.WhitespaceCleanup)
 	default:
 		return v.read(nil)
 	}
 }
 
-func varStorageRead(v *variable, buf *buffer.Buffer) uint32 {
+func varStorageRead(v *variable, buf *buffer.Buffer) int {
 	if v.local && buf != nil {
 		return v.read(buf)
 	}
 	return varGlobalRead(v)
 }
 
-func varStorageWrite(v *variable, buf *buffer.Buffer, value uint32, runOnChange bool) bool {
+func varStorageWrite(v *variable, buf *buffer.Buffer, value int, runOnChange bool) bool {
 	if value < v.min || value > v.max {
 		return false
 	}
@@ -241,23 +241,23 @@ func varStorageWrite(v *variable, buf *buffer.Buffer, value uint32, runOnChange 
 	return true
 }
 
-func parseNumericText(text string) (uint32, bool) {
+func parseNumericText(text string) (int, bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return 0, false
 	}
 	if strings.HasPrefix(text, "0x") || strings.HasPrefix(text, "0X") {
-		n, err := strconv.ParseUint(text[2:], 16, 32)
-		if err != nil {
+		n, err := strconv.ParseInt(text[2:], 16, 32)
+		if err != nil || n < 0 {
 			return 0, false
 		}
-		return uint32(n), true
+		return int(n), true
 	}
-	n, err := strconv.ParseUint(text, 10, 32)
-	if err != nil {
+	n, err := strconv.ParseInt(text, 10, 32)
+	if err != nil || n < 0 {
 		return 0, false
 	}
-	return uint32(n), true
+	return int(n), true
 }
 
 func varSetFromText(v *variable, text string) bool {
@@ -271,10 +271,10 @@ func varSetFromText(v *variable, text string) bool {
 func varSetFromJSON(v *variable, raw json.RawMessage) bool {
 	var num float64
 	if err := json.Unmarshal(raw, &num); err == nil {
-		if num < 0 || num != float64(uint32(num)) {
+		if num < 0 || num != float64(int(num)) {
 			return false
 		}
-		return varSetFromText(v, strconv.FormatUint(uint64(num), 10))
+		return varSetFromText(v, strconv.FormatInt(int64(num), 10))
 	}
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
@@ -321,7 +321,7 @@ func varTableProvider(ctx any, idx int) []byte {
 }
 
 func varFormat(v *variable, buf *buffer.Buffer) string {
-	return strconv.FormatUint(uint64(varStorageRead(v, buf)), 10)
+	return strconv.Itoa(varStorageRead(v, buf))
 }
 
 // CmdSetVariable interactively sets a named editor variable.

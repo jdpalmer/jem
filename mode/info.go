@@ -47,11 +47,11 @@ type ModeInfo struct {
 	SyntaxKind        syntax.ModeSyntaxKind
 	SyntaxFlags       uint32
 	MiscIndentKind    ModeMiscIndentKind
-	FillColumnDefault uint16
+	FillColumnDefault int
 	CommentOpen       string
 	CommentAltOpen    string
 	CommentAppend     string
-	CommentCursorBack uint8
+	CommentCursorBack int
 	NewlineAndIndent  func(f bool, n int) bool
 	IndentLine        func(f bool, n int) bool
 	CloseBrace        func(f bool, n int) bool

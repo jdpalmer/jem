@@ -39,8 +39,8 @@ const (
 // CompileLineData is stored on diagnostic lines in the *compile* buffer.
 type CompileLineData struct {
 	Path     string
-	Line     uint32
-	Column   uint32
+	Line     int
+	Column   int
 	Severity CompileDiagSeverity
 }
 
@@ -87,10 +87,10 @@ func compileParseColonDiag(text string) *CompileLineData {
 	}
 }
 
-func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
+func compileParseLineColumn(rest string) (line, column int, ok bool) {
 	i := 0
 	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
-		line = line*10 + uint32(rest[i]-'0')
+		line = line*10 + int(rest[i]-'0')
 		i++
 	}
 	if line == 0 || i >= len(rest) || rest[i] != ':' {
@@ -98,10 +98,10 @@ func compileParseLineColumn(rest string) (line, column uint32, ok bool) {
 	}
 	i++
 	colStart := i
-	parsedCol := uint32(0)
+	parsedCol := 0
 	hasCol := false
 	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
-		parsedCol = parsedCol*10 + uint32(rest[i]-'0')
+		parsedCol = parsedCol*10 + int(rest[i]-'0')
 		hasCol = true
 		i++
 	}

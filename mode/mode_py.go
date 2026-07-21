@@ -70,7 +70,7 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber int) int {
 		if ref == nil {
 			return 0
 		}
-		ind := ref.IndentColumn() - int(pyIndentWidth)
+		ind := ref.IndentColumn() - pyIndentWidth
 		if ind < 0 {
 			return 0
 		}
@@ -106,13 +106,13 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber int) int {
 	last := buf.Line(refLine).LastByte()
 
 	if last == '\\' {
-		return refInd + int(pyContinuedOffset)
+		return refInd + pyContinuedOffset
 	}
 	if last == ':' {
-		return refInd + int(pyIndentWidth)
+		return refInd + pyIndentWidth
 	}
 	if last == '(' || last == '[' || last == '{' {
-		return refInd + int(pyIndentWidth)
+		return refInd + pyIndentWidth
 	}
 
 	prev := buf.Line(refLine)

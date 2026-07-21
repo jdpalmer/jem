@@ -168,7 +168,7 @@ func findCaseIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 			continue
 		}
 		if bytes.IndexByte(line.Data, '{') != -1 {
-			base := line.IndentColumn() + int(cIndent) + int(cColonOffset)
+			base := line.IndentColumn() + cIndent + cColonOffset
 			if base < 0 {
 				return 0
 			}
@@ -284,7 +284,7 @@ func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber int, offset 
 		}
 		tail++
 	}
-	return line.IndentColumn() + int(buf.CIndent)
+	return line.IndentColumn() + buf.CIndent
 }
 
 func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
@@ -296,7 +296,7 @@ func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) in
 	if line == nil {
 		return -1
 	}
-	return line.IndentColumn() + int(buf.CIndent)
+	return line.IndentColumn() + buf.CIndent
 }
 
 func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset int) (buffer.Location, bool) {
@@ -366,12 +366,12 @@ func calcIndent(buf *buffer.Buffer, lineNumber int) int {
 	}
 	ind := ref.IndentColumn()
 	if ref.LastByte() == ':' && lineIsCaseLabel(ref) {
-		ind += int(cIndent)
+		ind += cIndent
 	} else if lineEndsWithContinuation(ref) {
-		ind += int(cIndent)
+		ind += cIndent
 	}
 	if fc == '{' {
-		ind += int(cBrace)
+		ind += cBrace
 	}
 	if ind < 0 {
 		return 0

@@ -272,7 +272,7 @@ func CmdFillParagraph(f bool, n int) bool {
 	if len(words) == 0 {
 		return true
 	}
-	fillCol := int(buf.FillCol)
+	fillCol := buf.FillCol
 	if fillCol == 0 {
 		fillCol = 72
 	}

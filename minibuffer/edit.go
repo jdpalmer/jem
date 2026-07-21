@@ -342,7 +342,7 @@ func (state *MinibufferState) StepHistory(dir int) bool {
 		return false
 	}
 	if dir < 0 { // backward — older entry
-		if int(state.HistoryPos)+1 >= histLen {
+		if state.HistoryPos+1 >= histLen {
 			return false
 		}
 		if state.HistoryPos < 0 {
@@ -351,7 +351,7 @@ func (state *MinibufferState) StepHistory(dir int) bool {
 			state.HaveSavedEdit = true
 		}
 		state.HistoryPos++
-		idx := histLen - 1 - int(state.HistoryPos)
+		idx := histLen - 1 - state.HistoryPos
 		state.SetText([]byte(minibufferHistory[idx]))
 		return true
 	}
@@ -371,7 +371,7 @@ func (state *MinibufferState) StepHistory(dir int) bool {
 		return true
 	}
 	state.HistoryPos--
-	idx := histLen - 1 - int(state.HistoryPos)
+	idx := histLen - 1 - state.HistoryPos
 	state.SetText([]byte(minibufferHistory[idx]))
 	return true
 }
@@ -381,7 +381,7 @@ func tickKillState() {
 }
 
 // EditKeyHistory applies one editing keystroke to a raw prompt buffer with C-p/C-n history.
-func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) MinibufferEditResult {
+func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int, haveSavedEdit *bool, savedEdit []byte, k uint32) MinibufferEditResult {
 	if cpos == nil || historyPos == nil || haveSavedEdit == nil || nbuf <= 0 {
 		return MinibufEditUnhandled
 	}

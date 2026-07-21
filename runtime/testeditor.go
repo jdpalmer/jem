@@ -133,7 +133,7 @@ func (te *TestEditor) Key(k uint32) bool {
 }
 
 // Click sets screen mouse coordinates and dispatches a left-click command.
-func (te *TestEditor) Click(row, col uint32) {
+func (te *TestEditor) Click(row, col int) {
 	te.t.Helper()
 	display.Active.Mouse.Row = row
 	display.Active.Mouse.Col = col

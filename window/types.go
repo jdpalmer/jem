@@ -12,7 +12,6 @@ type Window struct {
 	Mark                 buffer.Location
 	ScreenTopRow         int
 	Height               int
-	ForceReframe         bool
 	ShouldReframe        bool
 	DidMove              bool
 	DidEdit              bool

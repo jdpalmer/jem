@@ -30,7 +30,6 @@ func WindowCreate() *Window {
 		Mark:                 buffer.Location{Line: 1, Offset: 0},
 		ScreenTopRow:         0,
 		Height:               0,
-		ForceReframe:         false,
 		ShouldReframe:        false,
 		DidMove:              false,
 		DidEdit:              false,

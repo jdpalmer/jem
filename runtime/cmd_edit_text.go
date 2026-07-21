@@ -435,7 +435,7 @@ func CmdShowPosition(f bool, n int) bool {
 	if total > 0 {
 		ratio = (100 * before) / total
 	}
-	row := int(display.Active.Cursor.Row) + 1
+	row := display.Active.Cursor.Row + 1
 	display.MBWrite("X=%d Y=%d CH=0x%x .=%d (%d%% of %d)", col+1, row, charAt, before, ratio, total)
 	return true
 }

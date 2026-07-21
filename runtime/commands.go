@@ -228,7 +228,7 @@ func CmdUseBuffer(f bool, n int) bool {
 	if len(buffers) > 1 {
 		defaultIdx = 1
 	}
-	AskChoose("buffer.Buffer: ", buffers, bufferChoiceLabel, len(buffers), defaultIdx, func(sel int16) {
+	AskChoose("buffer.Buffer: ", buffers, bufferChoiceLabel, len(buffers), defaultIdx, func(sel int) {
 		if sel == -2 {
 			CmdAbort(false, 1)
 			return

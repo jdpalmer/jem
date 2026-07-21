@@ -14,8 +14,8 @@ func TestCompileParseColonDiag(t *testing.T) {
 		line     string
 		wantNil  bool
 		path     string
-		lineNum  uint32
-		column   uint32
+		lineNum  int
+		column   int
 		severity CompileDiagSeverity
 	}{
 		{

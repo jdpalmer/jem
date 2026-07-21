@@ -64,7 +64,7 @@ func markPushCurrent() {
 	markring.PushCurrent()
 }
 
-func fileVisitLocation(path string, line, column uint32) bool {
+func fileVisitLocation(path string, line, column int) bool {
 	if PackageHooks.VisitLocation == nil {
 		return false
 	}

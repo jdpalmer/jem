@@ -20,7 +20,7 @@ type isearchSession struct {
 	pat           [display.PatternCapacity]byte
 	savedEdit     [display.PatternCapacity]byte
 	cpos          int
-	historyPos    int16
+	historyPos    int
 	haveSavedEdit bool
 	failing       bool
 	repeatKey     uint32

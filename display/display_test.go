@@ -110,12 +110,12 @@ func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 	window.WindowRetile()
 
 	MBWrite("[region copied]")
-	if Active.Cursor.Row != uint32(term.Rows()) {
+	if Active.Cursor.Row != term.Rows() {
 		t.Fatalf("MBWrite cursor row = %d, want message row %d", Active.Cursor.Row, term.Rows())
 	}
 
 	DisplayUpdate()
-	if Active.Cursor.Row == uint32(term.Rows()) {
+	if Active.Cursor.Row == term.Rows() {
 		t.Fatal("DisplayUpdate should move cursor back to the editor")
 	}
 	if !Active.MessagePresent {

@@ -10,8 +10,8 @@ const (
 )
 
 type ScreenCoord struct {
-	Row uint32
-	Col uint32
+	Row int
+	Col int
 }
 
 type ThemeMode int
@@ -35,8 +35,8 @@ type ThemeState struct {
 type State struct {
 	Cursor             ScreenCoord
 	PhantomCursor      ScreenCoord
-	GoalCol            uint32
-	FillCol            uint32
+	GoalCol            int
+	FillCol            int
 	Theme              ThemeState
 	PhantomText        byte
 	MessagePresent     bool

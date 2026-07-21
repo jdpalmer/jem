@@ -25,7 +25,7 @@ func CmdThemeToggle(f bool, n int) bool {
 	}
 	display.ThemeUpdate()
 	display.Active.ScreenDirty = true
-	for i := 0; i < int(len(window.Active.Windows)); i++ {
+	for i := 0; i < len(window.Active.Windows); i++ {
 		win := window.Active.Windows[i]
 		if win != nil {
 			win.ShouldRedraw = true
@@ -66,7 +66,7 @@ var mainMenu = []menuItem{
 func CmdMenuRun(f bool, n int) bool {
 	_ = f
 	_ = n
-	AskChoose("Menu > ", mainMenu, menuItemLabel, len(mainMenu), 0, func(result int16) {
+	AskChoose("Menu > ", mainMenu, menuItemLabel, len(mainMenu), 0, func(result int) {
 		if result == -2 {
 			CmdAbort(false, 1)
 			return

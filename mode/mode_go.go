@@ -58,8 +58,8 @@ func setLineIndentGo(win *window.Window, col int) bool {
 		if win.Cursor.Offset <= oldFirst {
 			win.Cursor.Offset = len(prefix)
 		} else {
-			delta := int(len(prefix)) - int(oldFirst)
-			off := int(win.Cursor.Offset) + delta
+			delta := len(prefix) - oldFirst
+			off := win.Cursor.Offset + delta
 			if off < 0 {
 				off = 0
 			}
