@@ -48,7 +48,13 @@ func mbClear() {
 }
 
 func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-	display.AskString(prompt, initial, onDone)
+	if PackageHooks.AskString != nil {
+		PackageHooks.AskString(prompt, initial, onDone)
+		return
+	}
+	if onDone != nil {
+		onDone("", minibuffer.PromptResultAbort)
+	}
 }
 
 func mbWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextStyle) {
@@ -72,15 +78,28 @@ func markPushCurrent() {
 }
 
 func isearchReadKey() (uint32, bool) {
+	if PackageHooks.WaitKey != nil {
+		return PackageHooks.WaitKey()
+	}
 	return display.WaitKey()
 }
 
 func activateMinibuffer(state *minibuffer.MinibufferState) {
-	display.ActivateMinibuffer(state)
+	display.ShowMinibuffer(state)
+	if PackageHooks.BeginMinibuf != nil {
+		PackageHooks.BeginMinibuf()
+	} else {
+		display.BeginMinibufCapture()
+	}
 }
 
 func deactivateMinibuffer() {
-	display.DeactivateMinibuffer()
+	display.HideMinibuffer()
+	if PackageHooks.EndMinibuf != nil {
+		PackageHooks.EndMinibuf()
+	} else {
+		display.EndMinibufCapture()
+	}
 }
 
 func isPasteRedrawKey(k uint32) bool {

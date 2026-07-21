@@ -31,15 +31,33 @@ func mbHistoryAdd(text string) {
 }
 
 func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-	display.AskString(prompt, initial, onDone)
+	if PackageHooks.AskString != nil {
+		PackageHooks.AskString(prompt, initial, onDone)
+		return
+	}
+	if onDone != nil {
+		onDone("", minibuffer.PromptResultAbort)
+	}
 }
 
 func askStringCap(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult)) {
-	display.AskStringCap(prompt, initial, capacity, onDone)
+	if PackageHooks.AskStringCap != nil {
+		PackageHooks.AskStringCap(prompt, initial, capacity, onDone)
+		return
+	}
+	if onDone != nil {
+		onDone("", minibuffer.PromptResultAbort)
+	}
 }
 
 func askFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
-	display.AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
+	if PackageHooks.AskFuzzyEx != nil {
+		PackageHooks.AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
+		return
+	}
+	if onDone != nil {
+		onDone("", minibuffer.PromptResultAbort)
+	}
 }
 
 func markPushCurrent() {

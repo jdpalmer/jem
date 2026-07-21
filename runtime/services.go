@@ -78,6 +78,15 @@ func buildServices() *Services {
 				ok := editorReadKey(&k)
 				return k, ok
 			},
+			AskString: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
+				AskString(prompt, initial, onDone)
+			},
+			AskStringCap: func(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult)) {
+				AskStringCap(prompt, initial, capacity, onDone)
+			},
+			AskFuzzyEx: func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
+				AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
+			},
 		},
 		Display: display.Hooks{
 			ApplyCtlxPrefix: applyCtlxPrefix,
@@ -90,28 +99,16 @@ func buildServices() *Services {
 			BeginMinibuf:                BeginMinibuf,
 			EndMinibuf:                  EndMinibuf,
 			WaitKey:                     WaitKey,
-			AskString: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-				AskString(prompt, initial, onDone)
-			},
-			AskStringCap: func(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult)) {
-				AskStringCap(prompt, initial, capacity, onDone)
-			},
-			AskFuzzy: func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, onDone func(string, minibuffer.PromptResult)) {
-				AskFuzzy(prompt, provider, providerCtx, providerCount, onDone)
-			},
-			AskFuzzyEx: func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount uint, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
-				AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
-			},
-			AskFilename: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-				AskFilename(prompt, initial, onDone)
-			},
-			AskChoose: func(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count uint8, defaultIdx uint8, onDone func(int16)) {
-				AskChoose(prompt, ctx, labelFn, count, defaultIdx, onDone)
-			},
 		},
 		Search: search.Hooks{
 			PushKeySession: PushKeySession,
 			SetText:        SetText,
+			AskString: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
+				AskString(prompt, initial, onDone)
+			},
+			WaitKey:      WaitKey,
+			BeginMinibuf: BeginMinibuf,
+			EndMinibuf:   EndMinibuf,
 		},
 	}
 }
