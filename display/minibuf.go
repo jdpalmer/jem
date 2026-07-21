@@ -85,8 +85,3 @@ func MBWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextS
 func MBWritePrompt(prompt string, text []byte, cpos int) {
 	MBWritePromptStyle(prompt, text, cpos, Active.Theme.NormalStyle)
 }
-
-// MBEditKeyHistory applies one editing key with history navigation (isearch path).
-func MBEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) minibuffer.MinibufferEditResult {
-	return minibuffer.EditKeyHistory(buf, cpos, nbuf, initial, historyPos, haveSavedEdit, savedEdit, k)
-}

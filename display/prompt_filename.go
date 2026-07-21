@@ -47,13 +47,13 @@ func NewFilenamePrompt(prompt, initial string, capacity int) *FilenamePrompt {
 
 // Open shows the prompt for listener-driven use.
 func (p *FilenamePrompt) Open() {
-	ShowMinibuffer(&p.state)
+	minibuffer.Active = &p.state
 	p.redraw()
 }
 
 // Close tears down the prompt UI.
 func (p *FilenamePrompt) Close() {
-	HideMinibuffer()
+	minibuffer.Active = nil
 	window.HideMatchWindow()
 	DisplayUpdate()
 }

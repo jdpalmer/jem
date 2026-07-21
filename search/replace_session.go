@@ -2,7 +2,6 @@ package search
 
 import (
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
@@ -50,14 +49,14 @@ func newQueryReReplaceSession(bp *buffer.Buffer, pattern, replStr string) *query
 
 func (s *queryReplaceSession) Open() (done bool) {
 	transientSet(queryReplaceBindings)
-	display.ShowMinibuffer(&s.mbState)
+	minibuffer.Active = &s.mbState
 	displayUpdate()
 	return s.advance()
 }
 
 func (s *queryReplaceSession) Close() {
 	transientClear()
-	display.HideMinibuffer()
+	minibuffer.Active = nil
 	if wp := window.Active.CurrentWindow; wp != nil {
 		wp.Mark.Line = 0
 		wp.ShouldRedraw = true

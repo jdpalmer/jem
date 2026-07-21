@@ -97,18 +97,3 @@ func CmdWindowSplit(f bool, n int) bool {
 	window.WindowRetile()
 	return true
 }
-
-// windowInsertText inserts text at the window cursor. Returns true on success.
-func windowInsertText(wp *window.Window, text []byte) bool {
-	return window.InsertText(wp, text)
-}
-
-// windowInsertCodepoint inserts a Unicode codepoint at the window cursor.
-func windowInsertCodepoint(wp *window.Window, cp rune) bool {
-	return window.InsertCodepoint(wp, cp)
-}
-
-// windowInsertNewline inserts a single newline at the window cursor.
-func windowInsertNewline(wp *window.Window) bool {
-	return window.InsertNewline(wp)
-}

@@ -109,7 +109,7 @@ func CmdYank(f bool, n int) bool {
 		if window.Active.CurrentWindow == nil {
 			return false
 		}
-		if !windowInsertText(window.Active.CurrentWindow, kb) {
+		if !window.InsertText(window.Active.CurrentWindow, kb) {
 			return false
 		}
 	}

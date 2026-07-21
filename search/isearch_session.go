@@ -64,7 +64,7 @@ func (s *isearchSession) Open() (done bool) {
 	}
 	s.origin = saveSearchSnapshot(s.wp, 0)
 	s.lastSuccess = s.origin
-	display.ShowMinibuffer(&s.mbState)
+	minibuffer.Active = &s.mbState
 	display.Active.ShowPhantomCursor = true
 	s.redraw()
 	return false
@@ -73,7 +73,7 @@ func (s *isearchSession) Open() (done bool) {
 func (s *isearchSession) Close() {
 	display.Active.ShowPhantomCursor = false
 	isearchClearHighlight(window.Active.CurrentWindow)
-	display.HideMinibuffer()
+	minibuffer.Active = nil
 }
 
 func (s *isearchSession) redraw() {
@@ -116,7 +116,7 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 	if s.regex {
 		initial = []byte(currentState().RegexSearchPattern)
 	}
-	edit := mbEditKeyHistory(s.pat[:], &s.cpos, display.PatternCapacity, initial, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
+	edit := minibuffer.EditKeyHistory(s.pat[:], &s.cpos, display.PatternCapacity, initial, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
 	if edit == minibuffer.MinibufEditUnhandled {
 		s.commitPattern(plen)
 		mbClear()

@@ -155,7 +155,7 @@ func CmdOpenLine(f bool, n int) bool {
 		return false
 	}
 	for i := 0; i < n; i++ {
-		if !windowInsertNewline(wp) {
+		if !window.InsertNewline(wp) {
 			return false
 		}
 	}
@@ -199,7 +199,7 @@ func quoteInsertKey(k uint32, n int) bool {
 	}
 	if k == '\n' || k == '\r' || k == term.KeyEnter {
 		for i := 0; i < n; i++ {
-			if !windowInsertNewline(wp) {
+			if !window.InsertNewline(wp) {
 				return false
 			}
 		}
@@ -207,10 +207,10 @@ func quoteInsertKey(k uint32, n int) bool {
 	}
 	for i := 0; i < n; i++ {
 		if k < 0x80 {
-			if !windowInsertText(wp, []byte{byte(k)}) {
+			if !window.InsertText(wp, []byte{byte(k)}) {
 				return false
 			}
-		} else if !windowInsertCodepoint(wp, rune(k)) {
+		} else if !window.InsertCodepoint(wp, rune(k)) {
 			return false
 		}
 	}
@@ -307,7 +307,7 @@ func CmdInsertDate(f bool, n int) bool {
 	}
 	now := time.Now()
 	date := now.Format("Jan 2, 2006")
-	return windowInsertText(wp, []byte(date))
+	return window.InsertText(wp, []byte(date))
 }
 
 // CmdTrimWhitespace deletes horizontal whitespace surrounding point.

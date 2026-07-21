@@ -33,13 +33,13 @@ func NewStringPrompt(prompt, initial string, capacity int) *StringPrompt {
 
 // Open shows the prompt for listener-driven use.
 func (p *StringPrompt) Open() {
-	ShowMinibuffer(&p.state)
+	minibuffer.Active = &p.state
 	p.redraw()
 }
 
 // Close tears down the prompt UI.
 func (p *StringPrompt) Close() {
-	HideMinibuffer()
+	minibuffer.Active = nil
 }
 
 func (p *StringPrompt) redraw() {

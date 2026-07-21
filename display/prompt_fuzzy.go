@@ -51,13 +51,13 @@ func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, provide
 
 // Open shows the prompt for listener-driven use.
 func (p *FuzzyPrompt) Open() {
-	ShowMinibuffer(&p.state)
+	minibuffer.Active = &p.state
 	p.redraw()
 }
 
 // Close tears down the prompt UI.
 func (p *FuzzyPrompt) Close() {
-	HideMinibuffer()
+	minibuffer.Active = nil
 	window.HideMatchWindow()
 	DisplayUpdate()
 }

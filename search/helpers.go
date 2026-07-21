@@ -65,10 +65,6 @@ func mbHistoryAdd(text string) {
 	display.MBHistoryAdd(text)
 }
 
-func mbEditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int16, haveSavedEdit *bool, savedEdit []byte, k uint32) minibuffer.MinibufferEditResult {
-	return display.MBEditKeyHistory(buf, cpos, nbuf, initial, historyPos, haveSavedEdit, savedEdit, k)
-}
-
 func displayUpdate() {
 	display.DisplayUpdate()
 }

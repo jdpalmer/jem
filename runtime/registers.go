@@ -81,7 +81,7 @@ func CmdInsertRegister(f bool, n int) bool {
 			display.MBWrite("[register '%s' not found]", name)
 			return
 		}
-		if !windowInsertText(wp, text) {
+		if !window.InsertText(wp, text) {
 			return
 		}
 		display.MBWrite("Register '%s' inserted.", name)

@@ -21,7 +21,14 @@ func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
 	bp.Name = "alpha"
 
 	clipLeftCol = 10
-	mlChoiceRender("Buffer: ", []*buffer.Buffer{bp}, bufferChoiceLabel, 1, 0, 0, 0)
+	label := func(ctx any, idx uint8) []byte {
+		buffers := ctx.([]*buffer.Buffer)
+		if int(idx) >= len(buffers) || buffers[idx] == nil {
+			return nil
+		}
+		return []byte(buffers[idx].Name)
+	}
+	mlChoiceRender("Buffer: ", []*buffer.Buffer{bp}, label, 1, 0, 0, 0)
 	clipLeftCol = 0
 
 	row := &backScreen.Rows[term.Rows()]

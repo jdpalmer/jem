@@ -46,13 +46,13 @@ func NewChoosePrompt(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn,
 
 // Open shows the menu for listener-driven use.
 func (p *ChoosePrompt) Open() {
-	ShowMinibuffer(&p.state)
+	minibuffer.Active = &p.state
 	p.redraw()
 }
 
 // Close tears down the menu UI.
 func (p *ChoosePrompt) Close() {
-	HideMinibuffer()
+	minibuffer.Active = nil
 }
 
 func (p *ChoosePrompt) redraw() {
