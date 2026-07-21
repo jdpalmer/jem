@@ -15,11 +15,7 @@ func SwitchBuffer(bp *buffer.Buffer) {
 
 	cw.SaveState()
 
-	if PackageHooks.SetCurrentBuffer != nil {
-		PackageHooks.SetCurrentBuffer(bp)
-	} else {
-		buffer.SetCurrent(bp)
-	}
+	buffer.SetCurrent(bp)
 	cw.Buffer = bp
 	cw.ShouldUpdateModeLine = true
 	cw.ShouldReframe = true
@@ -47,7 +43,7 @@ func SwitchBuffer(bp *buffer.Buffer) {
 }
 
 // RetargetAfterBufferKill updates windows that showed killed to use replacement.
-// If replacement is nil, creates one via BufferCreate when possible.
+// If replacement is nil, creates one via buffer.Create when possible.
 func RetargetAfterBufferKill(killed, replacement *buffer.Buffer) {
 	if killed == nil {
 		return
@@ -58,9 +54,7 @@ func RetargetAfterBufferKill(killed, replacement *buffer.Buffer) {
 		}
 		rep := replacement
 		if rep == nil {
-			if PackageHooks.BufferCreate != nil {
-				rep = PackageHooks.BufferCreate()
-			}
+			rep = buffer.Create()
 			if rep == nil {
 				wp.Buffer = nil
 				continue

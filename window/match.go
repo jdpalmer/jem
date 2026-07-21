@@ -8,10 +8,7 @@ const matchBufferName = "*match*"
 
 // MatchWindow returns the window showing the *match* buffer, if any.
 func MatchWindow() *Window {
-	if PackageHooks.BufferFind == nil {
-		return nil
-	}
-	mbp := PackageHooks.BufferFind(matchBufferName)
+	mbp := buffer.Find(matchBufferName)
 	if mbp == nil {
 		return nil
 	}
@@ -26,10 +23,7 @@ func MatchWindow() *Window {
 
 // ShowMatchWindow ensures a window displays the *match* buffer.
 func ShowMatchWindow() {
-	if PackageHooks.BufferFind == nil {
-		return
-	}
-	mbp := PackageHooks.BufferFind(matchBufferName)
+	mbp := buffer.Find(matchBufferName)
 	if mbp == nil {
 		return
 	}
@@ -106,17 +100,11 @@ func ScrollMatchToSelection(selected uint) {
 }
 
 func ensureMatchBuffer() *buffer.Buffer {
-	if PackageHooks.BufferFind == nil {
-		return nil
-	}
-	mbp := PackageHooks.BufferFind(matchBufferName)
+	mbp := buffer.Find(matchBufferName)
 	if mbp != nil {
 		return mbp
 	}
-	if PackageHooks.BufferCreate == nil {
-		return nil
-	}
-	mbp = PackageHooks.BufferCreate()
+	mbp = buffer.Create()
 	if mbp == nil {
 		return nil
 	}
@@ -129,7 +117,7 @@ func ensureMatchBuffer() *buffer.Buffer {
 // If text is empty, hides the match window instead.
 func SetMatchBufferText(text []byte, selected uint) {
 	if len(text) == 0 {
-		if PackageHooks.BufferFind != nil && PackageHooks.BufferFind(matchBufferName) != nil {
+		if buffer.Find(matchBufferName) != nil {
 			HideMatchWindow()
 		}
 		return

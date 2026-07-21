@@ -14,11 +14,7 @@ func WindowSelect(wp *Window) {
 		old.ShouldUpdateModeLine = true
 	}
 	Active.CurrentWindow = wp
-	if PackageHooks.SetCurrentBuffer != nil {
-		PackageHooks.SetCurrentBuffer(wp.Buffer)
-	} else {
-		buffer.SetCurrent(wp.Buffer)
-	}
+	buffer.SetCurrent(wp.Buffer)
 	wp.ShouldRedraw = true
 	wp.ShouldUpdateModeLine = true
 }
@@ -27,15 +23,8 @@ func WindowCreate() *Window {
 	if len(Active.Windows) >= MaxWindows {
 		return nil
 	}
-	var curBuf *buffer.Buffer
-	if PackageHooks.CurrentBuffer != nil {
-		curBuf = PackageHooks.CurrentBuffer()
-	}
-	if curBuf == nil {
-		curBuf = buffer.All.Current
-	}
 	wp := &Window{
-		Buffer:               curBuf,
+		Buffer:               buffer.All.Current,
 		TopLine:              1,
 		Cursor:               buffer.Location{Line: 1, Offset: 0},
 		Mark:                 buffer.Location{Line: 1, Offset: 0},
@@ -49,7 +38,6 @@ func WindowCreate() *Window {
 		ShouldUpdateModeLine: true,
 		HScroll:              0,
 	}
-	// Prefer the process current buffer if hooks expose it via existing window.
 	Active.Windows = append(Active.Windows, wp)
 	return wp
 }

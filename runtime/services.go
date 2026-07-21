@@ -125,13 +125,9 @@ func installServices(s *Services) {
 		SetCurrentBuffer: buffer.SetCurrent,
 	}
 	window.PackageHooks = window.Hooks{
-		CurrentBuffer:    func() *buffer.Buffer { return buffer.All.Current },
-		SetCurrentBuffer: buffer.SetCurrent,
-		BeginCommand:     BeginCommand,
-		EndCommand:       EndCommand,
-		SetText:          SetText,
-		BufferFind:       buffer.Find,
-		BufferCreate:     buffer.Create,
+		BeginCommand: BeginCommand,
+		EndCommand:   EndCommand,
+		SetText:      SetText,
 	}
 	buffer.PackageHooks = s.Buffer
 	term.PackageHooks = s.Term
