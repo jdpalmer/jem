@@ -4,6 +4,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/files"
 	"github.com/jdpalmer/jem/markring"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/mode"
@@ -121,6 +122,10 @@ func installServices(s *Services) {
 		BeginCommand: BeginCommand,
 		EndCommand:   EndCommand,
 		SetText:      SetText,
+	}
+	files.PackageHooks = files.Hooks{
+		IsDispatching:  func() bool { return State.Dispatching },
+		AutoRevertMode: func() bool { return State.AutoRevertMode },
 	}
 	buffer.PackageHooks = s.Buffer
 	term.PackageHooks = s.Term

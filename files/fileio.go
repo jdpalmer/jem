@@ -21,9 +21,6 @@ var (
 	ErrNoBuffer   = errors.New("no current buffer")
 	ErrReadonly   = errors.New("read-only buffer")
 	ErrNoFilename = errors.New("no filename")
-	// AutoRevertMode and Dispatching are process settings installed by runtime.
-	AutoRevertMode bool
-	Dispatching    bool
 )
 
 func writeMessage(writef func(string, ...any), format string, args ...any) {
@@ -273,7 +270,7 @@ func ReloadCurrentBufferFromDisk(fname string, lineNumber uint, noteBufferSaved 
 // askConfirm, when non-nil, is used for dirty-buffer revert prompts (async-friendly:
 // callers may schedule work in onYes/onNo and return immediately).
 func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func()), writef func(string, ...any), noteBufferSaved func(*buffer.Buffer)) {
-	if minibuffer.Active != nil || Dispatching {
+	if minibuffer.Active != nil || isDispatching() {
 		return
 	}
 	bp := buffer.All.Current
@@ -303,7 +300,7 @@ func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func())
 	}
 
 	if bp.IsChanged {
-		if AutoRevertMode {
+		if autoRevertMode() {
 			_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 			return
 		}

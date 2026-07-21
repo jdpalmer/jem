@@ -3,7 +3,6 @@ package runtime
 import (
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/event"
-	"github.com/jdpalmer/jem/files"
 	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
 )
@@ -14,17 +13,14 @@ func runBoundKey(k uint32, f bool, n int) {
 		return
 	}
 	State.Dispatching = true
-	files.Dispatching = true
 	if State.IsRecording() {
 		if !macroRecordKey(int(k), f, n) {
 			State.Dispatching = false
-			files.Dispatching = false
 			return
 		}
 	}
 	_ = Execute(int(k), f, n)
 	State.Dispatching = false
-	files.Dispatching = false
 	_ = afterKeyCommand()
 }
 
@@ -96,10 +92,8 @@ func handleCommandEvent(ev event.CommandEvent) bool {
 		n = 1
 	}
 	State.Dispatching = true
-	files.Dispatching = true
 	_ = cmd.Fn(ev.F, n)
 	State.Dispatching = false
-	files.Dispatching = false
 	_ = afterKeyCommand()
 	return true
 }

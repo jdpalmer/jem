@@ -11,7 +11,6 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/files"
 	"github.com/jdpalmer/jem/search"
 )
 
@@ -82,7 +81,6 @@ var varTable = []variable{
 		write: func(bp *buffer.Buffer, v uint32) {
 			_ = bp
 			State.AutoRevertMode = v != 0
-			files.AutoRevertMode = State.AutoRevertMode
 		},
 	},
 	{
@@ -157,7 +155,6 @@ func VarsInit() {
 	search.DefaultState.SearchScopeSetting = search.SearchScopeBuffer
 	State.WhitespaceCleanup = true
 	State.AutoRevertMode = false
-	files.AutoRevertMode = false
 	State.CIndent = 2
 	State.CBrace = 0
 	State.CColonOffset = 0

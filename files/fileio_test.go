@@ -11,8 +11,7 @@ import (
 )
 
 func resetAppForFileIoTests() {
-	AutoRevertMode = false
-	Dispatching = false
+	PackageHooks = Hooks{}
 	*buffer.All = buffer.List{}
 	*window.Active = window.State{}
 }
