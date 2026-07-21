@@ -155,14 +155,6 @@ func runKeyReader() {
 	}
 }
 
-// pasteRedrawKey is injected on the key channel after bracketed paste so the
-// waiting input loop runs DisplayUpdate (paste has no real key event).
-const pasteRedrawKey uint32 = 0x00FF0001
-
-func IsPasteRedrawKey(k uint32) bool {
-	return k == pasteRedrawKey
-}
-
 // pasteRepaintPending is set when a bracketed paste was applied this cycle so
 // DisplayUpdate can nudge terminals (e.g. iTerm2) that defer painting
 // already-flushed output until another input round-trip occurs.

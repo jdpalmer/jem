@@ -50,11 +50,6 @@ func (p *StringPrompt) redraw() {
 // HandleKey applies one key. When done is true, text/pr are the result and the
 // caller must Close the prompt.
 func (p *StringPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer.PromptResult) {
-	if IsPasteRedrawKey(k) {
-		p.redraw()
-		return false, "", 0
-	}
-
 	switch {
 	case k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J'):
 		MBHistoryAdd(string(p.state.Text))

@@ -68,12 +68,6 @@ func (p *FuzzyPrompt) redraw() {
 
 // HandleKey applies one key. On success, text is the selected label.
 func (p *FuzzyPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer.PromptResult) {
-	if IsPasteRedrawKey(k) {
-		DisplayUpdate()
-		p.redraw()
-		return false, "", 0
-	}
-
 	changed := false
 
 	switch {

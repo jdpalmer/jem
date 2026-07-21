@@ -128,10 +128,6 @@ func (s *queryReplaceSession) advance() (done bool) {
 }
 
 func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
-	if isPasteRedrawKey(k) {
-		displayUpdate()
-		return false
-	}
 	action := transientLookup(k, replaceActionNone)
 	if action == replaceActionNone {
 		doBeep()

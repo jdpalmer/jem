@@ -8,10 +8,8 @@ import (
 )
 
 const (
-	CommandPromptCapacity = 256
-	MacroCapacity         = 256
-	PatternCapacity       = display.PatternCapacity
-	HookCapacity          = 8
+	MacroCapacity   = 256
+	PatternCapacity = display.PatternCapacity
 )
 
 type ProcState struct {

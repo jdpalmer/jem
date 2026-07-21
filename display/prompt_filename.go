@@ -148,12 +148,6 @@ func (p *FilenamePrompt) redraw() {
 
 // HandleKey applies one key. On success, text is the chosen path.
 func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer.PromptResult) {
-	if IsPasteRedrawKey(k) {
-		DisplayUpdate()
-		p.redraw()
-		return false, "", 0
-	}
-
 	changed := false
 
 	switch {

@@ -94,10 +94,6 @@ func (s *isearchSession) plen() int {
 }
 
 func (s *isearchSession) HandleKey(k uint32) (done bool) {
-	if isPasteRedrawKey(k) {
-		s.redraw()
-		return false
-	}
 	plen := s.plen()
 	if k == (term.CTL|'G') || k == 0x1B {
 		restoreSearchSnapshot(s.wp, &s.origin)

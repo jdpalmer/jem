@@ -62,9 +62,6 @@ func (p *ChoosePrompt) redraw() {
 
 // HandleKey applies one key. When done, sel is the result (-1/-2/≥0).
 func (p *ChoosePrompt) HandleKey(k uint32) (done bool, sel int16) {
-	if IsPasteRedrawKey(k) {
-		return false, 0
-	}
 	switch {
 	case k == 0x0D || k == 0x0A || k == term.KeyEnter || k == (term.CTL|'M') || k == (term.CTL|'J'):
 		MBClear()

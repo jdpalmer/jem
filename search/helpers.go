@@ -77,10 +77,6 @@ func markPushCurrent() {
 	markring.PushCurrent()
 }
 
-func isPasteRedrawKey(k uint32) bool {
-	return display.IsPasteRedrawKey(k)
-}
-
 func doBeep() {
 	term.Beep()
 }
