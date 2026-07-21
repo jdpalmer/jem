@@ -267,10 +267,7 @@ func CmdFillParagraph(f bool, n int) bool {
 			continue
 		}
 		s := string(lp.Data)
-		// split on whitespace
-		for _, w := range strings.Fields(s) {
-			words = append(words, w)
-		}
+		words = append(words, strings.Fields(s)...)
 	}
 	if len(words) == 0 {
 		return true
