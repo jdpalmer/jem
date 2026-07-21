@@ -29,18 +29,18 @@ type TagEntry struct {
 	Line      uint32
 }
 
-type tagDbState struct {
+type tagDBState struct {
 	path    string
 	mtime   os.FileInfo
 	entries []TagEntry
 }
 
-var tagDb tagDbState
+var tagDB tagDBState
 
-func tagDbClear() {
-	tagDb.path = ""
-	tagDb.mtime = nil
-	tagDb.entries = nil
+func tagDBClear() {
+	tagDB.path = ""
+	tagDB.mtime = nil
+	tagDB.entries = nil
 }
 
 func tagFindTagsFile() (string, bool) {
@@ -130,8 +130,8 @@ func tagEntryParse(line []byte, tagsDir string) (TagEntry, bool) {
 	return entry, true
 }
 
-func tagDbLoad(path string) (string, bool) {
-	tagDbClear()
+func tagDBLoad(path string) (string, bool) {
+	tagDBClear()
 
 	text, err := os.ReadFile(path)
 	if err != nil {
@@ -152,12 +152,12 @@ func tagDbLoad(path string) (string, bool) {
 		}
 		if len(line) > 0 {
 			if !json.Valid(line) {
-				tagDbClear()
+				tagDBClear()
 				return fmt.Sprintf("invalid %s line %d: parse error", path, lineNumber), false
 			}
 			entry, ok := tagEntryParse(line, tagsDir)
 			if ok {
-				tagDb.entries = append(tagDb.entries, entry)
+				tagDB.entries = append(tagDB.entries, entry)
 			}
 		}
 		if end >= len(text) {
@@ -169,12 +169,12 @@ func tagDbLoad(path string) (string, bool) {
 
 	st, err := os.Stat(path)
 	if err != nil {
-		tagDbClear()
+		tagDBClear()
 		return "cannot stat " + path, false
 	}
 
-	tagDb.path = path
-	tagDb.mtime = st
+	tagDB.path = path
+	tagDB.mtime = st
 	return "", true
 }
 
@@ -195,12 +195,12 @@ func EnsureTagsLoaded(quiet bool) bool {
 		return false
 	}
 
-	if tagDb.path == path && tagDb.mtime != nil &&
-		tagDb.mtime.ModTime().Equal(st.ModTime()) && tagDb.entries != nil {
+	if tagDB.path == path && tagDB.mtime != nil &&
+		tagDB.mtime.ModTime().Equal(st.ModTime()) && tagDB.entries != nil {
 		return true
 	}
 
-	if msg, ok := tagDbLoad(path); !ok {
+	if msg, ok := tagDBLoad(path); !ok {
 		if !quiet && msg != "" {
 			mbWrite("[%s]", msg)
 		}
@@ -257,8 +257,8 @@ func tagVisitLocation(path string, line, offset uint32) bool {
 
 func tagMatchCount(name string, requireSignature bool) int {
 	count := 0
-	for i := range tagDb.entries {
-		entry := &tagDb.entries[i]
+	for i := range tagDB.entries {
+		entry := &tagDB.entries[i]
 		if entry.Name != name {
 			continue
 		}
@@ -276,8 +276,8 @@ func tagCollectMatches(name string, requireSignature bool) []*TagEntry {
 		return nil
 	}
 	matches := make([]*TagEntry, 0, count)
-	for i := range tagDb.entries {
-		entry := &tagDb.entries[i]
+	for i := range tagDB.entries {
+		entry := &tagDB.entries[i]
 		if entry.Name != name {
 			continue
 		}
@@ -311,8 +311,8 @@ func tagSignatureScore(bp *buffer.Buffer, entry *TagEntry) int {
 func tagBestSignature(bp *buffer.Buffer, name string) *TagEntry {
 	var best *TagEntry
 	bestScore := int(^uint(0)>>1) * -1
-	for i := range tagDb.entries {
-		entry := &tagDb.entries[i]
+	for i := range tagDB.entries {
+		entry := &tagDB.entries[i]
 		if entry.Name != name || entry.Signature == "" {
 			continue
 		}

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	SIMPLE_INDENT            = 2
-	MAKE_CONTINUATION_INDENT = 2
+	simpleIndent           = 2
+	makeContinuationIndent = 2
 )
 
 type IndentSpec struct {
@@ -136,7 +136,7 @@ func calcMakeIndent(bp *buffer.Buffer, lineNumber uint) IndentSpec {
 		return IndentSpec{0, true}
 	}
 	if ref.LastByte() == '\\' {
-		return IndentSpec{uint(ref.IndentColumn() + MAKE_CONTINUATION_INDENT), false}
+		return IndentSpec{uint(ref.IndentColumn() + makeContinuationIndent), false}
 	}
 	return IndentSpec{0, false}
 }
@@ -204,14 +204,14 @@ func calcBlockIndent(bp *buffer.Buffer, lineNumber uint, isCloser func(*buffer.L
 		base = int(ref.IndentColumn())
 	}
 	if lp != nil && isCloser != nil && isCloser(lp) {
-		ind := base - SIMPLE_INDENT
+		ind := base - simpleIndent
 		if ind < 0 {
 			ind = 0
 		}
 		return IndentSpec{uint(ind), false}
 	}
 	if ref != nil && isOpener != nil && isOpener(ref) {
-		return IndentSpec{uint(base + SIMPLE_INDENT), false}
+		return IndentSpec{uint(base + simpleIndent), false}
 	}
 	return IndentSpec{uint(base), false}
 }

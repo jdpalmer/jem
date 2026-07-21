@@ -24,7 +24,7 @@ func mkMap(sl []string) map[string]bool {
 	return m
 }
 
-func ident_color_for_lang(lang buffer.LangMode, ident string) buffer.TextStyle {
+func identColorForLang(lang buffer.LangMode, ident string) buffer.TextStyle {
 	tables, ok := identWordsByLang[lang]
 	if !ok {
 		return buffer.TextStyleDefault

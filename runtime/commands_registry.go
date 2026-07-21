@@ -76,7 +76,7 @@ func initCommandRegistry() {
 		{Name: "forward_word", Fn: CmdForwardWord, Doc: "Move forward by words.", AcceptsArg: true, Keys: []uint32{term.META | 'F', term.SHIFT | term.KeyRight}},
 		{Name: "goto_bof", Fn: CmdGotoBof, Doc: "Move to the start of the buffer.", AcceptsArg: false, Keys: []uint32{term.META | '<'}},
 		{Name: "goto_bol", Fn: CmdGotoBol, Doc: "Move to the start of the line.", AcceptsArg: false, Keys: []uint32{term.CTL | 'A'}},
-		{Name: "goto_eof", Fn: CmdGotoEof, Doc: "Move to the end of the buffer.", AcceptsArg: false, Keys: []uint32{term.META | '>'}},
+		{Name: "goto_eof", Fn: CmdGotoEOF, Doc: "Move to the end of the buffer.", AcceptsArg: false, Keys: []uint32{term.META | '>'}},
 		{Name: "goto_eol", Fn: CmdGotoEol, Doc: "Move to the end of the line.", AcceptsArg: false, Keys: []uint32{term.CTL | 'E'}},
 		{Name: "goto_line", Fn: CmdGotoLine, Doc: "Jump to a specific line.", AcceptsArg: true, Keys: []uint32{term.META | 'G'}},
 		{Name: "goto_tag", Fn: cmd0(tools.RunGotoTag), Doc: "Jump to a tag definition.", AcceptsArg: false, Keys: []uint32{term.META | '.'}},

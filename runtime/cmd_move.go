@@ -304,7 +304,7 @@ func CmdGotoBof(f bool, n int) bool {
 	return true
 }
 
-func CmdGotoEof(f bool, n int) bool {
+func CmdGotoEOF(f bool, n int) bool {
 	wp := window.Active.CurrentWindow
 	bp := buffer.All.Current
 	if wp != nil && bp != nil {

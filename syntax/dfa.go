@@ -414,7 +414,7 @@ func paintIdentRange(lp *buffer.Line, start, end int, lm buffer.LangMode, styles
 		return
 	}
 	text := string(lp.RuneCache[start:end])
-	a := ident_color_for_lang(lm, text)
+	a := identColorForLang(lm, text)
 	if a == buffer.TextStyleDefault {
 		a = aNormal()
 	}

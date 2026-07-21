@@ -24,8 +24,8 @@ func TestIdentColorForLang(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := ident_color_for_lang(tc.lang, tc.ident); got != tc.want {
-				t.Fatalf("ident_color_for_lang(%v, %q) = %v, want %v", tc.lang, tc.ident, got, tc.want)
+			if got := identColorForLang(tc.lang, tc.ident); got != tc.want {
+				t.Fatalf("identColorForLang(%v, %q) = %v, want %v", tc.lang, tc.ident, got, tc.want)
 			}
 		})
 	}
