@@ -37,30 +37,6 @@ func TestYesNoListenerConsumesAndPops(t *testing.T) {
 	}
 }
 
-func TestMinibufCaptureWaitKey(t *testing.T) {
-	_ = NewTestEditor(t)
-	event.DrainForTest()
-	BeginMinibuf()
-	defer EndMinibuf()
-
-	go func() {
-		event.Enqueue(event.KeyEvent{Code: 'a'})
-		event.Enqueue(event.KeyEvent{Code: 'b'})
-	}()
-
-	k1, ok := WaitKey()
-	if !ok || k1 != 'a' {
-		t.Fatalf("WaitKey #1 = %v %v, want 'a' true", k1, ok)
-	}
-	k2, ok := WaitKey()
-	if !ok || k2 != 'b' {
-		t.Fatalf("WaitKey #2 = %v %v, want 'b' true", k2, ok)
-	}
-	if minibufCaptureDepth != 1 {
-		t.Fatalf("capture depth = %d, want 1", minibufCaptureDepth)
-	}
-}
-
 func TestAskStringCompletesOnEnter(t *testing.T) {
 	_ = NewTestEditor(t)
 	event.DrainForTest()

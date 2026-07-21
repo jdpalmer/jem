@@ -95,10 +95,6 @@ func buildServices() *Services {
 			},
 			GitModelineText:             tools.GitModelineText,
 			MacroRecordMinibufferResult: macroRecordMinibufferResult,
-			TakeMacroPromptReply:        TakeMacroPromptReply,
-			BeginMinibuf:                BeginMinibuf,
-			EndMinibuf:                  EndMinibuf,
-			WaitKey:                     WaitKey,
 		},
 		Search: search.Hooks{
 			PushKeySession: PushKeySession,
@@ -106,9 +102,6 @@ func buildServices() *Services {
 			AskString: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
 				AskString(prompt, initial, onDone)
 			},
-			WaitKey:      WaitKey,
-			BeginMinibuf: BeginMinibuf,
-			EndMinibuf:   EndMinibuf,
 		},
 	}
 }

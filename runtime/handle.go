@@ -45,8 +45,6 @@ func PopListener() {
 
 func clearListeners() {
 	listenerStack = nil
-	minibufCaptureDepth = 0
-	deferredEvents = nil
 }
 
 // Handle applies one event on a tick. Returns false when the process should exit.

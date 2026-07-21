@@ -19,9 +19,6 @@ type Hooks struct {
 	PushKeySession func(s KeySession)
 	SetText        func(bp *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
 	AskString      func(prompt, initial string, onDone func(string, minibuffer.PromptResult))
-	WaitKey        func() (uint32, bool)
-	BeginMinibuf   func()
-	EndMinibuf     func()
 }
 
 // PackageHooks is set once via runtime.Services.

@@ -56,7 +56,7 @@ func (l *yesNoListener) Handle(s *ProcState, e event.Event) ListenerResult {
 }
 
 // AskYesNo pushes a yes/no listener and shows the prompt. Continuations run
-// when the user answers (next tick). Replaces blocking display.MBYesNo for loop paths.
+// when the user answers (next tick).
 func AskYesNo(prompt string, onYes, onNo func()) {
 	PushListener(&yesNoListener{
 		prompt: prompt,

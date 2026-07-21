@@ -10,48 +10,14 @@ func InitInputChannels(pasteQueueSize int) {
 	_ = pasteQueueSize
 }
 
-// BeginMinibufCapture installs the editor key-capture listener (via hooks).
-func BeginMinibufCapture() {
-	if PackageHooks.BeginMinibuf != nil {
-		PackageHooks.BeginMinibuf()
-	}
-}
-
-// EndMinibufCapture uninstalls the key-capture listener (via hooks).
-func EndMinibufCapture() {
-	if PackageHooks.EndMinibuf != nil {
-		PackageHooks.EndMinibuf()
-	}
-}
-
-// WaitKey reads the next key from the single event bus (via editor hook).
-func WaitKey() (uint32, bool) {
-	if PackageHooks.WaitKey == nil {
-		return 0, false
-	}
-	return PackageHooks.WaitKey()
-}
-
-// ShowMinibuffer marks the session minibuffer active for paste/display (no key capture).
+// ShowMinibuffer marks the session minibuffer active for paste/display.
 func ShowMinibuffer(state *minibuffer.MinibufferState) {
 	minibuffer.Active = state
 }
 
-// HideMinibuffer clears ActiveMinibuffer without touching the capture listener.
+// HideMinibuffer clears ActiveMinibuffer.
 func HideMinibuffer() {
 	minibuffer.Active = nil
-}
-
-// ActivateMinibuffer shows the minibuffer and begins nested key capture (blocking prompts).
-func ActivateMinibuffer(state *minibuffer.MinibufferState) {
-	ShowMinibuffer(state)
-	BeginMinibufCapture()
-}
-
-// DeactivateMinibuffer clears ActiveMinibuffer and ends key capture.
-func DeactivateMinibuffer() {
-	HideMinibuffer()
-	EndMinibufCapture()
 }
 
 func gitLineDiff(bp *buffer.Buffer, lineNumber uint) int {

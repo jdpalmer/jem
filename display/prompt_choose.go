@@ -15,7 +15,6 @@ type ChoosePrompt struct {
 	selected    int
 	promptWidth int
 	avail       int
-	async       bool
 	state       minibuffer.MinibufferState
 }
 
@@ -45,27 +44,15 @@ func NewChoosePrompt(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn,
 	}
 }
 
-// OpenAsync shows the menu for listener-driven use.
-func (p *ChoosePrompt) OpenAsync() {
-	p.async = true
+// Open shows the menu for listener-driven use.
+func (p *ChoosePrompt) Open() {
 	ShowMinibuffer(&p.state)
-	p.redraw()
-}
-
-// OpenBlocking shows the menu with nested key capture.
-func (p *ChoosePrompt) OpenBlocking() {
-	p.async = false
-	ActivateMinibuffer(&p.state)
 	p.redraw()
 }
 
 // Close tears down the menu UI.
 func (p *ChoosePrompt) Close() {
-	if p.async {
-		HideMinibuffer()
-	} else {
-		DeactivateMinibuffer()
-	}
+	HideMinibuffer()
 }
 
 func (p *ChoosePrompt) redraw() {

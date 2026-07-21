@@ -18,7 +18,6 @@ type FuzzyPrompt struct {
 	sel              int
 	matches          []uint
 	fctx             *fuzzyMatchCtx
-	async            bool
 }
 
 // NewFuzzyPrompt builds a fuzzy list prompt.
@@ -50,27 +49,15 @@ func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, provide
 	return p
 }
 
-// OpenAsync shows the prompt for listener-driven use.
-func (p *FuzzyPrompt) OpenAsync() {
-	p.async = true
+// Open shows the prompt for listener-driven use.
+func (p *FuzzyPrompt) Open() {
 	ShowMinibuffer(&p.state)
-	p.redraw()
-}
-
-// OpenBlocking shows the prompt with nested key capture.
-func (p *FuzzyPrompt) OpenBlocking() {
-	p.async = false
-	ActivateMinibuffer(&p.state)
 	p.redraw()
 }
 
 // Close tears down the prompt UI.
 func (p *FuzzyPrompt) Close() {
-	if p.async {
-		HideMinibuffer()
-	} else {
-		DeactivateMinibuffer()
-	}
+	HideMinibuffer()
 	window.HideMatchWindow()
 	DisplayUpdate()
 }

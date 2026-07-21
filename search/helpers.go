@@ -77,31 +77,6 @@ func markPushCurrent() {
 	markring.PushCurrent()
 }
 
-func isearchReadKey() (uint32, bool) {
-	if PackageHooks.WaitKey != nil {
-		return PackageHooks.WaitKey()
-	}
-	return display.WaitKey()
-}
-
-func activateMinibuffer(state *minibuffer.MinibufferState) {
-	display.ShowMinibuffer(state)
-	if PackageHooks.BeginMinibuf != nil {
-		PackageHooks.BeginMinibuf()
-	} else {
-		display.BeginMinibufCapture()
-	}
-}
-
-func deactivateMinibuffer() {
-	display.HideMinibuffer()
-	if PackageHooks.EndMinibuf != nil {
-		PackageHooks.EndMinibuf()
-	} else {
-		display.EndMinibufCapture()
-	}
-}
-
 func isPasteRedrawKey(k uint32) bool {
 	return display.IsPasteRedrawKey(k)
 }

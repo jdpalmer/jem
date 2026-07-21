@@ -9,7 +9,6 @@ import (
 type StringPrompt struct {
 	prompt string
 	state  minibuffer.MinibufferState
-	async  bool
 }
 
 // NewStringPrompt builds a string prompt. capacity defaults to PatternCapacity.
@@ -32,27 +31,15 @@ func NewStringPrompt(prompt, initial string, capacity int) *StringPrompt {
 	return p
 }
 
-// OpenAsync shows the prompt for listener-driven (non-blocking) use.
-func (p *StringPrompt) OpenAsync() {
-	p.async = true
+// Open shows the prompt for listener-driven use.
+func (p *StringPrompt) Open() {
 	ShowMinibuffer(&p.state)
-	p.redraw()
-}
-
-// OpenBlocking shows the prompt and starts nested key capture for WaitKey loops.
-func (p *StringPrompt) OpenBlocking() {
-	p.async = false
-	ActivateMinibuffer(&p.state)
 	p.redraw()
 }
 
 // Close tears down the prompt UI.
 func (p *StringPrompt) Close() {
-	if p.async {
-		HideMinibuffer()
-	} else {
-		DeactivateMinibuffer()
-	}
+	HideMinibuffer()
 }
 
 func (p *StringPrompt) redraw() {
@@ -157,9 +144,4 @@ func (p *StringPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffe
 
 	p.redraw()
 	return false, "", 0
-}
-
-// TryMacroPlayPrompt fills buf from a playing macro. ok is true when macro play handled the prompt.
-func TryMacroPlayPrompt(buf []byte) (pr minibuffer.PromptResult, ok bool) {
-	return macroPlayPrompt(buf)
 }

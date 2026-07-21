@@ -259,21 +259,5 @@ func QueryReReplace() bool {
 }
 
 func startQueryReplace(s *queryReplaceSession) {
-	if pushKeySession(s) {
-		return
-	}
-	if s.Open() {
-		s.Close()
-		return
-	}
-	defer s.Close()
-	for {
-		k, ok := isearchReadKey()
-		if !ok {
-			return
-		}
-		if s.HandleKey(k) {
-			return
-		}
-	}
+	pushKeySession(s)
 }

@@ -21,7 +21,6 @@ type FilenamePrompt struct {
 	lastQuery      string
 	sel            int
 	programmatic   bool
-	async          bool
 }
 
 // NewFilenamePrompt builds a filename prompt. initial may be empty.
@@ -46,27 +45,15 @@ func NewFilenamePrompt(prompt, initial string, capacity int) *FilenamePrompt {
 	return p
 }
 
-// OpenAsync shows the prompt for listener-driven use.
-func (p *FilenamePrompt) OpenAsync() {
-	p.async = true
+// Open shows the prompt for listener-driven use.
+func (p *FilenamePrompt) Open() {
 	ShowMinibuffer(&p.state)
-	p.redraw()
-}
-
-// OpenBlocking shows the prompt with nested key capture.
-func (p *FilenamePrompt) OpenBlocking() {
-	p.async = false
-	ActivateMinibuffer(&p.state)
 	p.redraw()
 }
 
 // Close tears down the prompt UI.
 func (p *FilenamePrompt) Close() {
-	if p.async {
-		HideMinibuffer()
-	} else {
-		DeactivateMinibuffer()
-	}
+	HideMinibuffer()
 	window.HideMatchWindow()
 	DisplayUpdate()
 }

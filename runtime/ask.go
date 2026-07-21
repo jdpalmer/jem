@@ -111,7 +111,7 @@ func AskStringCap(prompt, initial string, capacity int, onDone PromptDone) {
 		return
 	}
 	p := display.NewStringPrompt(prompt, initial, capacity)
-	p.OpenAsync()
+	p.Open()
 	PushListener(&stringListener{prompt: p, onDone: onDone})
 }
 
@@ -129,7 +129,7 @@ func AskFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx
 		return
 	}
 	p := display.NewFuzzyPrompt(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, PatternCapacity)
-	p.OpenAsync()
+	p.Open()
 	PushListener(&fuzzyListener{prompt: p, onDone: onDone})
 }
 
@@ -142,7 +142,7 @@ func AskFilename(prompt, initial string, onDone PromptDone) {
 		return
 	}
 	p := display.NewFilenamePrompt(prompt, initial, 0)
-	p.OpenAsync()
+	p.Open()
 	PushListener(&filenameListener{prompt: p, onDone: onDone})
 }
 
@@ -155,6 +155,6 @@ func AskChoose(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count
 		}
 		return
 	}
-	p.OpenAsync()
+	p.Open()
 	PushListener(&chooseListener{prompt: p, onDone: onDone})
 }

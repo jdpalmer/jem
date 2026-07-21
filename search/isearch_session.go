@@ -235,22 +235,5 @@ func IsearchReBackward() bool {
 
 func startISearch(backward, regex bool) bool {
 	s := newISearchSession(backward, regex)
-	if pushKeySession(s) {
-		return true
-	}
-	// Fallback: blocking WaitKey loop (tests without editor hooks).
-	if s.Open() {
-		s.Close()
-		return false
-	}
-	defer s.Close()
-	for {
-		k, ok := isearchReadKey()
-		if !ok {
-			return false
-		}
-		if s.HandleKey(k) {
-			return true
-		}
-	}
+	return pushKeySession(s)
 }

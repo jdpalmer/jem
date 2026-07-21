@@ -7,20 +7,6 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-func macroPlayPrompt(buf []byte) (minibuffer.PromptResult, bool) {
-	text, pr, playing := PackageHooks.TakeMacroPromptReply()
-	if !playing {
-		return minibuffer.PromptResultAbort, false
-	}
-	if pr == minibuffer.PromptResultYes {
-		n := copy(buf, text)
-		if n < len(buf) {
-			buf[n] = 0
-		}
-	}
-	return pr, true
-}
-
 // ---- Horizontal choice menu (mb_choose) --------------------------------------
 
 const (
@@ -128,53 +114,6 @@ func mlChoiceRender(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, 
 	}
 
 	mlFinish(selectedCol, true)
-}
-
-// MBChoose presents a horizontal menu of count choices at the message line (blocking).
-// Returns the selected index (≥0), -1 on Escape/cancel, or -2 on Ctrl-G abort.
-func MBChoose(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, count uint8, defaultIdx uint8) int16 {
-	p := NewChoosePrompt(prompt, ctx, labelFn, count, defaultIdx)
-	if p == nil {
-		return -1
-	}
-	p.OpenBlocking()
-	defer p.Close()
-	for {
-		k, ok := WaitKey()
-		if !ok {
-			MBClear()
-			return -1
-		}
-		done, sel := p.HandleKey(k)
-		if done {
-			return sel
-		}
-	}
-}
-
-// MBYesNo prompts the user for a yes/no answer using the horizontal choice menu.
-func MBYesNo(prompt string) minibuffer.PromptResult {
-	choices := [][]byte{[]byte("yes"), []byte("no")}
-	labelFn := func(ctx any, idx uint8) []byte {
-		sl := ctx.([][]byte)
-		if int(idx) < len(sl) {
-			return sl[int(idx)]
-		}
-		return nil
-	}
-	question := prompt
-	if len(prompt) > 0 && prompt[len(prompt)-1] != ' ' {
-		question = prompt + " "
-	}
-	choice := MBChoose(question, choices, labelFn, 2, 0)
-	switch choice {
-	case 0:
-		return minibuffer.PromptResultYes
-	case 1:
-		return minibuffer.PromptResultNo
-	default:
-		return minibuffer.PromptResultAbort
-	}
 }
 
 // ---- Filename prompt with tab completion and fuzzy matching ------------------
