@@ -74,6 +74,7 @@ func searchScopeIndex(scope *bufferSearchScope, buf *buffer.Buffer) int {
 	return 0
 }
 
+// saveSearchSnapshot captures the current cursor and mark position from a window.
 func saveSearchSnapshot(win *window.Window, patternLen int) ISearchSnapshot {
 	s := ISearchSnapshot{Buffer: win.Buffer, PatternLen: patternLen}
 	if win.Buffer != nil {
@@ -85,6 +86,7 @@ func saveSearchSnapshot(win *window.Window, patternLen int) ISearchSnapshot {
 	return s
 }
 
+// restoreSearchSnapshot restores a previously saved cursor and mark position.
 func restoreSearchSnapshot(win *window.Window, snap *ISearchSnapshot) {
 	if snap == nil || snap.Buffer == nil || snap.Line == 0 {
 		return
@@ -117,6 +119,7 @@ func isearchClearHighlight(win *window.Window) {
 	win.Mark.Offset = 0
 }
 
+// searchSwitchBuffer switches to a buffer and moves the cursor to a specific location.
 func searchSwitchBuffer(win *window.Window, buf *buffer.Buffer, loc buffer.Location) {
 	if buf == nil || loc.Line == 0 {
 		return
@@ -135,7 +138,9 @@ func searchSwitchBuffer(win *window.Window, buf *buffer.Buffer, loc buffer.Locat
 	}
 }
 
+// bufferSearchStart returns the start location of a buffer.
 func bufferSearchStart(buf *buffer.Buffer) buffer.Location { return buffer.Location{Line: 1, Offset: 0} }
+// bufferSearchEnd returns the end location of a buffer.
 func bufferSearchEnd(buf *buffer.Buffer) buffer.Location {
 	return buffer.Location{Line: buf.EOF(), Offset: 0}
 }
@@ -194,6 +199,7 @@ func searchReadBackward(buf *buffer.Buffer, lineNum *int, offset *int) (int, boo
 	return int(line.Data[*offset]), true
 }
 
+// findNextPlain searches forward for a plain text pattern starting from the current cursor position.
 func findNextPlain(win *window.Window, pattern []byte) bool {
 	if win == nil || win.Buffer == nil || len(pattern) == 0 {
 		return false
@@ -233,6 +239,7 @@ func findNextPlain(win *window.Window, pattern []byte) bool {
 	return false
 }
 
+// findPrevPlain searches backward for a plain text pattern starting from the current cursor position.
 func findPrevPlain(win *window.Window, pattern []byte) bool {
 	if win == nil || win.Buffer == nil || len(pattern) == 0 {
 		return false
@@ -268,6 +275,7 @@ func findPrevPlain(win *window.Window, pattern []byte) bool {
 	}
 }
 
+// findNextInScope searches forward for a plain text pattern across a buffer search scope.
 func findNextInScope(win *window.Window, scope *bufferSearchScope, pattern []byte) bool {
 	if win == nil || scope == nil {
 		return false
@@ -291,6 +299,7 @@ func findNextInScope(win *window.Window, scope *bufferSearchScope, pattern []byt
 	return false
 }
 
+// findPrevInScope searches backward for a plain text pattern across a buffer search scope.
 func findPrevInScope(win *window.Window, scope *bufferSearchScope, pattern []byte) bool {
 	if win == nil || scope == nil {
 		return false
@@ -314,6 +323,7 @@ func findPrevInScope(win *window.Window, scope *bufferSearchScope, pattern []byt
 	return false
 }
 
+// isearchHighlightPlain sets the highlight mark for a plain text incremental search.
 func isearchHighlightPlain(win *window.Window, patLen int, backward bool) {
 	if win == nil || patLen <= 0 {
 		return
@@ -330,6 +340,7 @@ func isearchHighlightPlain(win *window.Window, patLen int, backward bool) {
 	win.ShouldRedraw = true
 }
 
+// isearchHighlightMatch sets the highlight mark for a regex incremental search match.
 func isearchHighlightMatch(win *window.Window, start, end buffer.Location, backward bool) {
 	if win == nil {
 		return
@@ -342,11 +353,13 @@ func isearchHighlightMatch(win *window.Window, start, end buffer.Location, backw
 	win.ShouldRedraw = true
 }
 
+// isearchSetPlainPattern sets the incremental search pattern for plain text mode.
 func isearchSetPlainPattern(pattern string) {
 	currentState().SearchPattern = truncatePattern(pattern)
 	updateSearchCase(currentState().SearchPattern)
 }
 
+// isearchRunPlain runs a plain text incremental search.
 func isearchRunPlain(win *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
 	if win == nil || scope == nil || start == nil || out == nil {
 		return false
@@ -396,6 +409,7 @@ func bufferSliceFrom(buf *buffer.Buffer, start buffer.Location) []byte {
 	return buf.GetText(start, bufferSearchEnd(buf))
 }
 
+// findNextRegexMatchFrom searches forward from a location for the next regex match.
 func findNextRegexMatchFrom(buf *buffer.Buffer, searchStart buffer.Location, pattern string) (RegexMatch, int) {
 	text := bufferSliceFrom(buf, searchStart)
 	if len(text) == 0 {
@@ -423,6 +437,7 @@ func findNextRegexMatchFrom(buf *buffer.Buffer, searchStart buffer.Location, pat
 	return match, 1
 }
 
+// findPrevRegexMatchFrom searches backward from the cursor for the last regex match before a limit.
 func findPrevRegexMatchFrom(buf *buffer.Buffer, limit buffer.Location, pattern string) (RegexMatch, int) {
 	scan := buffer.Location{Line: 1, Offset: 0}
 	var best RegexMatch
@@ -448,6 +463,7 @@ func findPrevRegexMatchFrom(buf *buffer.Buffer, limit buffer.Location, pattern s
 	return best, 1
 }
 
+// findNextRegexInScope searches forward for the next regex match across a buffer search scope.
 func findNextRegexInScope(win *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
 	if win == nil || scope == nil {
 		return RegexMatch{}, 0
@@ -473,6 +489,7 @@ func findNextRegexInScope(win *window.Window, scope *bufferSearchScope, pattern 
 	return RegexMatch{}, 0
 }
 
+// findPrevRegexInScope searches backward for the last regex match across a buffer search scope.
 func findPrevRegexInScope(win *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
 	if win == nil || scope == nil {
 		return RegexMatch{}, 0
@@ -498,6 +515,7 @@ func findPrevRegexInScope(win *window.Window, scope *bufferSearchScope, pattern 
 	return RegexMatch{}, 0
 }
 
+// isearchRunRegex runs a regex incremental search.
 func isearchRunRegex(win *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
 	if win == nil || scope == nil || start == nil || out == nil {
 		return false

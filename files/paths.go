@@ -10,6 +10,7 @@ import (
 // (initial minibuffer buffer size). Paths are otherwise unbounded strings.
 const PromptPathCapacity = 4096
 
+// ExpandPath expands ~ and $VAR prefixes in path, returning a cleaned path.
 func ExpandPath(path string) string {
 	if path == "" {
 		return path
@@ -41,6 +42,7 @@ func NormalizePath(path string) string {
 	return filepath.Clean(expanded)
 }
 
+// PathsEqual reports whether a and b denote the same filesystem path.
 func PathsEqual(a, b string) bool {
 	if a == b {
 		return true
@@ -158,6 +160,7 @@ func PromptParentDir(dirPart string) string {
 	return ""
 }
 
+// ApplyFilenameSelection combines dirPart with selected, or navigates up when selected is "../".
 func ApplyFilenameSelection(dirPart, selected string) string {
 	if selected == "../" {
 		return PromptParentDir(dirPart)

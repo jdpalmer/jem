@@ -32,6 +32,7 @@ func mlFinish(cursorCol int, messagePresent bool) {
 	Active.MessagePresent = messagePresent
 }
 
+// MBWrite formats and writes a message to the message line.
 func MBWrite(format string, args ...interface{}) {
 	var msg string
 	if len(args) == 0 {
@@ -44,6 +45,7 @@ func MBWrite(format string, args ...interface{}) {
 	mlFinish(0, len(msg) > 0)
 }
 
+// MBClear erases the message line.
 func MBClear() {
 	mlBegin(Active.Theme.NormalStyle)
 	mlFinish(0, false)
@@ -82,6 +84,7 @@ func MBWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextS
 	mlFinish(cursorCol, true)
 }
 
+// MBWritePrompt renders a prompt+text on the message line with NormalStyle.
 func MBWritePrompt(prompt string, text []byte, cpos int) {
 	MBWritePromptStyle(prompt, text, cpos, Active.Theme.NormalStyle)
 }

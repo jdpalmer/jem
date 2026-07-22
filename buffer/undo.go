@@ -61,6 +61,7 @@ func (group *UndoGroup) reset() {
 	group.Count = 0
 }
 
+// BeginCommand initializes a new undo group before a command edit.
 func (h *UndoHistory) BeginCommand(buf *Buffer, before Location) {
 	if h == nil || h.IsReplaying || buf == nil {
 		return
@@ -71,6 +72,7 @@ func (h *UndoHistory) BeginCommand(buf *Buffer, before Location) {
 	h.Pending.Before = before
 }
 
+// EndCommand finalizes the current undo group and pushes it onto the history.
 func (h *UndoHistory) EndCommand() {
 	if h == nil || h.IsReplaying {
 		return
@@ -93,6 +95,7 @@ func (h *UndoHistory) EndCommand() {
 	h.Count++
 }
 
+// ForgetBuffer removes all undo records for the given buffer.
 func (h *UndoHistory) ForgetBuffer(buf *Buffer) {
 	if h == nil || buf == nil {
 		return
@@ -114,6 +117,7 @@ func (h *UndoHistory) ForgetBuffer(buf *Buffer) {
 	}
 }
 
+// NoteBufferSaved records the current group serial as the save point for the buffer.
 func (h *UndoHistory) NoteBufferSaved(buf *Buffer) {
 	if h == nil || buf == nil {
 		return

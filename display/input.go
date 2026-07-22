@@ -65,6 +65,7 @@ func TermThawInput() {
 	StartKeyReader()
 }
 
+// StartKeyReader launches the background key reader goroutine if not already running.
 func StartKeyReader() {
 	if !atomic.CompareAndSwapInt32(&termKeyReaderRunning, 0, 1) {
 		return

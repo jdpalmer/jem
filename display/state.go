@@ -54,6 +54,7 @@ type State struct {
 var defaultState State
 var Active *State = &defaultState
 
+// Bind sets the active display state to the given state.
 func Bind(s *State) {
 	if s == nil {
 		Active = &defaultState
@@ -62,4 +63,5 @@ func Bind(s *State) {
 	Active = s
 }
 
+// Reset clears the active display state to zero values.
 func Reset() { *Active = State{} }

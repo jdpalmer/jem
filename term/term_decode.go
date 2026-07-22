@@ -93,6 +93,7 @@ func termReadKeyImpl() (uint32, bool) {
 	return termReadKeyUnlocked()
 }
 
+// ReadKey reads and decodes one key event from the terminal.
 func ReadKey() (uint32, bool) {
 	termReadMu.Lock()
 	defer termReadMu.Unlock()

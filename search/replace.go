@@ -154,6 +154,7 @@ func expandRegexReplacement(repl string, match RegexMatch) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// SearchForward prompts for a pattern and searches forward in the buffer.
 func SearchForward() bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
@@ -176,6 +177,7 @@ func SearchForward() bool {
 	return true
 }
 
+// SearchBackward prompts for a pattern and searches backward in the buffer.
 func SearchBackward() bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
@@ -198,6 +200,7 @@ func SearchBackward() bool {
 	return true
 }
 
+// ToggleSearchScope switches the search scope between current buffer and all buffers.
 func ToggleSearchScope() bool {
 	if currentState().SearchScopeSetting == SearchScopeBuffer {
 		currentState().SearchScopeSetting = SearchScopeAllBuffers
@@ -212,6 +215,7 @@ func ToggleSearchScope() bool {
 	return true
 }
 
+// QueryReplace prompts for a pattern and replacement, then asks before each replacement.
 func QueryReplace() bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
@@ -238,6 +242,7 @@ func QueryReplace() bool {
 	return true
 }
 
+// QueryReReplace prompts for a regex pattern and replacement with backreference support, then asks before each replacement.
 func QueryReReplace() bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current

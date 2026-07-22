@@ -5,10 +5,12 @@ type Location struct {
 	Offset int
 }
 
+// MakeLocation creates a new Location with the given line and offset.
 func MakeLocation(line, offset int) Location {
 	return Location{Line: line, Offset: offset}
 }
 
+// AdvanceBytes returns a new Location advanced by the given number of bytes.
 func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
 	if buf == nil || bytes <= 0 {
 		return loc
@@ -45,6 +47,7 @@ func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
 	return Location{Line: curLine, Offset: offset}
 }
 
+// RewindBytes returns a new Location moved back by the given number of bytes.
 func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
 	if buf == nil || bytes <= 0 {
 		return loc

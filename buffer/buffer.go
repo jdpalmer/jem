@@ -21,6 +21,7 @@ type Buffer struct {
 	Mark                    Location // Line == 0 means unset; otherwise 1-based line index
 }
 
+// New creates and returns a new Buffer with default settings.
 func New() *Buffer {
 	return &Buffer{
 		EolMode:  EModeLF,
@@ -28,6 +29,7 @@ func New() *Buffer {
 	}
 }
 
+// Clear removes all lines and resets the buffer to its initial empty state.
 func (buf *Buffer) Clear() bool {
 	if buf == nil {
 		return false
@@ -57,6 +59,7 @@ func (buf *Buffer) Line(lineNumber int) *Line {
 	return &buf.Lines[lineNumber-1]
 }
 
+// TrimTrailingWhitespace removes trailing spaces and tabs from the given line.
 func (buf *Buffer) TrimTrailingWhitespace(lineNumber int) bool {
 	if lineNumber <= 0 || lineNumber > len(buf.Lines) {
 		return false

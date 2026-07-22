@@ -29,6 +29,7 @@ func makeBufferLine(buf *Buffer, data []byte) Line {
 	}
 }
 
+// ReplaceRaw replaces text in the buffer at the given range with newText, returning the new end location.
 func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) error {
 	if buf == nil {
 		return ErrNilBuffer
@@ -227,6 +228,7 @@ func callAdjustLocations(buf *Buffer, begin, end, newEnd Location) {
 	}
 }
 
+// GetText returns the text content between the two given locations in the buffer.
 func (buf *Buffer) GetText(begin, end Location) []byte {
 	if buf == nil {
 		return nil
@@ -392,6 +394,7 @@ func (buf *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byt
 	return buf.ReplaceRaw(begin, end, newText, newEndOut)
 }
 
+// AppendLineBytes appends a new line with the given text to the buffer and returns it.
 func (buf *Buffer) AppendLineBytes(text []byte) *Line {
 	if buf == nil {
 		return nil

@@ -3,10 +3,11 @@ package minibuffer
 // Package minibuffer holds prompt edit state (display only paints).
 
 import (
-	"github.com/jdpalmer/jem/killring"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/killring"
 	"github.com/jdpalmer/jem/term"
 )
 
@@ -29,33 +30,7 @@ func MinibufferHistoryAdd(text string) {
 	}
 }
 
-func prevUtf8Offset(buf []byte, pos int) int {
-	if pos <= 0 {
-		return 0
-	}
-	start := pos - 1
-	for start >= 0 && start > pos-4 {
-		if (buf[start] & 0xC0) != 0x80 {
-			return start
-		}
-		start--
-	}
-	if start < 0 {
-		return 0
-	}
-	return start
-}
 
-func nextUtf8Offset(buf []byte, pos int) int {
-	if pos >= len(buf) || pos < 0 {
-		return pos
-	}
-	_, size := utf8.DecodeRune(buf[pos:])
-	if size <= 0 {
-		return pos + 1
-	}
-	return pos + size
-}
 
 func isMinibufWordRune(r rune) bool {
 	if r >= 0x80 {
@@ -116,7 +91,7 @@ func (state *MinibufferState) DeleteBackward() bool {
 		return false
 	}
 	cpos := state.CursorPos
-	prev := prevUtf8Offset(state.Text, cpos)
+	prev := buffer.PrevOffset(state.Text, cpos)
 	n := cpos - prev
 	copy(state.Text[prev:], state.Text[cpos:])
 	state.Text = state.Text[:len(state.Text)-n]
@@ -130,7 +105,7 @@ func (state *MinibufferState) DeleteForward() bool {
 		return false
 	}
 	cpos := state.CursorPos
-	next := nextUtf8Offset(state.Text, cpos)
+	next := buffer.NextOffset(state.Text, cpos)
 	n := next - cpos
 	copy(state.Text[cpos:], state.Text[next:])
 	state.Text = state.Text[:len(state.Text)-n]
@@ -171,7 +146,7 @@ func (state *MinibufferState) BackwardChar() bool {
 	if state == nil || state.CursorPos == 0 {
 		return false
 	}
-	state.CursorPos = prevUtf8Offset(state.Text, state.CursorPos)
+	state.CursorPos = buffer.PrevOffset(state.Text, state.CursorPos)
 	return true
 }
 
@@ -180,7 +155,7 @@ func (state *MinibufferState) ForwardChar() bool {
 	if state == nil || state.CursorPos >= len(state.Text) {
 		return false
 	}
-	state.CursorPos = nextUtf8Offset(state.Text, state.CursorPos)
+	state.CursorPos = buffer.NextOffset(state.Text, state.CursorPos)
 	return true
 }
 
@@ -213,7 +188,7 @@ func (state *MinibufferState) BackwardWord() bool {
 	}
 	pos := state.CursorPos
 	for pos > 0 {
-		prev := prevUtf8Offset(state.Text, pos)
+		prev := buffer.PrevOffset(state.Text, pos)
 		r, _ := utf8.DecodeRune(state.Text[prev:])
 		if isMinibufWordRune(r) {
 			break
@@ -221,7 +196,7 @@ func (state *MinibufferState) BackwardWord() bool {
 		pos = prev
 	}
 	for pos > 0 {
-		prev := prevUtf8Offset(state.Text, pos)
+		prev := buffer.PrevOffset(state.Text, pos)
 		r, _ := utf8.DecodeRune(state.Text[prev:])
 		if !isMinibufWordRune(r) {
 			break

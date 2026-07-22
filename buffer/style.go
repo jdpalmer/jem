@@ -34,16 +34,19 @@ const (
 	TextStyleReverse   TextStyle = 0x1000
 )
 
+// MakeTextStyle creates a TextStyle with the given foreground color, background color, and flags.
 func MakeTextStyle(fg, bg TermColor, flags TextStyle) TextStyle {
 	return TextStyle((uint16(fg)&TextStyleColorMask)<<TextStyleFgShift |
 		(uint16(bg)&TextStyleColorMask)<<TextStyleBgShift |
 		uint16(flags))
 }
 
+// Fg returns the foreground color of the style.
 func (style TextStyle) Fg() TermColor {
 	return TermColor((uint16(style) >> TextStyleFgShift) & TextStyleColorMask)
 }
 
+// Bg returns the background color of the style.
 func (style TextStyle) Bg() TermColor {
 	return TermColor((uint16(style) >> TextStyleBgShift) & TextStyleColorMask)
 }

@@ -143,6 +143,7 @@ func termFormatStyle(style buffer.TextStyle) []byte {
 	return out
 }
 
+// ClearStyleCache clears the cached style sequences and resets the terminal style.
 func ClearStyleCache() {
 	termStyleCacheMu.Lock()
 	clear(termStyleCache)
@@ -150,6 +151,7 @@ func ClearStyleCache() {
 	termAnsiStyle = 0
 }
 
+// SetStyle writes the ANSI style sequence to the terminal output if the style differs from the current style.
 func SetStyle(style buffer.TextStyle) {
 	if termAnsiStyle == style {
 		return
@@ -158,6 +160,7 @@ func SetStyle(style buffer.TextStyle) {
 	termOut.Write(termFormatStyle(style))
 }
 
+// StyleBytes returns the cached ANSI escape sequence for the given text style.
 func StyleBytes(style buffer.TextStyle) []byte {
 	return termFormatStyle(style)
 }

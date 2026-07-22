@@ -20,6 +20,7 @@ type Line struct {
 	Buffer         *Buffer
 }
 
+// Byte returns the byte at the given index, or 0 if the index is out of range.
 func (line *Line) Byte(n int) byte {
 	if line == nil || n < 0 || n >= len(line.Data) {
 		return 0
@@ -27,6 +28,7 @@ func (line *Line) Byte(n int) byte {
 	return line.Data[n]
 }
 
+// Len returns the number of bytes in the line, or 0 if the line is nil.
 func (line *Line) Len() int {
 	if line == nil {
 		return 0
@@ -63,6 +65,7 @@ func (line *Line) EnsureCache() {
 	line.CacheValid = true
 }
 
+// FirstNonblank returns the byte index of the first non-whitespace character.
 func (line *Line) FirstNonblank() int {
 	if line == nil {
 		return 0
@@ -76,6 +79,7 @@ func (line *Line) FirstNonblank() int {
 	return len(line.Data)
 }
 
+// IndentColumn returns the column position of the first non-whitespace character.
 func (line *Line) IndentColumn() int {
 	if line == nil {
 		return 0
@@ -94,6 +98,7 @@ func (line *Line) IndentColumn() int {
 	return col
 }
 
+// FirstByte returns the first byte of the line, or 0 if the line is nil or empty.
 func (line *Line) FirstByte() byte {
 	if line == nil || len(line.Data) == 0 {
 		return 0
@@ -101,6 +106,7 @@ func (line *Line) FirstByte() byte {
 	return line.Data[0]
 }
 
+// LastByte returns the last byte of the line, or 0 if the line is nil or empty.
 func (line *Line) LastByte() byte {
 	if line == nil || len(line.Data) == 0 {
 		return 0
@@ -108,6 +114,7 @@ func (line *Line) LastByte() byte {
 	return line.Data[len(line.Data)-1]
 }
 
+// IsBlank returns true if the line contains only whitespace or is empty.
 func (line *Line) IsBlank() bool {
 	if line == nil || len(line.Data) == 0 {
 		return true

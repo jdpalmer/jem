@@ -48,10 +48,12 @@ func InitBackgroundJobs() {
 	backgroundJobCancel = nil
 }
 
+// BackgroundJobRunning reports whether a background job is currently active.
 func BackgroundJobRunning() bool {
 	return backgroundJobActive != ""
 }
 
+// RequestBackgroundJobCancel cancels the running background job and returns true.
 func RequestBackgroundJobCancel() bool {
 	if !BackgroundJobRunning() || backgroundJobCancel == nil {
 		return false
@@ -64,6 +66,7 @@ func postJobDone(done BackgroundJobDone) {
 	event.Enqueue(event.JobDoneEvent{Kind: done.Kind, Raw: done})
 }
 
+// StartBackgroundGrep launches a project-wide grep search in the background.
 func StartBackgroundGrep(root, pattern string) bool {
 	if BackgroundJobRunning() {
 		mbWrite("[busy: %s running]", backgroundJobActive)
@@ -88,6 +91,7 @@ func StartBackgroundGrep(root, pattern string) bool {
 	return true
 }
 
+// StartBackgroundCompile runs a shell command in the background and captures output.
 func StartBackgroundCompile(command string) bool {
 	if BackgroundJobRunning() {
 		mbWrite("[busy: %s running]", backgroundJobActive)
@@ -116,6 +120,7 @@ func StartBackgroundCompile(command string) bool {
 	return true
 }
 
+// HandleBackgroundJobDone processes a completed background job and updates the display.
 func HandleBackgroundJobDone(done BackgroundJobDone) {
 	defer func() {
 		backgroundJobActive = backgroundJobNone

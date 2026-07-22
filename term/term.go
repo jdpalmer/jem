@@ -227,6 +227,7 @@ func PingRepaint() {
 	}
 }
 
+// Open initializes the terminal, enters raw mode, and probes for keyboard features.
 func Open() {
 	termFile = os.Stdin
 	termFd = int(os.Stdin.Fd())
@@ -309,6 +310,7 @@ func Resume() {
 	}
 }
 
+// Close restores the terminal to normal mode and exits raw mode.
 func Close() {
 	termEmitLit("\x1b[<u")
 	termEmitLit("\x1b[?2004l")
@@ -333,6 +335,7 @@ func Close() {
 	}
 }
 
+// RefreshSize reads the current TTY size and updates internal dimensions if changed.
 func RefreshSize() bool {
 	cols, rows, err := xterm.GetSize(termFd)
 	if err != nil || rows < 2 || cols < 1 {
@@ -353,19 +356,23 @@ func RefreshSize() bool {
 	return true
 }
 
+// Move moves the cursor to the specified row and column.
 func Move(row, col int) {
 	termEmitCSI(row+1, true, col+1, 'H')
 }
 
+// EraseEol erases from the cursor to the end of the current line.
 func EraseEol() {
 	termEmitLit("\x1b[K")
 }
 
+// EraseEos resets the scroll region and erases from the cursor to the end of the screen.
 func EraseEos() {
 	ResetScrollRegion()
 	termEmitLit("\x1b[J")
 }
 
+// ResetScrollRegion resets the scroll region to cover the full screen.
 func ResetScrollRegion() {
 	if termScrollTop == 0 && termScrollBottom == termRows {
 		return
@@ -373,6 +380,7 @@ func ResetScrollRegion() {
 	SetScrollRegion(0, termRows)
 }
 
+// SetScrollRegion sets the top and bottom rows of the scrollable area.
 func SetScrollRegion(top, bottom int) {
 	if termScrollTop == top && termScrollBottom == bottom {
 		return
@@ -382,6 +390,7 @@ func SetScrollRegion(top, bottom int) {
 	termScrollBottom = bottom
 }
 
+// Write writes raw bytes to the terminal output buffer.
 func Write(bytes []byte) {
 	if len(bytes) == 0 {
 		return
@@ -389,6 +398,7 @@ func Write(bytes []byte) {
 	termOut.Write(bytes)
 }
 
+// ScrollRows scrolls the specified region up (positive rowCount) or down (negative rowCount).
 func ScrollRows(top, bottom int, rowCount int) {
 	absRowCount := rowCount
 	if absRowCount < 0 {
@@ -408,11 +418,13 @@ func ScrollRows(top, bottom int, rowCount int) {
 	}
 }
 
+// Beep emits a terminal bell character.
 func Beep() {
 	termOut.WriteByte(0x07)
 	Flush()
 }
 
+// Flush writes the output buffer to the terminal.
 func Flush() {
 	termOut.Flush()
 	termPlatformAfterFlush()

@@ -5,6 +5,7 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
+// WindowSelect sets the active window and updates its buffer, mode line, and redraw state.
 func WindowSelect(win *Window) {
 	old := Active.CurrentWindow
 	if win == nil {
@@ -19,6 +20,7 @@ func WindowSelect(win *Window) {
 	win.ShouldUpdateModeLine = true
 }
 
+// WindowCreate creates and appends a new window to the active windows list, returning nil if at capacity.
 func WindowCreate() *Window {
 	if len(Active.Windows) >= MaxWindows {
 		return nil
@@ -41,6 +43,7 @@ func WindowCreate() *Window {
 	return win
 }
 
+// SaveState persists the window's cursor and mark positions into the buffer.
 func (win *Window) SaveState() {
 	if win != nil && win.Buffer != nil {
 		win.Buffer.Cursor = win.Cursor
@@ -48,6 +51,7 @@ func (win *Window) SaveState() {
 	}
 }
 
+// WindowRetile redistributes terminal rows among all active windows and marks them for redraw.
 func WindowRetile() {
 	n := len(Active.Windows)
 	if n == 0 {
@@ -78,6 +82,7 @@ func WindowRetile() {
 	}
 }
 
+// CenterCursor scrolls the window so the cursor appears in the middle of the visible area.
 func (win *Window) CenterCursor() {
 	if win == nil {
 		return
@@ -89,6 +94,7 @@ func (win *Window) CenterCursor() {
 	win.SetTopLine(top)
 }
 
+// SetTopLine sets the first visible line of the window and marks it for redraw.
 func (win *Window) SetTopLine(line int) {
 	if win == nil {
 		return
@@ -97,6 +103,7 @@ func (win *Window) SetTopLine(line int) {
 	win.ShouldRedraw = true
 }
 
+// GutterWidth returns the width of the line-number gutter, based on the total number of buffer lines.
 func (win *Window) GutterWidth() int {
 	if win == nil || win.Buffer == nil {
 		return 3
@@ -117,6 +124,7 @@ func (win *Window) GutterWidth() int {
 	return width
 }
 
+// SetCursor updates the window cursor position and marks the window for redraw and as moved.
 func (win *Window) SetCursor(loc buffer.Location) {
 	if win == nil {
 		return

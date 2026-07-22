@@ -29,6 +29,7 @@ func writeMessage(writef func(string, ...any), format string, args ...any) {
 	}
 }
 
+// FileModTime returns the modification time of fname, or zero time on error.
 func FileModTime(fname string) time.Time {
 	if fname == "" {
 		return time.Time{}
@@ -57,6 +58,7 @@ func BufferNameFromPath(fname string) string {
 	}
 }
 
+// LoadCommandLineFiles loads the first path as the active buffer and subsequent paths as additional buffers.
 func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, loadFile func(string) error) {
 	if len(paths) == 0 || loadFile == nil {
 		return
@@ -81,6 +83,7 @@ func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, load
 	}
 }
 
+// LoadCurrentBuffer reads fname into the current buffer, clearing existing contents.
 func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	resolved := NormalizePath(fname)
 	buf := buffer.All.Current
@@ -253,6 +256,7 @@ func SaveCurrentBufferForce(fn string, writef func(string, ...any)) error {
 	return nil
 }
 
+// ReloadCurrentBufferFromDisk reloads fname into the current buffer and restores cursor position.
 func ReloadCurrentBufferFromDisk(fname string, lineNumber int, noteBufferSaved func(*buffer.Buffer), writef func(string, ...any)) error {
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
@@ -344,6 +348,7 @@ func CheckReloadCurrentBuffer(askConfirm func(prompt string, onYes, onNo func())
 	_ = ReloadCurrentBufferFromDisk(fname, lineNumber, noteBufferSaved, writef)
 }
 
+// DetectLangMode returns the language mode inferred from the file extension of fname.
 func DetectLangMode(fname string) buffer.LangMode {
 	ext := strings.ToLower(filepath.Ext(fname))
 	switch ext {

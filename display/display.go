@@ -56,6 +56,7 @@ var phantomTextRune rune
 
 // ---- Init ------------------------------------------------------------------------
 
+// DisplayInit initializes the display and synchronizes the terminal size.
 func DisplayInit() {
 	term.RefreshSize()
 	DisplayInitHeadless(term.Rows(), term.Cols())

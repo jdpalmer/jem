@@ -47,6 +47,7 @@ func newQueryReReplaceSession(buf *buffer.Buffer, pattern, replStr string) *quer
 	}
 }
 
+// Open initializes the session and advances to the next match.
 func (s *queryReplaceSession) Open() (done bool) {
 	transientSet(queryReplaceBindings)
 	minibuffer.Active = &s.mbState
@@ -54,6 +55,7 @@ func (s *queryReplaceSession) Open() (done bool) {
 	return s.advance()
 }
 
+// Close cleans up the session and resets the window mark.
 func (s *queryReplaceSession) Close() {
 	transientClear()
 	minibuffer.Active = nil
@@ -126,6 +128,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 	}
 }
 
+// HandleKey dispatches a keypress to perform a replace action.
 func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 	action := transientLookup(k, replaceActionNone)
 	if action == replaceActionNone {
