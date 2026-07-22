@@ -6,7 +6,7 @@ func InsertPaste(text []byte) bool {
 	if state == nil || len(text) == 0 {
 		return false
 	}
-	if state.Text == nil || state.Nbuf+len(text) >= cap(state.Text) {
+	if state.Text == nil {
 		return false
 	}
 
@@ -17,13 +17,24 @@ func InsertPaste(text []byte) bool {
 		}
 	}
 
+	oldLen := len(state.Text)
 	insertLen := len(paste)
-	if state.Nbuf+insertLen >= cap(state.Text) {
-		insertLen = cap(state.Text) - state.Nbuf
+	if oldLen+insertLen >= state.Nbuf {
+		insertLen = state.Nbuf - oldLen - 1
 	}
-	copy(state.Text[state.CursorPos:], paste[:insertLen])
-	state.Nbuf += insertLen
-	state.CursorPos += insertLen
+	if insertLen <= 0 {
+		return false
+	}
+
+	cpos := state.CursorPos
+	if cpos > oldLen {
+		cpos = oldLen
+	}
+
+	state.Text = state.Text[:oldLen+insertLen]
+	copy(state.Text[cpos+insertLen:], state.Text[cpos:oldLen])
+	copy(state.Text[cpos:], paste[:insertLen])
+	state.CursorPos = cpos + insertLen
 	state.HaveSavedEdit = false
 	return true
 }

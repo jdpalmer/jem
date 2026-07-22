@@ -173,19 +173,28 @@ func (s *isearchSession) commitPattern(plen int) {
 func (s *isearchSession) handleRepeat(plen int) {
 	if plen == 0 {
 		if s.regex {
-			if currentState().RegexSearchPattern != "" {
-				copy(s.pat[:], currentState().RegexSearchPattern)
-				s.pat[len(currentState().RegexSearchPattern)] = 0
-				s.cpos = len(currentState().RegexSearchPattern)
-				plen = s.cpos
+			patStr := currentState().RegexSearchPattern
+			if patStr != "" {
+				n := len(patStr)
+				if n >= len(s.pat) {
+					n = len(s.pat) - 1
+				}
+				copy(s.pat[:], patStr[:n])
+				s.pat[n] = 0
+				s.cpos = n
+				plen = n
 			}
 		} else {
 			old := searchPatternBytes()
 			if len(old) > 0 {
-				copy(s.pat[:], old)
-				s.pat[len(old)] = 0
-				s.cpos = len(old)
-				plen = len(old)
+				n := len(old)
+				if n >= len(s.pat) {
+					n = len(s.pat) - 1
+				}
+				copy(s.pat[:], old[:n])
+				s.pat[n] = 0
+				s.cpos = n
+				plen = n
 			}
 		}
 	}
