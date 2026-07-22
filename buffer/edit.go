@@ -272,6 +272,8 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 	}
 
 	// compute required size
+	n += lastReal - begin.Line
+
 	// tail of start line
 	if begin.Line <= len(buf.Lines) {
 		sl := buf.Line(begin.Line)
@@ -287,7 +289,7 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 		for ln := begin.Line + 1; ln < lastReal; ln++ {
 			line := buf.Line(ln)
 			if line != nil {
-				n += line.Len() + 1 // plus '\n'
+				n += line.Len()
 			}
 		}
 		// final segment
