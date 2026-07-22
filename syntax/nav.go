@@ -143,6 +143,9 @@ func syntaxFindMatchingDelimiter(buf *buffer.Buffer, start buffer.Location, matc
 	if buf == nil || start.Line == 0 || start.Line >= buf.EOF() {
 		return false
 	}
+	var dummy buffer.SynState
+	bufferSyntaxFindStart(buf, len(buf.Lines), &dummy)
+
 	line := buf.Line(start.Line)
 	if line == nil || start.Offset >= line.Len() {
 		return false
