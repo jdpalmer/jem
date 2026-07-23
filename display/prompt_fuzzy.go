@@ -102,55 +102,10 @@ func (p *FuzzyPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer
 			p.sel = (p.sel + 1) % len(p.matches)
 		}
 
-	case k == (term.CTL|'A') || k == term.KeyHome:
-		if !p.state.GotoBol() {
-			term.Beep()
-		}
-	case k == (term.CTL|'E') || k == term.KeyEnd:
-		if !p.state.GotoEol() {
-			term.Beep()
-		}
-	case k == (term.CTL|'B') || k == term.KeyLeft:
-		if !p.state.BackwardChar() {
-			term.Beep()
-		}
-	case k == (term.CTL|'F') || k == term.KeyRight:
-		if !p.state.ForwardChar() {
-			term.Beep()
-		}
-	case k == (term.META|'B') || k == (term.SHIFT|term.KeyLeft):
-		if !p.state.BackwardWord() {
-			term.Beep()
-		}
-	case k == (term.META|'F') || k == (term.SHIFT|term.KeyRight):
-		if !p.state.ForwardWord() {
-			term.Beep()
-		}
-
-	case k == 0x7F || k == (term.CTL|'H'):
-		changed = p.state.DeleteBackward()
-		if !changed {
-			term.Beep()
-		}
-	case k == (term.CTL | 'D'):
-		changed = p.state.DeleteForward()
-		if !changed {
-			term.Beep()
-		}
-	case k == (term.CTL | 'U'):
-		changed = p.state.ClearText()
-		if !changed {
-			term.Beep()
-		}
-
 	default:
-		if k < term.UnicodeLimit && k >= 0x20 && (k&term.KeyMask) == 0 {
-			if p.state.InsertChar(rune(k)) {
-				changed = true
-			} else {
-				term.Beep()
-			}
-		} else {
+		var handled bool
+		handled, changed = promptLineEditKey(&p.state, k)
+		if !handled {
 			term.Beep()
 		}
 	}

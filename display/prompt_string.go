@@ -72,67 +72,11 @@ func (p *StringPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffe
 		if !p.state.StepHistory(1) {
 			term.Beep()
 		}
-	case k == (term.CTL|'A') || k == term.KeyHome:
-		if !p.state.GotoBol() {
-			term.Beep()
-		}
-	case k == (term.CTL|'E') || k == term.KeyEnd:
-		if !p.state.GotoEol() {
-			term.Beep()
-		}
-	case k == (term.CTL|'B') || k == term.KeyLeft:
-		if !p.state.BackwardChar() {
-			term.Beep()
-		}
-	case k == (term.CTL|'F') || k == term.KeyRight:
-		if !p.state.ForwardChar() {
-			term.Beep()
-		}
-	case k == (term.META|'B') || k == (term.SHIFT|term.KeyLeft):
-		if !p.state.BackwardWord() {
-			term.Beep()
-		}
-	case k == (term.META|'F') || k == (term.SHIFT|term.KeyRight):
-		if !p.state.ForwardWord() {
-			term.Beep()
-		}
-	case k == 0x7F || k == (term.CTL|'H'):
-		if !p.state.DeleteBackward() {
-			term.Beep()
-		}
-	case k == (term.CTL|'D') || k == term.KeyDelete:
-		if !p.state.DeleteForward() {
-			term.Beep()
-		}
-	case k == (term.CTL | 'U'):
-		if !p.state.ClearText() {
-			term.Beep()
-		}
-	case k == (term.CTL | 'K'):
-		if !p.state.Kill() {
-			term.Beep()
-		}
-	case k == (term.CTL | 'Y'):
-		if !p.state.Yank() {
-			term.Beep()
-		}
-	case k == (term.META | 'D'):
-		if !p.state.DeleteWordForward() {
-			term.Beep()
-		}
-	case k == (term.META|'H') || k == (term.META|0x7F):
-		if !p.state.DeleteWordBackward() {
-			term.Beep()
-		}
 	default:
 		if k&0x20000000 != 0 {
 			return false, "", 0
 		}
-		if k < term.UnicodeLimit && k >= 0x20 && (k&term.KeyMask) == 0 {
-			if !p.state.InsertChar(rune(k)) {
-				term.Beep()
-			}
-		} else {
+		if handled, _ := promptLineEditKey(&p.state, k); !handled {
 			term.Beep()
 		}
 	}
