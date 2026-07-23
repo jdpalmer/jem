@@ -141,17 +141,16 @@ func renderModeline(win *window.Window) {
 	if markerCol < padEnd && (markerCol < swCursorCol || markerCol < gutterW) {
 		markerCol = -1
 	}
-	for swCursorCol < padEnd {
-		if swCursorCol == markerCol {
-			screenPutc('^')
-		} else {
-			screenPutc(' ')
-		}
-	}
+	padModelineTo(padEnd, markerCol)
 	if showHint {
 		screenPutBytes([]byte(modelineHint))
 	}
-	for swCursorCol < term.Cols() {
+	padModelineTo(term.Cols(), markerCol)
+}
+
+// padModelineTo fills from swCursorCol to endCol with spaces, placing '^' at markerCol.
+func padModelineTo(endCol, markerCol int) {
+	for swCursorCol < endCol {
 		if swCursorCol == markerCol {
 			screenPutc('^')
 		} else {

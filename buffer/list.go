@@ -38,17 +38,20 @@ func Create() *Buffer {
 	return buf
 }
 
+// indexOf returns the index of buf in All.Buffers, or -1 if absent.
+func indexOf(buf *Buffer) int {
+	for i, b := range All.Buffers {
+		if b == buf {
+			return i
+		}
+	}
+	return -1
+}
+
 // Release removes buf from All and retargets dependents via hooks.
 // The buffer is left for the garbage collector once no longer referenced.
 func Release(buf *Buffer) {
-	idx := -1
-	for i, b := range All.Buffers {
-		if b == buf {
-			idx = i
-			break
-		}
-	}
-	if idx != -1 {
+	if idx := indexOf(buf); idx != -1 {
 		copy(All.Buffers[idx:], All.Buffers[idx+1:])
 		All.Buffers[len(All.Buffers)-1] = nil
 		All.Buffers = All.Buffers[:len(All.Buffers)-1]
@@ -74,14 +77,7 @@ func Release(buf *Buffer) {
 
 // SetCurrent makes buf the current buffer and moves it to the front of All.Buffers.
 func SetCurrent(buf *Buffer) {
-	index := -1
-	for i, b := range All.Buffers {
-		if b == buf {
-			index = i
-			break
-		}
-	}
-	if index != -1 {
+	if index := indexOf(buf); index != -1 {
 		for i := index; i > 0; i-- {
 			All.Buffers[i] = All.Buffers[i-1]
 		}
