@@ -155,7 +155,6 @@ func CmdBackwardChar(f bool, n int) bool {
 }
 
 // CmdForwardWord moves forward by words (ASCII words: letters, digits, underscore)
-// CmdForwardWord moves forward by words (ASCII words: letters, digits, underscore)
 func CmdForwardWord(f bool, n int) bool {
 	_ = f
 	win := window.Active.CurrentWindow
@@ -168,7 +167,6 @@ func CmdForwardWord(f bool, n int) bool {
 }
 
 // CmdBackwardWord moves backward by words
-// CmdBackwardWord moves backward by words
 func CmdBackwardWord(f bool, n int) bool {
 	_ = f
 	win := window.Active.CurrentWindow
@@ -180,7 +178,6 @@ func CmdBackwardWord(f bool, n int) bool {
 	return true
 }
 
-// delete forward word
 // Page-wise movement
 func CmdForwardPage(f bool, n int) bool {
 	win := window.Active.CurrentWindow
@@ -297,7 +294,6 @@ func CmdBackToIndentation(f bool, n int) bool {
 	return true
 }
 
-// CmdGotoLine jumps to a specific line number.
 // CmdGotoLine jumps to a specific line number.
 func CmdGotoLine(f bool, n int) bool {
 	buf := buffer.All.Current

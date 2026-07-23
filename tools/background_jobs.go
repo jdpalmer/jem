@@ -3,11 +3,12 @@ package tools
 import (
 	"context"
 	"errors"
-	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/window"
 )
 
 const (
@@ -69,13 +70,13 @@ func postJobDone(done BackgroundJobDone) {
 // StartBackgroundGrep launches a project-wide grep search in the background.
 func StartBackgroundGrep(root, pattern string) bool {
 	if BackgroundJobRunning() {
-		mbWrite("[busy: %s running]", backgroundJobActive)
+		display.MBWrite("[busy: %s running]", backgroundJobActive)
 		return false
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	backgroundJobCancel = cancel
 	backgroundJobActive = backgroundJobGrep
-	mbWrite("[Searching...] (C-g to cancel)")
+	display.MBWrite("[Searching...] (C-g to cancel)")
 
 	go func() {
 		result := grepProjectSearch(ctx, root, pattern)
@@ -94,13 +95,13 @@ func StartBackgroundGrep(root, pattern string) bool {
 // StartBackgroundCompile runs a shell command in the background and captures output.
 func StartBackgroundCompile(command string) bool {
 	if BackgroundJobRunning() {
-		mbWrite("[busy: %s running]", backgroundJobActive)
+		display.MBWrite("[busy: %s running]", backgroundJobActive)
 		return false
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	backgroundJobCancel = cancel
 	backgroundJobActive = backgroundJobCompile
-	mbWrite("[Compiling...] (C-g to cancel)")
+	display.MBWrite("[Compiling...] (C-g to cancel)")
 
 	go func() {
 		stdout, stderr, exitCode, ran, outTrunc, errTrunc := procRunShellContext(ctx, command, compileOutCapacity, compileErrCapacity)
@@ -138,17 +139,17 @@ func HandleBackgroundJobDone(done BackgroundJobDone) {
 
 func handleBackgroundJobGrep(done BackgroundJobDone) {
 	if done.Cancelled {
-		mbWrite("[grep cancelled]")
+		display.MBWrite("[grep cancelled]")
 		return
 	}
 	if done.GrepResult.err != nil {
-		mbWrite("[grep error: %s]", done.GrepResult.err.Error())
+		display.MBWrite("[grep error: %s]", done.GrepResult.err.Error())
 		return
 	}
 
 	grepBuf := grepEnsureBuffer()
 	if grepBuf == nil {
-		mbWrite("[cannot create grep buffer]")
+		display.MBWrite("[cannot create grep buffer]")
 		return
 	}
 
@@ -157,12 +158,12 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 	matchCount, ok := grepFillBuffer(grepBuf, done.GrepRoot, done.GrepResult.matches, done.GrepPattern, done.GrepResult.truncated)
 	if !ok {
 		grepBuf.IsReadonly = wasReadonly
-		mbWrite("[grep failed]")
+		display.MBWrite("[grep failed]")
 		return
 	}
 	grepBuf.IsReadonly = true
 
-	markPushCurrent()
+	markring.PushCurrent()
 	editorSwitchBuffer(grepBuf)
 	if win := window.Active.CurrentWindow; win != nil {
 		win.SetTopLine(1)
@@ -174,25 +175,25 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 	}
 
 	if matchCount == 1 {
-		mbWrite("[1 match]")
+		display.MBWrite("[1 match]")
 	} else {
-		mbWrite("[%d matches]", matchCount)
+		display.MBWrite("[%d matches]", matchCount)
 	}
 }
 
 func handleBackgroundJobCompile(done BackgroundJobDone) {
 	if done.Cancelled {
-		mbWrite("[compile cancelled]")
+		display.MBWrite("[compile cancelled]")
 		return
 	}
 	if !done.CompileRan {
-		mbWrite("[compile failed to start]")
+		display.MBWrite("[compile failed to start]")
 		return
 	}
 
 	compileBuf := compileEnsureBuffer()
 	if compileBuf == nil {
-		mbWrite("[cannot create compile buffer]")
+		display.MBWrite("[cannot create compile buffer]")
 		return
 	}
 
@@ -202,12 +203,12 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 		done.CompileExit, done.CompileOutTrunc, done.CompileErrTrunc)
 	if !ok {
 		compileBuf.IsReadonly = wasReadonly
-		mbWrite("[compile failed]")
+		display.MBWrite("[compile failed]")
 		return
 	}
 	compileBuf.IsReadonly = true
 
-	markPushCurrent()
+	markring.PushCurrent()
 	editorSwitchBuffer(compileBuf)
 	if win := window.Active.CurrentWindow; win != nil {
 		win.SetTopLine(1)
@@ -219,9 +220,9 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 	}
 
 	if done.CompileExit == 0 {
-		mbWrite("[compile ok: %d diagnostics]", counts.diag)
+		display.MBWrite("[compile ok: %d diagnostics]", counts.diag)
 	} else {
-		mbWrite("[compile exit %d: %d diagnostics, %d errors, %d warnings]",
+		display.MBWrite("[compile exit %d: %d diagnostics, %d errors, %d warnings]",
 			done.CompileExit, counts.diag, counts.errors, counts.warnings)
 	}
 }

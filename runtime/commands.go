@@ -125,22 +125,17 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}
-		for i := 0; i < len(buffer.All.Buffers); i++ {
-			buf := buffer.All.Buffers[i]
-			if buf == nil {
-				continue
-			}
-			if strings.EqualFold(buf.Name, label) {
-				AskYesNo("Kill buffer?", func() {
-					buffer.Release(buf)
-					display.MBWrite("[buffer killed]")
-				}, func() {
-					display.MBWrite("[aborted]")
-				})
-				return
-			}
+		buf := findBufferByLabel(label)
+		if buf == nil {
+			display.MBWrite("[buffer not found: %s]", label)
+			return
 		}
-		display.MBWrite("[buffer not found: %s]", label)
+		AskYesNo("Kill buffer?", func() {
+			buffer.Release(buf)
+			display.MBWrite("[buffer killed]")
+		}, func() {
+			display.MBWrite("[aborted]")
+		})
 	})
 	return true
 }

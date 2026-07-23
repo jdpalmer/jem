@@ -1,44 +1,28 @@
 package minibuffer
 
-import "github.com/jdpalmer/jem/buffer"
-
 type PromptResult int
 
 const (
-	PromptResultNo    PromptResult = 0
-	PromptResultYes   PromptResult = 1
-	PromptResultAbort PromptResult = 2
+	PromptResultNo PromptResult = iota
+	PromptResultYes
+	PromptResultAbort
 )
 
 type MinibufferEditResult int
 
 const (
-	MinibufEditUnhandled MinibufferEditResult = 0
-	MinibufEditNoChange  MinibufferEditResult = 1
-	MinibufEditChanged   MinibufferEditResult = 2
+	MinibufEditUnhandled MinibufferEditResult = iota
+	MinibufEditNoChange
+	MinibufEditChanged
 )
 
 type MinibufferState struct {
-	Prompt           string
-	Text             []byte
-	CursorPos        int
-	Nbuf             int
-	Style            buffer.TextStyle
-	HistoryPos       int
-	HaveSavedEdit    bool
-	SavedEdit        []byte
-	SavedEditNbuf    int
-	IsFilename       bool
-	IsCommand        bool
-	IsFuzzyList      bool
-	FuzzyCtx         any
-	FuzzyProvider    func(ctx any, index int) []byte
-	FuzzyCount       int
-	FuzzySelected    int
-	DisplayFormatter func(out []byte, outSize int, idx int, ctx any)
-	DisplayCtx       any
-	MatchCount       int
-	MatchSelected    int
+	Text          []byte
+	CursorPos     int
+	Nbuf          int
+	HistoryPos    int
+	HaveSavedEdit bool
+	SavedEdit     []byte
 }
 
 type MLChoiceLabelFn func(ctx any, index int) []byte

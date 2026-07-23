@@ -1,6 +1,9 @@
 package buffer
 
-import "math"
+import (
+	"bytes"
+	"math"
+)
 
 // ---- Buffer text operations ---------------------------------------------------
 
@@ -177,17 +180,15 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 		resultFirstLine = begin.Line
 	}
 
-	callAdjustLocations(buf, begin, normEnd, newEnd)
+	if PackageHooks.AdjustLocationsAfterReplace != nil {
+		PackageHooks.AdjustLocationsAfterReplace(buf, begin, normEnd, newEnd)
+	}
 	buf.InvalidateSyntaxFrom(resultFirstLine)
-	callReparseFrom(buf, resultFirstLine)
+	if PackageHooks.ReparseFrom != nil {
+		PackageHooks.ReparseFrom(buf, resultFirstLine)
+	}
 
 	return nil
-}
-
-func callReparseFrom(buf *Buffer, lineNumber int) {
-	if PackageHooks.ReparseFrom != nil {
-		PackageHooks.ReparseFrom(buf, lineNumber)
-	}
 }
 
 // InvalidateSyntaxFrom clears syntax validity from lineNumber through end of buffer.
@@ -205,21 +206,11 @@ func (buf *Buffer) InvalidateSyntaxFrom(lineNumber int) {
 
 // NoteEdit marks the buffer changed and notifies PackageHooks when installed.
 func (buf *Buffer) NoteEdit(isStructural bool) {
-	callNoteEdit(buf, isStructural)
-}
-
-func callNoteEdit(buf *Buffer, isStructural bool) {
 	// Hooks run before IsChanged so NoteEdit can detect first-change.
 	if PackageHooks.NoteEdit != nil {
 		PackageHooks.NoteEdit(buf, isStructural)
 	}
 	buf.IsChanged = true
-}
-
-func callAdjustLocations(buf *Buffer, begin, end, newEnd Location) {
-	if PackageHooks.AdjustLocationsAfterReplace != nil {
-		PackageHooks.AdjustLocationsAfterReplace(buf, begin, end, newEnd)
-	}
 }
 
 // GetText returns the text content between the two given locations in the buffer.
@@ -371,15 +362,8 @@ func (buf *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byt
 		oldText := buf.GetText(begin, end)
 		undo.RecordEdit(buf, undo.Pending.Before, begin, oldText, newText)
 	}
-	hasNewline := false
-	for i := 0; i < len(newText); i++ {
-		if newText[i] == '\n' {
-			hasNewline = true
-			break
-		}
-	}
-	isStructural := begin.Line != end.Line || hasNewline
-	callNoteEdit(buf, isStructural)
+	isStructural := begin.Line != end.Line || bytes.IndexByte(newText, '\n') >= 0
+	buf.NoteEdit(isStructural)
 	return buf.ReplaceRaw(begin, end, newText, newEndOut)
 }
 
@@ -389,12 +373,6 @@ func (buf *Buffer) AppendLineBytes(text []byte) *Line {
 	if text != nil {
 		data = append([]byte(nil), text...)
 	}
-	newLine := Line{
-		Data:        data,
-		SyntaxValid: false,
-		LangMode:    buf.LangMode,
-		Buffer:      buf,
-	}
-	buf.Lines = append(buf.Lines, newLine)
+	buf.Lines = append(buf.Lines, makeBufferLine(buf, data))
 	return &buf.Lines[len(buf.Lines)-1]
 }

@@ -164,20 +164,11 @@ func screenPutRaw(c rune) {
 		return
 	}
 
-	var w int
-	if c >= 0x80 {
-		w = runewidth.RuneWidth(c)
-	} else {
-		w = 1
-	}
+	w := runewidth.RuneWidth(c)
 
 	if swCursorCol < clipLeftCol {
 		// Before visible content area: advance counter but don't write
-		if w == 2 {
-			swCursorCol += 2
-		} else {
-			swCursorCol++
-		}
+		swCursorCol += w
 		return
 	}
 
@@ -222,7 +213,7 @@ func screenPutGlyph(c rune) {
 		// Always emit at least one space, then continue until aligned to an
 		// 8-column boundary from tabOriginCol.
 		for {
-			screenPutGlyph(' ')
+			screenPutRaw(' ')
 			if (swCursorCol-tabOriginCol)&0x07 == 0 {
 				break
 			}
@@ -270,9 +261,6 @@ func screenPutBytes(s []byte) {
 	}
 }
 
-// screenPutc is an alias for screenPutRaw.
-func screenPutc(c rune) { screenPutRaw(c) }
-
 // screenEraseEol fills from sw cursor to end of row with spaces at drawStyle.
 func screenEraseEol() {
 	if swCursorRow < 0 || swCursorRow >= len(backScreen.Rows) {
@@ -319,7 +307,7 @@ func displayPutBytesStyle(s []byte, style buffer.TextStyle) {
 func displayPutGlyphStyle(c rune, style buffer.TextStyle) {
 	saved := drawStyle
 	drawStyle = style
-	screenPutc(c)
+	screenPutRaw(c)
 	drawStyle = saved
 }
 

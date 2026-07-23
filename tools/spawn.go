@@ -25,13 +25,16 @@ func spawnPrintNotice(label, command string) {
 	fmt.Fprint(os.Stdout, "\n[jem] Terminal handed to shell. Exit shell to return to jem.\n\n")
 }
 
+func spawnComspec() string {
+	if shell := os.Getenv("COMSPEC"); shell != "" {
+		return shell
+	}
+	return "cmd.exe"
+}
+
 func spawnShellCommand() *exec.Cmd {
 	if runtime.GOOS == "windows" {
-		shell := os.Getenv("COMSPEC")
-		if shell == "" {
-			shell = "cmd.exe"
-		}
-		return exec.Command(shell)
+		return exec.Command(spawnComspec())
 	}
 	shell := os.Getenv("SHELL")
 	if shell == "" {
@@ -42,28 +45,24 @@ func spawnShellCommand() *exec.Cmd {
 
 func spawnRunCommand(line string) *exec.Cmd {
 	if runtime.GOOS == "windows" {
-		shell := os.Getenv("COMSPEC")
-		if shell == "" {
-			shell = "cmd.exe"
-		}
-		return exec.Command(shell, "/C", line)
+		return exec.Command(spawnComspec(), "/C", line)
 	}
 	return exec.Command("/bin/sh", "-c", line)
 }
 
-func SpawnShell(command *string) int {
+func SpawnShell(command string) int {
 	var cmd *exec.Cmd
-	if command == nil || *command == "" {
+	if command == "" {
 		cmd = spawnShellCommand()
 	} else {
-		cmd = spawnRunCommand(*command)
+		cmd = spawnRunCommand(command)
 	}
 
-	if !TermFreezeInput() {
-		mbWrite("[spawn unavailable: input reader did not pause]")
+	if !display.TermFreezeInput() {
+		display.MBWrite("[spawn unavailable: input reader did not pause]")
 		return -1
 	}
-	defer TermThawInput()
+	defer display.TermThawInput()
 
 	term.DrainInput()
 
@@ -77,10 +76,10 @@ func SpawnShell(command *string) int {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if command == nil || *command == "" {
+	if command == "" {
 		spawnPrintNotice("Launching interactive shell", "")
 	} else {
-		spawnPrintNotice("Running shell command", *command)
+		spawnPrintNotice("Running shell command", command)
 	}
 
 	err := spawnRunForeground(cmd)
@@ -106,8 +105,8 @@ func SpawnShell(command *string) int {
 		term.Open()
 	}
 
-	if command != nil && *command != "" {
-		mbWrite("[End]")
+	if command != "" {
+		display.MBWrite("[End]")
 		term.Flush()
 		if hadTTY {
 			for {
@@ -123,7 +122,7 @@ func SpawnShell(command *string) int {
 				}
 			}
 		}
-		mbClear()
+		display.MBClear()
 	}
 
 	for i := 0; i < len(window.Active.Windows); i++ {
@@ -132,17 +131,17 @@ func SpawnShell(command *string) int {
 			win.ShouldUpdateModeLine = true
 		}
 	}
-	windowRetile()
+	window.WindowRetile()
 	return exitCode
 }
 
 // RunSpawnCLI hands the terminal to an interactive shell (M-!).
 func RunSpawnCLI() bool {
-	rc := SpawnShell(nil)
+	rc := SpawnShell("")
 	if rc == 0 {
-		mbWrite("[shell exited]")
+		display.MBWrite("[shell exited]")
 	} else {
-		mbWrite("[shell exit %d]", rc)
+		display.MBWrite("[shell exit %d]", rc)
 	}
 	return rc != -1
 }
@@ -166,16 +165,15 @@ func runSpawnAfterPrompt(command string, pr minibuffer.PromptResult) bool {
 		return false
 	}
 	if command == "" {
-		mbWrite("[empty command]")
+		display.MBWrite("[empty command]")
 		return false
 	}
-	mbHistoryAdd(command)
+	display.MBHistoryAdd(command)
 
 	if runtime.GOOS != "windows" {
 		fmt.Fprint(os.Stdout, "\n")
 	}
 
-	rc := SpawnShell(&command)
-	display.Active.ScreenDirty = true
+	rc := SpawnShell(command)
 	return rc != -1
 }

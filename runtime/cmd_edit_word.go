@@ -1,16 +1,16 @@
 package runtime
 
 import (
-	"github.com/jdpalmer/jem/window"
+	"bytes"
 	"strings"
 	"unicode"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 // cmd_edit_word.go — word edits and character insert/delete
 
-// delete forward word
 func CmdDeleteWordForward(f bool, n int) bool {
 	_ = f
 	if n <= 0 {
@@ -36,8 +36,6 @@ func CmdDeleteWordForward(f bool, n int) bool {
 	return true
 }
 
-// delete backward word
-// delete backward word
 func CmdDeleteWordBackward(f bool, n int) bool {
 	_ = f
 	if n <= 0 {
@@ -63,8 +61,6 @@ func CmdDeleteWordBackward(f bool, n int) bool {
 	return true
 }
 
-// helper: find start of next word from loc (skip non-word then return start)
-// helper: find start of next word from loc (skip non-word then return start)
 func nextWordStart(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 	if loc.Line == 0 {
 		return loc
@@ -90,8 +86,6 @@ func nextWordStart(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
 	return buffer.Location{Line: len(buf.Lines), Offset: 0}
 }
 
-// Case transformations on a word at point
-// Case transformations on a word at point
 func CmdLowerWord(f bool, n int) bool {
 	_ = f
 	if n <= 0 {
@@ -110,7 +104,7 @@ func CmdLowerWord(f bool, n int) bool {
 	if length == 0 || text == nil {
 		return false
 	}
-	newText := []byte(strings.ToLower(string(text)))
+	newText := bytes.ToLower(text)
 	BeginCommand()
 	defer EndCommand()
 	var newEnd buffer.Location
@@ -139,7 +133,7 @@ func CmdUpperWord(f bool, n int) bool {
 	if length == 0 || text == nil {
 		return false
 	}
-	newText := []byte(strings.ToUpper(string(text)))
+	newText := bytes.ToUpper(text)
 	BeginCommand()
 	defer EndCommand()
 	var newEnd buffer.Location
@@ -187,8 +181,6 @@ func CmdCapWord(f bool, n int) bool {
 	return ok
 }
 
-// Transpose adjacent words around point: left word and next word
-// Transpose adjacent words around point: left word and next word
 func CmdTransposeWords(f bool, n int) bool {
 	_ = f
 	if n <= 0 {
@@ -231,8 +223,6 @@ func CmdTransposeWords(f bool, n int) bool {
 	return true
 }
 
-// Fill paragraph at point to buffer.FillCol or 72
-// Fill paragraph at point to buffer.FillCol or 72
 func CmdFillParagraph(f bool, n int) bool {
 	_ = f
 	_ = n
@@ -312,7 +302,6 @@ func CmdFillParagraph(f bool, n int) bool {
 	return ok
 }
 
-// Page-wise movement
 func CmdDeleteBackward(f bool, n int) bool {
 	if n < 0 {
 		return CmdDeleteForward(f, -n)
@@ -387,5 +376,3 @@ func CmdInsertChar(c byte) bool {
 	}
 	return false
 }
-
-// commandsProvider returns the command name label for the given index. ctx is a []string.

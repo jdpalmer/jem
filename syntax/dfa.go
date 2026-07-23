@@ -11,7 +11,7 @@ import (
 //   - Each state: on_enter (every iteration before transition), optional on_exit
 //   - on_enter is called BEFORE the transition for every character
 //   - STATE_REPROCESS: decrement i so the same char is re-entered next iteration
-//   - Delimiter painting: pending_char / reenterState pattern
+//   - Delimiter painting: paintDelimiter on structural chars in Normal
 
 // ------------------------------------------------------------------
 // 1. DFA State Constants
@@ -81,55 +81,7 @@ func parenStyle(baseColor buffer.TermColor, depth int) buffer.TextStyle {
 }
 
 // ------------------------------------------------------------------
-// 3. State Hooks (testable overrides for on_enter / on_exit)
-// ------------------------------------------------------------------
-
-// StateHook is a user-provided hook called instead of the built-in on_enter/on_exit.
-type StateHook func(line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int)
-
-var onEnterHooks [ssStateCount]StateHook
-var onExitHooks [ssStateCount]StateHook
-
-// reenterActive guards reenterState against infinite recursion.
-var reenterActive bool
-
-// reenterState re-invokes on_exit then on_enter for the current DFA state.
-// Typically called from a transition when a delimiter needs to be painted via
-// the pending_char mechanism.
-func reenterState(line *buffer.Line, syn *buffer.SynState, i *int, tokenStart int, pendingChar int, styles []buffer.TextStyle, summary *buffer.SyntaxLineSummary) {
-	cur := int(syn.DFA)
-	if cur < 0 || cur >= ssStateCount {
-		return
-	}
-	// Guard: if already inside reenterState, skip hooks and paint directly.
-	if reenterActive {
-		if pendingChar != 0 {
-			paintDelimiter(syn, pendingChar, tokenStart, styles, summary)
-		}
-		return
-	}
-	reenterActive = true
-	defer func() { reenterActive = false }()
-	lm := line.LangMode
-	if lm == buffer.LModeNone && line.Buffer != nil {
-		lm = line.Buffer.LangMode
-	}
-	// on_exit
-	if onExitHooks[cur] != nil {
-		onExitHooks[cur](line, syn, i, &tokenStart, summary, styles, pendingChar)
-	} else {
-		doBuiltinOnExit(cur, line, syn, i, &tokenStart, summary, styles, pendingChar, lm)
-	}
-	// on_enter
-	if onEnterHooks[cur] != nil {
-		onEnterHooks[cur](line, syn, i, &tokenStart, summary, styles, pendingChar)
-	} else {
-		doBuiltinOnEnter(cur, line, syn, i, &tokenStart, summary, styles, pendingChar, lm)
-	}
-}
-
-// ------------------------------------------------------------------
-// 4. Delimiter / Rainbow Paren Helpers
+// 3. Delimiter / Rainbow Paren Helpers
 // ------------------------------------------------------------------
 
 type delimSpec struct {
@@ -319,16 +271,12 @@ func isIdentCont(c int, flags uint32) bool {
 // 8. Built-in On-Enter / On-Exit Logic
 // ------------------------------------------------------------------
 
-// doBuiltinOnEnter is the default (non-override) on_enter handler.
-func doBuiltinOnEnter(state int, line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int, lm buffer.LangMode) {
+// doBuiltinOnEnter is the on_enter handler for each DFA state.
+func doBuiltinOnEnter(state int, line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, lm buffer.LangMode) {
 	n := len(styles)
 	idx := *i
 	switch state {
 	case SynStateNormal:
-		if pendingChar != 0 {
-			paintDelimiter(syn, pendingChar, *tokenStart, styles, summary)
-			return
-		}
 		c := lineGetcR(line, idx)
 		if c != ' ' && c != '\t' {
 			noteSummaryCode(summary, idx)
@@ -421,8 +369,8 @@ func paintIdentRange(line *buffer.Line, start, end int, lm buffer.LangMode, styl
 	fillPaint(styles, len(styles), start, end, a)
 }
 
-// doBuiltinOnExit is the default (non-override) on_exit handler.
-func doBuiltinOnExit(state int, line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, pendingChar int, lm buffer.LangMode) {
+// doBuiltinOnExit is the on_exit handler for each DFA state.
+func doBuiltinOnExit(state int, line *buffer.Line, syn *buffer.SynState, i *int, tokenStart *int, summary *buffer.SyntaxLineSummary, styles []buffer.TextStyle, lm buffer.LangMode) {
 	switch state {
 	case SynStateIdent:
 		paintIdentRange(line, *tokenStart, *i, lm, styles)
@@ -652,25 +600,6 @@ func tokenizeLineFromStateLimit(line *buffer.Line, start buffer.SynState, scanLi
 
 	flags := info.Flags
 	tokenStart := 0
-	pendingChar := 0
-
-	// callEnter dispatches on_enter for state, honoring hook overrides.
-	callEnter := func(state int, i *int) {
-		if state >= 0 && state < ssStateCount && onEnterHooks[state] != nil {
-			onEnterHooks[state](line, &syn, i, &tokenStart, &summary, styles, pendingChar)
-		} else {
-			doBuiltinOnEnter(state, line, &syn, i, &tokenStart, &summary, styles, pendingChar, lm)
-		}
-	}
-
-	// callExit dispatches on_exit for state, honoring hook overrides.
-	callExit := func(state int, i *int) {
-		if state >= 0 && state < ssStateCount && onExitHooks[state] != nil {
-			onExitHooks[state](line, &syn, i, &tokenStart, &summary, styles, pendingChar)
-		} else {
-			doBuiltinOnExit(state, line, &syn, i, &tokenStart, &summary, styles, pendingChar, lm)
-		}
-	}
 
 	for i := 0; i < loopEnd; {
 		cur := int(syn.DFA)
@@ -681,7 +610,7 @@ func tokenizeLineFromStateLimit(line *buffer.Line, start buffer.SynState, scanLi
 		lookahead := getc(i + 1)
 
 		// on_enter for current state (called every iteration before transition)
-		callEnter(cur, &i)
+		doBuiltinOnEnter(cur, line, &syn, &i, &tokenStart, &summary, styles, lm)
 
 		// Transition: updates syn.DFA; returns reprocess flag
 		reprocess := false
@@ -801,10 +730,7 @@ func tokenizeLineFromStateLimit(line *buffer.Line, start buffer.SynState, scanLi
 				(c == '{' && flags&ModeFlagNoCurlyRainbow == 0) ||
 				(c == '}' && flags&ModeFlagNoCurlyRainbow == 0) {
 				if delimiterIndex(c) >= 0 {
-					pendingChar = c
-					tokenStart = i
-					reenterState(line, &syn, &i, tokenStart, pendingChar, styles, &summary)
-					pendingChar = 0
+					paintDelimiter(&syn, c, i, styles, &summary)
 					goto afterTransition
 				}
 			}
@@ -948,11 +874,11 @@ func tokenizeLineFromStateLimit(line *buffer.Line, start buffer.SynState, scanLi
 
 		if newState != cur {
 			// Left old state: call on_exit
-			callExit(cur, &i)
+			doBuiltinOnExit(cur, line, &syn, &i, &tokenStart, &summary, styles, lm)
 			// Enter new state (unless reprocessing — new state's on_enter fires next iteration).
 			// Skip when closing a string: on_enter for the string state already painted the quote.
 			if !reprocess && !skipEnterOnStringClose(cur, newState, c) {
-				callEnter(newState, &i)
+				doBuiltinOnEnter(newState, line, &syn, &i, &tokenStart, &summary, styles, lm)
 			}
 		}
 

@@ -44,21 +44,16 @@ func mlChoiceWindow(ctx any, labelFn minibuffer.MLChoiceLabelFn, count, selected
 		expanded := false
 		r := end + 1
 		l := start - 1
-		if chooseRight && r < count {
-			if mlChoiceVisibleWidth(ctx, labelFn, count, start, r) <= avail {
-				end = r
-				expanded = true
-			}
-		}
-		if l >= 0 {
-			if mlChoiceVisibleWidth(ctx, labelFn, count, l, end) <= avail {
+		for _, right := range [2]bool{chooseRight, !chooseRight} {
+			if right {
+				if r < count && mlChoiceVisibleWidth(ctx, labelFn, count, start, r) <= avail {
+					end = r
+					r = end + 1
+					expanded = true
+				}
+			} else if l >= 0 && mlChoiceVisibleWidth(ctx, labelFn, count, l, end) <= avail {
 				start = l
-				expanded = true
-			}
-		}
-		if !chooseRight && r < count {
-			if mlChoiceVisibleWidth(ctx, labelFn, count, start, r) <= avail {
-				end = r
+				l = start - 1
 				expanded = true
 			}
 		}
@@ -115,7 +110,3 @@ func mlChoiceRender(prompt string, ctx any, labelFn minibuffer.MLChoiceLabelFn, 
 
 	mlFinish(selectedCol, true)
 }
-
-// ---- Filename prompt with tab completion and fuzzy matching ------------------
-
-// shouldSkipFuzzyFile returns true for binary/derived files that clutter the

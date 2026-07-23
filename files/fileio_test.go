@@ -32,6 +32,17 @@ func initBufferWindowForFileIoTests(t *testing.T) *buffer.Buffer {
 	return buf
 }
 
+func assertLineData(t *testing.T, line *buffer.Line, want string) {
+	t.Helper()
+	got := ""
+	if line != nil {
+		got = string(line.Data)
+	}
+	if got != want {
+		t.Fatalf("buffer content = %q, want %q", got, want)
+	}
+}
+
 func TestReloadCurrentBufferFromDiskRequiresFilename(t *testing.T) {
 	resetAppForFileIoTests()
 	_ = initBufferWindowForFileIoTests(t)
@@ -65,14 +76,7 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	if buf.IsChanged {
 		t.Fatal("buffer should be clean after reload")
 	}
-	line := buf.Line(1)
-	if line == nil || string(line.Data) != "second" {
-		got := ""
-		if line != nil {
-			got = string(line.Data)
-		}
-		t.Fatalf("buffer content = %q, want %q", got, "second")
-	}
+	assertLineData(t, buf.Line(1), "second")
 }
 
 func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
@@ -97,14 +101,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(nil, NoOpWriter, nil)
 
-	line := buf.Line(1)
-	if line == nil || string(line.Data) != "alpha" {
-		got := ""
-		if line != nil {
-			got = string(line.Data)
-		}
-		t.Fatalf("buffer line 1 = %q, want %q", got, "alpha")
-	}
+	assertLineData(t, buf.Line(1), "alpha")
 	if len(buf.Lines) != 3 {
 		t.Fatalf("line_count = %d, want 3", len(buf.Lines))
 	}
@@ -146,14 +143,7 @@ func TestLoadCommandLineFiles(t *testing.T) {
 	if buffer.All.Current != win.Buffer {
 		t.Fatal("current buffer should be the first file's buffer")
 	}
-	line := buffer.All.Current.Line(1)
-	if line == nil || string(line.Data) != "a.go" {
-		got := ""
-		if line != nil {
-			got = string(line.Data)
-		}
-		t.Fatalf("first buffer text = %q, want %q", got, "a.go")
-	}
+	assertLineData(t, buffer.All.Current.Line(1), "a.go")
 	names := map[string]bool{}
 	for _, buf := range buffer.All.Buffers {
 		if buf != nil {
@@ -192,14 +182,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 
 	CheckReloadCurrentBuffer(nil, NoOpWriter, nil)
 
-	line := buf.Line(1)
-	if line == nil || string(line.Data) != "first" {
-		got := ""
-		if line != nil {
-			got = string(line.Data)
-		}
-		t.Fatalf("buffer content = %q, want %q", got, "first")
-	}
+	assertLineData(t, buf.Line(1), "first")
 }
 
 func TestLoadCurrentBufferReadonly(t *testing.T) {

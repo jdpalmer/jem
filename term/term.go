@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -31,9 +32,6 @@ var (
 
 	lastMouseCol int
 	lastMouseRow int
-
-	// debugLogs enables /tmp/jem-keys.log and /tmp/jem-display.log diagnostics.
-	debugLogs bool = false
 )
 
 // termDrainPendingInput discards buffered stdin before handing the TTY to a shell.
@@ -95,43 +93,36 @@ func termProbeKittyKeyboard() bool {
 	if err != nil {
 		return false
 	}
-	if b, ok := termReadByte(1000); ok && b == 0x1B {
-		if b, ok := termReadByte(100); ok && b == '[' {
-			if b, ok := termReadByte(100); ok && b == '?' {
-				for {
-					if b, ok := termReadByte(100); ok {
-						if b >= '0' && b <= '9' {
-							continue
-						}
-						return b == 'u'
-					}
-					break
-				}
-			}
-		}
+	b, ok := termReadByte(1000)
+	if !ok || b != 0x1B {
+		return false
 	}
-	return false
+	b, ok = termReadByte(100)
+	if !ok || b != '[' {
+		return false
+	}
+	b, ok = termReadByte(100)
+	if !ok || b != '?' {
+		return false
+	}
+	for {
+		b, ok = termReadByte(100)
+		if !ok {
+			return false
+		}
+		if b >= '0' && b <= '9' {
+			continue
+		}
+		return b == 'u'
+	}
 }
 
 func termEmitLit(s string) {
-	if len(s) > 0 {
-		termOut.WriteString(s)
-	}
+	termOut.WriteString(s)
 }
 
 func termAppendU32(buf []byte, v uint32) int {
-	if v == 0 {
-		buf[0] = '0'
-		return 1
-	}
-	var tmp [10]byte
-	i := len(tmp)
-	for v > 0 {
-		i--
-		tmp[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return copy(buf, tmp[i:])
+	return len(strconv.AppendUint(buf[:0], uint64(v), 10))
 }
 
 func termEmitCSI(first int, hasSecond bool, second int, final byte) {

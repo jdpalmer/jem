@@ -14,45 +14,25 @@ var mouseAnchorWindow *window.Window
 var mouseAnchorLine int
 var mouseAnchorOffset int
 
-func windowCursorIsVisible(win *window.Window) bool {
-	visibleLine := win.TopLine
-	for i := 0; i < win.Height; i++ {
-		if visibleLine == win.Cursor.Line {
-			return true
-		}
-		if visibleLine > len(win.Buffer.Lines) {
-			break
-		}
-		visibleLine++
+func windowLastVisibleLine(win *window.Window) int {
+	last := win.TopLine + win.Height - 1
+	if last > len(win.Buffer.Lines) {
+		last = len(win.Buffer.Lines)
 	}
-	return false
+	if last < win.TopLine {
+		return win.TopLine
+	}
+	return last
 }
 
-func windowLastVisibleLine(win *window.Window) int {
-	visibleLine := win.TopLine
-	lastVisible := win.TopLine
-	for i := 0; i < win.Height; i++ {
-		if visibleLine > len(win.Buffer.Lines) {
-			break
-		}
-		lastVisible = visibleLine
-		visibleLine++
-	}
-	return lastVisible
+func windowCursorIsVisible(win *window.Window) bool {
+	c := win.Cursor.Line
+	return c >= win.TopLine && c <= windowLastVisibleLine(win)
 }
 
 // windowScroll scrolls the window viewport by n lines (positive = down).
 func windowScroll(win *window.Window, n int) {
-	lineNumber := win.TopLine
-	if n > 0 {
-		for i := 0; i < n && lineNumber < len(win.Buffer.Lines); i++ {
-			lineNumber++
-		}
-	} else {
-		for i := 0; i > n && lineNumber > 1; i-- {
-			lineNumber--
-		}
-	}
+	lineNumber := win.TopLine + n
 	if lineNumber < 1 {
 		lineNumber = 1
 	}
@@ -86,15 +66,16 @@ func CmdMouseLeft(f bool, n int) bool {
 		window.WindowSelect(win)
 	}
 
+	cur := window.Active.CurrentWindow
 	loc := display.MouseLocationInWindow(win)
-	window.Active.CurrentWindow.SetCursor(loc)
-	window.Active.CurrentWindow.Mark.Line = 0
-	window.Active.CurrentWindow.Mark.Offset = 0
-	mouseAnchorWindow = window.Active.CurrentWindow
+	cur.SetCursor(loc)
+	cur.Mark.Line = 0
+	cur.Mark.Offset = 0
+	mouseAnchorWindow = cur
 	mouseAnchorLine = loc.Line
 	mouseAnchorOffset = loc.Offset
-	window.Active.CurrentWindow.ShouldRedraw = true
-	window.Active.CurrentWindow.ShouldUpdateModeLine = true
+	cur.ShouldRedraw = true
+	cur.ShouldUpdateModeLine = true
 	return true
 }
 
@@ -103,17 +84,18 @@ func CmdMouseDrag(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := display.WinAt(display.Active.Mouse.Row)
-	if win == nil || win != window.Active.CurrentWindow || mouseAnchorWindow != window.Active.CurrentWindow {
+	cur := window.Active.CurrentWindow
+	if win == nil || win != cur || mouseAnchorWindow != cur {
 		return false
 	}
 
 	loc := display.MouseLocationInWindow(win)
 
-	window.Active.CurrentWindow.Mark.Line = mouseAnchorLine
-	window.Active.CurrentWindow.Mark.Offset = mouseAnchorOffset
-	window.Active.CurrentWindow.SetCursor(loc)
-	window.Active.CurrentWindow.ShouldRedraw = true
-	window.Active.CurrentWindow.ShouldUpdateModeLine = true
+	cur.Mark.Line = mouseAnchorLine
+	cur.Mark.Offset = mouseAnchorOffset
+	cur.SetCursor(loc)
+	cur.ShouldRedraw = true
+	cur.ShouldUpdateModeLine = true
 	return true
 }
 

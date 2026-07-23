@@ -1,6 +1,7 @@
 package display
 
 import (
+	"slices"
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/buffer"
@@ -18,10 +19,8 @@ func screenRowsScrollDown(rows *[]ScreenRow, start, length, n int) {
 }
 
 func reverseScreenRows(rows *[]ScreenRow, lo, hi int) {
-	for lo < hi {
-		(*rows)[lo], (*rows)[hi] = (*rows)[hi], (*rows)[lo]
-		lo++
-		hi--
+	if lo < hi {
+		slices.Reverse((*rows)[lo : hi+1])
 	}
 }
 

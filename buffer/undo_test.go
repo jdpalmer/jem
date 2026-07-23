@@ -1,6 +1,9 @@
 package buffer
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func testUndoReplay(buf *Buffer) UndoReplay {
 	return UndoReplay{
@@ -10,14 +13,11 @@ func testUndoReplay(buf *Buffer) UndoReplay {
 		},
 		DeleteText: func(lineNumber, offset int, text []byte) error {
 			begin := MakeLocation(lineNumber, offset)
-			endLine, endOffset := lineNumber, offset
-			for i := 0; i < len(text); i++ {
-				if text[i] == '\n' {
-					endLine++
-					endOffset = 0
-				} else {
-					endOffset++
-				}
+			nls := bytes.Count(text, []byte{'\n'})
+			endLine := lineNumber + nls
+			endOffset := offset + len(text)
+			if nls > 0 {
+				endOffset = len(text) - bytes.LastIndexByte(text, '\n') - 1
 			}
 			return buf.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil)
 		},

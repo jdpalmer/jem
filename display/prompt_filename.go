@@ -31,7 +31,6 @@ func NewFilenamePrompt(prompt, initial string, capacity int) *FilenamePrompt {
 	p := &FilenamePrompt{
 		prompt: prompt,
 		state: minibuffer.MinibufferState{
-			Prompt:     prompt,
 			Text:       make([]byte, 0, capacity),
 			Nbuf:       capacity,
 			HistoryPos: -1,

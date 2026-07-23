@@ -7,7 +7,7 @@ import (
 )
 
 type queryReplaceSession struct {
-	buf           *buffer.Buffer
+	buf          *buffer.Buffer
 	pat          []byte
 	patLen       int
 	replBytes    []byte
@@ -27,7 +27,7 @@ type queryReplaceSession struct {
 
 func newQueryReplaceSession(buf *buffer.Buffer, replBytes, pat []byte, patLen int, preserveCase bool) *queryReplaceSession {
 	return &queryReplaceSession{
-		buf:           buf,
+		buf:          buf,
 		pat:          pat,
 		patLen:       patLen,
 		replBytes:    replBytes,
@@ -39,7 +39,7 @@ func newQueryReplaceSession(buf *buffer.Buffer, replBytes, pat []byte, patLen in
 
 func newQueryReReplaceSession(buf *buffer.Buffer, pattern, replStr string) *queryReplaceSession {
 	return &queryReplaceSession{
-		buf:      buf,
+		buf:     buf,
 		regex:   true,
 		pattern: pattern,
 		replStr: replStr,
@@ -49,7 +49,6 @@ func newQueryReReplaceSession(buf *buffer.Buffer, pattern, replStr string) *quer
 
 // Open initializes the session and advances to the next match.
 func (s *queryReplaceSession) Open() (done bool) {
-	transientSet(queryReplaceBindings)
 	minibuffer.Active = &s.mbState
 	displayUpdate()
 	return s.advance()
@@ -57,7 +56,6 @@ func (s *queryReplaceSession) Open() (done bool) {
 
 // Close cleans up the session and resets the window mark.
 func (s *queryReplaceSession) Close() {
-	transientClear()
 	minibuffer.Active = nil
 	if win := window.Active.CurrentWindow; win != nil {
 		win.Mark.Line = 0
@@ -100,7 +98,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 			s.hasPending = true
 			s.replBytes = expanded
 			matchText := string(match.Text[match.Index[0]:match.Index[1]])
-			markMatchLocation(win, match.Start)
+			win.Mark = match.Start
 			win.ShouldRedraw = true
 			displayUpdate()
 			writeReplacePrompt(s.buf, matchText, string(expanded))
@@ -130,7 +128,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 
 // HandleKey dispatches a keypress to perform a replace action.
 func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
-	action := transientLookup(k, replaceActionNone)
+	action := lookupReplaceAction(k)
 	if action == replaceActionNone {
 		doBeep()
 		return false

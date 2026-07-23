@@ -9,14 +9,15 @@ func DecodeKeyChar(key uint32, controlContext bool) uint32 {
 	if controlContext && key >= 'a' && key <= 'z' {
 		key -= 0x20
 	}
-	if !controlContext && key == '\t' {
-		return term.KeyTab
-	}
-	if !controlContext && (key == '\r' || key == '\n') {
-		return term.KeyEnter
-	}
-	if !controlContext && key == 0x1B {
-		return 0x1B
+	if !controlContext {
+		switch key {
+		case '\t':
+			return term.KeyTab
+		case '\r', '\n':
+			return term.KeyEnter
+		case 0x1B:
+			return 0x1B
+		}
 	}
 	if key == 0x00 {
 		return term.CTL | ' '
@@ -29,14 +30,8 @@ func DecodeKeyChar(key uint32, controlContext bool) uint32 {
 
 // ApplyMetaPrefixToKey applies the ESC (meta) prefix to a decoded key.
 func ApplyMetaPrefixToKey(k uint32) uint32 {
-	if k&term.KeyMask != 0 {
-		return k | term.META
-	}
-	if k >= 'a' && k <= 'z' {
+	if k&term.KeyMask == 0 && k >= 'a' && k <= 'z' {
 		return term.META | (k - ('a' - 'A'))
-	}
-	if k < 0x100 {
-		return term.META | k
 	}
 	return k | term.META
 }

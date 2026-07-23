@@ -21,10 +21,7 @@ type FuzzyPrompt struct {
 }
 
 // NewFuzzyPrompt builds a fuzzy list prompt.
-func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, capacity int) *FuzzyPrompt {
-	if capacity <= 0 {
-		capacity = PatternCapacity
-	}
+func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any) *FuzzyPrompt {
 	p := &FuzzyPrompt{
 		prompt:           prompt,
 		provider:         provider,
@@ -33,9 +30,8 @@ func NewFuzzyPrompt(prompt string, provider minibuffer.MbNameProviderFn, provide
 		displayFormatter: displayFormatter,
 		displayCtx:       displayCtx,
 		state: minibuffer.MinibufferState{
-			Prompt:     prompt,
-			Text:       make([]byte, 0, capacity),
-			Nbuf:       capacity,
+			Text:       make([]byte, 0, PatternCapacity),
+			Nbuf:       PatternCapacity,
 			HistoryPos: -1,
 		},
 		fctx: &fuzzyMatchCtx{
@@ -89,17 +85,15 @@ func (p *FuzzyPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer
 		MBClear()
 		return true, "", minibuffer.PromptResultAbort
 
-	case k == term.KeyUp || k == (term.CTL|'P'):
+	case k == term.KeyUp || k == (term.CTL|'P') || k == term.KeyDown || k == (term.CTL|'N'):
 		if len(p.matches) == 0 {
 			term.Beep()
 		} else {
-			p.sel = (p.sel + len(p.matches) - 1) % len(p.matches)
-		}
-	case k == term.KeyDown || k == (term.CTL|'N'):
-		if len(p.matches) == 0 {
-			term.Beep()
-		} else {
-			p.sel = (p.sel + 1) % len(p.matches)
+			delta := 1
+			if k == term.KeyUp || k == (term.CTL|'P') {
+				delta = -1
+			}
+			p.sel = (p.sel + len(p.matches) + delta) % len(p.matches)
 		}
 
 	default:

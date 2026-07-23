@@ -15,27 +15,16 @@ const (
 	SearchScopeAllBuffers
 )
 
-type TransientAction int32
-
-type TransientBinding struct {
-	Code   uint32
-	Action TransientAction
-}
-
 type State struct {
 	SearchCaseSensitive bool
 	RegexSearchPattern  string
 	SearchScopeSetting  SearchScopeMode
 	SearchPattern       string
-	TransientBindings   []TransientBinding
 }
 
 var DefaultState = &State{}
 
 func currentState() *State {
-	if DefaultState == nil {
-		DefaultState = &State{}
-	}
 	return DefaultState
 }
 
@@ -112,7 +101,7 @@ type RegexMatch struct {
 	Index []int
 }
 
-type replaceAction TransientAction
+type replaceAction int
 
 const (
 	replaceActionNone    replaceAction = 0
@@ -123,33 +112,28 @@ const (
 	replaceActionYesQuit replaceAction = 5
 )
 
-var queryReplaceBindings = []TransientBinding{
-	{'y', TransientAction(replaceActionYes)},
-	{' ', TransientAction(replaceActionYes)},
-	{term.KeyEnter, TransientAction(replaceActionYes)},
-	{'n', TransientAction(replaceActionNo)},
-	{term.CTL | 'H', TransientAction(replaceActionNo)},
-	{0x7F, TransientAction(replaceActionNo)},
-	{'!', TransientAction(replaceActionAll)},
-	{'+', TransientAction(replaceActionYesQuit)},
-	{'q', TransientAction(replaceActionQuit)},
-	{term.CTL | 'G', TransientAction(replaceActionQuit)},
-	{0x1B, TransientAction(replaceActionQuit)},
+var queryReplaceBindings = []struct {
+	Code   uint32
+	Action replaceAction
+}{
+	{'y', replaceActionYes},
+	{' ', replaceActionYes},
+	{term.KeyEnter, replaceActionYes},
+	{'n', replaceActionNo},
+	{term.CTL | 'H', replaceActionNo},
+	{0x7F, replaceActionNo},
+	{'!', replaceActionAll},
+	{'+', replaceActionYesQuit},
+	{'q', replaceActionQuit},
+	{term.CTL | 'G', replaceActionQuit},
+	{0x1B, replaceActionQuit},
 }
 
-func transientSet(bindings []TransientBinding) {
-	currentState().TransientBindings = bindings
-}
-
-func transientClear() {
-	currentState().TransientBindings = nil
-}
-
-func transientLookup(code uint32, defaultAction replaceAction) replaceAction {
-	for _, b := range currentState().TransientBindings {
+func lookupReplaceAction(code uint32) replaceAction {
+	for _, b := range queryReplaceBindings {
 		if b.Code == code {
-			return replaceAction(b.Action)
+			return b.Action
 		}
 	}
-	return defaultAction
+	return replaceActionNone
 }

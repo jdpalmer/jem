@@ -355,11 +355,6 @@ func CmdTransposeLines(f bool, n int) bool {
 	p0 := buffer.MakeLocation(curr-1, 0)
 	p2 := buffer.MakeLocation(curr+1, 0)
 	original := buf.GetText(p0, p2)
-	total := len(original)
-	if original == nil && total > 0 {
-		display.MBWrite("[out of memory]")
-		return false
-	}
 	prevLp := buf.Line(curr - 1)
 	if prevLp == nil {
 		return false

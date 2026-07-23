@@ -1,12 +1,13 @@
 package search
 
 import (
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
+	"cmp"
 	"regexp"
 	"unicode"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 func searchScopeIsAllBuffers() bool {
@@ -89,11 +90,7 @@ func saveSearchSnapshot(win *window.Window, patternLen int) ISearchSnapshot {
 // restoreSearchSnapshot restores a previously saved cursor and mark position.
 func restoreSearchSnapshot(win *window.Window, snap *ISearchSnapshot) {
 	if buffer.All.Current != snap.Buffer {
-		if true {
-			window.SwitchBuffer(snap.Buffer)
-		} else {
-			buffer.SetCurrent(snap.Buffer)
-		}
+		window.SwitchBuffer(snap.Buffer)
 		win = window.Active.CurrentWindow
 	}
 	if win == nil {
@@ -116,11 +113,7 @@ func isearchClearHighlight(win *window.Window) {
 // searchSwitchBuffer switches to a buffer and moves the cursor to a specific location.
 func searchSwitchBuffer(win *window.Window, buf *buffer.Buffer, loc buffer.Location) {
 	if buffer.All.Current != buf {
-		if true {
-			window.SwitchBuffer(buf)
-		} else {
-			buffer.SetCurrent(buf)
-		}
+		window.SwitchBuffer(buf)
 		win = window.Active.CurrentWindow
 	}
 	if win != nil {
@@ -130,7 +123,10 @@ func searchSwitchBuffer(win *window.Window, buf *buffer.Buffer, loc buffer.Locat
 }
 
 // bufferSearchStart returns the start location of a buffer.
-func bufferSearchStart(buf *buffer.Buffer) buffer.Location { return buffer.Location{Line: 1, Offset: 0} }
+func bufferSearchStart(buf *buffer.Buffer) buffer.Location {
+	return buffer.Location{Line: 1, Offset: 0}
+}
+
 // bufferSearchEnd returns the end location of a buffer.
 func bufferSearchEnd(buf *buffer.Buffer) buffer.Location {
 	return buffer.Location{Line: buf.EOF(), Offset: 0}
@@ -351,19 +347,10 @@ func isearchRunPlain(win *window.Window, scope *bufferSearchScope, start *ISearc
 }
 
 func locationCompare(a, b buffer.Location) int {
-	if a.Line != b.Line {
-		if a.Line < b.Line {
-			return -1
-		}
-		return 1
+	if c := cmp.Compare(a.Line, b.Line); c != 0 {
+		return c
 	}
-	if a.Offset < b.Offset {
-		return -1
-	}
-	if a.Offset > b.Offset {
-		return 1
-	}
-	return 0
+	return cmp.Compare(a.Offset, b.Offset)
 }
 
 func bufferSliceFrom(buf *buffer.Buffer, start buffer.Location) []byte {

@@ -22,8 +22,8 @@ func macroInit() {
 }
 
 func macroRefreshModelines() {
-	for i := 0; i < len(window.Active.Windows); i++ {
-		if win := window.Active.Windows[i]; win != nil {
+	for _, win := range window.Active.Windows {
+		if win != nil {
 			win.ShouldUpdateModeLine = true
 		}
 	}
@@ -99,7 +99,7 @@ func Execute(c int, f bool, n int) bool {
 		if trackUndo {
 			BeginCommand()
 		}
-		clearCompletionPending()
+		ClearPending()
 		result := cmd(f, n)
 		if trackUndo {
 			EndCommand()
@@ -110,7 +110,7 @@ func Execute(c int, f bool, n int) bool {
 	if trackUndo {
 		BeginCommand()
 	}
-	clearCompletionPending()
+	ClearPending()
 
 	if (keycode&term.KeyMask) == 0 && keycode >= 0x20 && keycode <= 0x10FFFF {
 		if n <= 0 {
@@ -139,10 +139,6 @@ func Execute(c int, f bool, n int) bool {
 		EndCommand()
 	}
 	return false
-}
-
-func clearCompletionPending() {
-	ClearPending()
 }
 
 // CmdMacroStart begins keyboard macro recording (C-x ().

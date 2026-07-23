@@ -47,18 +47,7 @@ func renderModeline(win *window.Window) {
 	colno := uint32(WindowCursorScreenCol(win)) + 1
 
 	// Format position text: "  1% L1 C1" (3-char pct field)
-	digits := 1
-	if pct >= 100 {
-		digits = 3
-	} else if pct >= 10 {
-		digits = 2
-	}
-	pad := 3 - digits
-	positionText := ""
-	for i := 0; i < pad; i++ {
-		positionText += " "
-	}
-	positionText += fmt.Sprintf("%d%% L%d C%d", pct, lineno, colno)
+	positionText := fmt.Sprintf("%3d%% L%d C%d", pct, lineno, colno)
 
 	// Styles
 	gutterStyle := Active.Theme.GutterStyle
@@ -78,14 +67,14 @@ func renderModeline(win *window.Window) {
 	if buf.IsChanged {
 		displayPutBytesStyle([]byte("*"), dirtyStyle)
 	} else {
-		screenPutc(' ')
+		screenPutRaw(' ')
 	}
 
 	// Disk-changed indicator (modified buffer, user kept local edits)
 	if !buf.NotifiedModTime.IsZero() {
 		displayPutGlyphStyle('D', dirtyStyle)
 	} else {
-		screenPutc(' ')
+		screenPutRaw(' ')
 	}
 
 	// Macro recording / stored-macro indicator
@@ -94,14 +83,14 @@ func renderModeline(win *window.Window) {
 	} else if Active.MacroPresent {
 		displayPutGlyphStyle('m', nameStyle)
 	} else {
-		screenPutc(' ')
+		screenPutRaw(' ')
 	}
 
 	// Spot/mark indicator
 	if len(markring.Active.Marks) > 0 {
 		displayPutGlyphStyle('s', nameStyle)
 	} else {
-		screenPutc(' ')
+		screenPutRaw(' ')
 	}
 
 	// Search scope indicator
@@ -117,11 +106,12 @@ func renderModeline(win *window.Window) {
 		displayPutBytesStyle([]byte("[No File]"), nameStyle)
 	}
 
-	screenPutBytes([]byte(" | "))
-	screenPutBytes([]byte(eolLabel))
-	screenPutBytes([]byte(" | "))
-	screenPutBytes([]byte(langLabel))
-	if gitText := gitModelineText(buf); gitText != "" {
+	screenPutBytes([]byte(" | " + eolLabel + " | " + langLabel))
+	gitText := ""
+	if PackageHooks.GitModelineText != nil {
+		gitText = PackageHooks.GitModelineText(buf)
+	}
+	if gitText != "" {
 		gitStyle := buffer.MakeTextStyle(Active.Theme.ModelineNameColor, gutterBg, 0)
 		screenPutBytes([]byte(" | "))
 		displayPutBytesStyle([]byte(gitText), gitStyle)
@@ -152,9 +142,9 @@ func renderModeline(win *window.Window) {
 func padModelineTo(endCol, markerCol int) {
 	for swCursorCol < endCol {
 		if swCursorCol == markerCol {
-			screenPutc('^')
+			screenPutRaw('^')
 		} else {
-			screenPutc(' ')
+			screenPutRaw(' ')
 		}
 	}
 }
@@ -270,10 +260,9 @@ func DisplayUpdate() {
 		if win.DidEdit && !win.DidMove && !win.ShouldRedraw {
 			// Fast path: only re-render the cursor line
 			cursorRow := win.ScreenTopRow + int(win.Cursor.Line-win.TopLine)
-			var synSt buffer.SynState
 			var selSt SelState
 			selInit(&selSt, win)
-			renderLine(win, win.Cursor.Line, cursorRow, &synSt, &selSt)
+			renderLine(win, win.Cursor.Line, cursorRow, &selSt)
 		} else if win.DidEdit || win.ShouldRedraw {
 			// Compute scroll delta
 			var scrollN int
@@ -335,7 +324,6 @@ func DisplayUpdate() {
 			}
 
 			// Full render of all rows in this window
-			var synSt buffer.SynState
 			var selSt SelState
 			selInit(&selSt, win)
 			lineNumber := win.TopLine
@@ -345,7 +333,7 @@ func DisplayUpdate() {
 					break
 				}
 				if lineNumber <= len(win.Buffer.Lines) {
-					renderLine(win, lineNumber, row, &synSt, &selSt)
+					renderLine(win, lineNumber, row, &selSt)
 					lineNumber++
 				} else {
 					renderBlankRow(row, gutterW)
@@ -378,12 +366,7 @@ func DisplayUpdate() {
 			if gutterW >= term.Cols() {
 				cursorCol = term.Cols() - 1
 			} else {
-				if cursorCol < gutterW {
-					cursorCol = gutterW
-				}
-				if cursorCol >= term.Cols() {
-					cursorCol = term.Cols() - 1
-				}
+				cursorCol = max(gutterW, min(cursorCol, term.Cols()-1))
 			}
 			Active.Cursor.Col = cursorCol
 		}

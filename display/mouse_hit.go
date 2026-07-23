@@ -25,21 +25,16 @@ func lineOffsetAtCol(line *buffer.Line, goal int) int {
 	col := 0
 	dbo := 0
 	for dbo < line.Len() {
-		newCol := col
-		used := 1
-		b := line.Data[dbo]
-		if b < 0x80 {
-			newCol = lineMeasureAdvance(col, rune(b))
-		} else {
-			r, size := utf8.DecodeRune(line.Data[dbo:])
-			newCol = lineMeasureAdvance(col, r)
-			used = size
+		r, size := utf8.DecodeRune(line.Data[dbo:])
+		if r == utf8.RuneError && size == 1 {
+			r = rune(line.Data[dbo])
 		}
+		newCol := lineMeasureAdvance(col, r)
 		if newCol > goal {
 			break
 		}
 		col = newCol
-		dbo += used
+		dbo += size
 	}
 	return dbo
 }
@@ -47,10 +42,12 @@ func lineOffsetAtCol(line *buffer.Line, goal int) int {
 // MouseLocationInWindow maps screen mouse coordinates to a buffer location within win.
 func MouseLocationInWindow(win *window.Window) buffer.Location {
 	rowInWin := Active.Mouse.Row - win.ScreenTopRow
-	lineNumber := win.TopLine
-	for rowInWin > 0 && lineNumber < len(win.Buffer.Lines) {
-		lineNumber++
-		rowInWin--
+	if rowInWin < 0 {
+		rowInWin = 0
+	}
+	lineNumber := win.TopLine + rowInWin
+	if lineNumber > len(win.Buffer.Lines) {
+		lineNumber = len(win.Buffer.Lines)
 	}
 
 	loc := buffer.Location{Line: lineNumber, Offset: 0}

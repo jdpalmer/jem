@@ -105,12 +105,32 @@ func parseKeySequence(s string) (uint32, bool) {
 	return term.CTLX | suffix, true
 }
 
+var namedKeys = map[string]uint32{
+	"TAB":       term.KeyTab,
+	"ENTER":     term.KeyEnter,
+	"SPACE":     ' ',
+	"BACKSPACE": 0x7F,
+	"UP":        term.KeyUp,
+	"DOWN":      term.KeyDown,
+	"LEFT":      term.KeyLeft,
+	"RIGHT":     term.KeyRight,
+	"HOME":      term.KeyHome,
+	"END":       term.KeyEnd,
+	"PAGEUP":    term.KeyPageUp,
+	"PGUP":      term.KeyPageUp,
+	"PAGEDOWN":  term.KeyPageDown,
+	"PGDOWN":    term.KeyPageDown,
+	"DELETE":    term.KeyDelete,
+	"DEL":       term.KeyDelete,
+}
+
 func parseKeyChord(s string) (uint32, bool) {
 	pos := 0
 	var code uint32 = 0
 	s = strings.TrimSpace(s)
 	for pos < len(s) {
-		if strings.HasPrefix(strings.ToUpper(s[pos:]), "M-") {
+		rest := strings.ToUpper(s[pos:])
+		if strings.HasPrefix(rest, "M-") {
 			if (code & term.META) != 0 {
 				return 0, false
 			}
@@ -118,7 +138,7 @@ func parseKeyChord(s string) (uint32, bool) {
 			pos += 2
 			continue
 		}
-		if strings.HasPrefix(strings.ToUpper(s[pos:]), "C-") {
+		if strings.HasPrefix(rest, "C-") {
 			if (code & term.CTL) != 0 {
 				return 0, false
 			}
@@ -126,7 +146,7 @@ func parseKeyChord(s string) (uint32, bool) {
 			pos += 2
 			continue
 		}
-		if strings.HasPrefix(strings.ToUpper(s[pos:]), "S-") {
+		if strings.HasPrefix(rest, "S-") {
 			if (code & term.SHIFT) != 0 {
 				return 0, false
 			}
@@ -137,57 +157,8 @@ func parseKeyChord(s string) (uint32, bool) {
 		break
 	}
 	token := strings.ToUpper(strings.TrimSpace(s[pos:]))
-	if token == "TAB" {
-		code |= term.KeyTab
-		return code, true
-	}
-	if token == "ENTER" {
-		code |= term.KeyEnter
-		return code, true
-	}
-	if token == "SPACE" {
-		code |= ' '
-		return code, true
-	}
-	if token == "BACKSPACE" {
-		code |= 0x7F
-		return code, true
-	}
-	if token == "UP" {
-		code |= term.KeyUp
-		return code, true
-	}
-	if token == "DOWN" {
-		code |= term.KeyDown
-		return code, true
-	}
-	if token == "LEFT" {
-		code |= term.KeyLeft
-		return code, true
-	}
-	if token == "RIGHT" {
-		code |= term.KeyRight
-		return code, true
-	}
-	if token == "HOME" {
-		code |= term.KeyHome
-		return code, true
-	}
-	if token == "END" {
-		code |= term.KeyEnd
-		return code, true
-	}
-	if token == "PAGEUP" || token == "PGUP" {
-		code |= term.KeyPageUp
-		return code, true
-	}
-	if token == "PAGEDOWN" || token == "PGDOWN" {
-		code |= term.KeyPageDown
-		return code, true
-	}
-	if token == "DELETE" || token == "DEL" {
-		code |= term.KeyDelete
-		return code, true
+	if key, ok := namedKeys[token]; ok {
+		return code | key, true
 	}
 	if len(token) > 0 {
 		b := s[pos]

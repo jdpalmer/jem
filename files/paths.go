@@ -19,11 +19,7 @@ func ExpandPath(path string) string {
 		if len(path) == 1 || path[1] == '/' || path[1] == '\\' {
 			home, err := os.UserHomeDir()
 			if err == nil {
-				suffix := ""
-				if len(path) > 1 {
-					suffix = path[1:]
-				}
-				return filepath.Clean(filepath.Join(home, suffix))
+				return filepath.Clean(filepath.Join(home, path[1:]))
 			}
 		}
 	}
@@ -52,31 +48,16 @@ func PathsEqual(a, b string) bool {
 
 // FindFileWalkUp searches upward from start for a file named marker in each directory.
 func FindFileWalkUp(start, marker string) (string, bool) {
-	dir := start
-	if dir == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", false
-		}
-		dir = cwd
-	}
-	dir = filepath.Clean(dir)
-	for {
-		candidate := filepath.Join(dir, marker)
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, true
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", false
-		}
-		dir = parent
-	}
+	return findWalkUp(start, marker, false)
 }
 
 // FindDirWalkUp searches upward from start for a directory named marker.
 // Returns the directory that contains marker (not the marker path itself).
 func FindDirWalkUp(start, marker string) (string, bool) {
+	return findWalkUp(start, marker, true)
+}
+
+func findWalkUp(start, marker string, wantDir bool) (string, bool) {
 	dir := start
 	if dir == "" {
 		cwd, err := os.Getwd()
@@ -88,8 +69,14 @@ func FindDirWalkUp(start, marker string) (string, bool) {
 	dir = filepath.Clean(dir)
 	for {
 		candidate := filepath.Join(dir, marker)
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return dir, true
+		if info, err := os.Stat(candidate); err == nil {
+			if wantDir {
+				if info.IsDir() {
+					return dir, true
+				}
+			} else {
+				return candidate, true
+			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {

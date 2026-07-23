@@ -1,6 +1,9 @@
 package buffer
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // MaxBuffers caps the open-buffer list. The choose UI indexes choices with
 // uint8, so this matches that presentation limit rather than a storage need.
@@ -52,9 +55,7 @@ func indexOf(buf *Buffer) int {
 // The buffer is left for the garbage collector once no longer referenced.
 func Release(buf *Buffer) {
 	if idx := indexOf(buf); idx != -1 {
-		copy(All.Buffers[idx:], All.Buffers[idx+1:])
-		All.Buffers[len(All.Buffers)-1] = nil
-		All.Buffers = All.Buffers[:len(All.Buffers)-1]
+		All.Buffers = slices.Delete(All.Buffers, idx, idx+1)
 	}
 
 	replacement := (*Buffer)(nil)

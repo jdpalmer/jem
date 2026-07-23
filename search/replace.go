@@ -19,24 +19,7 @@ const (
 )
 
 func markMatchStart(win *window.Window, patLen int) {
-	lineNum := win.Cursor.Line
-	off := win.Cursor.Offset
-	for i := 0; i < patLen; i++ {
-		if off > 0 {
-			off--
-		} else if lineNum > 1 {
-			lineNum--
-			line := win.Buffer.Line(lineNum)
-			if line != nil {
-				off = line.Len()
-			}
-		}
-	}
-	win.Mark = buffer.Location{Line: lineNum, Offset: off}
-}
-
-func markMatchLocation(win *window.Window, start buffer.Location) {
-	win.Mark = start
+	win.Mark = win.Cursor.RewindBytes(win.Buffer, patLen)
 }
 
 func checkMatchCase(win *window.Window, patLen int) matchCase {
@@ -59,11 +42,10 @@ func checkMatchCase(win *window.Window, patLen int) matchCase {
 
 func applyMatchCase(mc matchCase, repl []byte, out []byte) int {
 	n := len(repl)
-	if n >= len(out) {
-		n = len(out) - 1
+	if n > len(out) {
+		n = len(out)
 	}
 	copy(out, repl[:n])
-	out[n] = 0
 	switch mc {
 	case matchCaseUpper:
 		for i := 0; i < n; i++ {
@@ -222,7 +204,7 @@ func QueryReplace() bool {
 			if pr == minibuffer.PromptResultAbort {
 				return
 			}
-			startQueryReplace(newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase))
+			pushKeySession(newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase))
 		})
 	})
 	return true
@@ -243,12 +225,8 @@ func QueryReReplace() bool {
 			if pr == minibuffer.PromptResultAbort {
 				return
 			}
-			startQueryReplace(newQueryReReplaceSession(buf, pattern, replStr))
+			pushKeySession(newQueryReReplaceSession(buf, pattern, replStr))
 		})
 	})
 	return true
-}
-
-func startQueryReplace(s *queryReplaceSession) {
-	pushKeySession(s)
 }

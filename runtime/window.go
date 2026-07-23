@@ -3,6 +3,8 @@ package runtime
 // Window split/delete/next/only commands and layout retile.
 
 import (
+	"slices"
+
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/term"
@@ -10,62 +12,66 @@ import (
 )
 
 func CmdWindowDelete(f bool, n int) bool {
-	if len(window.Active.Windows) <= 1 {
+	_ = f
+	_ = n
+	wins := window.Active.Windows
+	if len(wins) <= 1 {
 		display.MBWrite("[cannot remove only window]")
 		return false
 	}
 
-	previousWindow := window.Active.CurrentWindow
-	for i := len(window.Active.Windows) - 1; i >= 0; i-- {
-		swap := window.Active.Windows[i]
-		window.Active.Windows[i] = previousWindow
-		previousWindow = swap
-
-		if previousWindow == window.Active.CurrentWindow {
-			previousWindow.SaveState()
-			window.Active.CurrentWindow = window.Active.Windows[i]
-			window.Active.Windows = window.Active.Windows[:len(window.Active.Windows)-1]
-			window.WindowSelect(window.Active.CurrentWindow)
-			window.WindowRetile()
-			break
-		}
+	cur := window.Active.CurrentWindow
+	idx := slices.Index(wins, cur)
+	if idx < 0 {
+		return false
 	}
+	cur.SaveState()
+
+	var next *window.Window
+	if idx+1 < len(wins) {
+		next = wins[idx+1]
+	} else {
+		next = wins[idx-1]
+	}
+	window.Active.Windows = append(wins[:idx], wins[idx+1:]...)
+	window.WindowSelect(next)
+	window.WindowRetile()
 	return true
 }
 
 func CmdWindowNext(f bool, n int) bool {
-	if len(window.Active.Windows) <= 1 {
+	_ = f
+	_ = n
+	wins := window.Active.Windows
+	if len(wins) <= 1 {
 		return true
 	}
-	next := window.Active.Windows[0]
-	for i := 0; i < len(window.Active.Windows); i++ {
-		if window.Active.Windows[i] == window.Active.CurrentWindow {
-			if i+1 < len(window.Active.Windows) {
-				next = window.Active.Windows[i+1]
-			}
-		}
+	i := slices.Index(wins, window.Active.CurrentWindow)
+	if i < 0 {
+		i = 0
 	}
-	window.WindowSelect(next)
+	window.WindowSelect(wins[(i+1)%len(wins)])
 	return true
 }
 
 func CmdWindowOnly(f bool, n int) bool {
-	for i := 0; i < len(window.Active.Windows); i++ {
-		if window.Active.Windows[i] == window.Active.CurrentWindow {
-			window.Active.Windows[i] = window.Active.Windows[0]
-			window.Active.Windows[0] = window.Active.CurrentWindow
-			continue
+	_ = f
+	_ = n
+	cur := window.Active.CurrentWindow
+	for _, win := range window.Active.Windows {
+		if win != cur {
+			win.SaveState()
 		}
-		window.Active.Windows[i].SaveState()
 	}
-	window.Active.Windows = window.Active.Windows[:1]
-	window.Active.CurrentWindow = window.Active.Windows[0]
-	window.WindowSelect(window.Active.CurrentWindow)
+	window.Active.Windows = []*window.Window{cur}
+	window.WindowSelect(cur)
 	window.WindowRetile()
 	return true
 }
 
 func CmdWindowSplit(f bool, n int) bool {
+	_ = f
+	_ = n
 	if term.Rows() < 4*(len(window.Active.Windows)+1) {
 		display.MBWrite("[window is too small to split]")
 		return false
@@ -85,14 +91,13 @@ func CmdWindowSplit(f bool, n int) bool {
 	win.Height = curr.Height
 	win.HScroll = curr.HScroll
 
-	// Insert win next to curr in Windows slice
-	for i := len(window.Active.Windows) - 1; i > 0; i-- {
-		if window.Active.Windows[i-1] == curr {
-			window.Active.Windows[i] = win
-			break
-		}
-		window.Active.Windows[i] = window.Active.Windows[i-1]
+	wins := window.Active.Windows
+	wins = wins[:len(wins)-1] // WindowCreate appended win; reinsert beside curr
+	i := slices.Index(wins, curr)
+	if i < 0 {
+		i = len(wins) - 1
 	}
+	window.Active.Windows = slices.Insert(wins, i+1, win)
 
 	window.WindowRetile()
 	return true

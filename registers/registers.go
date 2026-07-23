@@ -27,8 +27,13 @@ func Set(name string, text []byte) bool {
 	return true
 }
 
-// Get returns the text stored under name.
+// Get returns a copy of the text stored under name.
 func Get(name string) ([]byte, bool) {
 	val, ok := Active[name]
-	return val, ok
+	if !ok {
+		return nil, false
+	}
+	out := make([]byte, len(val))
+	copy(out, val)
+	return out, true
 }

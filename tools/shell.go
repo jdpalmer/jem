@@ -2,12 +2,10 @@ package tools
 
 import (
 	"bytes"
-	"github.com/jdpalmer/jem/markring"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 func promptStringFromBuf(data []byte) string {
@@ -16,18 +14,6 @@ func promptStringFromBuf(data []byte) string {
 		n = len(data)
 	}
 	return string(data[:n])
-}
-
-func mbWrite(format string, args ...interface{}) {
-	display.MBWrite(format, args...)
-}
-
-func mbClear() {
-	display.MBClear()
-}
-
-func mbHistoryAdd(text string) {
-	display.MBHistoryAdd(text)
 }
 
 func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
@@ -49,10 +35,6 @@ func askFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx
 		PackageHooks.AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
 		return
 	}
-}
-
-func markPushCurrent() {
-	markring.PushCurrent()
 }
 
 func fileVisitLocation(path string, line, column int) bool {
@@ -78,14 +60,6 @@ func CmdAbort(_ bool, _ int) bool {
 	return false
 }
 
-func TermFreezeInput() bool {
-	return display.TermFreezeInput()
-}
-
-func TermThawInput() {
-	display.TermThawInput()
-}
-
 func editorReadKey(keyOut *uint32) bool {
 	if PackageHooks.ReadKey == nil {
 		return false
@@ -96,8 +70,4 @@ func editorReadKey(keyOut *uint32) bool {
 	}
 	*keyOut = k
 	return true
-}
-
-func windowRetile() {
-	window.WindowRetile()
 }

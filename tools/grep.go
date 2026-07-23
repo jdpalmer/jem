@@ -7,10 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/files"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,6 +18,12 @@ import (
 	"unicode"
 
 	ignore "github.com/Sriram-PR/go-ignore"
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 const (
@@ -85,12 +88,8 @@ func grepCompilePattern(pattern string) (*regexp.Regexp, error) {
 	return regexp.Compile(pattern)
 }
 
-func grepIsBinary(data []byte) bool {
-	limit := len(data)
-	if limit > grepBinarySample {
-		limit = grepBinarySample
-	}
-	return bytes.IndexByte(data[:limit], 0) >= 0
+func grepIsBinarySample(sample []byte) bool {
+	return bytes.IndexByte(sample, 0) >= 0
 }
 
 func grepSearchFile(path string, re *regexp.Regexp, out chan<- grepMatch, limit *int, limitMu *sync.Mutex) {
@@ -99,8 +98,21 @@ func grepSearchFile(path string, re *regexp.Regexp, out chan<- grepMatch, limit 
 		return
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil || grepIsBinary(data) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	sample := make([]byte, grepBinarySample)
+	n, err := f.Read(sample)
+	if err != nil && err != io.EOF {
+		return
+	}
+	if grepIsBinarySample(sample[:n]) {
+		return
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return
 	}
 
@@ -109,7 +121,7 @@ func grepSearchFile(path string, re *regexp.Regexp, out chan<- grepMatch, limit 
 		abs = path
 	}
 
-	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner := bufio.NewScanner(f)
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
@@ -198,7 +210,6 @@ collecting:
 			}
 			matches = append(matches, m)
 			if len(matches) >= grepMaxMatches {
-				truncated = true
 				break collecting
 			}
 		}
@@ -322,14 +333,14 @@ func RunGrep() bool {
 			return
 		}
 		if pattern == "" {
-			mbWrite("[empty pattern]")
+			display.MBWrite("[empty pattern]")
 			return
 		}
-		mbHistoryAdd(pattern)
+		display.MBHistoryAdd(pattern)
 
 		root, err := grepSearchRoot()
 		if err != nil {
-			mbWrite("[grep failed]")
+			display.MBWrite("[grep failed]")
 			return
 		}
 		_ = StartBackgroundGrep(root, pattern)
@@ -353,6 +364,6 @@ func VisitGrepMatch() bool {
 		return false
 	}
 
-	markPushCurrent()
+	markring.PushCurrent()
 	return fileVisitLocation(data.Path, data.Line, data.Column)
 }

@@ -25,9 +25,6 @@ func NextOffset(data []byte, offset int) int {
 		return offset
 	}
 	_, size := utf8.DecodeRune(data[offset:])
-	if size <= 0 {
-		return offset + 1
-	}
 	return offset + size
 }
 

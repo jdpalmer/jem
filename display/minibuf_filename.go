@@ -26,8 +26,6 @@ func collectFuzzyPaths(dirpath, prefix string) []string {
 	absDir, err := filepath.Abs(openDir)
 	if err != nil {
 		absDir = filepath.Clean(openDir)
-	} else {
-		absDir = filepath.Clean(absDir)
 	}
 
 	var paths []string
@@ -46,7 +44,7 @@ func collectFuzzyPaths(dirpath, prefix string) []string {
 	sep := string(filepath.Separator)
 	for _, e := range entries {
 		name := e.Name()
-		if name == "." || name == ".." || strings.HasPrefix(name, ".") {
+		if strings.HasPrefix(name, ".") {
 			continue
 		}
 		info, err := e.Info()
@@ -139,8 +137,7 @@ func completePromptFilename(state *minibuffer.MinibufferState) bool {
 		return true
 	}
 
-	tdir, tprefix := files.PromptSplit(typed)
-	_ = tprefix
+	tdir, _ := files.PromptSplit(typed)
 	edir, eprefix := files.PromptSplit(expanded)
 	openDir := files.OpenDirFromPrompt(edir)
 

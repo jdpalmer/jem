@@ -3,6 +3,7 @@ package minibuffer
 // Package minibuffer holds prompt edit state (display only paints).
 
 import (
+	"bytes"
 	"unicode"
 	"unicode/utf8"
 
@@ -289,10 +290,8 @@ func (state *MinibufferState) Yank() bool {
 	if klen == 0 {
 		return false
 	}
-	for _, b := range k {
-		if b == '\n' || b == '\r' {
-			return false
-		}
+	if bytes.ContainsAny(k, "\n\r") {
+		return false
 	}
 	if len(state.Text)+klen >= state.Nbuf {
 		return false
@@ -351,12 +350,8 @@ func (state *MinibufferState) StepHistory(dir int) bool {
 	return true
 }
 
-func tickKillState() {
-	killring.Tick()
-}
-
 // EditKeyHistory applies one editing keystroke to a raw prompt buffer with C-p/C-n history.
-func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos *int, haveSavedEdit *bool, savedEdit []byte, k uint32) MinibufferEditResult {
+func EditKeyHistory(buf []byte, cpos *int, nbuf int, historyPos *int, haveSavedEdit *bool, savedEdit []byte, k uint32) MinibufferEditResult {
 	if cpos == nil || historyPos == nil || haveSavedEdit == nil || nbuf <= 0 {
 		return MinibufEditUnhandled
 	}
@@ -374,11 +369,10 @@ func EditKeyHistory(buf []byte, cpos *int, nbuf int, initial []byte, historyPos 
 	if *haveSavedEdit {
 		state.SavedEdit = append([]byte(nil), savedEdit...)
 	}
-	_ = initial
 	if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
 		return MinibufEditUnhandled
 	}
-	tickKillState()
+	killring.Tick()
 	switch k {
 	case term.CTL | 'P', term.KeyUp:
 		if !state.StepHistory(-1) {

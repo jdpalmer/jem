@@ -1,12 +1,14 @@
 package display
 
 import (
-	"github.com/jdpalmer/jem/window"
+	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/syntax"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/window"
 )
 
 func selectionStyle(base buffer.TextStyle) buffer.TextStyle {
@@ -153,25 +155,19 @@ func screenPutLineno(width, lineno int, marker int, leftClipped bool) {
 
 	// Git marker glyph (first column)
 	if marker != 0 {
-		var glyph rune = ' '
-		var glyphStyle buffer.TextStyle
 		bg := gutterStyle.Bg()
 		switch marker {
 		case 1:
-			glyph = '+'
-			glyphStyle = buffer.MakeTextStyle(buffer.TermColorGreen, bg, buffer.TextStyleBold)
+			displayPutGlyphStyle('+', buffer.MakeTextStyle(buffer.TermColorGreen, bg, buffer.TextStyleBold))
 		case 2:
-			glyph = '~'
-			glyphStyle = buffer.MakeTextStyle(buffer.TermColorYellow, bg, buffer.TextStyleBold)
+			displayPutGlyphStyle('~', buffer.MakeTextStyle(buffer.TermColorYellow, bg, buffer.TextStyleBold))
 		case 3:
-			glyph = '-'
-			glyphStyle = buffer.MakeTextStyle(buffer.TermColorRed, bg, buffer.TextStyleBold)
+			displayPutGlyphStyle('-', buffer.MakeTextStyle(buffer.TermColorRed, bg, buffer.TextStyleBold))
 		default:
-			glyphStyle = gutterStyle
+			displayPutGlyphStyle(' ', gutterStyle)
 		}
-		displayPutGlyphStyle(glyph, glyphStyle)
 	} else {
-		screenPutc(' ')
+		screenPutRaw(' ')
 	}
 
 	// Right-justify line number in (width-2) columns, then left-clipped indicator
@@ -179,40 +175,20 @@ func screenPutLineno(width, lineno int, marker int, leftClipped bool) {
 	if numWidth < 0 {
 		numWidth = 0
 	}
-
-	// Build the number text right-justified
-	numBuf := make([]byte, 0, numWidth+1)
+	s := ""
 	if lineno > 0 {
-		// Format number
-		var tmp [12]byte
-		n := 0
-		v := lineno
-		for v > 0 {
-			tmp[n] = byte('0' + v%10)
-			n++
-			v /= 10
-		}
-		// Pad with spaces
-		padLen := numWidth - n
-		for i := 0; i < padLen; i++ {
-			numBuf = append(numBuf, ' ')
-		}
-		// Append digits in reverse
-		for i := n - 1; i >= 0; i-- {
-			numBuf = append(numBuf, tmp[i])
-		}
-	} else {
-		for i := 0; i < numWidth; i++ {
-			numBuf = append(numBuf, ' ')
-		}
+		s = strconv.Itoa(lineno)
 	}
-	screenPutBytes(numBuf)
+	if pad := numWidth - len(s); pad > 0 {
+		s = strings.Repeat(" ", pad) + s
+	}
+	screenPutBytes([]byte(s))
 
 	// Left-clipped indicator
 	if leftClipped {
-		screenPutc('<')
+		screenPutRaw('<')
 	} else {
-		screenPutc(' ')
+		screenPutRaw(' ')
 	}
 
 	// Restore styles
@@ -238,23 +214,27 @@ func WindowCursorScreenCol(win *window.Window) int {
 	return lineColAtOffset(line, win.Cursor.Offset)
 }
 
+// decodeLineRune returns the next rune at i and its byte size.
+// Invalid UTF-8 bytes are emitted as the raw byte (not U+FFFD).
+func decodeLineRune(data []byte, i int) (rune, int) {
+	c := rune(data[i])
+	size := 1
+	if data[i] >= 0x80 {
+		r, sz := utf8.DecodeRune(data[i:])
+		if !(r == utf8.RuneError && sz == 1) {
+			return r, sz
+		}
+	}
+	return c, size
+}
+
 // screenPutPickerLine renders a full match-window row using the picker style.
 func screenPutPickerLine(line *buffer.Line) {
 	style := Active.Theme.PickerSelectionStyle
 	savedDrawStyle := drawStyle
 	drawStyle = style
-	n := len(line.Data)
-	i := 0
-	for i < n {
-		c := rune(line.Data[i])
-		size := 1
-		if line.Data[i] >= 0x80 {
-			r, sz := utf8.DecodeRune(line.Data[i:n])
-			if !(r == utf8.RuneError && sz == 1) {
-				c = r
-				size = sz
-			}
-		}
+	for i := 0; i < len(line.Data); {
+		c, size := decodeLineRune(line.Data, i)
 		screenPutGlyph(c)
 		i += size
 	}
@@ -262,7 +242,7 @@ func screenPutPickerLine(line *buffer.Line) {
 }
 
 // screenPutLine renders line content with syntax highlight and selection overlay.
-func screenPutLine(line *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, selStart, selEnd int) {
+func screenPutLine(line *buffer.Line, selStart, selEnd int) {
 	syntax.SyntaxEnsureLine(line)
 	n := len(line.Data)
 
@@ -288,16 +268,7 @@ func screenPutLine(line *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, sel
 		}
 		drawStyle = style
 
-		// Decode next rune
-		c := rune(line.Data[i])
-		size := 1
-		if line.Data[i] >= 0x80 {
-			r, sz := utf8.DecodeRune(line.Data[i:n])
-			if !(r == utf8.RuneError && sz == 1) {
-				c = r
-				size = sz
-			}
-		}
+		c, size := decodeLineRune(line.Data, i)
 		screenPutGlyph(c)
 		i += size
 		ri++
@@ -306,13 +277,16 @@ func screenPutLine(line *buffer.Line, _ buffer.LangMode, _ *buffer.SynState, sel
 }
 
 // renderLine renders one buffer line (gutter + content + horizontal scroll) into row.
-func renderLine(win *window.Window, lineNumber int, row int, synSt *buffer.SynState, selSt *SelState) {
+func renderLine(win *window.Window, lineNumber int, row int, selSt *SelState) {
 	line := win.Buffer.Line(lineNumber)
 	if line == nil {
 		return
 	}
 	gutter := win.GutterWidth()
-	marker := gitLineDiff(win.Buffer, lineNumber)
+	marker := 0
+	if PackageHooks.GitLineDiff != nil {
+		marker = PackageHooks.GitLineDiff(win.Buffer, lineNumber)
+	}
 
 	var ss, se int
 	if selSt != nil {
@@ -331,7 +305,7 @@ func renderLine(win *window.Window, lineNumber int, row int, synSt *buffer.SynSt
 	if win.Buffer != nil && win.Buffer.Name == "*match*" && line != nil && line.Len() >= 2 && line.Data[0] == '>' && line.Data[1] == ' ' {
 		screenPutPickerLine(line)
 	} else {
-		screenPutLine(line, win.Buffer.LangMode, synSt, ss, se)
+		screenPutLine(line, ss, se)
 	}
 
 	clipLeftCol = oldClipLeft

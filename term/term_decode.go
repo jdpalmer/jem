@@ -10,30 +10,16 @@ import (
 
 const pasteMaxBytes = 65536
 
-func termDebugKeysLog(format string, args ...any) {
-	if !debugLogs {
-		return
-	}
-	f, err := os.OpenFile("/tmp/jem-keys.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	fmt.Fprintf(f, format+"\n", args...)
-}
-
 // termReadKeyUnlocked reads and decodes one key. Caller must hold termReadMu.
 func termReadKeyUnlocked() (uint32, bool) {
 	for {
 		var buf [1]byte
 		_, err := termReader.Read(buf[:])
 		if err != nil {
-			termDebugKeysLog("read error: %v", err)
 			return 0, false
 		}
 
 		firstByte := buf[0]
-		termDebugKeysLog("read1: 0x%02x", firstByte)
 
 		if firstByte >= 0x80 {
 			k := termDecodeUTF8KeyFromFirstByte(firstByte)
@@ -46,11 +32,9 @@ func termReadKeyUnlocked() (uint32, bool) {
 
 		_, err = termReader.Read(buf[:])
 		if err != nil {
-			termDebugKeysLog("read-after-esc error: %v", err)
 			return 0x1B, true
 		}
 		secondByte := buf[0]
-		termDebugKeysLog("read2-after-esc: 0x%02x", secondByte)
 
 		if secondByte == '[' {
 			if key := termDecodeCSISequence(); key != 0 {
@@ -94,7 +78,6 @@ func ReadKey() (uint32, bool) {
 	termReadMu.Lock()
 	defer termReadMu.Unlock()
 	k, ok := termReadKeyUnlocked()
-	termDebugKeysLog("final-decoded: 0x%08x ok=%v", k, ok)
 	return k, ok
 }
 
@@ -267,7 +250,6 @@ func termStoreMousePosition(col, row int) {
 }
 
 func csiUKeyCode(codepoint int, modifierParam int, eventType int) uint32 {
-	termDebugKeysLog("csiUKeyCode input: codepoint=%d modifierParam=%d event=%d", codepoint, modifierParam, eventType)
 
 	if eventType == keyEventRelease {
 		return 0
@@ -390,7 +372,6 @@ func csiUKeyCode(codepoint int, modifierParam int, eventType int) uint32 {
 	}
 
 out:
-	termDebugKeysLog("csiUKeyCode output: 0x%08x", res)
 	return res
 }
 
@@ -418,7 +399,6 @@ func termDecodeUTF8KeyFromFirstByte(firstByte byte) uint32 {
 }
 
 func termDecodeCSISequence() uint32 {
-	termDebugKeysLog("termDecodeCSISequence enter")
 
 	var payload [64]byte
 	payloadLength := 0
@@ -432,7 +412,6 @@ func termDecodeCSISequence() uint32 {
 		var buf [1]byte
 		_, err := termReader.Read(buf[:])
 		if err != nil {
-			termDebugKeysLog("CSI read error: %v", err)
 			return 0
 		}
 		b := buf[0]

@@ -5,12 +5,7 @@ import "testing"
 func linesOf(buf *Buffer) []string {
 	out := make([]string, 0, len(buf.Lines))
 	for i := 1; i <= len(buf.Lines); i++ {
-		line := buf.Line(i)
-		if line == nil {
-			out = append(out, "")
-			continue
-		}
-		out = append(out, string(line.Data))
+		out = append(out, string(buf.Line(i).Data))
 	}
 	return out
 }
@@ -18,10 +13,9 @@ func linesOf(buf *Buffer) []string {
 func TestReplaceRaw_SingleLineInsert(t *testing.T) {
 	buf := withLines("abcdef")
 
-	begin := MakeLocation(1, 3)
-	end := MakeLocation(1, 3)
+	loc := MakeLocation(1, 3)
 	var newEnd Location
-	if err := buf.ReplaceRaw(begin, end, []byte("X"), &newEnd); err != nil {
+	if err := buf.ReplaceRaw(loc, loc, []byte("X"), &newEnd); err != nil {
 		t.Fatal("ReplaceRaw failed")
 	}
 	lines := linesOf(buf)
@@ -36,10 +30,9 @@ func TestReplaceRaw_SingleLineInsert(t *testing.T) {
 func TestReplaceRaw_MultiLineInsert(t *testing.T) {
 	buf := withLines("abcdef")
 
-	begin := MakeLocation(1, 3)
-	end := MakeLocation(1, 3)
+	loc := MakeLocation(1, 3)
 	var newEnd Location
-	if err := buf.ReplaceRaw(begin, end, []byte("X\nY"), &newEnd); err != nil {
+	if err := buf.ReplaceRaw(loc, loc, []byte("X\nY"), &newEnd); err != nil {
 		t.Fatal("ReplaceRaw failed")
 	}
 	lines := linesOf(buf)
@@ -63,8 +56,9 @@ func TestReplaceRaw_DeleteToEOF(t *testing.T) {
 func TestReplaceRaw_InsertAtEOF(t *testing.T) {
 	buf := withLines("hello")
 
+	eof := MakeLocation(buf.EOF(), 0)
 	var newEnd Location
-	if err := buf.ReplaceRaw(MakeLocation(buf.EOF(), 0), MakeLocation(buf.EOF(), 0), []byte("world"), &newEnd); err != nil {
+	if err := buf.ReplaceRaw(eof, eof, []byte("world"), &newEnd); err != nil {
 		t.Fatal("ReplaceRaw failed")
 	}
 	lines := linesOf(buf)
@@ -110,32 +104,13 @@ func TestSetTextUndoDelete(t *testing.T) {
 		t.Fatal("SetText failed")
 	}
 	undo.EndCommand()
-	if string(buf.Line(1).Data) != "hello" {
-		t.Fatalf("after delete: %q", buf.Line(1).Data)
+	if linesOf(buf)[0] != "hello" {
+		t.Fatalf("after delete: %q", linesOf(buf))
 	}
-	replay := UndoReplay{
-		InsertText: func(lineNumber, offset int, text []byte) error {
-			loc := MakeLocation(lineNumber, offset)
-			return buf.ReplaceRaw(loc, loc, text, nil)
-		},
-		DeleteText: func(lineNumber, offset int, text []byte) error {
-			begin := MakeLocation(lineNumber, offset)
-			endLine, endOffset := lineNumber, offset
-			for i := 0; i < len(text); i++ {
-				if text[i] == '\n' {
-					endLine++
-					endOffset = 0
-				} else {
-					endOffset++
-				}
-			}
-			return buf.ReplaceRaw(begin, MakeLocation(endLine, endOffset), nil, nil)
-		},
-	}
-	if err := undo.Undo(replay); err != nil {
+	if err := undo.Undo(testUndoReplay(buf)); err != nil {
 		t.Fatalf("undo failed: %v", err)
 	}
-	if string(buf.Line(1).Data) != "hello world" {
-		t.Fatalf("after undo: %q", buf.Line(1).Data)
+	if linesOf(buf)[0] != "hello world" {
+		t.Fatalf("after undo: %q", linesOf(buf))
 	}
 }

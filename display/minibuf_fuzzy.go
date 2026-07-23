@@ -3,10 +3,12 @@ package display
 // Fuzzy-list prompt matching and redraw.
 
 import (
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
+	"bytes"
 	"sort"
 	"strings"
+
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 const fuzzyMaxMatches = 16
@@ -16,14 +18,13 @@ type fuzzyMatchCtx struct {
 	providerCtx      any
 	displayFormatter minibuffer.MbMatchFormatter
 	displayCtx       any
-	indices          []int
 }
 
-func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize int, listIdx int) {
-	if listIdx >= len(ctx.indices) {
+func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, matches []int, out []byte, outSize int, listIdx int) {
+	if listIdx >= len(matches) {
 		return
 	}
-	provIdx := ctx.indices[listIdx]
+	provIdx := matches[listIdx]
 	if ctx.displayFormatter != nil {
 		ctx.displayFormatter(out, outSize, provIdx, ctx.displayCtx)
 		return
@@ -36,11 +37,11 @@ func fuzzyMatchFormatLine(ctx *fuzzyMatchCtx, out []byte, outSize int, listIdx i
 		return
 	}
 	n := len(name)
+	if outSize <= 0 {
+		return
+	}
 	if n >= outSize {
 		n = outSize - 1
-	}
-	if n < 0 {
-		n = 0
 	}
 	copy(out, name[:n])
 	out[n] = 0
@@ -57,9 +58,9 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 	for i := 0; i < count; i++ {
 		line := make([]byte, 512)
 		formatter(line, len(line), i, ctx)
-		end := 0
-		for end < len(line) && line[end] != 0 {
-			end++
+		end := bytes.IndexByte(line, 0)
+		if end < 0 {
+			end = len(line)
 		}
 		if i == selected {
 			out.WriteString("> ")
@@ -75,13 +76,13 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 }
 
 func fuzzyMatchRefresh(matches []int, sel int, ctx *fuzzyMatchCtx) {
-	ctx.indices = matches
 	count := len(matches)
 	if count > fuzzyMaxMatches {
 		count = fuzzyMaxMatches
 	}
 	if count == 0 {
-		writeMatchBufferGeneric(func([]byte, int, int, any) {}, ctx, 0, 0)
+		window.SetMatchBufferText(nil, 0)
+		DisplayUpdate()
 		return
 	}
 	if sel < 0 {
@@ -91,7 +92,7 @@ func fuzzyMatchRefresh(matches []int, sel int, ctx *fuzzyMatchCtx) {
 		sel = count - 1
 	}
 	writeMatchBufferGeneric(func(out []byte, outSize int, idx int, c any) {
-		fuzzyMatchFormatLine(c.(*fuzzyMatchCtx), out, outSize, idx)
+		fuzzyMatchFormatLine(c.(*fuzzyMatchCtx), matches, out, outSize, idx)
 	}, ctx, count, sel)
 }
 

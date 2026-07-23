@@ -119,8 +119,8 @@ func TestRainbowParensIncremental(t *testing.T) {
 	if len(first.SyntaxStyles) == 0 || len(second.SyntaxStyles) == 0 {
 		t.Fatalf("syntax styles not produced")
 	}
-	style0 := parenStyleExported(buffer.TermColorMagenta, 0)
-	style1 := parenStyleExported(buffer.TermColorMagenta, 1)
+	style0 := parenStyle(buffer.TermColorMagenta, 0)
+	style1 := parenStyle(buffer.TermColorMagenta, 1)
 	if first.SyntaxStyles[0] != style0 {
 		t.Fatalf("expected depth0 style on first line, got %v", first.SyntaxStyles[0])
 	}
@@ -134,7 +134,7 @@ func TestRainbowParensSingleLine(t *testing.T) {
 	line.LangMode = buffer.LModeGo
 	line.EnsureCache()
 	// Tokenize the single line
-	syn, summary, styles := tokenizeLineFromStateExported(line, buffer.SynState{DFA: SynStateNormal})
+	syn, summary, styles := tokenizeLineFromState(line, buffer.SynState{DFA: SynStateNormal})
 	_ = syn
 	_ = summary
 	if styles == nil || len(styles) == 0 {
@@ -143,7 +143,7 @@ func TestRainbowParensSingleLine(t *testing.T) {
 	// expected colors: positions 0..5 -> depth 0,1,2,2,1,0
 	expectedDepths := []int{0, 1, 2, 2, 1, 0}
 	for i, d := range expectedDepths {
-		expStyle := parenStyleExported(buffer.TermColorMagenta, d)
+		expStyle := parenStyle(buffer.TermColorMagenta, d)
 		if styles[i] != expStyle {
 			t.Fatalf("paren at %d: expected depth %d style %v, got %v", i, d, expStyle, styles[i])
 		}

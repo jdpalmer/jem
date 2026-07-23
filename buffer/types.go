@@ -4,36 +4,36 @@ package buffer
 type EolMode int
 
 const (
-	EModeLF   EolMode = 0
-	EModeCRLF EolMode = 1
-	EModeCR   EolMode = 2
+	EModeLF EolMode = iota
+	EModeCRLF
+	EModeCR
 )
 
 type LangMode int
 
 const (
-	LModeNone         LangMode = 0
-	LModeC            LangMode = 1
-	LModeJava         LangMode = 2
-	LModePython       LangMode = 3
-	LModeLua          LangMode = 4
-	LModeLisp         LangMode = 5
-	LModeMarkdown     LangMode = 6
-	LModePascal       LangMode = 7
-	LModeVerilog      LangMode = 8
-	LModeMake         LangMode = 9
-	LModeSwift        LangMode = 10
-	LModeJavaScript   LangMode = 11
-	LModeActionScript LangMode = 12
-	LModeTypeScript   LangMode = 13
-	LModeDart         LangMode = 14
-	LModeGo           LangMode = 15
-	LModeCSharp       LangMode = 16
-	LModeRust         LangMode = 17
-	LModeR            LangMode = 18
-	LModeKotlin       LangMode = 19
-	LModeHTML         LangMode = 20
-	LModeCSS          LangMode = 21
+	LModeNone LangMode = iota
+	LModeC
+	LModeJava
+	LModePython
+	LModeLua
+	LModeLisp
+	LModeMarkdown
+	LModePascal
+	LModeVerilog
+	LModeMake
+	LModeSwift
+	LModeJavaScript
+	LModeActionScript
+	LModeTypeScript
+	LModeDart
+	LModeGo
+	LModeCSharp
+	LModeRust
+	LModeR
+	LModeKotlin
+	LModeHTML
+	LModeCSS
 )
 
 // IndentConfig is language-agnostic indent style for a buffer.
@@ -47,11 +47,11 @@ type IndentConfig struct {
 type SyntaxContext int
 
 const (
-	SyntaxContextNone    SyntaxContext = 0
-	SyntaxContextCode    SyntaxContext = 1
-	SyntaxContextString  SyntaxContext = 2
-	SyntaxContextComment SyntaxContext = 3
-	SyntaxContextPreproc SyntaxContext = 4
+	SyntaxContextNone SyntaxContext = iota
+	SyntaxContextCode
+	SyntaxContextString
+	SyntaxContextComment
+	SyntaxContextPreproc
 )
 
 type SyntaxDelimiterMask uint8

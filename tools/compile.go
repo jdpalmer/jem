@@ -6,9 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/jdpalmer/jem/buffer"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 	"io"
 	"os"
 	"os/exec"
@@ -17,6 +14,12 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/window"
 )
 
 const (
@@ -97,7 +100,6 @@ func compileParseLineColumn(rest string) (line, column int, ok bool) {
 		return 0, 0, false
 	}
 	i++
-	colStart := i
 	parsedCol := 0
 	hasCol := false
 	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
@@ -108,7 +110,6 @@ func compileParseLineColumn(rest string) (line, column int, ok bool) {
 	column = 1
 	if hasCol && parsedCol > 0 && i < len(rest) && rest[i] == ':' {
 		column = parsedCol
-		_ = colStart
 	}
 	return line, column, true
 }
@@ -275,10 +276,10 @@ func RunCompile() bool {
 			return
 		}
 		if command == "" {
-			mbWrite("[empty compile command]")
+			display.MBWrite("[empty compile command]")
 			return
 		}
-		mbHistoryAdd(command)
+		display.MBHistoryAdd(command)
 		compileLastCommand = command
 		_ = StartBackgroundCompile(command)
 	})
@@ -301,6 +302,6 @@ func VisitCompileDiag() bool {
 		return false
 	}
 
-	markPushCurrent()
+	markring.PushCurrent()
 	return fileVisitLocation(data.Path, data.Line, data.Column)
 }

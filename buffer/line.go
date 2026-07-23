@@ -39,9 +39,8 @@ func (line *Line) EnsureCache() {
 		return
 	}
 	bs := line.Data
-	capNeeded := len(bs)/2 + 1
-	runes := make([]rune, 0, capNeeded)
-	widths := make([]int8, 0, capNeeded)
+	runes := make([]rune, 0, len(bs))
+	widths := make([]int8, 0, len(bs))
 	i := 0
 	for i < len(bs) {
 		r, size := utf8.DecodeRune(bs[i:])
@@ -107,14 +106,5 @@ func (line *Line) LastByte() byte {
 
 // IsBlank returns true if the line contains only whitespace or is empty.
 func (line *Line) IsBlank() bool {
-	if len(line.Data) == 0 {
-		return true
-	}
-	for i := 0; i < len(line.Data); i++ {
-		c := line.Data[i]
-		if c != ' ' && c != '\t' {
-			return false
-		}
-	}
-	return true
+	return line.FirstNonblank() == len(line.Data)
 }

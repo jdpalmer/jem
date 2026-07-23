@@ -23,7 +23,13 @@ type TestEditor struct {
 // NewTestEditor resets package globals and returns a fresh headless runtime.
 func NewTestEditor(t *testing.T) *TestEditor {
 	t.Helper()
-	e := resetTestEditorState()
+	e := New()
+	e.Activate()
+	killring.ResetForTests()
+	ClearPending()
+	clearListeners()
+	event.DrainForTest()
+	tools.ResetBackgroundJobsForTests()
 	VarsInit()
 	display.DisplayInitHeadless(24, 80)
 	InitCommands()
@@ -33,18 +39,6 @@ func NewTestEditor(t *testing.T) *TestEditor {
 		window.Active.CurrentWindow.Height = term.Rows()
 	}
 	return &TestEditor{t: t, e: e}
-}
-
-func resetTestEditorState() *App {
-	e := New()
-	e.Activate()
-	killring.ResetForTests()
-	ClearPending()
-	clearListeners()
-	// Drain any leftover events from a prior test.
-	event.DrainForTest()
-	tools.ResetBackgroundJobsForTests()
-	return e
 }
 
 func (te *TestEditor) BP() *buffer.Buffer {
@@ -85,16 +79,17 @@ func (te *TestEditor) LoadText(text string) {
 // BufferText returns buffer lines joined with newlines (C buffer_to_string).
 func (te *TestEditor) BufferText() string {
 	buf := te.BP()
-	lines := make([]string, 0, len(buf.Lines))
+	var b strings.Builder
 	for i := 1; i <= len(buf.Lines); i++ {
-		line := buf.Line(i)
-		if line == nil {
-			lines = append(lines, "")
-			continue
+		if i > 1 {
+			b.WriteByte('\n')
 		}
-		lines = append(lines, string(line.Data))
+		line := buf.Line(i)
+		if line != nil {
+			b.Write(line.Data)
+		}
 	}
-	return strings.Join(lines, "\n")
+	return b.String()
 }
 
 func (te *TestEditor) SetCursor(line, offset int) {

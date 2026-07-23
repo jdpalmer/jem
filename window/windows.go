@@ -1,6 +1,8 @@
 package window
 
 import (
+	"strconv"
+
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/term"
 )
@@ -30,14 +32,8 @@ func WindowCreate() *Window {
 		TopLine:              1,
 		Cursor:               buffer.Location{Line: 1, Offset: 0},
 		Mark:                 buffer.Location{Line: 1, Offset: 0},
-		ScreenTopRow:         0,
-		Height:               0,
-		ShouldReframe:        false,
-		DidMove:              false,
-		DidEdit:              false,
 		ShouldRedraw:         true,
 		ShouldUpdateModeLine: true,
-		HScroll:              0,
 	}
 	Active.Windows = append(Active.Windows, win)
 	return win
@@ -108,12 +104,7 @@ func (win *Window) GutterWidth() int {
 	if win == nil || win.Buffer == nil {
 		return 3
 	}
-	digits := 1
-	n := len(win.Buffer.Lines)
-	for n >= 10 {
-		n /= 10
-		digits++
-	}
+	digits := len(strconv.Itoa(len(win.Buffer.Lines)))
 	width := digits + 2
 	if width >= term.Cols() {
 		width = term.Cols() - 1

@@ -1,6 +1,7 @@
 package display
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mattn/go-runewidth"
@@ -18,14 +19,7 @@ func TestFitBufferName(t *testing.T) {
 	if got == long {
 		t.Fatal("expected truncation")
 	}
-	found := false
-	for _, r := range got {
-		if r == '…' {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !strings.ContainsRune(got, '…') {
 		t.Fatalf("expected ellipsis in %q", got)
 	}
 }

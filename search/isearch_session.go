@@ -109,11 +109,7 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 	}
 
 	oldPat := string(s.pat[:plen])
-	initial := searchPatternBytes()
-	if s.regex {
-		initial = []byte(currentState().RegexSearchPattern)
-	}
-	edit := minibuffer.EditKeyHistory(s.pat[:], &s.cpos, display.PatternCapacity, initial, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
+	edit := minibuffer.EditKeyHistory(s.pat[:], &s.cpos, display.PatternCapacity, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
 	if edit == minibuffer.MinibufEditUnhandled {
 		s.commitPattern(plen)
 		mbClear()

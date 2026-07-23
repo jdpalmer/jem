@@ -5,14 +5,17 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+	"unicode"
+
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/markring"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
-	"os"
-	"path/filepath"
-	"unicode"
 )
 
 const (
@@ -31,17 +34,11 @@ type TagEntry struct {
 
 type tagDBState struct {
 	path    string
-	mtime   os.FileInfo
+	mtime   time.Time
 	entries []TagEntry
 }
 
 var tagDB tagDBState
-
-func tagDBClear() {
-	tagDB.path = ""
-	tagDB.mtime = nil
-	tagDB.entries = nil
-}
 
 func tagFindTagsFile() (string, bool) {
 	tagName := os.Getenv("JEM_TAGS_FILE")
@@ -131,7 +128,7 @@ func tagEntryParse(line []byte, tagsDir string) (TagEntry, bool) {
 }
 
 func tagDBLoad(path string) (string, bool) {
-	tagDBClear()
+	tagDB = tagDBState{}
 
 	text, err := os.ReadFile(path)
 	if err != nil {
@@ -152,7 +149,7 @@ func tagDBLoad(path string) (string, bool) {
 		}
 		if len(line) > 0 {
 			if !json.Valid(line) {
-				tagDBClear()
+				tagDB = tagDBState{}
 				return fmt.Sprintf("invalid %s line %d: parse error", path, lineNumber), false
 			}
 			entry, ok := tagEntryParse(line, tagsDir)
@@ -169,12 +166,12 @@ func tagDBLoad(path string) (string, bool) {
 
 	st, err := os.Stat(path)
 	if err != nil {
-		tagDBClear()
+		tagDB = tagDBState{}
 		return "cannot stat " + path, false
 	}
 
 	tagDB.path = path
-	tagDB.mtime = st
+	tagDB.mtime = st.ModTime()
 	return "", true
 }
 
@@ -182,7 +179,7 @@ func EnsureTagsLoaded(quiet bool) bool {
 	path, ok := tagFindTagsFile()
 	if !ok {
 		if !quiet {
-			mbWrite("[no %s found; run make tags]", tagsFileName)
+			display.MBWrite("[no %s found; run make tags]", tagsFileName)
 		}
 		return false
 	}
@@ -190,19 +187,19 @@ func EnsureTagsLoaded(quiet bool) bool {
 	st, err := os.Stat(path)
 	if err != nil {
 		if !quiet {
-			mbWrite("[cannot stat %s]", path)
+			display.MBWrite("[cannot stat %s]", path)
 		}
 		return false
 	}
 
-	if tagDB.path == path && tagDB.mtime != nil &&
-		tagDB.mtime.ModTime().Equal(st.ModTime()) && tagDB.entries != nil {
+	if tagDB.path == path && !tagDB.mtime.IsZero() &&
+		tagDB.mtime.Equal(st.ModTime()) && tagDB.entries != nil {
 		return true
 	}
 
 	if msg, ok := tagDBLoad(path); !ok {
 		if !quiet && msg != "" {
-			mbWrite("[%s]", msg)
+			display.MBWrite("[%s]", msg)
 		}
 		return false
 	}
@@ -249,27 +246,8 @@ func tagVisitLocation(path string, line, offset int) bool {
 	return fileVisitLocation(path, line, offset+1)
 }
 
-func tagMatchCount(name string, requireSignature bool) int {
-	count := 0
-	for i := range tagDB.entries {
-		entry := &tagDB.entries[i]
-		if entry.Name != name {
-			continue
-		}
-		if requireSignature && entry.Signature == "" {
-			continue
-		}
-		count++
-	}
-	return count
-}
-
 func tagCollectMatches(name string, requireSignature bool) []*TagEntry {
-	count := tagMatchCount(name, requireSignature)
-	if count == 0 {
-		return nil
-	}
-	matches := make([]*TagEntry, 0, count)
+	var matches []*TagEntry
 	for i := range tagDB.entries {
 		entry := &tagDB.entries[i]
 		if entry.Name != name {
@@ -304,7 +282,7 @@ func tagSignatureScore(buf *buffer.Buffer, entry *TagEntry) int {
 
 func tagBestSignature(buf *buffer.Buffer, name string) *TagEntry {
 	var best *TagEntry
-	bestScore := int(^uint(0)>>1) * -1
+	var bestScore int
 	for i := range tagDB.entries {
 		entry := &tagDB.entries[i]
 		if entry.Name != name || entry.Signature == "" {
@@ -390,7 +368,7 @@ func tagVisitMatch(matches []*TagEntry, choice int) {
 	if choice < 0 || choice >= len(matches) {
 		return
 	}
-	markPushCurrent()
+	markring.PushCurrent()
 	entry := matches[choice]
 	_ = tagVisitLocation(entry.Path, entry.Line, 0)
 }
@@ -406,7 +384,7 @@ func RunGotoTag() bool {
 	finish := func(name string) {
 		matches := tagCollectMatches(name, false)
 		if len(matches) == 0 {
-			mbWrite("[tag not found: %s]", name)
+			display.MBWrite("[tag not found: %s]", name)
 			return
 		}
 		if len(matches) == 1 {
@@ -573,5 +551,5 @@ func MaybeShowCallHint() {
 	if entry == nil || entry.Signature == "" {
 		return
 	}
-	mbWrite("%s%s  [arg %d]", symbolName, entry.Signature, argIndex)
+	display.MBWrite("%s%s  [arg %d]", symbolName, entry.Signature, argIndex)
 }

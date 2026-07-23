@@ -29,17 +29,8 @@ var commandNameMap map[string]CommandFunc
 var keybindingsMap map[uint32]CommandFunc
 var commandAcceptsArgByKey map[uint32]bool
 
-var commandKeyAliases = []struct {
-	Key uint32
-	Fn  CommandFunc
-}{}
-
 // InitCommands populates commandNameMap and keybindingsMap from commandTable.
 func InitCommands() {
-	initCommandRegistry()
-}
-
-func initCommandRegistry() {
 	commandTable = []Command{
 		{Name: "abort", Fn: CmdAbort, Doc: "Abort the current prompt, macro, or transient operation.", AcceptsArg: false, Keys: []uint32{term.CTL | 'G'}},
 		{Name: "back_to_indentation", Fn: CmdBackToIndentation, Doc: "Move to the first non-whitespace character on the line.", AcceptsArg: false, Keys: []uint32{term.META | 'm'}},
@@ -160,9 +151,6 @@ func initCommandRegistry() {
 				commandAcceptsArgByKey[key] = true
 			}
 		}
-	}
-	for _, alias := range commandKeyAliases {
-		keybindingsMap[alias.Key] = alias.Fn
 	}
 }
 

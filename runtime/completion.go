@@ -59,47 +59,48 @@ func bufferTextBytes(buf *buffer.Buffer) []byte {
 	return out.Bytes()
 }
 
-func keywordsForLang(lang buffer.LangMode) []string {
-	switch lang {
-	case buffer.LModeC:
-		return append(append([]string{}, syntax.CKeywords...), syntax.CTypes...)
-	case buffer.LModeJava:
-		return append(append([]string{}, syntax.JavaKeywords...), syntax.JavaTypes...)
-	case buffer.LModeGo:
-		return append(append([]string{}, syntax.GoKeywords...), syntax.GoTypes...)
-	case buffer.LModeJavaScript, buffer.LModeActionScript:
-		return append(append([]string{}, syntax.JSKeywords...), syntax.JSTypes...)
-	case buffer.LModeTypeScript:
-		return append(append([]string{}, syntax.TSKeywords...), syntax.TSTypes...)
-	case buffer.LModeDart:
-		return append(append([]string{}, syntax.DartKeywords...), syntax.DartTypes...)
-	case buffer.LModePython:
-		return append(append([]string{}, syntax.PyKeywords...), syntax.PyTypes...)
-	case buffer.LModeCSharp:
-		return append(append([]string{}, syntax.CSKeywords...), syntax.CSTypes...)
-	case buffer.LModeRust:
-		return append(append([]string{}, syntax.RustKeywords...), syntax.RustTypes...)
-	case buffer.LModeSwift:
-		return append(append([]string{}, syntax.SwiftKeywords...), syntax.SwiftTypes...)
-	case buffer.LModeKotlin:
-		return append(append([]string{}, syntax.KTKeywords...), syntax.KTTypes...)
-	case buffer.LModeLua:
-		return syntax.LuaKeywords
-	case buffer.LModeLisp:
-		return syntax.LispKeywords
-	case buffer.LModePascal:
-		return append(append([]string{}, syntax.PasKeywords...), syntax.PasTypes...)
-	case buffer.LModeVerilog:
-		return append(append([]string{}, syntax.VlgKeywords...), syntax.VlgTypes...)
-	case buffer.LModeHTML:
-		return append(append([]string{}, syntax.HTMLKeywords...), syntax.HTMLAttrs...)
-	case buffer.LModeCSS:
-		return append(append([]string{}, syntax.CSSKeywords...), syntax.CSSTypes...)
-	case buffer.LModeR:
-		return append(append([]string{}, syntax.RKeywords...), syntax.RTypes...)
-	default:
-		return syntax.CommonKeywords
+var keywordsByLang map[buffer.LangMode][]string
+
+func init() {
+	cat := func(parts ...[]string) []string {
+		n := 0
+		for _, p := range parts {
+			n += len(p)
+		}
+		out := make([]string, 0, n)
+		for _, p := range parts {
+			out = append(out, p...)
+		}
+		return out
 	}
+	keywordsByLang = map[buffer.LangMode][]string{
+		buffer.LModeC:            cat(syntax.CKeywords, syntax.CTypes),
+		buffer.LModeJava:         cat(syntax.JavaKeywords, syntax.JavaTypes),
+		buffer.LModeGo:           cat(syntax.GoKeywords, syntax.GoTypes),
+		buffer.LModeJavaScript:   cat(syntax.JSKeywords, syntax.JSTypes),
+		buffer.LModeActionScript: cat(syntax.JSKeywords, syntax.JSTypes),
+		buffer.LModeTypeScript:   cat(syntax.TSKeywords, syntax.TSTypes),
+		buffer.LModeDart:         cat(syntax.DartKeywords, syntax.DartTypes),
+		buffer.LModePython:       cat(syntax.PyKeywords, syntax.PyTypes),
+		buffer.LModeCSharp:       cat(syntax.CSKeywords, syntax.CSTypes),
+		buffer.LModeRust:         cat(syntax.RustKeywords, syntax.RustTypes),
+		buffer.LModeSwift:        cat(syntax.SwiftKeywords, syntax.SwiftTypes),
+		buffer.LModeKotlin:       cat(syntax.KTKeywords, syntax.KTTypes),
+		buffer.LModeLua:          syntax.LuaKeywords,
+		buffer.LModeLisp:         syntax.LispKeywords,
+		buffer.LModePascal:       cat(syntax.PasKeywords, syntax.PasTypes),
+		buffer.LModeVerilog:      cat(syntax.VlgKeywords, syntax.VlgTypes),
+		buffer.LModeHTML:         cat(syntax.HTMLKeywords, syntax.HTMLAttrs),
+		buffer.LModeCSS:          cat(syntax.CSSKeywords, syntax.CSSTypes),
+		buffer.LModeR:            cat(syntax.RKeywords, syntax.RTypes),
+	}
+}
+
+func keywordsForLang(lang buffer.LangMode) []string {
+	if words, ok := keywordsByLang[lang]; ok {
+		return words
+	}
+	return syntax.CommonKeywords
 }
 
 func scanLineWords(line *buffer.Line, add func(string)) {
@@ -184,14 +185,6 @@ func setPending(fullWord, prefix string) {
 	pending = suffix
 }
 
-func stringListProvider(ctx any, idx int) []byte {
-	names, ok := ctx.([]string)
-	if !ok || int(idx) >= len(names) {
-		return nil
-	}
-	return []byte(names[idx])
-}
-
 func pickMatch(candidates []string, prefix string, onDone func(match string, ok bool)) {
 	if len(candidates) == 0 {
 		onDone("", false)
@@ -201,7 +194,13 @@ func pickMatch(candidates []string, prefix string, onDone func(match string, ok 
 		onDone(candidates[0], true)
 		return
 	}
-	AskFuzzy("Complete: ", stringListProvider, candidates, len(candidates), func(label string, pr minibuffer.PromptResult) {
+	AskFuzzy("Complete: ", func(ctx any, idx int) []byte {
+		names, ok := ctx.([]string)
+		if !ok || idx >= len(names) {
+			return nil
+		}
+		return []byte(names[idx])
+	}, candidates, len(candidates), func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			onDone("", false)
 			return

@@ -19,7 +19,6 @@ func NewStringPrompt(prompt, initial string, capacity int) *StringPrompt {
 	p := &StringPrompt{
 		prompt: prompt,
 		state: minibuffer.MinibufferState{
-			Prompt:     prompt,
 			Text:       make([]byte, 0, capacity),
 			Nbuf:       capacity,
 			HistoryPos: -1,

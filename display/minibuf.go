@@ -57,18 +57,7 @@ func displayWidthBytes(text []byte, endOff int) int {
 	if endOff > len(text) {
 		endOff = len(text)
 	}
-	count := 0
-	for o := 0; o < endOff; {
-		r, size := utf8.DecodeRune(text[o:endOff])
-		if r == utf8.RuneError && size == 1 {
-			o++
-			count++
-			continue
-		}
-		o += size
-		count++
-	}
-	return count
+	return utf8.RuneCount(text[:endOff])
 }
 
 // MBWritePromptStyle renders prompt+text on the message line with the cursor
@@ -78,9 +67,6 @@ func MBWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextS
 	screenPutBytes([]byte(prompt))
 	cursorCol := displayWidthBytes([]byte(prompt), len(prompt)) + displayWidthBytes(text, cpos)
 	screenPutBytes(text)
-	if cursorCol < 0 {
-		cursorCol = 0
-	}
 	mlFinish(cursorCol, true)
 }
 

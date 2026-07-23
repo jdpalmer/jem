@@ -128,7 +128,7 @@ func AskFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx
 		}
 		return
 	}
-	p := display.NewFuzzyPrompt(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, PatternCapacity)
+	p := display.NewFuzzyPrompt(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx)
 	p.Open()
 	PushListener(&fuzzyListener{prompt: p, onDone: onDone})
 }

@@ -58,11 +58,6 @@ func CmdCopyRegion(f bool, n int) bool {
 	}
 	killring.KillBegin()
 	text := win.Buffer.GetText(region.Start, region.End)
-	length := len(text)
-	if length > 0 && text == nil {
-		display.MBWrite("[out of memory]")
-		return false
-	}
 	if !killring.KillAppend(text) {
 		display.MBWrite("[out of memory]")
 		return false
@@ -161,11 +156,6 @@ func transformRegionCase(upper bool) bool {
 		return false
 	}
 	text := buf.GetText(region.Start, region.End)
-	length := len(text)
-	if text == nil && length > 0 {
-		display.MBWrite("[out of memory]")
-		return false
-	}
 	changed := false
 	for i := range text {
 		var t byte
@@ -199,10 +189,6 @@ func CmdUpperRegion(f bool, n int) bool {
 	return transformRegionCase(true)
 }
 
-type sortLine struct {
-	text []byte
-}
-
 // CmdSortRegion sorts complete lines in the active region alphabetically.
 func CmdSortRegion(f bool, n int) bool {
 	_ = f
@@ -222,40 +208,19 @@ func CmdSortRegion(f bool, n int) bool {
 	start := buffer.MakeLocation(region.Start.Line, 0)
 	end := buffer.MakeLocation(lastLine+1, 0)
 	text := buf.GetText(start, end)
-	total := len(text)
-	if text == nil && total > 0 {
-		display.MBWrite("[out of memory]")
+	slines := bytes.Split(text, []byte{'\n'})
+	if len(slines) > 0 && len(slines[len(slines)-1]) == 0 {
+		slines = slines[:len(slines)-1]
+	}
+	if len(slines) < 2 {
+		display.MBWrite("[sort needs at least 2 lines]")
 		return false
 	}
-	slines := make([]sortLine, 0, nlines)
-	p := 0
-	for i := 0; i < nlines; i++ {
-		nl := bytes.IndexByte(text[p:], '\n')
-		var llen int
-		if nl >= 0 {
-			llen = nl
-		} else {
-			llen = len(text) - p
-		}
-		slines = append(slines, sortLine{text: append([]byte(nil), text[p:p+llen]...)})
-		if nl < 0 {
-			break
-		}
-		p += nl + 1
-	}
 	sort.Slice(slines, func(i, j int) bool {
-		a, b := slines[i].text, slines[j].text
-		cmp := bytes.Compare(a, b)
-		if cmp != 0 {
-			return cmp < 0
-		}
-		return len(a) < len(b)
+		return bytes.Compare(slines[i], slines[j]) < 0
 	})
-	sorted := make([]byte, 0, len(text))
-	for _, sl := range slines {
-		sorted = append(sorted, sl.text...)
-		sorted = append(sorted, '\n')
-	}
+	sorted := bytes.Join(slines, []byte{'\n'})
+	sorted = append(sorted, '\n')
 	savedCursor := win.Cursor
 	if !bufferSetText(buf, start, end, sorted, nil, false) {
 		return false
@@ -263,15 +228,6 @@ func CmdSortRegion(f bool, n int) bool {
 	win.Cursor = savedCursor
 	win.Mark = buffer.Location{Line: 0, Offset: 0}
 	display.MBWrite("[region sorted]")
-	return true
-}
-
-// markPopOnce restores one mark from the stack, or reports if empty.
-func markPopOnce() bool {
-	if !markring.PopOnce() {
-		display.MBWrite("[no saved mark]")
-		return false
-	}
 	return true
 }
 
@@ -288,5 +244,9 @@ func CmdMarkPush(f bool, n int) bool {
 func CmdMarkPop(f bool, n int) bool {
 	_ = f
 	_ = n
-	return markPopOnce()
+	if !markring.PopOnce() {
+		display.MBWrite("[no saved mark]")
+		return false
+	}
+	return true
 }
