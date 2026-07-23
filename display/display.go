@@ -381,7 +381,6 @@ func rowEmitDiffs(row, from, to int) {
 			}
 			k = run
 		}
-		_ = seg
 	}
 }
 
@@ -472,5 +471,3 @@ func ScreenSync() {
 		term.PingRepaint()
 	}
 }
-
-// ---- Selection -------------------------------------------------------------------
