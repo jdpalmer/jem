@@ -109,9 +109,6 @@ func buildServices() *Services {
 
 // installServices copies Svc (or s) into each leaf package's PackageHooks.
 func installServices(s *Services) {
-	if s == nil {
-		return
-	}
 	markring.PackageHooks = markring.Hooks{
 		CurrentBuffer:    func() *buffer.Buffer { return buffer.All.Current },
 		Buffers:          func() []*buffer.Buffer { return buffer.All.Buffers },

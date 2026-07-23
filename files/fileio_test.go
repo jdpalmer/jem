@@ -35,7 +35,7 @@ func initBufferWindowForFileIoTests(t *testing.T) *buffer.Buffer {
 func TestReloadCurrentBufferFromDiskRequiresFilename(t *testing.T) {
 	resetAppForFileIoTests()
 	_ = initBufferWindowForFileIoTests(t)
-	if err := ReloadCurrentBufferFromDisk("", 1, nil, nil); err == nil {
+	if err := ReloadCurrentBufferFromDisk("", 1, nil, NoOpWriter); err == nil {
 		t.Fatal("expected reload to fail without a filename")
 	}
 }
@@ -51,7 +51,7 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 	buf := initBufferWindowForFileIoTests(t)
 	buf.FileName = path
 
-	if err := LoadCurrentBuffer(path, nil); err != nil {
+	if err := LoadCurrentBuffer(path, NoOpWriter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -59,7 +59,7 @@ func TestReloadCurrentBufferFromDiskReloads(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ReloadCurrentBufferFromDisk(path, 1, nil, nil); err != nil {
+	if err := ReloadCurrentBufferFromDisk(path, 1, nil, NoOpWriter); err != nil {
 		t.Fatal(err)
 	}
 	if buf.IsChanged {
@@ -86,7 +86,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 	buf := initBufferWindowForFileIoTests(t)
 	buf.FileName = path
 
-	if err := LoadCurrentBuffer(path, nil); err != nil {
+	if err := LoadCurrentBuffer(path, NoOpWriter); err != nil {
 		t.Fatal(err)
 	}
 	window.Active.CurrentWindow.Cursor = buffer.MakeLocation(1, 3)
@@ -95,7 +95,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	CheckReloadCurrentBuffer(nil, nil, nil)
+	CheckReloadCurrentBuffer(nil, NoOpWriter, nil)
 
 	line := buf.Line(1)
 	if line == nil || string(line.Data) != "alpha" {
@@ -133,7 +133,7 @@ func TestLoadCommandLineFiles(t *testing.T) {
 	initial := initBufferWindowForFileIoTests(t)
 	initial.Name = filepath.Base(paths[0])
 	LoadCommandLineFiles(paths, filepath.Base, func(path string) error {
-		return LoadCurrentBuffer(path, nil)
+		return LoadCurrentBuffer(path, NoOpWriter)
 	})
 
 	if len(buffer.All.Buffers) != 3 {
@@ -178,7 +178,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	buf := initBufferWindowForFileIoTests(t)
 	buf.FileName = path
 
-	if err := LoadCurrentBuffer(path, nil); err != nil {
+	if err := LoadCurrentBuffer(path, NoOpWriter); err != nil {
 		t.Fatal(err)
 	}
 	buf.IsChanged = true
@@ -190,7 +190,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	// Avoid prompting by simulating that the user already declined for this mtime.
 	buf.NotifiedModTime = FileModTime(path)
 
-	CheckReloadCurrentBuffer(nil, nil, nil)
+	CheckReloadCurrentBuffer(nil, NoOpWriter, nil)
 
 	line := buf.Line(1)
 	if line == nil || string(line.Data) != "first" {
@@ -206,7 +206,7 @@ func TestLoadCurrentBufferReadonly(t *testing.T) {
 	resetAppForFileIoTests()
 	buf := initBufferWindowForFileIoTests(t)
 	buf.IsReadonly = true
-	err := LoadCurrentBuffer("anything.txt", nil)
+	err := LoadCurrentBuffer("anything.txt", NoOpWriter)
 	if !errors.Is(err, ErrReadonly) {
 		t.Fatalf("err = %v, want ErrReadonly", err)
 	}

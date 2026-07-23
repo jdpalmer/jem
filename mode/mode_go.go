@@ -24,9 +24,6 @@ func indentBytesForCol(col int) []byte {
 }
 
 func calcIndentGo(buf *buffer.Buffer, lineNumber int) int {
-	if buf == nil {
-		return 0
-	}
 	saved := buf.Indent.Width
 	buf.Indent.Width = goIndentCols
 	ind := calcIndent(buf, lineNumber)
@@ -35,9 +32,6 @@ func calcIndentGo(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func setLineIndentGo(win *window.Window, col int) bool {
-	if win == nil || win.Buffer == nil || col < 0 {
-		return false
-	}
 	buf := win.Buffer
 	ln := win.Cursor.Line
 	line := buf.Line(ln)

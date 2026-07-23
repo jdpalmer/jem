@@ -20,9 +20,6 @@ func DelimiterPair(ch int) (open, close int, forward bool, ok bool) {
 
 // byteOffsetToRuneLimit returns how many leading runes end before byteOffset in line.Data.
 func byteOffsetToRuneLimit(line *buffer.Line, byteOffset int) int {
-	if line == nil {
-		return 0
-	}
 	data := line.Data
 	n := len(data)
 	if byteOffset <= 0 {
@@ -52,9 +49,6 @@ func byteOffsetToRuneLimit(line *buffer.Line, byteOffset int) int {
 }
 
 func syntaxContextFromState(st *buffer.SynState) buffer.SyntaxContext {
-	if st == nil {
-		return buffer.SyntaxContextNone
-	}
 	switch st.DFA {
 	case SynStateStringD, SynStateStringDEsc, SynStateStringS, SynStateStringSEsc:
 		return buffer.SyntaxContextString
@@ -74,9 +68,6 @@ func syntaxContextIsStructural(ctx buffer.SyntaxContext) bool {
 
 func bufferSyntaxFindStart(buf *buffer.Buffer, lineNumber int, st *buffer.SynState) {
 	*st = buffer.SynState{DFA: SynStateNormal}
-	if buf == nil {
-		return
-	}
 	info := For(buf.LangMode)
 	if info.Kind == ModeSyntaxNone ||
 		info.Kind == ModeSyntaxMarkdown ||
@@ -108,7 +99,7 @@ func bufferSyntaxFindStart(buf *buffer.Buffer, lineNumber int, st *buffer.SynSta
 }
 
 func syntaxStateAt(buf *buffer.Buffer, lineNumber, offset int, st *buffer.SynState) bool {
-	if buf == nil || lineNumber == 0 || lineNumber > buf.EOF() {
+	if lineNumber == 0 || lineNumber > buf.EOF() {
 		*st = buffer.SynState{DFA: SynStateNormal}
 		return false
 	}
@@ -140,7 +131,7 @@ func syntaxCharIsStructural(buf *buffer.Buffer, lineNumber, offset int) bool {
 }
 
 func syntaxFindMatchingDelimiter(buf *buffer.Buffer, start buffer.Location, matchOut *buffer.Location) bool {
-	if buf == nil || start.Line == 0 || start.Line >= buf.EOF() {
+	if start.Line == 0 || start.Line >= buf.EOF() {
 		return false
 	}
 	var dummy buffer.SynState

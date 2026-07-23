@@ -20,10 +20,6 @@ var All *List = &defaultList
 
 // BindList points All at l. Pass nil to restore the package default.
 func BindList(l *List) {
-	if l == nil {
-		All = &defaultList
-		return
-	}
 	All = l
 }
 
@@ -45,9 +41,6 @@ func Create() *Buffer {
 // Release removes buf from All and retargets dependents via hooks.
 // The buffer is left for the garbage collector once no longer referenced.
 func Release(buf *Buffer) {
-	if buf == nil {
-		return
-	}
 	idx := -1
 	for i, b := range All.Buffers {
 		if b == buf {
@@ -81,9 +74,6 @@ func Release(buf *Buffer) {
 
 // SetCurrent makes buf the current buffer and moves it to the front of All.Buffers.
 func SetCurrent(buf *Buffer) {
-	if buf == nil {
-		return
-	}
 	index := -1
 	for i, b := range All.Buffers {
 		if b == buf {

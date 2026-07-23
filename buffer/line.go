@@ -22,7 +22,7 @@ type Line struct {
 
 // Byte returns the byte at the given index, or 0 if the index is out of range.
 func (line *Line) Byte(n int) byte {
-	if line == nil || n < 0 || n >= len(line.Data) {
+	if n < 0 || n >= len(line.Data) {
 		return 0
 	}
 	return line.Data[n]
@@ -30,15 +30,12 @@ func (line *Line) Byte(n int) byte {
 
 // Len returns the number of bytes in the line, or 0 if the line is nil.
 func (line *Line) Len() int {
-	if line == nil {
-		return 0
-	}
 	return len(line.Data)
 }
 
 // EnsureCache decodes UTF-8 runes for syntax and display helpers.
 func (line *Line) EnsureCache() {
-	if line == nil || line.CacheValid {
+	if line.CacheValid {
 		return
 	}
 	bs := line.Data
@@ -67,9 +64,6 @@ func (line *Line) EnsureCache() {
 
 // FirstNonblank returns the byte index of the first non-whitespace character.
 func (line *Line) FirstNonblank() int {
-	if line == nil {
-		return 0
-	}
 	for i := 0; i < len(line.Data); i++ {
 		c := line.Data[i]
 		if c != ' ' && c != '\t' {
@@ -81,9 +75,6 @@ func (line *Line) FirstNonblank() int {
 
 // IndentColumn returns the column position of the first non-whitespace character.
 func (line *Line) IndentColumn() int {
-	if line == nil {
-		return 0
-	}
 	col := 0
 	for i := 0; i < len(line.Data); i++ {
 		c := line.Data[i]
@@ -100,7 +91,7 @@ func (line *Line) IndentColumn() int {
 
 // FirstByte returns the first byte of the line, or 0 if the line is nil or empty.
 func (line *Line) FirstByte() byte {
-	if line == nil || len(line.Data) == 0 {
+	if len(line.Data) == 0 {
 		return 0
 	}
 	return line.Data[0]
@@ -108,7 +99,7 @@ func (line *Line) FirstByte() byte {
 
 // LastByte returns the last byte of the line, or 0 if the line is nil or empty.
 func (line *Line) LastByte() byte {
-	if line == nil || len(line.Data) == 0 {
+	if len(line.Data) == 0 {
 		return 0
 	}
 	return line.Data[len(line.Data)-1]
@@ -116,7 +107,7 @@ func (line *Line) LastByte() byte {
 
 // IsBlank returns true if the line contains only whitespace or is empty.
 func (line *Line) IsBlank() bool {
-	if line == nil || len(line.Data) == 0 {
+	if len(line.Data) == 0 {
 		return true
 	}
 	for i := 0; i < len(line.Data); i++ {

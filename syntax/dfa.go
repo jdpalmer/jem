@@ -256,7 +256,7 @@ func noteSummaryDelimiter(summary *buffer.SyntaxLineSummary, ch int, offset int)
 
 // lineGetcR returns the character at rune index i as an int, or 0 if out of range.
 func lineGetcR(line *buffer.Line, i int) int {
-	if line == nil || i < 0 || i >= len(line.RuneCache) {
+	if i < 0 || i >= len(line.RuneCache) {
 		return 0
 	}
 	return int(line.RuneCache[i])
@@ -1004,9 +1004,6 @@ func tokenizeLineFromStateLimit(line *buffer.Line, start buffer.SynState, scanLi
 // SyntaxEnsureLine ensures line has up-to-date syntax styles.
 // It walks back through the buffer to find a valid start state when possible.
 func SyntaxEnsureLine(line *buffer.Line) {
-	if line == nil {
-		return
-	}
 	if line.SyntaxValid && line.SyntaxStyles != nil {
 		return
 	}
@@ -1035,9 +1032,6 @@ func SyntaxEnsureLine(line *buffer.Line) {
 
 // lineNumberInBuffer returns the 1-based line number of line within buf, or 0.
 func lineNumberInBuffer(buf *buffer.Buffer, line *buffer.Line) int {
-	if buf == nil || line == nil {
-		return 0
-	}
 	for i := range buf.Lines {
 		if &buf.Lines[i] == line {
 			return i + 1

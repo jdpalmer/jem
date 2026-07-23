@@ -19,8 +19,5 @@ func indentDefaultFor(mode buffer.LangMode) buffer.IndentConfig {
 
 // ApplyLangIndentDefaults sets buf.Indent from the mode's IndentDefault.
 func ApplyLangIndentDefaults(buf *buffer.Buffer) {
-	if buf == nil {
-		return
-	}
 	buf.Indent = LangModeInfo(buf.LangMode).IndentDefault
 }

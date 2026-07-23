@@ -25,10 +25,6 @@ var defaultState ProcState = ProcState{PlayPos: -1}
 var State *ProcState = &defaultState
 
 func BindState(s *ProcState) {
-	if s == nil {
-		State = &defaultState
-		return
-	}
 	State = s
 }
 
@@ -37,7 +33,7 @@ func Reset() {
 	*History = buffer.UndoHistory{}
 	*buffer.All = buffer.List{}
 	*window.Active = window.State{}
-	display.Bind(nil)
+	display.Reset()
 }
 
 func (s *ProcState) IsRecording() bool { return display.Active.MacroRecording }

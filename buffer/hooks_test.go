@@ -38,10 +38,7 @@ func TestNoteEditSetsChangedAndCallsHook(t *testing.T) {
 }
 
 func TestInvalidateSyntaxFromLine(t *testing.T) {
-	buf := New()
-	buf.AppendLineBytes([]byte("a"))
-	buf.AppendLineBytes([]byte("b"))
-	buf.AppendLineBytes([]byte("c"))
+	buf := withLines("a", "b", "c")
 	for i := 1; i <= len(buf.Lines); i++ {
 		if line := buf.Line(i); line != nil {
 			line.SyntaxValid = true
@@ -58,8 +55,7 @@ func TestInvalidateSyntaxFromLine(t *testing.T) {
 }
 
 func TestReplaceRawUsesPackageHooks(t *testing.T) {
-	buf := New()
-	buf.AppendLineBytes([]byte("hello"))
+	buf := withLines("hello")
 
 	var adjusted bool
 	var reparsed int

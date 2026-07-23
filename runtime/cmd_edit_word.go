@@ -66,7 +66,7 @@ func CmdDeleteWordBackward(f bool, n int) bool {
 // helper: find start of next word from loc (skip non-word then return start)
 // helper: find start of next word from loc (skip non-word then return start)
 func nextWordStart(buf *buffer.Buffer, loc buffer.Location) buffer.Location {
-	if buf == nil || loc.Line == 0 {
+	if loc.Line == 0 {
 		return loc
 	}
 	line := buf.Line(loc.Line)

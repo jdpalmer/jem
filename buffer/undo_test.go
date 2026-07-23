@@ -25,8 +25,7 @@ func testUndoReplay(buf *Buffer) UndoReplay {
 }
 
 func TestUndoMultiEditGroup(t *testing.T) {
-	buf := New()
-	buf.AppendLineBytes([]byte("abcdef"))
+	buf := withLines("abcdef")
 
 	var undo UndoHistory
 	undo.BeginCommand(buf, MakeLocation(1, 0))
@@ -57,10 +56,8 @@ func TestUndoMultiEditGroup(t *testing.T) {
 }
 
 func TestForgetBuffer(t *testing.T) {
-	bp1 := New()
-	bp1.AppendLineBytes([]byte("one"))
-	bp2 := New()
-	bp2.AppendLineBytes([]byte("two"))
+	bp1 := withLines("one")
+	bp2 := withLines("two")
 
 	var undo UndoHistory
 	undo.BeginCommand(bp1, MakeLocation(1, 0))
@@ -92,8 +89,7 @@ func TestForgetBuffer(t *testing.T) {
 }
 
 func TestNoteBufferSavedOnRestoredSave(t *testing.T) {
-	buf := New()
-	buf.AppendLineBytes([]byte("hello"))
+	buf := withLines("hello")
 
 	var undo UndoHistory
 	undo.BeginCommand(buf, MakeLocation(1, 5))
@@ -130,8 +126,7 @@ func TestNoteBufferSavedOnRestoredSave(t *testing.T) {
 }
 
 func TestUndoStaleSerial(t *testing.T) {
-	buf := New()
-	buf.AppendLineBytes([]byte("abc"))
+	buf := withLines("abc")
 
 	var undo UndoHistory
 	undo.BeginCommand(buf, MakeLocation(1, 0))
@@ -150,8 +145,7 @@ func TestUndoStaleSerial(t *testing.T) {
 }
 
 func TestRecordEditSkipsIdentityReplace(t *testing.T) {
-	buf := New()
-	buf.AppendLineBytes([]byte("hello"))
+	buf := withLines("hello")
 
 	var undo UndoHistory
 	undo.BeginCommand(buf, MakeLocation(1, 0))

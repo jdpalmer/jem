@@ -24,10 +24,6 @@ func termDebugKeysLog(format string, args ...any) {
 
 // termReadKeyUnlocked reads and decodes one key. Caller must hold termReadMu.
 func termReadKeyUnlocked() (uint32, bool) {
-	if termReader == nil {
-		return 0, false
-	}
-
 	for {
 		var buf [1]byte
 		_, err := termReader.Read(buf[:])
@@ -106,9 +102,6 @@ func ReadKey() (uint32, bool) {
 func TryReadKey(timeout time.Duration) (uint32, bool) {
 	termReadMu.Lock()
 	defer termReadMu.Unlock()
-	if termFile == nil || termReader == nil {
-		return 0, false
-	}
 	if termReader.Buffered() == 0 && !termWaitReadable(termFd, timeout) {
 		return 0, false
 	}
@@ -119,10 +112,8 @@ func TryReadKey(timeout time.Duration) (uint32, bool) {
 func ResetReader() {
 	termReadMu.Lock()
 	defer termReadMu.Unlock()
-	if termFile != nil {
-		_ = termFile.SetReadDeadline(time.Time{})
-		termReader = bufio.NewReader(termFile)
-	}
+	_ = termFile.SetReadDeadline(time.Time{})
+	termReader = bufio.NewReader(termFile)
 }
 
 func csiModifierFlags(modifierParam int) uint32 {

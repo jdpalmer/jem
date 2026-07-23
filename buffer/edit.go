@@ -31,9 +31,6 @@ func makeBufferLine(buf *Buffer, data []byte) Line {
 
 // ReplaceRaw replaces text in the buffer at the given range with newText, returning the new end location.
 func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) error {
-	if buf == nil {
-		return ErrNilBuffer
-	}
 	if buf.IsReadonly {
 		return ErrReadonly
 	}
@@ -54,7 +51,7 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	}
 
 	if len(buf.Lines) == 0 {
-		_ = buf.AppendLineBytes(nil)
+		buf.EnsureMinLines()
 	}
 
 	beginIsEOF := begin.Line == buf.EOF()
@@ -195,7 +192,7 @@ func callReparseFrom(buf *Buffer, lineNumber int) {
 
 // InvalidateSyntaxFrom clears syntax validity from lineNumber through end of buffer.
 func (buf *Buffer) InvalidateSyntaxFrom(lineNumber int) {
-	if buf == nil || lineNumber <= 0 || lineNumber > len(buf.Lines) {
+	if lineNumber <= 0 || lineNumber > len(buf.Lines) {
 		return
 	}
 	for ln := lineNumber; ln <= len(buf.Lines); ln++ {
@@ -212,9 +209,6 @@ func (buf *Buffer) NoteEdit(isStructural bool) {
 }
 
 func callNoteEdit(buf *Buffer, isStructural bool) {
-	if buf == nil {
-		return
-	}
 	// Hooks run before IsChanged so NoteEdit can detect first-change.
 	if PackageHooks.NoteEdit != nil {
 		PackageHooks.NoteEdit(buf, isStructural)
@@ -230,10 +224,6 @@ func callAdjustLocations(buf *Buffer, begin, end, newEnd Location) {
 
 // GetText returns the text content between the two given locations in the buffer.
 func (buf *Buffer) GetText(begin, end Location) []byte {
-	if buf == nil {
-		return nil
-	}
-
 	// EOF handling: EOF is virtual line len(Lines)+1 with offset 0
 	endIsEOF := end.Line == buf.EOF()
 	n := 0
@@ -374,9 +364,6 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 // (PackageHooks + IsChanged), then ReplaceRaw (location adjust, syntax
 // invalidate, reparse via PackageHooks).
 func (buf *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) error {
-	if buf == nil {
-		return ErrNilBuffer
-	}
 	if buf.IsReadonly {
 		return ErrReadonly
 	}
@@ -398,9 +385,6 @@ func (buf *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byt
 
 // AppendLineBytes appends a new line with the given text to the buffer and returns it.
 func (buf *Buffer) AppendLineBytes(text []byte) *Line {
-	if buf == nil {
-		return nil
-	}
 	var data []byte
 	if text != nil {
 		data = append([]byte(nil), text...)

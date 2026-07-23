@@ -22,9 +22,6 @@ func WinAt(r int) *window.Window {
 
 // lineOffsetAtCol returns the byte offset at or before the given screen column goal.
 func lineOffsetAtCol(line *buffer.Line, goal int) int {
-	if line == nil {
-		return 0
-	}
 	col := 0
 	dbo := 0
 	for dbo < line.Len() {
@@ -49,9 +46,6 @@ func lineOffsetAtCol(line *buffer.Line, goal int) int {
 
 // MouseLocationInWindow maps screen mouse coordinates to a buffer location within win.
 func MouseLocationInWindow(win *window.Window) buffer.Location {
-	if win == nil {
-		return buffer.Location{}
-	}
 	rowInWin := Active.Mouse.Row - win.ScreenTopRow
 	lineNumber := win.TopLine
 	for rowInWin > 0 && lineNumber < len(win.Buffer.Lines) {

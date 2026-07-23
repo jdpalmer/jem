@@ -7,9 +7,6 @@ import (
 )
 
 func modeCommentLinePrefix(info *ModeInfo) []byte {
-	if info == nil {
-		return nil
-	}
 	if info.CommentAltOpen != "" {
 		return []byte(info.CommentAltOpen)
 	}
@@ -23,7 +20,7 @@ func modeCommentLinePrefix(info *ModeInfo) []byte {
 }
 
 func lineHasCommentPrefix(line *buffer.Line, prefix []byte) bool {
-	if line == nil || len(prefix) == 0 {
+	if len(prefix) == 0 {
 		return false
 	}
 	pos := line.FirstNonblank()
@@ -39,9 +36,6 @@ func lineHasCommentPrefix(line *buffer.Line, prefix []byte) bool {
 }
 
 func modeSupportsComments(info *ModeInfo) bool {
-	if info == nil {
-		return false
-	}
 	return info.CommentOpen != "" || info.CommentAppend != ""
 }
 

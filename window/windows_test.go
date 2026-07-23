@@ -8,6 +8,7 @@ import (
 
 func TestAdjustWindowLocationsMovesCursorAndTopLine(t *testing.T) {
 	buf := buffer.New()
+	buf.DiscardLines()
 	buf.AppendLineBytes([]byte("aaa"))
 	buf.AppendLineBytes([]byte("bbb"))
 	win := &Window{
@@ -32,6 +33,7 @@ func TestAdjustWindowLocationsMovesCursorAndTopLine(t *testing.T) {
 
 func TestNoteBufferEditOnWindowsFirstChange(t *testing.T) {
 	buf := buffer.New()
+	buf.DiscardLines()
 	buf.AppendLineBytes([]byte("x"))
 	win := &Window{Buffer: buf}
 

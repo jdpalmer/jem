@@ -12,9 +12,6 @@ import (
 )
 
 func renderModeline(win *window.Window) {
-	if win == nil || win.Buffer == nil {
-		return
-	}
 	buf := win.Buffer
 	row := win.ScreenTopRow + win.Height
 	if row >= term.Rows() {

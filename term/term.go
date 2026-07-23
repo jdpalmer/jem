@@ -53,9 +53,6 @@ var (
 func DrainInput() {
 	termReadMu.Lock()
 	defer termReadMu.Unlock()
-	if termFile == nil {
-		return
-	}
 	for {
 		if termReader != nil && termReader.Buffered() > 0 {
 			_, _ = termReader.ReadByte()
@@ -156,9 +153,6 @@ func termEmitCSI(first int, hasSecond bool, second int, final byte) {
 }
 
 func termReadByte(timeoutMs int) (byte, bool) {
-	if termFile == nil {
-		return 0, false
-	}
 	if timeoutMs > 0 {
 		if !termWaitReadable(termFd, time.Duration(timeoutMs)*time.Millisecond) {
 			return 0, false
@@ -181,9 +175,6 @@ func termReadByte(timeoutMs int) (byte, bool) {
 // used once termReader is in use (post-Open) so buffered bytes aren't
 // bypassed. Caller must hold termReadMu.
 func termReadByteFromReader(timeoutMs int) (byte, bool) {
-	if termReader == nil {
-		return 0, false
-	}
 	if termReader.Buffered() == 0 && !termWaitReadable(termFd, time.Duration(timeoutMs)*time.Millisecond) {
 		return 0, false
 	}

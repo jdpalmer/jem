@@ -56,12 +56,11 @@ var Active *State = &defaultState
 
 // Bind sets the active display state to the given state.
 func Bind(s *State) {
-	if s == nil {
-		Active = &defaultState
-		return
-	}
 	Active = s
 }
 
-// Reset clears the active display state to zero values.
-func Reset() { *Active = State{} }
+// Reset rebinds Active to the package default state and clears it.
+func Reset() {
+	defaultState = State{}
+	Active = &defaultState
+}

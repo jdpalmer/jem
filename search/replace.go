@@ -19,9 +19,6 @@ const (
 )
 
 func markMatchStart(win *window.Window, patLen int) {
-	if win == nil || win.Buffer == nil || patLen == 0 {
-		return
-	}
 	lineNum := win.Cursor.Line
 	off := win.Cursor.Offset
 	for i := 0; i < patLen; i++ {
@@ -39,15 +36,10 @@ func markMatchStart(win *window.Window, patLen int) {
 }
 
 func markMatchLocation(win *window.Window, start buffer.Location) {
-	if win != nil {
-		win.Mark = start
-	}
+	win.Mark = start
 }
 
 func checkMatchCase(win *window.Window, patLen int) matchCase {
-	if win == nil || win.Buffer == nil || patLen == 0 {
-		return matchCaseLower
-	}
 	line := win.Buffer.Line(win.Cursor.Line)
 	if line == nil || win.Cursor.Offset < patLen {
 		return matchCaseLower
@@ -86,9 +78,6 @@ func applyMatchCase(mc matchCase, repl []byte, out []byte) int {
 }
 
 func doReplace(win *window.Window, patLen int, repl []byte) bool {
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	end := win.Cursor
 	begin := end.RewindBytes(win.Buffer, patLen)
 	return setText(win.Buffer, begin, end, repl, nil) == nil
@@ -107,9 +96,6 @@ func doReplacePreservingCase(win *window.Window, patLen int, repl []byte, preser
 }
 
 func doReplaceRange(win *window.Window, start, end buffer.Location, repl []byte) bool {
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	return setText(win.Buffer, start, end, repl, nil) == nil
 }
 

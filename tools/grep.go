@@ -228,18 +228,11 @@ func grepDisplayPath(root, abs string) string {
 }
 
 func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, pattern string, truncated bool) (int, bool) {
-	if buf == nil {
-		return 0, false
-	}
-
 	buf.IsChanged = false
 	buf.Clear()
 	buf.FileName = ""
 	buf.FileModTime = time.Time{}
 	buf.LangMode = buffer.LModeMarkdown
-	if buf.AppendLineBytes(nil) == nil {
-		return 0, false
-	}
 
 	var matchCount int
 	var fileCount int

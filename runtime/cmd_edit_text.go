@@ -151,9 +151,6 @@ func CmdOpenLine(f bool, n int) bool {
 		return true
 	}
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	for i := 0; i < n; i++ {
 		if err := window.InsertNewline(win); err != nil {
 			return false
@@ -194,9 +191,6 @@ func quoteInsertKey(k uint32, n int) bool {
 		return true
 	}
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	if k == '\n' || k == '\r' || k == term.KeyEnter {
 		for i := 0; i < n; i++ {
 			if err := window.InsertNewline(win); err != nil {
@@ -302,9 +296,6 @@ func CmdInsertDate(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	now := time.Now()
 	date := now.Format("Jan 2, 2006")
 	return window.InsertText(win, []byte(date)) == nil
@@ -389,9 +380,6 @@ func CmdTransposeLines(f bool, n int) bool {
 
 // bufferCharStats returns the character under point, chars before point, and total chars.
 func bufferCharStats(buf *buffer.Buffer, win *window.Window) (charAt int, before, total int) {
-	if buf == nil || win == nil {
-		return '\n', 0, 0
-	}
 	cline := 1
 	cbo := 0
 	var nch int
@@ -425,10 +413,6 @@ func CmdShowPosition(f bool, n int) bool {
 	_ = n
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		display.MBWrite("[no buffer]")
-		return false
-	}
 	charAt, before, total := bufferCharStats(buf, win)
 	col := display.WindowCursorScreenCol(win)
 	ratio := 0

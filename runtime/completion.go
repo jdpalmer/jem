@@ -31,9 +31,6 @@ func isIdentByte(b byte) bool {
 
 // PrefixAtPoint returns the identifier prefix ending at the window cursor.
 func PrefixAtPoint(win *window.Window) string {
-	if win == nil || win.Buffer == nil {
-		return ""
-	}
 	line := win.Buffer.Line(win.Cursor.Line)
 	if line == nil || win.Cursor.Offset == 0 {
 		return ""
@@ -49,9 +46,6 @@ func PrefixAtPoint(win *window.Window) string {
 }
 
 func bufferTextBytes(buf *buffer.Buffer) []byte {
-	if buf == nil {
-		return nil
-	}
 	var out bytes.Buffer
 	for lineNum := 1; lineNum <= len(buf.Lines); lineNum++ {
 		if lineNum > 1 {
@@ -109,9 +103,6 @@ func keywordsForLang(lang buffer.LangMode) []string {
 }
 
 func scanLineWords(line *buffer.Line, add func(string)) {
-	if line == nil {
-		return
-	}
 	i := 0
 	n := len(line.Data)
 	for i < n {

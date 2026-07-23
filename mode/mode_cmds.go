@@ -7,9 +7,6 @@ import (
 func ModeNewlineAndIndent(f bool, n int) bool {
 	_ = f
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	for i := 0; i < n; i++ {
 		if err := window.InsertNewline(win); err != nil {
 			return false
@@ -27,9 +24,6 @@ func ModeIndentLine(f bool, n int) bool {
 func ModeCloseBrace(f bool, n int) bool {
 	_ = f
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	for i := 0; i < n; i++ {
 		if err := window.InsertCodepoint(win, '}'); err != nil {
 			return false

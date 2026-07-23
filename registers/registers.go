@@ -9,10 +9,6 @@ var Active map[string][]byte = defaultStore
 
 // Bind points Active at m. Pass nil to restore the package default empty map.
 func Bind(m map[string][]byte) {
-	if m == nil {
-		Active = defaultStore
-		return
-	}
 	Active = m
 }
 

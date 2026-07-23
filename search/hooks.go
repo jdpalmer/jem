@@ -25,9 +25,6 @@ type Hooks struct {
 var PackageHooks Hooks
 
 func pushKeySession(s KeySession) bool {
-	if PackageHooks.PushKeySession == nil {
-		return false
-	}
 	PackageHooks.PushKeySession(s)
 	return true
 }

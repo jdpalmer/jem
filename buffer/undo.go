@@ -63,7 +63,7 @@ func (group *UndoGroup) reset() {
 
 // BeginCommand initializes a new undo group before a command edit.
 func (h *UndoHistory) BeginCommand(buf *Buffer, before Location) {
-	if h == nil || h.IsReplaying || buf == nil {
+	if h.IsReplaying {
 		return
 	}
 	h.Pending.reset()
@@ -74,7 +74,7 @@ func (h *UndoHistory) BeginCommand(buf *Buffer, before Location) {
 
 // EndCommand finalizes the current undo group and pushes it onto the history.
 func (h *UndoHistory) EndCommand() {
-	if h == nil || h.IsReplaying {
+	if h.IsReplaying {
 		return
 	}
 	if h.Pending.Count == 0 {
@@ -97,9 +97,6 @@ func (h *UndoHistory) EndCommand() {
 
 // ForgetBuffer removes all undo records for the given buffer.
 func (h *UndoHistory) ForgetBuffer(buf *Buffer) {
-	if h == nil || buf == nil {
-		return
-	}
 	for i := uint8(0); i < h.Count; {
 		if h.Groups[i].Buffer == buf {
 			h.Groups[i].reset()
@@ -119,9 +116,6 @@ func (h *UndoHistory) ForgetBuffer(buf *Buffer) {
 
 // NoteBufferSaved records the current group serial as the save point for the buffer.
 func (h *UndoHistory) NoteBufferSaved(buf *Buffer) {
-	if h == nil || buf == nil {
-		return
-	}
 	if h.Count > 0 && h.Groups[0].Buffer == buf {
 		buf.SavedUndoSerial = h.Groups[0].GroupSerial
 	} else {
@@ -130,11 +124,8 @@ func (h *UndoHistory) NoteBufferSaved(buf *Buffer) {
 }
 
 func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, offset int, kind UndoKind, text []byte) bool {
-	if h == nil || h.IsReplaying || len(text) == 0 {
+	if h.IsReplaying || len(text) == 0 {
 		return true
-	}
-	if text == nil {
-		return false
 	}
 	group := &h.Pending
 	if group.Buffer == nil {
@@ -173,9 +164,6 @@ func (h *UndoHistory) appendRecordAt(buf *Buffer, before Location, lineNumber, o
 
 // RecordEdit appends undo records for a buffer set-text operation.
 func (h *UndoHistory) RecordEdit(buf *Buffer, before Location, begin Location, oldText, newText []byte) {
-	if h == nil {
-		return
-	}
 	if len(oldText) == len(newText) && len(oldText) > 0 && bytes.Equal(oldText, newText) {
 		return
 	}
@@ -185,7 +173,7 @@ func (h *UndoHistory) RecordEdit(buf *Buffer, before Location, begin Location, o
 
 // Undo replays the most recent undo group using editor-provided callbacks.
 func (h *UndoHistory) Undo(replay UndoReplay) error {
-	if h == nil || h.Count == 0 {
+	if h.Count == 0 {
 		return ErrNoUndo
 	}
 	group := h.Groups[0]

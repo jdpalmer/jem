@@ -15,9 +15,6 @@ var mouseAnchorLine int
 var mouseAnchorOffset int
 
 func windowCursorIsVisible(win *window.Window) bool {
-	if win == nil {
-		return false
-	}
 	visibleLine := win.TopLine
 	for i := 0; i < win.Height; i++ {
 		if visibleLine == win.Cursor.Line {
@@ -32,9 +29,6 @@ func windowCursorIsVisible(win *window.Window) bool {
 }
 
 func windowLastVisibleLine(win *window.Window) int {
-	if win == nil {
-		return 1
-	}
 	visibleLine := win.TopLine
 	lastVisible := win.TopLine
 	for i := 0; i < win.Height; i++ {
@@ -49,9 +43,6 @@ func windowLastVisibleLine(win *window.Window) int {
 
 // windowScroll scrolls the window viewport by n lines (positive = down).
 func windowScroll(win *window.Window, n int) {
-	if win == nil || win.Buffer == nil {
-		return
-	}
 	lineNumber := win.TopLine
 	if n > 0 {
 		for i := 0; i < n && lineNumber < len(win.Buffer.Lines); i++ {
@@ -90,9 +81,6 @@ func CmdMouseLeft(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := display.WinAt(display.Active.Mouse.Row)
-	if win == nil {
-		return false
-	}
 
 	if win != window.Active.CurrentWindow {
 		window.WindowSelect(win)
@@ -137,9 +125,6 @@ func CmdMouseWheelUp(f bool, n int) bool {
 	if win == nil {
 		win = window.Active.CurrentWindow
 	}
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 
 	windowScroll(win, -wheelLines)
 	return true
@@ -152,9 +137,6 @@ func CmdMouseWheelDown(f bool, n int) bool {
 	win := display.WinAt(display.Active.Mouse.Row)
 	if win == nil {
 		win = window.Active.CurrentWindow
-	}
-	if win == nil || win.Buffer == nil {
-		return false
 	}
 
 	windowScroll(win, wheelLines)
@@ -169,9 +151,6 @@ func ApplyWheelTicks(net int) {
 	win := display.WinAt(display.Active.Mouse.Row)
 	if win == nil {
 		win = window.Active.CurrentWindow
-	}
-	if win == nil || win.Buffer == nil {
-		return
 	}
 	windowScroll(win, net*wheelLines)
 }

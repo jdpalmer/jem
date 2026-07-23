@@ -231,9 +231,6 @@ func renderBlankRow(row, gutter int) {
 
 // WindowCursorScreenCol returns the screen column of the cursor in win.
 func WindowCursorScreenCol(win *window.Window) int {
-	if win == nil || win.Buffer == nil {
-		return 0
-	}
 	line := win.Buffer.Line(win.Cursor.Line)
 	if line == nil {
 		return 0

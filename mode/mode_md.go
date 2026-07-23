@@ -19,9 +19,6 @@ func prevNonblankLineNumber(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func setLinePrefix(win *window.Window, prefix []byte) bool {
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	buf := win.Buffer
 	ln := win.Cursor.Line
 	line := buf.Line(ln)
@@ -42,9 +39,6 @@ func setLinePrefix(win *window.Window, prefix []byte) bool {
 }
 
 func mdBuildPrefix(line *buffer.Line) []byte {
-	if line == nil || line.Len() == 0 {
-		return nil
-	}
 	p := line.Data
 	out := make([]byte, 0, 32)
 	i := 0

@@ -38,9 +38,6 @@ func New() *App {
 
 // Activate binds this App as the process-wide active instance.
 func (e *App) Activate() {
-	if e == nil {
-		return
-	}
 	if e.Registers == nil {
 		e.Registers = make(map[string][]byte)
 	}

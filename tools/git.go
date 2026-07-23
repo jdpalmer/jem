@@ -45,7 +45,7 @@ func gitNextLine(data []byte, start int) (int, []byte) {
 }
 
 func gitSetLineDiff(cache *gitModelineCache, lineNumber int, marker GitLineDiff) {
-	if cache == nil || lineNumber == 0 || lineNumber > cache.diffCount {
+	if lineNumber == 0 || lineNumber > cache.diffCount {
 		return
 	}
 	slot := &cache.lineDiffs[lineNumber-1]
@@ -78,7 +78,7 @@ func gitRun(argv []string, maxOut int) (stdout string, exitCode int, ran bool) {
 }
 
 func gitModelineCacheForBuffer(buf *buffer.Buffer) *gitModelineCache {
-	if buf == nil || buf.FileName == "" {
+	if buf.FileName == "" {
 		return nil
 	}
 

@@ -14,9 +14,6 @@ import (
 // Mark/region commands (kill, copy, case, sort, fill bounds).
 
 func getRegion(win *window.Window, rp *window.Region) bool {
-	if win == nil || rp == nil {
-		return false
-	}
 	if win.Mark.Line == 0 {
 		display.MBWrite("[no mark set in this window]")
 		return false
@@ -39,9 +36,6 @@ func CmdKillRegion(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	var region window.Region
 	if !getRegion(win, &region) {
 		return false
@@ -58,9 +52,6 @@ func CmdCopyRegion(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	var region window.Region
 	if !getRegion(win, &region) {
 		return false
@@ -121,9 +112,6 @@ func CmdSetMark(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	if win.Mark.Line != 0 {
 		win.Mark = buffer.Location{Line: 0, Offset: 0}
 		win.ShouldRedraw = true
@@ -141,9 +129,6 @@ func CmdSwapMark(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	if win.Mark.Line == 0 {
 		display.MBWrite("[no mark in this window]")
 		return false
@@ -161,9 +146,6 @@ func CmdMarkWholeBuffer(f bool, n int) bool {
 	_ = n
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		return false
-	}
 	win.Mark = buffer.MakeLocation(buf.EOF(), 0)
 	win.SetCursor(buffer.MakeLocation(1, 0))
 	win.ShouldRedraw = true
@@ -174,9 +156,6 @@ func CmdMarkWholeBuffer(f bool, n int) bool {
 func transformRegionCase(upper bool) bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil || buf.IsReadonly {
-		return false
-	}
 	var region window.Region
 	if !getRegion(win, &region) {
 		return false
@@ -230,9 +209,6 @@ func CmdSortRegion(f bool, n int) bool {
 	_ = n
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil || buf.IsReadonly {
-		return false
-	}
 	var region window.Region
 	if !getRegion(win, &region) {
 		return false

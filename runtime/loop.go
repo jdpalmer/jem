@@ -87,9 +87,6 @@ func drainEvents() bool {
 
 // Run starts the runtime. Pass nil to create a fresh Editor.
 func Run(e *App) {
-	if e == nil {
-		e = New()
-	}
 	e.Activate()
 
 	// Optional CPU profiling: set JEM_CPU_PROFILE=/tmp/jem-cpu.pprof and optionally

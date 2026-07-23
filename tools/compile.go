@@ -155,9 +155,6 @@ func compileFillBuffer(buf *buffer.Buffer, command, stdout, stderr string, exitC
 	buf.FileModTime = time.Time{}
 	buf.LangMode = buffer.LModeMarkdown
 
-	if buf.AppendLineBytes(nil) == nil {
-		return counts, false
-	}
 	cmdLine := "$ " + command
 	if buf.AppendLineBytes([]byte(cmdLine)) == nil {
 		return counts, false

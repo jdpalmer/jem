@@ -5,9 +5,6 @@ var bus = make(chan Event, 64)
 
 // Enqueue posts an event for a later tick. Prefer blocking over drop for correctness.
 func Enqueue(e Event) {
-	if e == nil {
-		return
-	}
 	bus <- e
 }
 

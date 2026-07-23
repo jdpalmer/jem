@@ -22,38 +22,50 @@ type Buffer struct {
 }
 
 // New creates and returns a new Buffer with default settings.
+// Every buffer always has at least one line (empty when newly created).
 func New() *Buffer {
-	return &Buffer{
+	buf := &Buffer{
 		EolMode:  EModeLF,
 		LangMode: LModeNone,
 	}
+	buf.EnsureMinLines()
+	return buf
 }
 
-// Clear removes all lines and resets the buffer to its initial empty state.
+// Clear removes all content and resets the buffer to a single empty line.
 func (buf *Buffer) Clear() bool {
-	if buf == nil {
-		return false
-	}
 	buf.Lines = nil
+	buf.EnsureMinLines()
 	buf.IsChanged = false
 	buf.Cursor = Location{Line: 1, Offset: 0}
 	buf.Mark = Location{Line: 0, Offset: 0}
 	return true
 }
 
+// DiscardLines drops all lines ahead of a full content rebuild.
+// Callers must finish with EnsureMinLines (or AppendLineBytes) so the
+// ≥1-line invariant holds.
+func (buf *Buffer) DiscardLines() {
+	buf.Lines = nil
+}
+
+// EnsureMinLines restores the invariant that buf always has ≥1 line.
+func (buf *Buffer) EnsureMinLines() {
+	if len(buf.Lines) == 0 {
+		_ = buf.AppendLineBytes(nil)
+	}
+}
+
 // EOF returns the location just past the last line (1-based lines).
 // For an empty buffer this is line 1; with N lines it is line N+1.
 func (buf *Buffer) EOF() int {
-	if buf == nil {
-		return 1
-	}
 	return len(buf.Lines) + 1
 }
 
 // Line returns line lineNumber (1-based). The pointer is invalidated if
 // buf.Lines is reallocated; prefer line numbers across edits.
 func (buf *Buffer) Line(lineNumber int) *Line {
-	if buf == nil || lineNumber <= 0 || lineNumber > len(buf.Lines) {
+	if lineNumber <= 0 || lineNumber > len(buf.Lines) {
 		return nil
 	}
 	return &buf.Lines[lineNumber-1]

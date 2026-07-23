@@ -8,9 +8,6 @@ import (
 )
 
 func lineColOfOffset(line *buffer.Line, offset int) int {
-	if line == nil {
-		return 0
-	}
 	if offset > line.Len() {
 		offset = line.Len()
 	}
@@ -27,9 +24,6 @@ func lineColOfOffset(line *buffer.Line, offset int) int {
 }
 
 func lineFirstNonblankOffset(line *buffer.Line) (int, byte) {
-	if line == nil {
-		return 0, 0
-	}
 	for i := 0; i < line.Len(); i++ {
 		c := line.Data[i]
 		if c != ' ' && c != '\t' {
@@ -40,9 +34,6 @@ func lineFirstNonblankOffset(line *buffer.Line) (int, byte) {
 }
 
 func lineStartsWith(line *buffer.Line, text string) bool {
-	if line == nil {
-		return false
-	}
 	off, _ := lineFirstNonblankOffset(line)
 	pat := []byte(text)
 	if off >= line.Len() {
@@ -56,9 +47,6 @@ func lineStartsWith(line *buffer.Line, text string) bool {
 
 func lineIsCommentOrPreproc(buf *buffer.Buffer, lineNumber int) bool {
 	line := buf.Line(lineNumber)
-	if line == nil {
-		return false
-	}
 	if line.IsBlank() {
 		return false
 	}
@@ -80,7 +68,7 @@ func lineIsCommentOrPreproc(buf *buffer.Buffer, lineNumber int) bool {
 
 func lineIsPreproc(buf *buffer.Buffer, lineNumber int) bool {
 	line := buf.Line(lineNumber)
-	if line == nil || line.IsBlank() {
+	if line.IsBlank() {
 		return false
 	}
 	_, ch := lineFirstNonblankOffset(line)
@@ -102,9 +90,6 @@ func prevCodeLineNumber(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func lineIsCaseLabel(line *buffer.Line) bool {
-	if line == nil {
-		return false
-	}
 	off := line.FirstNonblank()
 	if off >= line.Len() {
 		return false
@@ -125,7 +110,7 @@ func lineIsCaseLabel(line *buffer.Line) bool {
 }
 
 func lineEndsWithContinuation(line *buffer.Line) bool {
-	if line == nil || line.Len() == 0 {
+	if line.Len() == 0 {
 		return false
 	}
 	last := line.Data[line.Len()-1]
@@ -180,7 +165,7 @@ func findCaseIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 
 func findClosingDelimiterIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 	line := buf.Line(lineNumber)
-	if line == nil || offset >= line.Len() {
+	if offset >= line.Len() {
 		return 0
 	}
 	ch := line.Data[offset]
@@ -273,9 +258,6 @@ func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber int, offset 
 		return -1
 	}
 	line := buf.Line(open.Line)
-	if line == nil {
-		return -1
-	}
 	tail := open.Offset + 1
 	for tail < line.Len() {
 		ch := line.Data[tail]
@@ -293,9 +275,6 @@ func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) in
 		return -1
 	}
 	line := buf.Line(open.Line)
-	if line == nil {
-		return -1
-	}
 	return line.IndentColumn() + buf.Indent.Width
 }
 
@@ -328,9 +307,6 @@ func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset int) (buffer.
 
 func calcIndent(buf *buffer.Buffer, lineNumber int) int {
 	line := buf.Line(lineNumber)
-	if line == nil {
-		return 0
-	}
 	cIndent := buf.Indent.Width
 	cBrace := buf.Indent.Brace
 	first, fc := lineFirstNonblankOffset(line)
@@ -380,7 +356,7 @@ func calcIndent(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func setLineIndent(win *window.Window, col int) bool {
-	if win == nil || win.Buffer == nil || col < 0 {
+	if win.Buffer == nil || col < 0 {
 		return false
 	}
 	buf := win.Buffer
@@ -413,7 +389,7 @@ func cmdCNewlineAndIndent(f bool, n int) bool {
 	}
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
+	if win == nil {
 		return false
 	}
 	for i := 0; i < n; i++ {
@@ -433,7 +409,7 @@ func cmdCIndentLine(f bool, n int) bool {
 	}
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
+	if win == nil {
 		return false
 	}
 	col := calcIndent(buf, win.Cursor.Line)
@@ -447,7 +423,7 @@ func cmdCMakeComment(f bool, n int) bool {
 	_ = n
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
+	if win == nil {
 		return false
 	}
 	if win.Mark.Line != 0 && win.Mark.Line != win.Cursor.Line {
@@ -513,7 +489,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 	_ = n
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
+	if win == nil {
 		return false
 	}
 	lineNumber := win.Cursor.Line
@@ -574,7 +550,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 	_ = n
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
+	if win == nil {
 		return false
 	}
 	lineNumber := win.Cursor.Line
@@ -618,9 +594,6 @@ func cmdCMarkFunction(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	origLine := win.Cursor.Line
 	origDoto := win.Cursor.Offset
 	if !cmdCEndOfFunction(false, 1) {
@@ -647,7 +620,7 @@ func cmdCCloseBrace(f bool, n int) bool {
 	}
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
+	if win == nil {
 		return false
 	}
 	col := calcIndent(buf, win.Cursor.Line)

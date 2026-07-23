@@ -23,10 +23,12 @@ var (
 	ErrNoFilename = errors.New("no filename")
 )
 
+// NoOpWriter is a writef that discards messages. Pass it when callers do not
+// need load/save status output.
+var NoOpWriter = func(string, ...any) {}
+
 func writeMessage(writef func(string, ...any), format string, args ...any) {
-	if writef != nil {
-		writef(format, args...)
-	}
+	writef(format, args...)
 }
 
 // FileModTime returns the modification time of fname, or zero time on error.
@@ -60,7 +62,7 @@ func BufferNameFromPath(fname string) string {
 
 // LoadCommandLineFiles loads the first path as the active buffer and subsequent paths as additional buffers.
 func LoadCommandLineFiles(paths []string, nameFromPath func(string) string, loadFile func(string) error) {
-	if len(paths) == 0 || loadFile == nil {
+	if len(paths) == 0 {
 		return
 	}
 	_ = loadFile(paths[0])
@@ -113,6 +115,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	defer fh.Close()
 
 	writeMessage(writef, "[Reading file]")
+	buf.DiscardLines()
 	reader := bufio.NewReader(fh)
 	nline := 0
 	eolMode := buffer.EModeLF
@@ -159,6 +162,7 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 		lineBuf.WriteByte(b)
 	}
 
+	buf.EnsureMinLines()
 	buf.EolMode = eolMode
 	if nline == 1 {
 		writeMessage(writef, "[Read 1 line]")

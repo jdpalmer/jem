@@ -30,7 +30,7 @@ func macroRefreshModelines() {
 }
 
 func macroAppend(e event.Event) bool {
-	if !State.IsRecording() || e == nil {
+	if !State.IsRecording() {
 		return true
 	}
 	if len(State.Macro) >= MacroCapacity {
@@ -255,7 +255,7 @@ func macroRecordMinibufferResult(text []byte) {
 
 // macroRecordBufferName records a buffer name during macro recording.
 func macroRecordBufferName(buf *buffer.Buffer) {
-	if !State.IsRecording() || buf == nil {
+	if !State.IsRecording() {
 		return
 	}
 	_ = macroAppend(event.PromptReplyEvent{Text: buf.Name})

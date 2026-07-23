@@ -12,9 +12,6 @@ func MakeLocation(line, offset int) Location {
 
 // AdvanceBytes returns a new Location advanced by the given number of bytes.
 func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
-	if buf == nil || bytes <= 0 {
-		return loc
-	}
 	if loc.Line == buf.EOF() {
 		return loc
 	}
@@ -49,9 +46,6 @@ func (loc Location) AdvanceBytes(buf *Buffer, bytes int) Location {
 
 // RewindBytes returns a new Location moved back by the given number of bytes.
 func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
-	if buf == nil || bytes <= 0 {
-		return loc
-	}
 	curLine := loc.Line
 	offset := loc.Offset
 	for bytes > 0 {
@@ -81,9 +75,6 @@ func (loc Location) RewindBytes(buf *Buffer, bytes int) Location {
 // AdjustAfterReplace updates a Location in place for a replacement of
 // [begin,end) ending at newEnd.
 func (loc *Location) AdjustAfterReplace(begin, end, newEnd Location) {
-	if loc == nil {
-		return
-	}
 	if loc.Line < begin.Line {
 		return
 	}

@@ -60,14 +60,13 @@ func (te *TestEditor) LoadText(text string) {
 	te.t.Helper()
 	buf := te.BP()
 	win := te.WP()
-	if buf == nil || win == nil {
-		te.t.Fatal("no buffer/window")
-	}
 	buf.IsChanged = false
 	buf.Clear()
+	buf.DiscardLines()
 	for line := range strings.SplitSeq(text, "\n") {
 		buf.AppendLineBytes([]byte(line))
 	}
+	buf.EnsureMinLines()
 	if len(buf.Lines) > 0 {
 		win.Cursor.Line = len(buf.Lines)
 		last := buf.Line(len(buf.Lines))
@@ -86,9 +85,6 @@ func (te *TestEditor) LoadText(text string) {
 // BufferText returns buffer lines joined with newlines (C buffer_to_string).
 func (te *TestEditor) BufferText() string {
 	buf := te.BP()
-	if buf == nil {
-		return ""
-	}
 	lines := make([]string, 0, len(buf.Lines))
 	for i := 1; i <= len(buf.Lines); i++ {
 		line := buf.Line(i)
@@ -104,25 +100,16 @@ func (te *TestEditor) BufferText() string {
 func (te *TestEditor) SetCursor(line, offset int) {
 	te.t.Helper()
 	win := te.WP()
-	if win == nil {
-		te.t.Fatal("no window")
-	}
 	win.Cursor = buffer.Location{Line: line, Offset: offset}
 }
 
 func (te *TestEditor) Cursor() buffer.Location {
 	win := te.WP()
-	if win == nil {
-		return buffer.Location{}
-	}
 	return win.Cursor
 }
 
 func (te *TestEditor) SetLangMode(lang buffer.LangMode) {
 	buf := te.BP()
-	if buf == nil {
-		te.t.Fatal("no buffer")
-	}
 	buf.LangMode = lang
 	mode.ApplyLangIndentDefaults(buf)
 }
@@ -187,17 +174,12 @@ func (te *TestEditor) Undo() {
 
 func (te *TestEditor) ForgetUndo() {
 	buf := te.BP()
-	if buf != nil {
-		ForgetBuffer(buf)
-	}
+	ForgetBuffer(buf)
 }
 
 func (te *TestEditor) Edit(begin, end buffer.Location, text string) {
 	te.t.Helper()
 	buf := te.BP()
-	if buf == nil {
-		te.t.Fatal("no buffer")
-	}
 	BeginCommand()
 	defer EndCommand()
 	data := []byte(text)

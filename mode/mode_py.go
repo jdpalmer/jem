@@ -8,9 +8,6 @@ import (
 )
 
 func lpKeyword(line *buffer.Line, i int, kw string) bool {
-	if line == nil {
-		return false
-	}
 	klen := len(kw)
 	if i+klen > line.Len() {
 		return false
@@ -41,17 +38,11 @@ func prevCodeLineNumberPy(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func lineIsDeindentKw(line *buffer.Line) bool {
-	if line == nil {
-		return false
-	}
 	i := line.FirstNonblank()
 	return lpKeyword(line, i, "elif") || lpKeyword(line, i, "else") || lpKeyword(line, i, "except") || lpKeyword(line, i, "finally")
 }
 
 func lineIsDedentStmt(line *buffer.Line) bool {
-	if line == nil {
-		return false
-	}
 	i := line.FirstNonblank()
 	return lpKeyword(line, i, "return") || lpKeyword(line, i, "break") || lpKeyword(line, i, "continue") || lpKeyword(line, i, "raise") || lpKeyword(line, i, "pass")
 }
@@ -140,9 +131,6 @@ func calcIndentPy(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func setLineIndentPy(win *window.Window, col int) bool {
-	if win == nil || win.Buffer == nil || col < 0 {
-		return false
-	}
 	buf := win.Buffer
 	ln := win.Cursor.Line
 	line := buf.Line(ln)
@@ -209,9 +197,6 @@ func cmdPyNewlineAndIndent(f bool, n int) bool {
 	}
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
-		return false
-	}
 	for i := 0; i < n; i++ {
 		if err := window.InsertNewline(win); err != nil {
 			return false
@@ -229,9 +214,6 @@ func cmdPyIndentLine(f bool, n int) bool {
 	}
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
-		return false
-	}
 	col := calcIndentPy(buf, win.Cursor.Line)
 	setLineIndentPy(win, col)
 	win.DidEdit = true
@@ -277,9 +259,6 @@ func cmdPyTopOfFunction(f bool, n int) bool {
 	_ = n
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
-		return false
-	}
 	defLine := findDefLineNumber(buf, win.Cursor.Line)
 	if defLine == 0 {
 		if PackageHooks.Message != nil {
@@ -297,9 +276,6 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 	_ = n
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil || win == nil {
-		return false
-	}
 	defLine := findDefLineNumber(buf, win.Cursor.Line)
 	if defLine == 0 {
 		if PackageHooks.Message != nil {
@@ -342,9 +318,6 @@ func cmdPyMarkFunction(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	origLine := win.Cursor.Line
 	origOff := win.Cursor.Offset
 	if !cmdPyEndOfFunction(false, 1) {

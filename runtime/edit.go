@@ -13,10 +13,6 @@ var defaultHistory buffer.UndoHistory
 var History *buffer.UndoHistory = &defaultHistory
 
 func BindHistory(h *buffer.UndoHistory) {
-	if h == nil {
-		History = &defaultHistory
-		return
-	}
 	History = h
 }
 
@@ -35,9 +31,6 @@ func ForgetBuffer(buf *buffer.Buffer) { History.ForgetBuffer(buf) }
 func NoteBufferSaved(buf *buffer.Buffer) { History.NoteBufferSaved(buf) }
 
 func SetText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
-	if buf == nil {
-		return buffer.ErrNilBuffer
-	}
 	return buf.SetText(History, begin, end, newText, newEndOut)
 }
 

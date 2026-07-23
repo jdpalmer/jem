@@ -31,9 +31,6 @@ func prevNonblankLineNumberBuf(buf *buffer.Buffer, lineNumber int) int {
 }
 
 func wordMatchCI(line *buffer.Line, start int, word string) bool {
-	if line == nil {
-		return false
-	}
 	i := start
 	j := 0
 	for j < len(word) {
@@ -58,9 +55,6 @@ func lineStartsWordCI(line *buffer.Line, word string) bool {
 }
 
 func lineEndsWithWordCI(line *buffer.Line, word string) bool {
-	if line == nil {
-		return false
-	}
 	end := line.Len()
 	wlen := len(word)
 	for end > 0 {
@@ -86,9 +80,6 @@ func lineEndsWithWordCI(line *buffer.Line, word string) bool {
 }
 
 func isMakeTargetLine(line *buffer.Line) bool {
-	if line == nil {
-		return false
-	}
 	i := line.FirstNonblank()
 	if i >= line.Len() || line.Byte(i) == '\t' {
 		return false
@@ -273,9 +264,6 @@ func calcMiscIndent(buf *buffer.Buffer, lineNumber int) IndentSpec {
 }
 
 func setLineIndentMisc(win *window.Window, spec IndentSpec) bool {
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	buf := win.Buffer
 	ln := win.Cursor.Line
 	line := buf.Line(ln)

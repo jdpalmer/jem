@@ -88,9 +88,6 @@ func saveSearchSnapshot(win *window.Window, patternLen int) ISearchSnapshot {
 
 // restoreSearchSnapshot restores a previously saved cursor and mark position.
 func restoreSearchSnapshot(win *window.Window, snap *ISearchSnapshot) {
-	if snap == nil || snap.Buffer == nil || snap.Line == 0 {
-		return
-	}
 	if buffer.All.Current != snap.Buffer {
 		if true {
 			window.SwitchBuffer(snap.Buffer)
@@ -109,9 +106,6 @@ func restoreSearchSnapshot(win *window.Window, snap *ISearchSnapshot) {
 }
 
 func isearchClearHighlight(win *window.Window) {
-	if win == nil {
-		return
-	}
 	if win.Mark.Line != 0 {
 		win.ShouldRedraw = true
 	}
@@ -121,9 +115,6 @@ func isearchClearHighlight(win *window.Window) {
 
 // searchSwitchBuffer switches to a buffer and moves the cursor to a specific location.
 func searchSwitchBuffer(win *window.Window, buf *buffer.Buffer, loc buffer.Location) {
-	if buf == nil || loc.Line == 0 {
-		return
-	}
 	if buffer.All.Current != buf {
 		if true {
 			window.SwitchBuffer(buf)
@@ -153,9 +144,6 @@ func searchCharsEqual(bc, pc int) bool {
 }
 
 func searchReadForward(buf *buffer.Buffer, lineNum *int, offset *int) (int, bool) {
-	if buf == nil || lineNum == nil || offset == nil {
-		return -1, false
-	}
 	if *lineNum > len(buf.Lines) {
 		return -1, false
 	}
@@ -174,9 +162,6 @@ func searchReadForward(buf *buffer.Buffer, lineNum *int, offset *int) (int, bool
 }
 
 func searchReadBackward(buf *buffer.Buffer, lineNum *int, offset *int) (int, bool) {
-	if buf == nil || lineNum == nil || offset == nil {
-		return -1, false
-	}
 	if *offset == 0 {
 		if *lineNum <= 1 {
 			return -1, false
@@ -201,9 +186,6 @@ func searchReadBackward(buf *buffer.Buffer, lineNum *int, offset *int) (int, boo
 
 // findNextPlain searches forward for a plain text pattern starting from the current cursor position.
 func findNextPlain(win *window.Window, pattern []byte) bool {
-	if win == nil || win.Buffer == nil || len(pattern) == 0 {
-		return false
-	}
 	buf := win.Buffer
 	cline := win.Cursor.Line
 	cbo := win.Cursor.Offset
@@ -241,9 +223,6 @@ func findNextPlain(win *window.Window, pattern []byte) bool {
 
 // findPrevPlain searches backward for a plain text pattern starting from the current cursor position.
 func findPrevPlain(win *window.Window, pattern []byte) bool {
-	if win == nil || win.Buffer == nil || len(pattern) == 0 {
-		return false
-	}
 	buf := win.Buffer
 	last := len(pattern) - 1
 	cline := win.Cursor.Line
@@ -277,9 +256,6 @@ func findPrevPlain(win *window.Window, pattern []byte) bool {
 
 // findNextInScope searches forward for a plain text pattern across a buffer search scope.
 func findNextInScope(win *window.Window, scope *bufferSearchScope, pattern []byte) bool {
-	if win == nil || scope == nil {
-		return false
-	}
 	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
 	if findNextPlain(win, pattern) {
@@ -301,9 +277,6 @@ func findNextInScope(win *window.Window, scope *bufferSearchScope, pattern []byt
 
 // findPrevInScope searches backward for a plain text pattern across a buffer search scope.
 func findPrevInScope(win *window.Window, scope *bufferSearchScope, pattern []byte) bool {
-	if win == nil || scope == nil {
-		return false
-	}
 	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
 	if findPrevPlain(win, pattern) {
@@ -325,9 +298,6 @@ func findPrevInScope(win *window.Window, scope *bufferSearchScope, pattern []byt
 
 // isearchHighlightPlain sets the highlight mark for a plain text incremental search.
 func isearchHighlightPlain(win *window.Window, patLen int, backward bool) {
-	if win == nil || patLen <= 0 {
-		return
-	}
 	cursor := win.Cursor
 	var mark buffer.Location
 	if backward {
@@ -342,9 +312,6 @@ func isearchHighlightPlain(win *window.Window, patLen int, backward bool) {
 
 // isearchHighlightMatch sets the highlight mark for a regex incremental search match.
 func isearchHighlightMatch(win *window.Window, start, end buffer.Location, backward bool) {
-	if win == nil {
-		return
-	}
 	if backward {
 		win.Mark = end
 	} else {
@@ -361,9 +328,6 @@ func isearchSetPlainPattern(pattern string) {
 
 // isearchRunPlain runs a plain text incremental search.
 func isearchRunPlain(win *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern []byte, backward bool, out *ISearchSnapshot) bool {
-	if win == nil || scope == nil || start == nil || out == nil {
-		return false
-	}
 	restoreSearchSnapshot(win, start)
 	win = window.Active.CurrentWindow
 	if len(pattern) == 0 {
@@ -403,9 +367,6 @@ func locationCompare(a, b buffer.Location) int {
 }
 
 func bufferSliceFrom(buf *buffer.Buffer, start buffer.Location) []byte {
-	if buf == nil || start.Line == 0 {
-		return nil
-	}
 	return buf.GetText(start, bufferSearchEnd(buf))
 }
 
@@ -465,9 +426,6 @@ func findPrevRegexMatchFrom(buf *buffer.Buffer, limit buffer.Location, pattern s
 
 // findNextRegexInScope searches forward for the next regex match across a buffer search scope.
 func findNextRegexInScope(win *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
-	if win == nil || scope == nil {
-		return RegexMatch{}, 0
-	}
 	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
 	match, found := findNextRegexMatchFrom(win.Buffer, win.Cursor, pattern)
@@ -491,9 +449,6 @@ func findNextRegexInScope(win *window.Window, scope *bufferSearchScope, pattern 
 
 // findPrevRegexInScope searches backward for the last regex match across a buffer search scope.
 func findPrevRegexInScope(win *window.Window, scope *bufferSearchScope, pattern string) (RegexMatch, int) {
-	if win == nil || scope == nil {
-		return RegexMatch{}, 0
-	}
 	origin := win.Buffer
 	idx := searchScopeIndex(scope, origin)
 	match, found := findPrevRegexMatchFrom(win.Buffer, win.Cursor, pattern)
@@ -517,9 +472,6 @@ func findPrevRegexInScope(win *window.Window, scope *bufferSearchScope, pattern 
 
 // isearchRunRegex runs a regex incremental search.
 func isearchRunRegex(win *window.Window, scope *bufferSearchScope, start *ISearchSnapshot, pattern string, backward bool, out *ISearchSnapshot) bool {
-	if win == nil || scope == nil || start == nil || out == nil {
-		return false
-	}
 	restoreSearchSnapshot(win, start)
 	win = window.Active.CurrentWindow
 	if pattern == "" {

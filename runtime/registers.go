@@ -14,9 +14,6 @@ func CmdCopyRegister(f bool, n int) bool {
 	_ = n
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		return false
-	}
 	var region window.Region
 	if !getRegion(win, &region) {
 		return false
@@ -50,9 +47,6 @@ func CmdInsertRegister(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	AskString("Register Name: ", "", func(name string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes {
 			return

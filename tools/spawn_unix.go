@@ -18,9 +18,6 @@ import (
 // Go-level deadline but does NOT revert this OS-level flag, so we must clear
 // it explicitly before exec'ing the child.
 func clearNonblock(f *os.File) {
-	if f == nil {
-		return
-	}
 	_ = syscall.SetNonblock(int(f.Fd()), false)
 }
 

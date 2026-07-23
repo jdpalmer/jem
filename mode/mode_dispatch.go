@@ -23,9 +23,6 @@ func CurrentModeInfo() *ModeInfo {
 }
 
 func ModeDispatch(fn func(f bool, n int) bool, f bool, n int) bool {
-	if fn == nil {
-		return false
-	}
 	return fn(f, n)
 }
 

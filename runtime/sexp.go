@@ -10,9 +10,6 @@ import (
 )
 
 func cursorAtEob(win *window.Window) bool {
-	if win == nil || win.Buffer == nil {
-		return true
-	}
 	return win.Cursor.Line >= win.Buffer.EOF()
 }
 
@@ -104,9 +101,6 @@ func CmdForwardSexp(f bool, n int) bool {
 	}
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		return false
-	}
 	if n == 0 {
 		return true
 	}
@@ -126,9 +120,6 @@ func CmdBackwardSexp(f bool, n int) bool {
 	}
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		return false
-	}
 	if n == 0 {
 		return true
 	}

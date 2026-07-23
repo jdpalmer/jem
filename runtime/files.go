@@ -64,10 +64,6 @@ func CmdFileSave(f bool, n int) bool {
 	_ = f
 	_ = n
 	buf := buffer.All.Current
-	if buf == nil {
-		display.MBWrite("[no buffer]")
-		return false
-	}
 	if buf.FileName != "" {
 		fileSaveBuffer(buf.FileName, func(ok bool) {
 			if ok {
@@ -162,10 +158,6 @@ func CmdFileWrite(f bool, n int) bool {
 	_ = f
 	_ = n
 	buf := buffer.All.Current
-	if buf == nil {
-		display.MBWrite("[no buffer]")
-		return false
-	}
 	AskFilename("Write file: ", buf.FileName, func(path string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || path == "" {
 			return
@@ -197,10 +189,6 @@ func CmdRevertFile(f bool, n int) bool {
 	_ = n
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow
-	if buf == nil {
-		display.MBWrite("[no buffer]")
-		return false
-	}
 	fname := buf.FileName
 	if fname == "" {
 		display.MBWrite("[no file associated with buffer]")
@@ -288,10 +276,6 @@ func CmdSetEolMode(f bool, n int) bool {
 	_ = f
 	_ = n
 	buf := buffer.All.Current
-	if buf == nil {
-		display.MBWrite("[no buffer]")
-		return false
-	}
 	if buf.IsReadonly {
 		display.MBWrite("[read-only buffer]")
 		return false

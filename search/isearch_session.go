@@ -55,9 +55,6 @@ func newISearchSession(backward, regex bool) *isearchSession {
 func (s *isearchSession) Open() (done bool) {
 	s.win = window.Active.CurrentWindow
 	buf := buffer.All.Current
-	if s.win == nil || buf == nil {
-		return true
-	}
 	s.scope = searchScopeInit(buf)
 	if !s.regex {
 		markPushCurrent()

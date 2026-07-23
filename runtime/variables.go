@@ -154,9 +154,6 @@ func VarsInit() {
 }
 
 func bufferApplyVarDefaults(buf *buffer.Buffer) {
-	if buf == nil {
-		return
-	}
 	buf.FillCol = display.Active.FillCol
 	buf.Indent = State.Indent
 	buf.WhitespaceCleanup = State.WhitespaceCleanup
@@ -267,9 +264,6 @@ func varSetFromJSON(v *variable, raw json.RawMessage) bool {
 // VarsFromJSON applies variable settings from a JSON object (hyphenated keys).
 func VarsFromJSON(config map[string]json.RawMessage) {
 	VarsInit()
-	if config == nil {
-		return
-	}
 	for i := range varTable {
 		v := &varTable[i]
 		raw, ok := config[v.name]

@@ -13,9 +13,6 @@ import (
 
 // commandsProvider returns the command name label for the given index. ctx is a []string.
 func commandsProvider(ctx any, idx int) []byte {
-	if ctx == nil {
-		return nil
-	}
 	names, ok := ctx.([]string)
 	if !ok {
 		return nil
@@ -181,9 +178,6 @@ func findBufferByLabel(label string) *buffer.Buffer {
 }
 
 func switchToBuffer(buf *buffer.Buffer) {
-	if buf == nil {
-		return
-	}
 	macroRecordBufferName(buf)
 	window.SwitchBuffer(buf)
 	display.DisplayUpdate()

@@ -18,9 +18,6 @@ const (
 )
 
 func syntaxMatchTarget(win *window.Window, matchOut *buffer.Location) syntaxMatchResult {
-	if win == nil || win.Buffer == nil {
-		return syntaxMatchNone
-	}
 	buf := win.Buffer
 	cursor := buffer.MakeLocation(win.Cursor.Line, win.Cursor.Offset)
 	if cursor.Line == 0 || cursor.Line >= buf.EOF() {
@@ -46,11 +43,11 @@ func syntaxMatchTarget(win *window.Window, matchOut *buffer.Location) syntaxMatc
 }
 
 func syntaxLocationHasDelimiter(buf *buffer.Buffer, loc buffer.Location) bool {
-	if buf == nil || loc.Line == 0 || loc.Line >= buf.EOF() {
+	if loc.Line == 0 || loc.Line >= buf.EOF() {
 		return false
 	}
 	line := buf.Line(loc.Line)
-	if line == nil || loc.Offset >= line.Len() {
+	if loc.Offset >= line.Len() {
 		return false
 	}
 	ch := int(line.Byte(loc.Offset))
@@ -64,9 +61,6 @@ func CmdSyntaxGotoMatch(f bool, n int) bool {
 	_ = f
 	_ = n
 	win := window.Active.CurrentWindow
-	if win == nil {
-		return false
-	}
 	var match buffer.Location
 	switch syntaxMatchTarget(win, &match) {
 	case syntaxMatchNone:

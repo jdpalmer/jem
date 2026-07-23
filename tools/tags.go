@@ -215,13 +215,7 @@ func tagIsSymbolChar(c byte) bool {
 }
 
 func tagSymbolAtPoint(win *window.Window, symbol []byte) bool {
-	if win == nil || win.Buffer == nil {
-		return false
-	}
 	line := win.Buffer.Line(win.Cursor.Line)
-	if line == nil {
-		return false
-	}
 
 	start := int(win.Cursor.Offset)
 	var end int
@@ -330,7 +324,7 @@ type tagMatchList struct {
 }
 
 func (l *tagMatchList) provider(idx int) []byte {
-	if l == nil || int(idx) >= len(l.matches) {
+	if int(idx) >= len(l.matches) {
 		return nil
 	}
 	return []byte(l.matches[idx].Name)
@@ -338,7 +332,7 @@ func (l *tagMatchList) provider(idx int) []byte {
 
 func tagDisplayFormatter(out []byte, outSize int, idx int, ctx any) {
 	list, _ := ctx.(*tagMatchList)
-	if list == nil || int(idx) >= len(list.matches) {
+	if int(idx) >= len(list.matches) {
 		if len(out) > 0 {
 			out[0] = 0
 		}
@@ -439,9 +433,6 @@ func RunGotoTag() bool {
 }
 
 func tagCollectHintContext(win *window.Window, out []byte) int {
-	if win == nil || win.Buffer == nil || len(out) == 0 {
-		return 0
-	}
 	buf := win.Buffer
 	reversed := make([]byte, 0, tagHintContextMax)
 	used := 0
@@ -483,9 +474,6 @@ func tagCollectHintContext(win *window.Window, out []byte) int {
 }
 
 func tagFindCallHint(win *window.Window, name []byte, argIndexOut *uint32) bool {
-	if len(name) == 0 || argIndexOut == nil {
-		return false
-	}
 	context := make([]byte, tagHintContextMax+1)
 	length := tagCollectHintContext(win, context)
 	if length == 0 {

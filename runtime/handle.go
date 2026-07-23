@@ -29,9 +29,6 @@ var listenerStack []Listener
 
 // PushListener installs a listener that receives events before window dispatch.
 func PushListener(l Listener) {
-	if l == nil {
-		return
-	}
 	listenerStack = append(listenerStack, l)
 }
 
@@ -45,10 +42,6 @@ func Handle(s *ProcState, e event.Event) bool {
 	if s == nil {
 		s = State
 	}
-	if e == nil {
-		return true
-	}
-
 	if n := len(listenerStack); n > 0 {
 		top := listenerStack[n-1]
 		switch top.Handle(s, e) {

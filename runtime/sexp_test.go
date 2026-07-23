@@ -13,7 +13,9 @@ func setupSexpTest(text string, lang buffer.LangMode, line, offset int) (*window
 	if buf == nil {
 		return nil, nil
 	}
+	buf.DiscardLines()
 	buf.AppendLineBytes([]byte(text))
+	buf.EnsureMinLines()
 	buf.LangMode = lang
 	win := &window.Window{Buffer: buf, Cursor: buffer.MakeLocation(line, offset)}
 	window.Active.CurrentWindow = win

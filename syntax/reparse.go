@@ -33,7 +33,7 @@ func stylesEqual(a, b []buffer.TextStyle) bool {
 
 // IncrementalReparse reparses lines starting at startLine until changes stop propagating.
 func IncrementalReparse(buf *buffer.Buffer, startLine int) {
-	if buf == nil || startLine == 0 || startLine > len(buf.Lines) {
+	if startLine == 0 || startLine > len(buf.Lines) {
 		return
 	}
 	for ln := startLine; ln <= len(buf.Lines); ln++ {
