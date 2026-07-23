@@ -4,13 +4,12 @@ package display
 
 import (
 	"fmt"
-	"github.com/jdpalmer/jem/minibuffer"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/minibuffer"
 )
 
 func shouldSkipFuzzyFile(name string) bool {
@@ -82,8 +81,8 @@ func lowerByte(c byte) byte {
 }
 
 // filenameFuzzyScore scores name against query using the same algorithm as the
-// C fuzzy_score function.  Returns a large negative number when no match exists.
-func filenameFuzzyScore(name, query string) int {
+// C fuzzy_score function. Returns (matched, score); higher score is better.
+func filenameFuzzyScore(name, query string) (bool, int) {
 	score := 0
 	prev := -1
 	nameLen := len(name)
@@ -94,7 +93,7 @@ func filenameFuzzyScore(name, query string) int {
 			pos++
 		}
 		if pos >= nameLen {
-			return -1000000
+			return false, 0
 		}
 		score += 10
 		if pos == 0 || name[pos-1] == '/' || name[pos-1] == '_' ||
@@ -113,45 +112,17 @@ func filenameFuzzyScore(name, query string) int {
 		prev = pos
 	}
 	score -= nameLen / 4
-	return score
+	return true, score
 }
 
 // filenameFuzzyMatches returns the indices (into paths) of up to maxMatches
 // entries that best match query, ordered by score descending.
 func filenameFuzzyMatches(paths []string, query string, maxMatches int) []int {
-	if len(paths) == 0 || maxMatches <= 0 {
-		return nil
-	}
-	type entry struct {
-		idx   int
-		score int
-	}
-	var matches []entry
-	for i, p := range paths {
-		sc := filenameFuzzyScore(p, query)
-		if sc <= -1000000 {
-			continue
-		}
-		matches = append(matches, entry{idx: i, score: sc})
-	}
-	if len(matches) == 0 {
-		return nil
-	}
-	sort.Slice(matches, func(a, b int) bool {
-		if matches[a].score != matches[b].score {
-			return matches[a].score > matches[b].score
-		}
-		return paths[matches[a].idx] < paths[matches[b].idx]
+	return fuzzyTopN(len(paths), maxMatches, func(i int) (bool, int) {
+		return filenameFuzzyScore(paths[i], query)
+	}, func(a, b int) bool {
+		return paths[a] < paths[b]
 	})
-	n := len(matches)
-	if n > maxMatches {
-		n = maxMatches
-	}
-	out := make([]int, n)
-	for i := 0; i < n; i++ {
-		out[i] = matches[i].idx
-	}
-	return out
 }
 
 // completePromptFilename performs tab-completion on the current text in state:

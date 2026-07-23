@@ -102,6 +102,49 @@ func fuzzyListRedraw(prompt string, state *minibuffer.MinibufferState, ctx *fuzz
 
 // ---- Fuzzy list prompt (generic) --------------------------------------------
 
+type fuzzyEntry struct {
+	idx   int
+	score int
+}
+
+// fuzzyTopN ranks items by score descending and returns up to maxMatches indices.
+// scoreAt returns (matched, score); unmatched items are skipped.
+// tieLess breaks equal scores (true if index a should rank before b); nil uses lower index.
+func fuzzyTopN(count, maxMatches int, scoreAt func(i int) (bool, int), tieLess func(a, b int) bool) []int {
+	if count == 0 || maxMatches <= 0 {
+		return nil
+	}
+	matches := make([]fuzzyEntry, 0, maxMatches)
+	for i := 0; i < count; i++ {
+		ok, sc := scoreAt(i)
+		if !ok {
+			continue
+		}
+		matches = append(matches, fuzzyEntry{idx: i, score: sc})
+	}
+	if len(matches) == 0 {
+		return nil
+	}
+	sort.Slice(matches, func(a, b int) bool {
+		if matches[a].score != matches[b].score {
+			return matches[a].score > matches[b].score
+		}
+		if tieLess != nil {
+			return tieLess(matches[a].idx, matches[b].idx)
+		}
+		return matches[a].idx < matches[b].idx
+	})
+	n := len(matches)
+	if n > maxMatches {
+		n = maxMatches
+	}
+	out := make([]int, n)
+	for i := 0; i < n; i++ {
+		out[i] = matches[i].idx
+	}
+	return out
+}
+
 // fuzzyScore computes a fuzzy match score for name against query.
 // Returns (matched, score); higher score is better.
 func fuzzyScore(name, query []byte) (bool, int) {
@@ -157,41 +200,11 @@ func fuzzyScore(name, query []byte) (bool, int) {
 // fuzzyMatches returns up to maxMatches indices from provider that best match
 // query, ordered by score descending.
 func fuzzyMatches(provider minibuffer.MbNameProviderFn, ctx any, count int, query []byte, maxMatches int) []int {
-	if count == 0 || maxMatches <= 0 {
-		return nil
-	}
-	type entry struct {
-		idx   int
-		score int
-	}
-	matches := make([]entry, 0, maxMatches)
-	for i := 0; i < count; i++ {
+	return fuzzyTopN(count, maxMatches, func(i int) (bool, int) {
 		name := provider(ctx, i)
 		if name == nil {
-			continue
+			return false, 0
 		}
-		ok, sc := fuzzyScore(name, query)
-		if !ok {
-			continue
-		}
-		matches = append(matches, entry{idx: i, score: sc})
-	}
-	if len(matches) == 0 {
-		return nil
-	}
-	sort.Slice(matches, func(a, b int) bool {
-		if matches[a].score != matches[b].score {
-			return matches[a].score > matches[b].score
-		}
-		return matches[a].idx < matches[b].idx
-	})
-	n := len(matches)
-	if n > maxMatches {
-		n = maxMatches
-	}
-	out := make([]int, 0, n)
-	for i := 0; i < n; i++ {
-		out = append(out, matches[i].idx)
-	}
-	return out
+		return fuzzyScore(name, query)
+	}, nil)
 }

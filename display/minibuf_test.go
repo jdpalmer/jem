@@ -88,7 +88,8 @@ func TestEditorlyFilenameSelectionParent(t *testing.T) {
 }
 
 func TestFilenameFuzzyScoreParentEntry(t *testing.T) {
-	if filenameFuzzyScore("../", "..") <= -1000000 {
+	ok, _ := filenameFuzzyScore("../", "..")
+	if !ok {
 		t.Fatal("expected ../ to fuzzy-match ..")
 	}
 }

@@ -33,13 +33,12 @@ func New() *Buffer {
 }
 
 // Clear removes all content and resets the buffer to a single empty line.
-func (buf *Buffer) Clear() bool {
+func (buf *Buffer) Clear() {
 	buf.Lines = nil
 	buf.EnsureMinLines()
 	buf.IsChanged = false
 	buf.Cursor = Location{Line: 1, Offset: 0}
 	buf.Mark = Location{Line: 0, Offset: 0}
-	return true
 }
 
 // DiscardLines drops all lines ahead of a full content rebuild.
