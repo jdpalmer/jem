@@ -4,7 +4,7 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/registers"
+	"github.com/jdpalmer/jem/register"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -32,7 +32,7 @@ func CmdCopyRegister(f bool, n int) bool {
 			display.MBWrite("[register name required]")
 			return
 		}
-		if !registers.Set(name, text) {
+		if !register.Set(name, text) {
 			return
 		}
 		display.MBWrite("Register '%s' copied.", name)
@@ -51,7 +51,7 @@ func CmdInsertRegister(f bool, n int) bool {
 		if pr != minibuffer.PromptResultYes {
 			return
 		}
-		text, ok := registers.Get(name)
+		text, ok := register.Get(name)
 		if !ok {
 			display.MBWrite("[register '%s' not found]", name)
 			return

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/file"
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/term"
@@ -67,9 +67,9 @@ func TestCollectFuzzyPathsRootHasNoParent(t *testing.T) {
 }
 
 func TestEditorlyFilenameSelectionFile(t *testing.T) {
-	got := files.ApplyFilenameSelection("src/", "foo.go")
+	got := file.ApplyFilenameSelection("src/", "foo.go")
 	if got != "src/foo.go" {
-		t.Fatalf("files.ApplyFilenameSelection = %q, want src/foo.go", got)
+		t.Fatalf("file.ApplyFilenameSelection = %q, want src/foo.go", got)
 	}
 }
 
@@ -80,10 +80,10 @@ func TestEditorlyFilenameSelectionParent(t *testing.T) {
 		t.Fatal(err)
 	}
 	childPrefix := child + string(filepath.Separator)
-	got := files.ApplyFilenameSelection(childPrefix, "../")
+	got := file.ApplyFilenameSelection(childPrefix, "../")
 	want := dir + string(filepath.Separator)
 	if got != want {
-		t.Fatalf("files.ApplyFilenameSelection = %q, want %q", got, want)
+		t.Fatalf("file.ApplyFilenameSelection = %q, want %q", got, want)
 	}
 }
 

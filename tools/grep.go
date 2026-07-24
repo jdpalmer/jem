@@ -20,7 +20,7 @@ import (
 	ignore "github.com/Sriram-PR/go-ignore"
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/file"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -56,7 +56,7 @@ func grepSearchRoot() (string, error) {
 	start := ""
 	if buf := buffer.All.Current; buf != nil {
 		if fname := buf.FileName; fname != "" {
-			start = filepath.Dir(files.NormalizePath(fname))
+			start = filepath.Dir(file.NormalizePath(fname))
 		}
 	}
 	if start == "" {
@@ -66,7 +66,7 @@ func grepSearchRoot() (string, error) {
 		}
 		start = cwd
 	}
-	if root, ok := files.FindDirWalkUp(start, ".git"); ok {
+	if root, ok := file.FindDirWalkUp(start, ".git"); ok {
 		return root, nil
 	}
 	return start, nil

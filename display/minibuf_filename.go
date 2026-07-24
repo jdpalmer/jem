@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/file"
 	"github.com/jdpalmer/jem/minibuffer"
 )
 
@@ -22,7 +22,7 @@ func shouldSkipFuzzyFile(name string) bool {
 // fuzzy file picker.  Symlinks, hidden files/dirs, and binary artefacts are
 // skipped.  Directories are returned with a trailing separator.
 func collectFuzzyPaths(dirpath, prefix string) []string {
-	openDir := files.OpenDirFromPrompt(dirpath)
+	openDir := file.OpenDirFromPrompt(dirpath)
 	absDir, err := filepath.Abs(openDir)
 	if err != nil {
 		absDir = filepath.Clean(openDir)
@@ -130,16 +130,16 @@ func filenameFuzzyMatches(paths []string, query string, maxMatches int) []int {
 // Returns true if the text was changed.
 func completePromptFilename(state *minibuffer.MinibufferState) bool {
 	typed := string(state.Text)
-	expanded := files.ExpandPath(typed)
+	expanded := file.ExpandPath(typed)
 
 	if typed == "~" {
 		state.SetText([]byte("~/"))
 		return true
 	}
 
-	tdir, _ := files.PromptSplit(typed)
-	edir, eprefix := files.PromptSplit(expanded)
-	openDir := files.OpenDirFromPrompt(edir)
+	tdir, _ := file.PromptSplit(typed)
+	edir, eprefix := file.PromptSplit(expanded)
+	openDir := file.OpenDirFromPrompt(edir)
 
 	entries, err := os.ReadDir(openDir)
 	if err != nil {

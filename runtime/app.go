@@ -4,12 +4,12 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/killring"
-	"github.com/jdpalmer/jem/registers"
+	"github.com/jdpalmer/jem/register"
 	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/window"
 )
 
-// App is one editor process instance: process, display, search, undo, and registers.
+// App is one editor process instance: process, display, search, undo, and named registers.
 // Leaf packages reach shared state through package-level pointers (State, History,
 // search.DefaultState) that Activate binds to this value.
 type App struct {
@@ -46,7 +46,7 @@ func (e *App) Activate() {
 	window.Bind(&e.Windows)
 	BindHistory(&e.History)
 	search.DefaultState = &e.Search
-	registers.Bind(e.Registers)
+	register.Bind(e.Registers)
 }
 
 func ensureCurrent() *App {

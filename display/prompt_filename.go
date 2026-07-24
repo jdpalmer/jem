@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/file"
 	"github.com/jdpalmer/jem/term"
 )
 
@@ -26,7 +26,7 @@ type FilenamePrompt struct {
 // NewFilenamePrompt builds a filename prompt. initial may be empty.
 func NewFilenamePrompt(prompt, initial string, capacity int) *FilenamePrompt {
 	if capacity <= 0 {
-		capacity = files.PromptPathCapacity
+		capacity = file.PromptPathCapacity
 	}
 	p := &FilenamePrompt{
 		prompt: prompt,
@@ -84,9 +84,9 @@ func (p *FilenamePrompt) syncMatches() {
 		}
 		return
 	}
-	dirPart, pattern := files.PromptSplit(query)
+	dirPart, pattern := file.PromptSplit(query)
 	p.currentDirPart = dirPart
-	p.refreshList(files.OpenDirFromPrompt(dirPart))
+	p.refreshList(file.OpenDirFromPrompt(dirPart))
 
 	const maxMatches = 16
 	if pattern == "" {
@@ -113,7 +113,7 @@ func (p *FilenamePrompt) applyMatchSelection() string {
 		return string(p.state.Text)
 	}
 	selected := p.filePaths[p.matchIndices[p.sel]]
-	return files.ApplyFilenameSelection(p.currentDirPart, selected)
+	return file.ApplyFilenameSelection(p.currentDirPart, selected)
 }
 
 func (p *FilenamePrompt) setPromptText(text string) {

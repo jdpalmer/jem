@@ -7,7 +7,7 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/file"
 	"github.com/jdpalmer/jem/markring"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
@@ -17,13 +17,13 @@ import (
 // The first path replaces the initial buffer; each remaining path gets its own
 // buffer. On return the first file's buffer is current and shown in the window.
 func loadCommandLineFiles(paths []string) {
-	files.LoadCommandLineFiles(paths, files.BufferNameFromPath, func(path string) error {
-		return files.LoadCurrentBuffer(path, display.MBWrite)
+	file.LoadCommandLineFiles(paths, file.BufferNameFromPath, func(path string) error {
+		return file.LoadCurrentBuffer(path, display.MBWrite)
 	})
 }
 
 func fileLoad(fname string) bool {
-	return files.LoadCurrentBuffer(fname, display.MBWrite) == nil
+	return file.LoadCurrentBuffer(fname, display.MBWrite) == nil
 }
 
 // fileSaveBuffer saves fn. onDone is optional; when overwrite confirmation is
@@ -34,26 +34,26 @@ func fileSaveBuffer(fn string, onDone func(ok bool)) {
 			onDone(ok)
 		}
 	}
-	if files.NeedsOverwriteConfirm(fn) {
+	if file.NeedsOverwriteConfirm(fn) {
 		AskYesNo("file changed on disk. overwrite", func() {
-			finish(files.SaveCurrentBufferForce(fn, display.MBWrite) == nil)
+			finish(file.SaveCurrentBufferForce(fn, display.MBWrite) == nil)
 		}, func() {
 			finish(false)
 		})
 		return
 	}
-	finish(files.SaveCurrentBufferForce(fn, display.MBWrite) == nil)
+	finish(file.SaveCurrentBufferForce(fn, display.MBWrite) == nil)
 }
 
 // fileReloadFromDisk reloads fname into the current buffer and restores lineNumber.
 func fileReloadFromDisk(fname string, lineNumber int) bool {
-	return files.ReloadCurrentBufferFromDisk(fname, lineNumber, NoteBufferSaved, display.MBWrite) == nil
+	return file.ReloadCurrentBufferFromDisk(fname, lineNumber, NoteBufferSaved, display.MBWrite) == nil
 }
 
 // fileCheckReload silently reloads unmodified buffers when the on-disk file
 // changes; prompts before reverting modified buffers.
 func fileCheckReload() {
-	files.CheckReloadCurrentBuffer(func(prompt string, onYes, onNo func()) {
+	file.CheckReloadCurrentBuffer(func(prompt string, onYes, onNo func()) {
 		AskYesNo(prompt, onYes, onNo)
 	}, display.MBWrite, NoteBufferSaved, State.Dispatching, State.AutoRevertMode)
 }
@@ -72,7 +72,7 @@ func CmdFileSave(f bool, n int) bool {
 		})
 		return true
 	}
-	AskStringCap("Write file: ", "", files.PromptPathCapacity, func(fname string, res minibuffer.PromptResult) {
+	AskStringCap("Write file: ", "", file.PromptPathCapacity, func(fname string, res minibuffer.PromptResult) {
 		if res != minibuffer.PromptResultYes || fname == "" {
 			return
 		}
@@ -91,12 +91,12 @@ func visitFilePath(path string) bool {
 	if path == "" {
 		return false
 	}
-	fileName := files.NormalizePath(path)
+	fileName := file.NormalizePath(path)
 
 	var found *buffer.Buffer
 	for i := 0; i < len(buffer.All.Buffers); i++ {
 		buf := buffer.All.Buffers[i]
-		if buf != nil && files.PathsEqual(buf.FileName, fileName) {
+		if buf != nil && file.PathsEqual(buf.FileName, fileName) {
 			found = buf
 			break
 		}
@@ -119,7 +119,7 @@ func visitFilePath(path string) bool {
 		return false
 	}
 	markring.PushCurrent()
-	buf.Name = files.BufferNameFromPath(fileName)
+	buf.Name = file.BufferNameFromPath(fileName)
 	window.SwitchBuffer(buf)
 	if !fileLoad(fileName) {
 		return false
@@ -140,7 +140,7 @@ func CmdFileVisit(f bool, n int) bool {
 	initial := ""
 	if buf := buffer.All.Current; buf != nil {
 		if fname := buf.FileName; fname != "" {
-			dir := filepath.Dir(files.ExpandPath(fname))
+			dir := filepath.Dir(file.ExpandPath(fname))
 			initial = dir + string(filepath.Separator)
 		}
 	}
@@ -162,13 +162,13 @@ func CmdFileWrite(f bool, n int) bool {
 		if pr != minibuffer.PromptResultYes || path == "" {
 			return
 		}
-		path = files.NormalizePath(path)
+		path = file.NormalizePath(path)
 		fileSaveBuffer(path, func(ok bool) {
 			if !ok {
 				return
 			}
 			buf.FileName = path
-			buf.LangMode = files.DetectLangMode(path)
+			buf.LangMode = file.DetectLangMode(path)
 			NoteBufferSaved(buf)
 			for i := 0; i < len(window.Active.Windows); i++ {
 				win := window.Active.Windows[i]
@@ -255,7 +255,7 @@ func CmdFileRead(f bool, n int) bool {
 		if pr != minibuffer.PromptResultYes || path == "" {
 			return
 		}
-		fileLoad(files.NormalizePath(path))
+		fileLoad(file.NormalizePath(path))
 	})
 	return true
 }

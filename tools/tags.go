@@ -13,7 +13,7 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/files"
+	"github.com/jdpalmer/jem/file"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -55,7 +55,7 @@ func tagFindTagsFile() (string, bool) {
 
 	if filepath.IsAbs(tagName) {
 		if _, err := os.Stat(tagName); err == nil {
-			return files.NormalizePath(tagName), true
+			return file.NormalizePath(tagName), true
 		}
 		return "", false
 	}
@@ -63,7 +63,7 @@ func tagFindTagsFile() (string, bool) {
 	dir := ""
 	if buf := buffer.All.Current; buf != nil {
 		if fname := buf.FileName; fname != "" {
-			dir = filepath.Dir(files.NormalizePath(fname))
+			dir = filepath.Dir(file.NormalizePath(fname))
 		}
 	}
 	if dir == "" {
@@ -74,7 +74,7 @@ func tagFindTagsFile() (string, bool) {
 		dir = cwd
 	}
 
-	if path, ok := files.FindFileWalkUp(dir, tagName); ok {
+	if path, ok := file.FindFileWalkUp(dir, tagName); ok {
 		return path, true
 	}
 	return "", false
@@ -285,7 +285,7 @@ func tagSignatureScore(buf *buffer.Buffer, entry *TagEntry) int {
 	case "macro":
 		score += 2
 	}
-	if buf != nil && buf.FileName != "" && files.PathsEqual(buf.FileName, entry.Path) {
+	if buf != nil && buf.FileName != "" && file.PathsEqual(buf.FileName, entry.Path) {
 		score += 6
 	}
 	return score

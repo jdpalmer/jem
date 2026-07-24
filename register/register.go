@@ -1,4 +1,4 @@
-package registers
+package register
 
 // Named text registers (clipboards keyed by name).
 
