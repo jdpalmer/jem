@@ -2,7 +2,9 @@ package search
 
 import (
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -50,7 +52,7 @@ func newQueryReReplaceSession(buf *buffer.Buffer, pattern, replStr string) *quer
 // Open initializes the session and advances to the next match.
 func (s *queryReplaceSession) Open() (done bool) {
 	minibuffer.Active = &s.mbState
-	displayUpdate()
+	display.DisplayUpdate()
 	return s.advance()
 }
 
@@ -68,7 +70,7 @@ func (s *queryReplaceSession) finishMessage() {
 	if s.nReplaced == 1 {
 		suffix = ""
 	}
-	mbWrite("[replaced %d occurrence%s]", s.nReplaced, suffix)
+	display.MBWrite("[replaced %d occurrence%s]", s.nReplaced, suffix)
 }
 
 func (s *queryReplaceSession) advance() (done bool) {
@@ -100,7 +102,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 			matchText := string(match.Text[match.Index[0]:match.Index[1]])
 			win.Mark = match.Start
 			win.ShouldRedraw = true
-			displayUpdate()
+			display.DisplayUpdate()
 			writeReplacePrompt(s.buf, matchText, string(expanded))
 			s.awaitingKey = true
 			return false
@@ -119,7 +121,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 		}
 		markMatchStart(win, s.patLen)
 		win.ShouldRedraw = true
-		displayUpdate()
+		display.DisplayUpdate()
 		writeReplacePrompt(s.buf, string(s.pat), s.repl)
 		s.awaitingKey = true
 		return false
@@ -130,7 +132,7 @@ func (s *queryReplaceSession) advance() (done bool) {
 func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 	action := lookupReplaceAction(k)
 	if action == replaceActionNone {
-		doBeep()
+		term.Beep()
 		return false
 	}
 
@@ -150,7 +152,7 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 		if s.nReplaced == 1 {
 			suffix = ""
 		}
-		mbWrite("Replaced %d occurrence%s", s.nReplaced, suffix)
+		display.MBWrite("Replaced %d occurrence%s", s.nReplaced, suffix)
 		return true
 	case replaceActionNo:
 		// skip
@@ -165,7 +167,7 @@ func (s *queryReplaceSession) HandleKey(k uint32) (done bool) {
 		if s.nReplaced == 1 {
 			suffix = ""
 		}
-		mbWrite("Replaced %d occurrence%s", s.nReplaced, suffix)
+		display.MBWrite("Replaced %d occurrence%s", s.nReplaced, suffix)
 		return true
 	}
 	if win != nil {

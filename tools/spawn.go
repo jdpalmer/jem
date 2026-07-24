@@ -110,8 +110,11 @@ func SpawnShell(command string) int {
 		term.Flush()
 		if hadTTY {
 			for {
-				var pauseKey uint32
-				if !editorReadKey(&pauseKey) {
+				if PackageHooks.ReadKey == nil {
+					break
+				}
+				pauseKey, ok := PackageHooks.ReadKey()
+				if !ok {
 					break
 				}
 				if pauseKey == term.KeyEnter {
@@ -152,9 +155,11 @@ func RunSpawnCommand() bool {
 	if runtime.GOOS == "windows" {
 		prompt = "Command: "
 	}
-	askStringCap(prompt, "", CommandPromptCapacity, func(command string, pr minibuffer.PromptResult) {
-		_ = runSpawnAfterPrompt(command, pr)
-	})
+	if PackageHooks.AskStringCap != nil {
+		PackageHooks.AskStringCap(prompt, "", CommandPromptCapacity, func(command string, pr minibuffer.PromptResult) {
+			_ = runSpawnAfterPrompt(command, pr)
+		})
+	}
 	return true
 }
 

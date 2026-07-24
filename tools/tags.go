@@ -3,6 +3,7 @@ package tools
 // Tag database and navigation (tags.json).
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -23,6 +24,14 @@ const (
 	tagHintContextMax = 512
 	tagHintLinesMax   = 8
 )
+
+func promptStringFromBuf(data []byte) string {
+	n := bytes.IndexByte(data, 0)
+	if n < 0 {
+		n = len(data)
+	}
+	return string(data[:n])
+}
 
 type TagEntry struct {
 	Name      string
@@ -240,10 +249,10 @@ func tagSymbolAtPoint(win *window.Window, symbol []byte) bool {
 }
 
 func tagVisitLocation(path string, line, offset int) bool {
-	if line == 0 {
+	if line == 0 || PackageHooks.VisitLocation == nil {
 		return false
 	}
-	return fileVisitLocation(path, line, offset+1)
+	return PackageHooks.VisitLocation(path, line, offset+1)
 }
 
 func tagCollectMatches(name string, requireSignature bool) []*TagEntry {
@@ -342,26 +351,30 @@ func tagChooseMatch(matches []*TagEntry, onDone func(choice int)) {
 	}
 
 	list := &tagMatchList{matches: matches[:count]}
-	askFuzzyEx("Tag: ", func(ctx any, idx int) []byte {
-		return ctx.(*tagMatchList).provider(idx)
-	}, list, count, tagDisplayFormatter, list, func(selected string, r minibuffer.PromptResult) {
-		if r == minibuffer.PromptResultAbort {
-			CmdAbort(false, 1)
-			onDone(-1)
-			return
-		}
-		if r != minibuffer.PromptResultYes {
-			onDone(-1)
-			return
-		}
-		for i := 0; i < count; i++ {
-			if matches[i].Name == selected {
-				onDone(i)
+	if PackageHooks.AskFuzzyEx != nil {
+		PackageHooks.AskFuzzyEx("Tag: ", func(ctx any, idx int) []byte {
+			return ctx.(*tagMatchList).provider(idx)
+		}, list, count, tagDisplayFormatter, list, func(selected string, r minibuffer.PromptResult) {
+			if r == minibuffer.PromptResultAbort {
+				if PackageHooks.Abort != nil {
+					PackageHooks.Abort()
+				}
+				onDone(-1)
 				return
 			}
-		}
-		onDone(-1)
-	})
+			if r != minibuffer.PromptResultYes {
+				onDone(-1)
+				return
+			}
+			for i := 0; i < count; i++ {
+				if matches[i].Name == selected {
+					onDone(i)
+					return
+				}
+			}
+			onDone(-1)
+		})
+	}
 }
 
 func tagVisitMatch(matches []*TagEntry, choice int) {
@@ -401,12 +414,15 @@ func RunGotoTag() bool {
 		finish(promptStringFromBuf(scratch[:]))
 		return true
 	}
-	askString("Goto tag: ", "", func(symbol string, pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes {
-			return
-		}
-		finish(symbol)
-	})
+	askString := PackageHooks.AskString
+	if askString != nil {
+		askString("Goto tag: ", "", func(symbol string, pr minibuffer.PromptResult) {
+			if pr != minibuffer.PromptResultYes {
+				return
+			}
+			finish(symbol)
+		})
+	}
 	return true
 }
 

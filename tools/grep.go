@@ -328,23 +328,25 @@ func grepEnsureBuffer() *buffer.Buffer {
 
 // RunGrep searches the project and opens the *grep* results buffer.
 func RunGrep() bool {
-	askString("grep: ", "", func(pattern string, pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes {
-			return
-		}
-		if pattern == "" {
-			display.MBWrite("[empty pattern]")
-			return
-		}
-		display.MBHistoryAdd(pattern)
+	if PackageHooks.AskString != nil {
+		PackageHooks.AskString("grep: ", "", func(pattern string, pr minibuffer.PromptResult) {
+			if pr != minibuffer.PromptResultYes {
+				return
+			}
+			if pattern == "" {
+				display.MBWrite("[empty pattern]")
+				return
+			}
+			display.MBHistoryAdd(pattern)
 
-		root, err := grepSearchRoot()
-		if err != nil {
-			display.MBWrite("[grep failed]")
-			return
-		}
-		_ = StartBackgroundGrep(root, pattern)
-	})
+			root, err := grepSearchRoot()
+			if err != nil {
+				display.MBWrite("[grep failed]")
+				return
+			}
+			_ = StartBackgroundGrep(root, pattern)
+		})
+	}
 	return true
 }
 
@@ -365,5 +367,8 @@ func VisitGrepMatch() bool {
 	}
 
 	markring.PushCurrent()
-	return fileVisitLocation(data.Path, data.Line, data.Column)
+	if PackageHooks.VisitLocation == nil {
+		return false
+	}
+	return PackageHooks.VisitLocation(data.Path, data.Line, data.Column)
 }

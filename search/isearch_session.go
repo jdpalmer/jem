@@ -2,12 +2,13 @@ package search
 
 import (
 	"bytes"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/window"
 )
 
 type isearchSession struct {
@@ -57,7 +58,7 @@ func (s *isearchSession) Open() (done bool) {
 	buf := buffer.All.Current
 	s.scope = searchScopeInit(buf)
 	if !s.regex {
-		markPushCurrent()
+		markring.PushCurrent()
 	}
 	s.origin = saveSearchSnapshot(s.win, 0)
 	s.lastSuccess = s.origin
@@ -74,7 +75,7 @@ func (s *isearchSession) Close() {
 }
 
 func (s *isearchSession) redraw() {
-	displayUpdate()
+	display.DisplayUpdate()
 	buf := (*buffer.Buffer)(nil)
 	if s.win != nil {
 		buf = s.win.Buffer
@@ -94,12 +95,12 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 	plen := s.plen()
 	if k == (term.CTL|'G') || k == 0x1B {
 		restoreSearchSnapshot(s.win, &s.origin)
-		mbWrite("[cancelled]")
+		display.MBWrite("[cancelled]")
 		return true
 	}
 	if k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J') {
 		s.commitPattern(plen)
-		mbClear()
+		display.MBClear()
 		return true
 	}
 	if k == s.repeatKey {
@@ -112,11 +113,11 @@ func (s *isearchSession) HandleKey(k uint32) (done bool) {
 	edit := minibuffer.EditKeyHistory(s.pat[:], &s.cpos, display.PatternCapacity, &s.historyPos, &s.haveSavedEdit, s.savedEdit[:], k)
 	if edit == minibuffer.MinibufEditUnhandled {
 		s.commitPattern(plen)
-		mbClear()
+		display.MBClear()
 		return true
 	}
 	if edit == minibuffer.MinibufEditNoChange {
-		doBeep()
+		term.Beep()
 		return false
 	}
 	plen = s.plen()
@@ -156,17 +157,17 @@ func (s *isearchSession) commitPattern(plen int) {
 	}
 	text := string(s.pat[:plen])
 	if s.regex {
-		currentState().RegexSearchPattern = text
+		DefaultState.RegexSearchPattern = text
 	} else {
 		isearchSetPlainPattern(text)
 	}
-	mbHistoryAdd(text)
+	display.MBHistoryAdd(text)
 }
 
 func (s *isearchSession) handleRepeat(plen int) {
 	if plen == 0 {
 		if s.regex {
-			patStr := currentState().RegexSearchPattern
+			patStr := DefaultState.RegexSearchPattern
 			if patStr != "" {
 				n := len(patStr)
 				if n >= len(s.pat) {
@@ -233,5 +234,8 @@ func IsearchReBackward() bool {
 
 func startISearch(backward, regex bool) bool {
 	s := newISearchSession(backward, regex)
-	return pushKeySession(s)
+	if PackageHooks.PushKeySession != nil {
+		PackageHooks.PushKeySession(s)
+	}
+	return true
 }

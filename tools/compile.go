@@ -271,18 +271,20 @@ func readProcessStream(r io.Reader, max int) (string, bool) {
 
 // RunCompile runs a shell build command and captures output in *compile*.
 func RunCompile() bool {
-	askString("Compile: ", compileLastCommand, func(command string, pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes {
-			return
-		}
-		if command == "" {
-			display.MBWrite("[empty compile command]")
-			return
-		}
-		display.MBHistoryAdd(command)
-		compileLastCommand = command
-		_ = StartBackgroundCompile(command)
-	})
+	if PackageHooks.AskString != nil {
+		PackageHooks.AskString("Compile: ", compileLastCommand, func(command string, pr minibuffer.PromptResult) {
+			if pr != minibuffer.PromptResultYes {
+				return
+			}
+			if command == "" {
+				display.MBWrite("[empty compile command]")
+				return
+			}
+			display.MBHistoryAdd(command)
+			compileLastCommand = command
+			_ = StartBackgroundCompile(command)
+		})
+	}
 	return true
 }
 
@@ -303,5 +305,8 @@ func VisitCompileDiag() bool {
 	}
 
 	markring.PushCurrent()
-	return fileVisitLocation(data.Path, data.Line, data.Column)
+	if PackageHooks.VisitLocation == nil {
+		return false
+	}
+	return PackageHooks.VisitLocation(data.Path, data.Line, data.Column)
 }

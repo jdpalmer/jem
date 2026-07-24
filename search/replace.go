@@ -87,7 +87,7 @@ func writeReplacePrompt(buf *buffer.Buffer, from, to string) {
 		prompt = "[" + buf.Name + "] "
 	}
 	prompt += "replace '" + from + "' with '" + to + "' (y/n/!/+/q): "
-	mbWrite("%s", prompt)
+	display.MBWrite("%s", prompt)
 }
 
 func expandRegexReplacement(repl string, match RegexMatch) ([]byte, error) {
@@ -139,7 +139,7 @@ func SearchForward() bool {
 		}
 		scope := searchScopeInit(buf)
 		if !findNextInScope(win, &scope, pat) {
-			mbWrite("[not found]")
+			display.MBWrite("[not found]")
 		}
 	})
 	return true
@@ -162,7 +162,7 @@ func SearchBackward() bool {
 		}
 		scope := searchScopeInit(buf)
 		if !findPrevInScope(win, &scope, pat) {
-			mbWrite("[not found]")
+			display.MBWrite("[not found]")
 		}
 	})
 	return true
@@ -170,15 +170,15 @@ func SearchBackward() bool {
 
 // ToggleSearchScope switches the search scope between current buffer and all buffers.
 func ToggleSearchScope() bool {
-	if currentState().SearchScopeSetting == SearchScopeBuffer {
-		currentState().SearchScopeSetting = SearchScopeAllBuffers
+	if DefaultState.SearchScopeSetting == SearchScopeBuffer {
+		DefaultState.SearchScopeSetting = SearchScopeAllBuffers
 	} else {
-		currentState().SearchScopeSetting = SearchScopeBuffer
+		DefaultState.SearchScopeSetting = SearchScopeBuffer
 	}
 	if searchScopeIsAllBuffers() {
-		mbWrite("[search scope: all buffers]")
+		display.MBWrite("[search scope: all buffers]")
 	} else {
-		mbWrite("[search scope: current buffer]")
+		display.MBWrite("[search scope: current buffer]")
 	}
 	return true
 }
@@ -199,12 +199,12 @@ func QueryReplace() bool {
 		if patLen == 0 {
 			return
 		}
-		preserveCase := !currentState().SearchCaseSensitive
+		preserveCase := !DefaultState.SearchCaseSensitive
 		askString("Replace '"+string(pat)+"' with: ", "", func(repl string, pr minibuffer.PromptResult) {
 			if pr == minibuffer.PromptResultAbort {
 				return
 			}
-			pushKeySession(newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase))
+			PackageHooks.PushKeySession(newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase))
 		})
 	})
 	return true
@@ -217,7 +217,7 @@ func QueryReReplace() bool {
 	if win == nil || buf == nil {
 		return false
 	}
-	askString(buildSearchPrompt("Query re-replace"), currentState().SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
+	askString(buildSearchPrompt("Query re-replace"), DefaultState.SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || pattern == "" {
 			return
 		}
@@ -225,7 +225,7 @@ func QueryReReplace() bool {
 			if pr == minibuffer.PromptResultAbort {
 				return
 			}
-			pushKeySession(newQueryReReplaceSession(buf, pattern, replStr))
+			PackageHooks.PushKeySession(newQueryReReplaceSession(buf, pattern, replStr))
 		})
 	})
 	return true

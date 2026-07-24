@@ -25,17 +25,6 @@ type State struct {
 // Active is the process-wide mark ring.
 var Active State
 
-// Hooks connects markring to buffer-list helpers it cannot import.
-type Hooks struct {
-	CurrentBuffer    func() *buffer.Buffer
-	Buffers          func() []*buffer.Buffer
-	SwitchBuffer     func(buf *buffer.Buffer)
-	SetCurrentBuffer func(buf *buffer.Buffer)
-}
-
-// PackageHooks is set by the runtime during init.
-var PackageHooks Hooks
-
 func markUpdateModelines() {
 	for _, win := range window.Active.Windows {
 		if win != nil {
@@ -55,10 +44,7 @@ func markEquals(a, b *Mark) bool {
 
 func markCaptureCurrent(m *Mark) bool {
 	win := window.Active.CurrentWindow
-	var buf *buffer.Buffer
-	if PackageHooks.CurrentBuffer != nil {
-		buf = PackageHooks.CurrentBuffer()
-	}
+	buf := buffer.All.Current
 	if win == nil || buf == nil {
 		return false
 	}
@@ -80,10 +66,7 @@ func marksPushEntry(mark *Mark) {
 }
 
 func markBufferIsActive(candidate *buffer.Buffer, serial uint32) bool {
-	if PackageHooks.Buffers == nil {
-		return false
-	}
-	for _, buf := range PackageHooks.Buffers() {
+	for _, buf := range buffer.All.Buffers {
 		if buf == candidate && buf.Serial == serial {
 			return true
 		}
@@ -108,19 +91,8 @@ func markRestore(m *Mark) bool {
 	if m.Buffer == nil || !markBufferIsActive(m.Buffer, m.BufferSerial) {
 		return false
 	}
-	var cur *buffer.Buffer
-	if PackageHooks.CurrentBuffer != nil {
-		cur = PackageHooks.CurrentBuffer()
-	}
-	if cur != m.Buffer {
-		if PackageHooks.SwitchBuffer != nil {
-			PackageHooks.SwitchBuffer(m.Buffer)
-		} else if PackageHooks.SetCurrentBuffer != nil {
-			PackageHooks.SetCurrentBuffer(m.Buffer)
-			if window.Active.CurrentWindow != nil {
-				window.Active.CurrentWindow.Buffer = m.Buffer
-			}
-		}
+	if buffer.All.Current != m.Buffer {
+		window.SwitchBuffer(m.Buffer)
 	}
 	win := window.Active.CurrentWindow
 	if win == nil {

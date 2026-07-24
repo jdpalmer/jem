@@ -3,7 +3,6 @@ package search
 import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/markring"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/term"
 )
@@ -24,18 +23,6 @@ type State struct {
 
 var DefaultState = &State{}
 
-func currentState() *State {
-	return DefaultState
-}
-
-func mbWrite(format string, args ...interface{}) {
-	display.MBWrite(format, args...)
-}
-
-func mbClear() {
-	display.MBClear()
-}
-
 func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
 	if PackageHooks.AskString != nil {
 		PackageHooks.AskString(prompt, initial, onDone)
@@ -44,26 +31,6 @@ func askString(prompt, initial string, onDone func(string, minibuffer.PromptResu
 	if onDone != nil {
 		onDone("", minibuffer.PromptResultAbort)
 	}
-}
-
-func mbWritePromptStyle(prompt string, text []byte, cpos int, style buffer.TextStyle) {
-	display.MBWritePromptStyle(prompt, text, cpos, style)
-}
-
-func mbHistoryAdd(text string) {
-	display.MBHistoryAdd(text)
-}
-
-func displayUpdate() {
-	display.DisplayUpdate()
-}
-
-func markPushCurrent() {
-	markring.PushCurrent()
-}
-
-func doBeep() {
-	term.Beep()
 }
 
 func setText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {

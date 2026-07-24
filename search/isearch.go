@@ -22,5 +22,5 @@ func writeISearchPrompt(label string, pattern []byte, cpos int, failing bool, bu
 	if end < 0 {
 		end = len(pattern)
 	}
-	mbWritePromptStyle(prompt, pattern[:end], cpos, style)
+	display.MBWritePromptStyle(prompt, pattern[:end], cpos, style)
 }

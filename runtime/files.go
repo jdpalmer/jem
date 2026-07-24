@@ -55,7 +55,7 @@ func fileReloadFromDisk(fname string, lineNumber int) bool {
 func fileCheckReload() {
 	files.CheckReloadCurrentBuffer(func(prompt string, onYes, onNo func()) {
 		AskYesNo(prompt, onYes, onNo)
-	}, display.MBWrite, NoteBufferSaved)
+	}, display.MBWrite, NoteBufferSaved, State.Dispatching, State.AutoRevertMode)
 }
 
 // CmdFileSave saves the current buffer to its filename, or prompts for a

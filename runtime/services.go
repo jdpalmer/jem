@@ -4,9 +4,6 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/event"
-	"github.com/jdpalmer/jem/files"
-	"github.com/jdpalmer/jem/markring"
-	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/mode"
 	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/syntax"
@@ -79,15 +76,9 @@ func buildServices() *Services {
 				ok := editorReadKey(&k)
 				return k, ok
 			},
-			AskString: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-				AskString(prompt, initial, onDone)
-			},
-			AskStringCap: func(prompt, initial string, capacity int, onDone func(string, minibuffer.PromptResult)) {
-				AskStringCap(prompt, initial, capacity, onDone)
-			},
-			AskFuzzyEx: func(prompt string, provider minibuffer.MbNameProviderFn, providerCtx any, providerCount int, displayFormatter minibuffer.MbMatchFormatter, displayCtx any, onDone func(string, minibuffer.PromptResult)) {
-				AskFuzzyEx(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx, onDone)
-			},
+			AskString:    AskString,
+			AskStringCap: AskStringCap,
+			AskFuzzyEx:   AskFuzzyEx,
 		},
 		Display: display.Hooks{
 			ApplyCtlxPrefix: applyCtlxPrefix,
@@ -100,29 +91,17 @@ func buildServices() *Services {
 		Search: search.Hooks{
 			PushKeySession: PushKeySession,
 			SetText:        SetText,
-			AskString: func(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-				AskString(prompt, initial, onDone)
-			},
+			AskString:      AskString,
 		},
 	}
 }
 
 // installServices copies Svc (or s) into each leaf package's PackageHooks.
 func installServices(s *Services) {
-	markring.PackageHooks = markring.Hooks{
-		CurrentBuffer:    func() *buffer.Buffer { return buffer.All.Current },
-		Buffers:          func() []*buffer.Buffer { return buffer.All.Buffers },
-		SwitchBuffer:     window.SwitchBuffer,
-		SetCurrentBuffer: buffer.SetCurrent,
-	}
 	window.PackageHooks = window.Hooks{
 		BeginCommand: BeginCommand,
 		EndCommand:   EndCommand,
 		SetText:      SetText,
-	}
-	files.PackageHooks = files.Hooks{
-		IsDispatching:  func() bool { return State.Dispatching },
-		AutoRevertMode: func() bool { return State.AutoRevertMode },
 	}
 	buffer.PackageHooks = s.Buffer
 	term.PackageHooks = s.Term

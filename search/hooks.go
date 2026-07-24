@@ -23,8 +23,3 @@ type Hooks struct {
 
 // PackageHooks is set once via runtime.Services.
 var PackageHooks Hooks
-
-func pushKeySession(s KeySession) bool {
-	PackageHooks.PushKeySession(s)
-	return true
-}

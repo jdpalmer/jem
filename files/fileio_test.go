@@ -11,7 +11,6 @@ import (
 )
 
 func resetAppForFileIoTests() {
-	PackageHooks = Hooks{}
 	*buffer.All = buffer.List{}
 	*window.Active = window.State{}
 }
@@ -99,7 +98,7 @@ func TestCheckReloadCurrentBufferCleanBuffer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	CheckReloadCurrentBuffer(nil, NoOpWriter, nil)
+	CheckReloadCurrentBuffer(nil, NoOpWriter, nil, false, false)
 
 	assertLineData(t, buf.Line(1), "alpha")
 	if len(buf.Lines) != 3 {
@@ -180,7 +179,7 @@ func TestCheckReloadCurrentBufferSkipsDirtyBuffer(t *testing.T) {
 	// Avoid prompting by simulating that the user already declined for this mtime.
 	buf.NotifiedModTime = FileModTime(path)
 
-	CheckReloadCurrentBuffer(nil, NoOpWriter, nil)
+	CheckReloadCurrentBuffer(nil, NoOpWriter, nil, false, false)
 
 	assertLineData(t, buf.Line(1), "first")
 }

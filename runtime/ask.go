@@ -7,60 +7,23 @@ import (
 )
 
 // PromptDone is called when an async minibuffer prompt finishes.
-type PromptDone func(text string, pr minibuffer.PromptResult)
+type PromptDone = func(text string, pr minibuffer.PromptResult)
 
 // ChooseDone is called when an async choose menu finishes.
 // sel ≥0 selected, -1 cancel, -2 abort.
-type ChooseDone func(sel int)
+type ChooseDone = func(sel int)
 
-type stringListener struct {
-	prompt *display.StringPrompt
+type textPrompt interface {
+	HandleKey(k uint32) (done bool, text string, pr minibuffer.PromptResult)
+	Close()
+}
+
+type promptListener struct {
+	prompt textPrompt
 	onDone PromptDone
 }
 
-func (l *stringListener) Handle(_ *ProcState, e event.Event) ListenerResult {
-	ke, ok := e.(event.KeyEvent)
-	if !ok {
-		return PassThrough
-	}
-	done, text, pr := l.prompt.HandleKey(ke.Code)
-	if !done {
-		return Consumed
-	}
-	l.prompt.Close()
-	if l.onDone != nil {
-		l.onDone(text, pr)
-	}
-	return ConsumedAndPop
-}
-
-type fuzzyListener struct {
-	prompt *display.FuzzyPrompt
-	onDone PromptDone
-}
-
-func (l *fuzzyListener) Handle(_ *ProcState, e event.Event) ListenerResult {
-	ke, ok := e.(event.KeyEvent)
-	if !ok {
-		return PassThrough
-	}
-	done, text, pr := l.prompt.HandleKey(ke.Code)
-	if !done {
-		return Consumed
-	}
-	l.prompt.Close()
-	if l.onDone != nil {
-		l.onDone(text, pr)
-	}
-	return ConsumedAndPop
-}
-
-type filenameListener struct {
-	prompt *display.FilenamePrompt
-	onDone PromptDone
-}
-
-func (l *filenameListener) Handle(_ *ProcState, e event.Event) ListenerResult {
+func (l *promptListener) Handle(_ *ProcState, e event.Event) ListenerResult {
 	ke, ok := e.(event.KeyEvent)
 	if !ok {
 		return PassThrough
@@ -112,7 +75,7 @@ func AskStringCap(prompt, initial string, capacity int, onDone PromptDone) {
 	}
 	p := display.NewStringPrompt(prompt, initial, capacity)
 	p.Open()
-	PushListener(&stringListener{prompt: p, onDone: onDone})
+	PushListener(&promptListener{prompt: p, onDone: onDone})
 }
 
 // AskFuzzy pushes a fuzzy-list prompt listener.
@@ -130,7 +93,7 @@ func AskFuzzyEx(prompt string, provider minibuffer.MbNameProviderFn, providerCtx
 	}
 	p := display.NewFuzzyPrompt(prompt, provider, providerCtx, providerCount, displayFormatter, displayCtx)
 	p.Open()
-	PushListener(&fuzzyListener{prompt: p, onDone: onDone})
+	PushListener(&promptListener{prompt: p, onDone: onDone})
 }
 
 // AskFilename pushes a filename prompt listener.
@@ -143,7 +106,7 @@ func AskFilename(prompt, initial string, onDone PromptDone) {
 	}
 	p := display.NewFilenamePrompt(prompt, initial, 0)
 	p.Open()
-	PushListener(&filenameListener{prompt: p, onDone: onDone})
+	PushListener(&promptListener{prompt: p, onDone: onDone})
 }
 
 // AskChoose pushes a horizontal choice menu listener.

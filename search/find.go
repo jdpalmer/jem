@@ -6,12 +6,13 @@ import (
 	"unicode"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
 
 func searchScopeIsAllBuffers() bool {
-	return currentState().SearchScopeSetting == SearchScopeAllBuffers
+	return DefaultState.SearchScopeSetting == SearchScopeAllBuffers
 }
 
 func buildSearchPrompt(label string) string {
@@ -23,7 +24,7 @@ func buildSearchPrompt(label string) string {
 }
 
 func updateSearchCase(pattern string) {
-	st := currentState()
+	st := DefaultState
 	st.SearchCaseSensitive = false
 	for _, b := range pattern {
 		if b >= 'A' && b <= 'Z' {
@@ -34,19 +35,19 @@ func updateSearchCase(pattern string) {
 }
 
 func searchPatternBytes() []byte {
-	return []byte(currentState().SearchPattern)
+	return []byte(DefaultState.SearchPattern)
 }
 
 func readPattern(label string, onDone func(pr minibuffer.PromptResult)) {
 	display := buildSearchPrompt(label)
-	askString(display, currentState().SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
+	askString(display, DefaultState.SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
 		if pr == minibuffer.PromptResultYes {
-			currentState().SearchPattern = truncatePattern(pattern)
-		} else if pr == minibuffer.PromptResultNo && currentState().SearchPattern != "" {
+			DefaultState.SearchPattern = truncatePattern(pattern)
+		} else if pr == minibuffer.PromptResultNo && DefaultState.SearchPattern != "" {
 			pr = minibuffer.PromptResultYes
 		}
 		if pr == minibuffer.PromptResultYes {
-			updateSearchCase(currentState().SearchPattern)
+			updateSearchCase(DefaultState.SearchPattern)
 		}
 		if onDone != nil {
 			onDone(pr)
@@ -133,7 +134,7 @@ func bufferSearchEnd(buf *buffer.Buffer) buffer.Location {
 }
 
 func searchCharsEqual(bc, pc int) bool {
-	if currentState().SearchCaseSensitive {
+	if DefaultState.SearchCaseSensitive {
 		return bc == pc
 	}
 	return unicode.ToUpper(rune(bc)) == unicode.ToUpper(rune(pc))
@@ -318,8 +319,8 @@ func isearchHighlightMatch(win *window.Window, start, end buffer.Location, backw
 
 // isearchSetPlainPattern sets the incremental search pattern for plain text mode.
 func isearchSetPlainPattern(pattern string) {
-	currentState().SearchPattern = truncatePattern(pattern)
-	updateSearchCase(currentState().SearchPattern)
+	DefaultState.SearchPattern = truncatePattern(pattern)
+	updateSearchCase(DefaultState.SearchPattern)
 }
 
 // isearchRunPlain runs a plain text incremental search.
@@ -365,7 +366,7 @@ func findNextRegexMatchFrom(buf *buffer.Buffer, searchStart buffer.Location, pat
 	}
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		mbWrite("[invalid regular expression]")
+		display.MBWrite("[invalid regular expression]")
 		return RegexMatch{}, -1
 	}
 	loc := re.FindIndex(text)
@@ -373,7 +374,7 @@ func findNextRegexMatchFrom(buf *buffer.Buffer, searchStart buffer.Location, pat
 		return RegexMatch{}, 0
 	}
 	if loc[0] == loc[1] {
-		mbWrite("[zero-length regex matches not supported]")
+		display.MBWrite("[zero-length regex matches not supported]")
 		return RegexMatch{}, -1
 	}
 	match := RegexMatch{
