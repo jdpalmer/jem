@@ -73,3 +73,12 @@ func RetargetAfterBufferKill(killed, replacement *buffer.Buffer) {
 		win.ShouldUpdateModeLine = true
 	}
 }
+
+// ReleaseBuffer releases buf and retargets windows that showed it.
+func ReleaseBuffer(buf *buffer.Buffer) {
+	if buf == nil {
+		return
+	}
+	rep := buffer.Release(buf)
+	RetargetAfterBufferKill(buf, rep)
+}

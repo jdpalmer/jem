@@ -44,7 +44,7 @@ func TestBufferCreateAppliesIndentDefaults(t *testing.T) {
 		t.Fatal("no buffer")
 	}
 	if buf.Indent.Width != 2 {
-		t.Fatalf("buffer Indent.Width = %d, want 2 (OnBufferCreate)", buf.Indent.Width)
+		t.Fatalf("buffer Indent.Width = %d, want 2 (Create defaults)", buf.Indent.Width)
 	}
 	if buf.Indent.Continued != 4 {
 		t.Fatalf("buffer Indent.Continued = %d, want 4", buf.Indent.Continued)

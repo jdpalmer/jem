@@ -42,10 +42,10 @@ func setLineIndentGo(win *window.Window, col int) bool {
 	prefix := indentBytesForCol(col)
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, oldFirst)
-	PackageHooks.BeginCommand()
-	err := PackageHooks.SetText(buf, begin, end, prefix, nil)
+	beginEdit()
+	err := window.SetText(buf, begin, end, prefix, nil)
 	ok := err == nil
-	PackageHooks.EndCommand()
+	endEdit()
 	if ok {
 		win.DidEdit = true
 		// Park cursor after the new indent when it was in the old indent region.

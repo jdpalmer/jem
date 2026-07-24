@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 	"unicode/utf8"
+
+	"github.com/jdpalmer/jem/event"
 )
 
 const pasteMaxBytes = 65536
@@ -244,9 +246,7 @@ func termStoreMousePosition(col, row int) {
 	}
 	lastMouseCol = col
 	lastMouseRow = row
-	if PackageHooks.OnMouse != nil {
-		PackageHooks.OnMouse(col, row)
-	}
+	event.Enqueue(event.MouseEvent{Col: col, Row: row})
 }
 
 func csiUKeyCode(codepoint int, modifierParam int, eventType int) uint32 {
@@ -525,11 +525,11 @@ func pasteTerminatorAtTail(data []byte) bool {
 }
 
 func termDeliverPaste(data []byte) {
-	if len(data) == 0 || PackageHooks.OnPaste == nil {
+	if len(data) == 0 {
 		return
 	}
 	paste := append([]byte(nil), data...)
-	PackageHooks.OnPaste(paste)
+	event.Enqueue(event.PasteEvent{Data: paste})
 }
 
 // termHandleBracketedPaste reads paste payload until CSI 201~.

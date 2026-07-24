@@ -3,22 +3,22 @@ package buffer
 import "time"
 
 type Buffer struct {
-	Lines                   []Line
-	Serial                  uint32
-	SavedUndoSerial         uint32
-	IsChanged               bool
-	IsReadonly              bool
-	EolMode                 EolMode
-	LangMode                LangMode
-	FillCol                 int
-	Indent                  IndentConfig
-	WhitespaceCleanup       bool
-	Name                    string
-	FileName                string
-	FileModTime               time.Time
-	NotifiedModTime time.Time
-	Cursor                  Location // last-known cursor; windows own live cursor state
-	Mark                    Location // Line == 0 means unset; otherwise 1-based line index
+	Lines             []Line
+	Serial            uint32
+	SavedUndoSerial   uint32
+	IsChanged         bool
+	IsReadonly        bool
+	EolMode           EolMode
+	LangMode          LangMode
+	FillCol           int
+	Indent            IndentConfig
+	WhitespaceCleanup bool
+	Name              string
+	FileName          string
+	FileModTime       time.Time
+	NotifiedModTime   time.Time
+	Cursor            Location // last-known cursor; windows own live cursor state
+	Mark              Location // Line == 0 means unset; otherwise 1-based line index
 }
 
 // New creates and returns a new Buffer with default settings.
@@ -89,5 +89,10 @@ func (buf *Buffer) TrimTrailingWhitespace(lineNumber int) bool {
 	}
 	begin := Location{Line: lineNumber, Offset: newLen}
 	end := Location{Line: lineNumber, Offset: len(line.Data)}
-	return buf.SetText(nil, begin, end, nil, nil) == nil
+	_, err := buf.ReplaceRaw(begin, end, nil, nil)
+	if err != nil {
+		return false
+	}
+	buf.IsChanged = true
+	return true
 }

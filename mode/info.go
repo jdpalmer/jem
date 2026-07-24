@@ -26,20 +26,6 @@ const (
 	ModeMiscIndentLisp
 )
 
-type HookEvent int
-
-const (
-	HookBufferVisit HookEvent = iota
-	HookModeChange
-	HookBeforeSave
-	HookAfterSave
-	HookWindowSwitch
-	HookBufferCreate
-	HookBufferKill
-	HookSearchJump
-	HookEventCount
-)
-
 type ModeInfo struct {
 	Mode              buffer.LangMode
 	DisplayName       string

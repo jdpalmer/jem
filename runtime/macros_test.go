@@ -56,6 +56,7 @@ func TestMacroRecording(t *testing.T) {
 
 func TestMacroPlayback(t *testing.T) {
 	resetMacroState()
+	VarsInit()
 	AppInit("test")
 	buf := buffer.All.Current
 	win := window.Active.CurrentWindow

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"strings"
 	"testing"
+
+	"github.com/jdpalmer/jem/event"
 )
 
 func withTermReader(t *testing.T, input string) func() {
@@ -86,20 +88,23 @@ func TestReadKeyKittyArrow(t *testing.T) {
 }
 
 func TestBracketedPaste(t *testing.T) {
-	var got []byte
-	old := PackageHooks.OnPaste
-	PackageHooks.OnPaste = func(text []byte) {
-		got = append(got, text...)
-	}
-	defer func() { PackageHooks.OnPaste = old }()
-
+	event.DrainForTest()
 	defer withTermReader(t, "\x1b[200~hello\x1b[201~")()
 	k, ok := termReadKeyImpl()
 	if !ok || k != KeyPasteComplete {
 		t.Fatalf("expected KeyPasteComplete after paste, got 0x%x ok=%v", k, ok)
 	}
-	if string(got) != "hello" {
-		t.Fatalf("paste = %q, want hello", string(got))
+	select {
+	case e := <-event.Chan():
+		pe, ok := e.(event.PasteEvent)
+		if !ok {
+			t.Fatalf("event type %T, want PasteEvent", e)
+		}
+		if string(pe.Data) != "hello" {
+			t.Fatalf("paste = %q, want hello", pe.Data)
+		}
+	default:
+		t.Fatal("expected PasteEvent on bus")
 	}
 }
 

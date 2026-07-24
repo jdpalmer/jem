@@ -372,10 +372,10 @@ func setLineIndent(win *window.Window, col int) bool {
 	}
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, oldFirst)
-	PackageHooks.BeginCommand()
-	err := PackageHooks.SetText(buf, begin, end, spaces, nil)
+	beginEdit()
+	err := window.SetText(buf, begin, end, spaces, nil)
 	ok := err == nil
-	PackageHooks.EndCommand()
+	endEdit()
 	if ok {
 		win.DidEdit = true
 	}
@@ -439,7 +439,7 @@ func cmdCMakeComment(f bool, n int) bool {
 			endOffset = buf.Line(endLine).Len()
 		}
 		orig := win.Cursor
-		PackageHooks.BeginCommand()
+		beginEdit()
 		for ln := startLine; ln <= endLine; ln++ {
 			lineLp := buf.Line(ln)
 			if lineLp == nil {
@@ -447,20 +447,20 @@ func cmdCMakeComment(f bool, n int) bool {
 			}
 			start := lineLp.FirstNonblank()
 			insLoc := buffer.MakeLocation(ln, start)
-			if err := PackageHooks.SetText(buf, insLoc, insLoc, []byte("/*"), nil); err != nil {
+			if err := window.SetText(buf, insLoc, insLoc, []byte("/*"), nil); err != nil {
 				win.Cursor = orig
-				PackageHooks.EndCommand()
+				endEdit()
 				return false
 			}
 			lineLp = buf.Line(ln)
 			closeLoc := buffer.MakeLocation(ln, lineLp.Len())
-			if err := PackageHooks.SetText(buf, closeLoc, closeLoc, []byte("*/"), nil); err != nil {
+			if err := window.SetText(buf, closeLoc, closeLoc, []byte("*/"), nil); err != nil {
 				win.Cursor = orig
-				PackageHooks.EndCommand()
+				endEdit()
 				return false
 			}
 		}
-		PackageHooks.EndCommand()
+		endEdit()
 		win.Cursor.Line = endLine
 		win.Cursor.Offset = endOffset
 		win.DidMove = true
@@ -468,7 +468,7 @@ func cmdCMakeComment(f bool, n int) bool {
 	}
 	insLoc := win.Cursor
 	cmt := []byte("  /* */")
-	if err := PackageHooks.SetText(buf, insLoc, insLoc, cmt, nil); err != nil {
+	if err := window.SetText(buf, insLoc, insLoc, cmt, nil); err != nil {
 		return false
 	}
 	line := buf.Line(win.Cursor.Line)
@@ -494,9 +494,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 	}
 	lineNumber := win.Cursor.Line
 	if len(buf.Lines) == 0 {
-		if PackageHooks.Message != nil {
-			PackageHooks.Message("[Not in a function]")
-		}
+		Message("[Not in a function]")
 		return false
 	}
 	if lineNumber == buf.EOF() {
@@ -539,9 +537,7 @@ func cmdCTopOfFunction(f bool, n int) bool {
 			return true
 		}
 	}
-	if PackageHooks.Message != nil {
-		PackageHooks.Message("[Not in a function]")
-	}
+	Message("[Not in a function]")
 	return false
 }
 
@@ -555,9 +551,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 	}
 	lineNumber := win.Cursor.Line
 	if len(buf.Lines) == 0 {
-		if PackageHooks.Message != nil {
-			PackageHooks.Message("[Not in a function]")
-		}
+		Message("[Not in a function]")
 		return false
 	}
 	if lineNumber == buf.EOF() {
@@ -584,9 +578,7 @@ func cmdCEndOfFunction(f bool, n int) bool {
 			}
 		}
 	}
-	if PackageHooks.Message != nil {
-		PackageHooks.Message("[Not in a function]")
-	}
+	Message("[Not in a function]")
 	return false
 }
 
@@ -607,9 +599,7 @@ func cmdCMarkFunction(f bool, n int) bool {
 		return false
 	}
 	win.DidMove = true
-	if PackageHooks.Message != nil {
-		PackageHooks.Message("[Function marked]")
-	}
+	Message("[Function marked]")
 	return true
 }
 

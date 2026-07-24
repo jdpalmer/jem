@@ -9,10 +9,9 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-// App is one editor process instance: process, display, search, undo, registers,
-// and the services façade. Leaf packages reach shared state through
-// package-level pointers (State, History, search.DefaultState)
-// that Activate binds to this value.
+// App is one editor process instance: process, display, search, undo, and registers.
+// Leaf packages reach shared state through package-level pointers (State, History,
+// search.DefaultState) that Activate binds to this value.
 type App struct {
 	Proc      ProcState
 	Display   display.State
@@ -21,7 +20,6 @@ type App struct {
 	Search    search.State
 	History   buffer.UndoHistory
 	Registers map[string][]byte
-	Services  *Services
 
 	QuitRequested bool
 }
@@ -49,10 +47,6 @@ func (e *App) Activate() {
 	BindHistory(&e.History)
 	search.DefaultState = &e.Search
 	registers.Bind(e.Registers)
-	if e.Services != nil {
-		Svc = e.Services
-		installServices(Svc)
-	}
 }
 
 func ensureCurrent() *App {
@@ -63,12 +57,7 @@ func ensureCurrent() *App {
 }
 
 func AppInit(firstBufferName string) {
-	e := ensureCurrent()
-
-	// Install services before BufferCreate so OnBufferCreate applies defaults.
-	e.Services = buildServices()
-	Svc = e.Services
-	installServices(Svc)
+	ensureCurrent()
 
 	buffer.All.Buffers = nil
 	buffer.All.Current = nil

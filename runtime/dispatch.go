@@ -47,6 +47,7 @@ func afterKeyCommand() bool {
 
 // handleEditorKey dispatches one window key. Returns false when the loop should exit.
 func handleEditorKey(k uint32) bool {
+	k = normalizeCtlxKey(k)
 	if k == term.MouseWheelDown {
 		ApplyWheelTicks(1)
 		return true

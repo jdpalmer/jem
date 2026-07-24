@@ -53,6 +53,18 @@ type PasteEvent struct {
 
 func (PasteEvent) isEvent() {}
 
+// MouseEvent reports the latest pointer cell from the terminal decoder.
+type MouseEvent struct {
+	Col, Row int
+}
+
+func (MouseEvent) isEvent() {}
+
+// ResumeEvent is posted after the terminal re-enters editor raw mode (e.g. shell spawn).
+type ResumeEvent struct{}
+
+func (ResumeEvent) isEvent() {}
+
 // MacroStepEvent is one recorded keystroke with optional universal argument.
 type MacroStepEvent struct {
 	Code uint32

@@ -2,13 +2,13 @@ package display
 
 import (
 	"fmt"
-	"github.com/jdpalmer/jem/markring"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/markring"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/mode"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/window"
 )
 
 func renderModeline(win *window.Window) {
@@ -107,10 +107,7 @@ func renderModeline(win *window.Window) {
 	}
 
 	screenPutBytes([]byte(" | " + eolLabel + " | " + langLabel))
-	gitText := ""
-	if PackageHooks.GitModelineText != nil {
-		gitText = PackageHooks.GitModelineText(buf)
-	}
+	gitText := GitModelineText(buf)
 	if gitText != "" {
 		gitStyle := buffer.MakeTextStyle(Active.Theme.ModelineNameColor, gutterBg, 0)
 		screenPutBytes([]byte(" | "))
@@ -153,6 +150,10 @@ func padModelineTo(endCol, markerCol int) {
 
 // DisplayUpdate refreshes the display from all dirty windows.
 func DisplayUpdate() {
+	if msg := mode.TakeMessage(); msg != "" {
+		MBWrite("%s", msg)
+	}
+
 	// Check for terminal resize
 	if term.RefreshSize() {
 		frontScreen = allocScreen(term.Rows())

@@ -20,10 +20,10 @@ func TestSpawnShellCommandBuilder(t *testing.T) {
 }
 
 func TestRunSpawnCommandRejectsEmptyInput(t *testing.T) {
-	if runSpawnAfterPrompt("", minibuffer.PromptResultYes) {
+	if RunSpawnAfterPrompt("", minibuffer.PromptResultYes) {
 		t.Fatal("expected false for empty command")
 	}
-	if runSpawnAfterPrompt("echo", minibuffer.PromptResultAbort) {
+	if RunSpawnAfterPrompt("echo", minibuffer.PromptResultAbort) {
 		t.Fatal("expected false for abort")
 	}
 }

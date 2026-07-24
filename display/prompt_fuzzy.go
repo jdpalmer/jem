@@ -71,9 +71,7 @@ func (p *FuzzyPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer
 		if len(p.matches) > 0 && p.sel >= 0 && p.sel < len(p.matches) {
 			label := p.provider(p.providerCtx, p.matches[p.sel])
 			if label != nil {
-				if PackageHooks.MacroRecordMinibufferResult != nil {
-					PackageHooks.MacroRecordMinibufferResult(label)
-				}
+				maybeRecordMinibufferResult(label)
 				MBClear()
 				return true, string(label), minibuffer.PromptResultYes
 			}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/event"
 	xterm "golang.org/x/term"
 )
 
@@ -287,9 +288,7 @@ func Resume() {
 	termOut.Reset(os.Stdout)
 	Flush()
 	termEnableEditorModes()
-	if PackageHooks.OnResume != nil {
-		PackageHooks.OnResume()
-	}
+	event.Enqueue(event.ResumeEvent{})
 }
 
 // Close restores the terminal to normal mode and exits raw mode.

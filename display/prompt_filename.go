@@ -163,9 +163,7 @@ func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuf
 			p.setPromptText(full)
 		}
 		MBHistoryAdd(string(p.state.Text))
-		if PackageHooks.MacroRecordMinibufferResult != nil {
-			PackageHooks.MacroRecordMinibufferResult(p.state.Text)
-		}
+		maybeRecordMinibufferResult(p.state.Text)
 		MBClear()
 		return true, string(p.state.Text), minibuffer.PromptResultYes
 

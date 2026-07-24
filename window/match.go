@@ -131,9 +131,7 @@ func SetMatchBufferText(text []byte, selected int) {
 	prevRO := mbp.IsReadonly
 	mbp.IsReadonly = false
 	eof := buffer.MakeLocation(mbp.EOF(), 0)
-	if PackageHooks.SetText != nil {
-		_ = PackageHooks.SetText(mbp, buffer.MakeLocation(1, 0), eof, text, nil)
-	}
+	_ = mbp.SetText(buffer.MakeLocation(1, 0), eof, text, nil)
 	mbp.IsReadonly = prevRO
 	mbp.IsReadonly = true
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -36,23 +35,6 @@ func updateSearchCase(pattern string) {
 
 func searchPatternBytes() []byte {
 	return []byte(DefaultState.SearchPattern)
-}
-
-func readPattern(label string, onDone func(pr minibuffer.PromptResult)) {
-	display := buildSearchPrompt(label)
-	askString(display, DefaultState.SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
-		if pr == minibuffer.PromptResultYes {
-			DefaultState.SearchPattern = truncatePattern(pattern)
-		} else if pr == minibuffer.PromptResultNo && DefaultState.SearchPattern != "" {
-			pr = minibuffer.PromptResultYes
-		}
-		if pr == minibuffer.PromptResultYes {
-			updateSearchCase(DefaultState.SearchPattern)
-		}
-		if onDone != nil {
-			onDone(pr)
-		}
-	})
 }
 
 func searchScopeInit(origin *buffer.Buffer) bufferSearchScope {

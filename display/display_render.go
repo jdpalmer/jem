@@ -283,10 +283,7 @@ func renderLine(win *window.Window, lineNumber int, row int, selSt *SelState) {
 		return
 	}
 	gutter := win.GutterWidth()
-	marker := 0
-	if PackageHooks.GitLineDiff != nil {
-		marker = PackageHooks.GitLineDiff(win.Buffer, lineNumber)
-	}
+	marker := int(GitLineDiffAt(win.Buffer, lineNumber))
 
 	var ss, se int
 	if selSt != nil {

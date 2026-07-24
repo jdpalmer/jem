@@ -110,10 +110,7 @@ func SpawnShell(command string) int {
 		term.Flush()
 		if hadTTY {
 			for {
-				if PackageHooks.ReadKey == nil {
-					break
-				}
-				pauseKey, ok := PackageHooks.ReadKey()
+				pauseKey, ok := display.ReadEditorKey()
 				if !ok {
 					break
 				}
@@ -149,23 +146,16 @@ func RunSpawnCLI() bool {
 	return rc != -1
 }
 
-// RunSpawnCommand runs a one-line shell command (C-x !).
-func RunSpawnCommand() bool {
-	prompt := "! "
+// SpawnPrompt returns the minibuffer prompt for C-x !.
+func SpawnPrompt() string {
 	if runtime.GOOS == "windows" {
-		prompt = "Command: "
+		return "Command: "
 	}
-	if PackageHooks.AskStringCap != nil {
-		PackageHooks.AskStringCap(prompt, "", CommandPromptCapacity, func(command string, pr minibuffer.PromptResult) {
-			_ = runSpawnAfterPrompt(command, pr)
-		})
-	}
-	return true
+	return "! "
 }
 
-// runSpawnAfterPrompt finishes C-x ! after the minibuffer prompt.
-// Separated so tests can exercise empty/abort guards without interactive input.
-func runSpawnAfterPrompt(command string, pr minibuffer.PromptResult) bool {
+// RunSpawnAfterPrompt finishes C-x ! after the minibuffer prompt.
+func RunSpawnAfterPrompt(command string, pr minibuffer.PromptResult) bool {
 	if pr != minibuffer.PromptResultYes {
 		return false
 	}

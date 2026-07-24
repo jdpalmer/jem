@@ -2,17 +2,18 @@ package mode
 
 import (
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/window"
 )
 
-type Hooks struct {
-	Message          func(msg string)
-	DefaultGotoMatch func(f bool, n int) bool
-	BeginCommand     func()
-	EndCommand       func()
-	SetText          func(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error
+func beginEdit() {
+	win := window.Active.CurrentWindow
+	if win == nil {
+		return
+	}
+	buffer.BeginCommand(win.Cursor)
 }
 
-var PackageHooks Hooks
+func endEdit() { buffer.EndCommand() }
 
 func CurrentModeInfo() *ModeInfo {
 	buf := buffer.All.Current
@@ -22,53 +23,49 @@ func CurrentModeInfo() *ModeInfo {
 	return LangModeInfo(buf.LangMode)
 }
 
-func ModeDispatch(fn func(f bool, n int) bool, f bool, n int) bool {
-	return fn(f, n)
-}
-
 func CmdModeNewlineAndIndent(f bool, n int) bool {
-	return ModeDispatch(CurrentModeInfo().NewlineAndIndent, f, n)
+	return CurrentModeInfo().NewlineAndIndent(f, n)
 }
 
 func CmdModeIndentLine(f bool, n int) bool {
 	_ = f
 	_ = n
-	return ModeDispatch(CurrentModeInfo().IndentLine, false, 1)
+	return CurrentModeInfo().IndentLine(false, 1)
 }
 
 func CmdModeCloseBrace(f bool, n int) bool {
-	return ModeDispatch(CurrentModeInfo().CloseBrace, f, n)
+	return CurrentModeInfo().CloseBrace(f, n)
 }
 
 func CmdModeGotoMatch(f bool, n int) bool {
 	_ = f
 	_ = n
-	return ModeDispatch(CurrentModeInfo().GotoMatch, false, 1)
+	return CurrentModeInfo().GotoMatch(false, 1)
 }
 
 func CmdModeMakeComment(f bool, n int) bool {
 	_ = f
 	_ = n
-	PackageHooks.BeginCommand()
-	ok := ModeDispatch(CurrentModeInfo().MakeComment, false, 1)
-	PackageHooks.EndCommand()
+	beginEdit()
+	ok := CurrentModeInfo().MakeComment(false, 1)
+	endEdit()
 	return ok
 }
 
 func CmdModeTopOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	return ModeDispatch(CurrentModeInfo().TopOfFunction, false, 1)
+	return CurrentModeInfo().TopOfFunction(false, 1)
 }
 
 func CmdModeEndOfFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	return ModeDispatch(CurrentModeInfo().EndOfFunction, false, 1)
+	return CurrentModeInfo().EndOfFunction(false, 1)
 }
 
 func CmdModeMarkFunction(f bool, n int) bool {
 	_ = f
 	_ = n
-	return ModeDispatch(CurrentModeInfo().MarkFunction, false, 1)
+	return CurrentModeInfo().MarkFunction(false, 1)
 }

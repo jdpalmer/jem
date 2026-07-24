@@ -14,8 +14,6 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/files"
-	"github.com/jdpalmer/jem/markring"
-	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -248,11 +246,15 @@ func tagSymbolAtPoint(win *window.Window, symbol []byte) bool {
 	return true
 }
 
-func tagVisitLocation(path string, line, offset int) bool {
-	if line == 0 || PackageHooks.VisitLocation == nil {
-		return false
+func tagVisitMatch(matches []*TagEntry, choice int) (path string, line int, ok bool) {
+	if choice < 0 || choice >= len(matches) {
+		return "", 0, false
 	}
-	return PackageHooks.VisitLocation(path, line, offset+1)
+	entry := matches[choice]
+	if entry.Line == 0 {
+		return "", 0, false
+	}
+	return entry.Path, entry.Line, true
 }
 
 func tagCollectMatches(name string, requireSignature bool) []*TagEntry {
@@ -306,124 +308,84 @@ func tagBestSignature(buf *buffer.Buffer, name string) *TagEntry {
 	return best
 }
 
-type tagMatchList struct {
-	matches []*TagEntry
+// SymbolAtPoint returns the tag symbol under the cursor, if any.
+func SymbolAtPoint() (string, bool) {
+	win := window.Active.CurrentWindow
+	if win == nil {
+		return "", false
+	}
+	var scratch [display.PatternCapacity]byte
+	if !tagSymbolAtPoint(win, scratch[:]) {
+		return "", false
+	}
+	return promptStringFromBuf(scratch[:]), true
 }
 
-func (l *tagMatchList) provider(idx int) []byte {
-	if int(idx) >= len(l.matches) {
+// CollectTagMatches returns tag entries matching name.
+func CollectTagMatches(name string) []*TagEntry {
+	return tagCollectMatches(name, false)
+}
+
+// TagMatchLocation returns the file location for matches[choice].
+func TagMatchLocation(matches []*TagEntry, choice int) (path string, line int, ok bool) {
+	return tagVisitMatch(matches, choice)
+}
+
+// TagMatchCount returns the fuzzy-list size (capped) for matches.
+func TagMatchCount(matches []*TagEntry) int {
+	count := len(matches)
+	if count > 255 {
+		count = 255
+	}
+	return count
+}
+
+// TagMatchProvider is an MbNameProviderFn over a []*TagEntry ctx.
+func TagMatchProvider(ctx any, idx int) []byte {
+	matches, _ := ctx.([]*TagEntry)
+	if idx < 0 || idx >= len(matches) {
 		return nil
 	}
-	return []byte(l.matches[idx].Name)
+	return []byte(matches[idx].Name)
 }
 
-func tagDisplayFormatter(out []byte, outSize int, idx int, ctx any) {
-	list, _ := ctx.(*tagMatchList)
-	if int(idx) >= len(list.matches) {
+// TagMatchFormatter formats a tag match line for the fuzzy list.
+func TagMatchFormatter(out []byte, outSize int, idx int, ctx any) {
+	matches, _ := ctx.([]*TagEntry)
+	if idx < 0 || idx >= len(matches) {
 		if len(out) > 0 {
 			out[0] = 0
 		}
 		return
 	}
-	entry := list.matches[idx]
+	entry := matches[idx]
 	kind := entry.Kind
 	if kind == "" {
 		kind = "tag"
 	}
 	text := fmt.Sprintf("%s  %s  %s:%d", entry.Name, kind, entry.Path, entry.Line)
-	if entry.Signature != "" {
-		text += " " + entry.Signature
+	if entry.Signature == "" {
+		n := copy(out, []byte(text))
+		if n < outSize {
+			out[n] = 0
+		}
+		return
 	}
+	text += " " + entry.Signature
 	n := copy(out, []byte(text))
 	if n < outSize {
 		out[n] = 0
 	}
 }
 
-func tagChooseMatch(matches []*TagEntry, onDone func(choice int)) {
-	if len(matches) == 0 {
-		onDone(-1)
-		return
-	}
-	count := len(matches)
-	if count > 255 {
-		count = 255
-	}
-
-	list := &tagMatchList{matches: matches[:count]}
-	if PackageHooks.AskFuzzyEx != nil {
-		PackageHooks.AskFuzzyEx("Tag: ", func(ctx any, idx int) []byte {
-			return ctx.(*tagMatchList).provider(idx)
-		}, list, count, tagDisplayFormatter, list, func(selected string, r minibuffer.PromptResult) {
-			if r == minibuffer.PromptResultAbort {
-				if PackageHooks.Abort != nil {
-					PackageHooks.Abort()
-				}
-				onDone(-1)
-				return
-			}
-			if r != minibuffer.PromptResultYes {
-				onDone(-1)
-				return
-			}
-			for i := 0; i < count; i++ {
-				if matches[i].Name == selected {
-					onDone(i)
-					return
-				}
-			}
-			onDone(-1)
-		})
-	}
-}
-
-func tagVisitMatch(matches []*TagEntry, choice int) {
-	if choice < 0 || choice >= len(matches) {
-		return
-	}
-	markring.PushCurrent()
-	entry := matches[choice]
-	_ = tagVisitLocation(entry.Path, entry.Line, 0)
-}
-
-// RunGotoTag jumps to the definition of the symbol at point (M-.).
-func RunGotoTag() bool {
-	win := window.Active.CurrentWindow
-
-	if !EnsureTagsLoaded(false) {
-		return false
-	}
-
-	finish := func(name string) {
-		matches := tagCollectMatches(name, false)
-		if len(matches) == 0 {
-			display.MBWrite("[tag not found: %s]", name)
-			return
+// IndexOfTagName returns the index of name in matches, or -1.
+func IndexOfTagName(matches []*TagEntry, name string) int {
+	for i, m := range matches {
+		if m.Name == name {
+			return i
 		}
-		if len(matches) == 1 {
-			tagVisitMatch(matches, 0)
-			return
-		}
-		tagChooseMatch(matches, func(choice int) {
-			tagVisitMatch(matches, choice)
-		})
 	}
-
-	var scratch [display.PatternCapacity]byte
-	if tagSymbolAtPoint(win, scratch[:]) {
-		finish(promptStringFromBuf(scratch[:]))
-		return true
-	}
-	askString := PackageHooks.AskString
-	if askString != nil {
-		askString("Goto tag: ", "", func(symbol string, pr minibuffer.PromptResult) {
-			if pr != minibuffer.PromptResultYes {
-				return
-			}
-			finish(symbol)
-		})
-	}
-	return true
+	return -1
 }
 
 func tagCollectHintContext(win *window.Window, out []byte) int {

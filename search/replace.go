@@ -2,12 +2,11 @@ package search
 
 import (
 	"bytes"
-	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 	"unicode"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/window"
 )
 
 type matchCase int
@@ -62,7 +61,7 @@ func applyMatchCase(mc matchCase, repl []byte, out []byte) int {
 func doReplace(win *window.Window, patLen int, repl []byte) bool {
 	end := win.Cursor
 	begin := end.RewindBytes(win.Buffer, patLen)
-	return setText(win.Buffer, begin, end, repl, nil) == nil
+	return window.SetText(win.Buffer, begin, end, repl, nil) == nil
 }
 
 func doReplacePreservingCase(win *window.Window, patLen int, repl []byte, preserve bool) bool {
@@ -78,7 +77,7 @@ func doReplacePreservingCase(win *window.Window, patLen int, repl []byte, preser
 }
 
 func doReplaceRange(win *window.Window, start, end buffer.Location, repl []byte) bool {
-	return setText(win.Buffer, start, end, repl, nil) == nil
+	return window.SetText(win.Buffer, start, end, repl, nil) == nil
 }
 
 func writeReplacePrompt(buf *buffer.Buffer, from, to string) {
@@ -122,49 +121,39 @@ func expandRegexReplacement(repl string, match RegexMatch) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// SearchForward prompts for a pattern and searches forward in the buffer.
+// SearchForward runs a forward search using DefaultState.SearchPattern.
 func SearchForward() bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
 	if win == nil || buf == nil {
 		return false
 	}
-	readPattern("Search", func(pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes {
-			return
-		}
-		pat := searchPatternBytes()
-		if len(pat) == 0 {
-			return
-		}
-		scope := searchScopeInit(buf)
-		if !findNextInScope(win, &scope, pat) {
-			display.MBWrite("[not found]")
-		}
-	})
+	pat := searchPatternBytes()
+	if len(pat) == 0 {
+		return true
+	}
+	scope := searchScopeInit(buf)
+	if !findNextInScope(win, &scope, pat) {
+		display.MBWrite("[not found]")
+	}
 	return true
 }
 
-// SearchBackward prompts for a pattern and searches backward in the buffer.
+// SearchBackward runs a backward search using DefaultState.SearchPattern.
 func SearchBackward() bool {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
 	if win == nil || buf == nil {
 		return false
 	}
-	readPattern("Reverse search", func(pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes {
-			return
-		}
-		pat := searchPatternBytes()
-		if len(pat) == 0 {
-			return
-		}
-		scope := searchScopeInit(buf)
-		if !findPrevInScope(win, &scope, pat) {
-			display.MBWrite("[not found]")
-		}
-	})
+	pat := searchPatternBytes()
+	if len(pat) == 0 {
+		return true
+	}
+	scope := searchScopeInit(buf)
+	if !findPrevInScope(win, &scope, pat) {
+		display.MBWrite("[not found]")
+	}
 	return true
 }
 
@@ -183,50 +172,26 @@ func ToggleSearchScope() bool {
 	return true
 }
 
-// QueryReplace prompts for a pattern and replacement, then asks before each replacement.
-func QueryReplace() bool {
-	win := window.Active.CurrentWindow
+// StartQueryReplace begins interactive query-replace for the current search pattern.
+func StartQueryReplace(repl string) KeySession {
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		return false
+	if buf == nil {
+		return nil
 	}
-	readPattern("replace", func(pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes {
-			return
-		}
-		pat := searchPatternBytes()
-		patLen := len(pat)
-		if patLen == 0 {
-			return
-		}
-		preserveCase := !DefaultState.SearchCaseSensitive
-		askString("Replace '"+string(pat)+"' with: ", "", func(repl string, pr minibuffer.PromptResult) {
-			if pr == minibuffer.PromptResultAbort {
-				return
-			}
-			PackageHooks.PushKeySession(newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase))
-		})
-	})
-	return true
+	pat := searchPatternBytes()
+	patLen := len(pat)
+	if patLen == 0 {
+		return nil
+	}
+	preserveCase := !DefaultState.SearchCaseSensitive
+	return newQueryReplaceSession(buf, []byte(repl), pat, patLen, preserveCase)
 }
 
-// QueryReReplace prompts for a regex pattern and replacement with backreference support, then asks before each replacement.
-func QueryReReplace() bool {
-	win := window.Active.CurrentWindow
+// StartQueryReReplace begins interactive regex query-replace.
+func StartQueryReReplace(pattern, replStr string) KeySession {
 	buf := buffer.All.Current
-	if win == nil || buf == nil {
-		return false
+	if buf == nil || pattern == "" {
+		return nil
 	}
-	askString(buildSearchPrompt("Query re-replace"), DefaultState.SearchPattern, func(pattern string, pr minibuffer.PromptResult) {
-		if pr != minibuffer.PromptResultYes || pattern == "" {
-			return
-		}
-		askString("Replace '"+pattern+"' with (\\0..\\9): ", "", func(replStr string, pr minibuffer.PromptResult) {
-			if pr == minibuffer.PromptResultAbort {
-				return
-			}
-			PackageHooks.PushKeySession(newQueryReReplaceSession(buf, pattern, replStr))
-		})
-	})
-	return true
+	return newQueryReReplaceSession(buf, pattern, replStr)
 }

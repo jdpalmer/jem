@@ -3,15 +3,16 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/search"
+	"github.com/jdpalmer/jem/syntax"
+	"github.com/jdpalmer/jem/window"
 )
 
 // Editor variables (fill-column, indent settings, etc.).
@@ -132,6 +133,19 @@ func configThemeChanged() {
 	}
 }
 
+func syncBufferDefaults() {
+	buffer.DefaultFillCol = display.Active.FillCol
+	buffer.DefaultIndent = State.Indent
+	buffer.DefaultWhitespaceCleanup = State.WhitespaceCleanup
+}
+
+func syncSyntaxPalette() {
+	syntax.PackagePalette = syntax.Palette{
+		NormalStyle:  display.Active.Theme.NormalStyle,
+		CommentStyle: display.Active.Theme.CommentStyle,
+	}
+}
+
 func configSearchScopeChanged() {
 	for i := 0; i < len(window.Active.Windows); i++ {
 		win := window.Active.Windows[i]
@@ -151,12 +165,7 @@ func VarsInit() {
 	State.Indent = buffer.IndentConfig{Width: 2, Continued: 4}
 	configThemeChanged()
 	configSearchScopeChanged()
-}
-
-func bufferApplyVarDefaults(buf *buffer.Buffer) {
-	buf.FillCol = display.Active.FillCol
-	buf.Indent = State.Indent
-	buf.WhitespaceCleanup = State.WhitespaceCleanup
+	syncBufferDefaults()
 }
 
 func varGlobalWrite(v *variable, value int) {
@@ -176,6 +185,7 @@ func varGlobalWrite(v *variable, value int) {
 	default:
 		v.write(nil, value)
 	}
+	syncBufferDefaults()
 }
 
 func varGlobalRead(v *variable) int {

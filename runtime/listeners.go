@@ -50,6 +50,9 @@ func (l *keySessionListener) Handle(_ *ProcState, e event.Event) ListenerResult 
 
 // PushKeySession opens a multi-key modal and installs it on the listener stack.
 func PushKeySession(s search.KeySession) {
+	if s == nil {
+		return
+	}
 	if s.Open() {
 		s.Close()
 		return

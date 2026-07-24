@@ -40,7 +40,6 @@ func TestYesNoListenerConsumesAndPops(t *testing.T) {
 func TestAskStringCompletesOnEnter(t *testing.T) {
 	_ = NewTestEditor(t)
 	event.DrainForTest()
-	EnsureServices()
 
 	done := make(chan string, 1)
 	AskString("Name: ", "", func(text string, pr minibuffer.PromptResult) {

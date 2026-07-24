@@ -17,8 +17,6 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
-	"github.com/jdpalmer/jem/markring"
-	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -190,7 +188,7 @@ func compileFillBuffer(buf *buffer.Buffer, command, stdout, stderr string, exitC
 	}
 	begin := buffer.MakeLocation(1, 0)
 	end := buffer.MakeLocation(1, summaryLine.Len())
-	if err := buf.SetText(nil, begin, end, []byte(summary), nil); err != nil {
+	if err := buf.SetText(begin, end, []byte(summary), nil); err != nil {
 		return counts, false
 	}
 
@@ -269,44 +267,34 @@ func readProcessStream(r io.Reader, max int) (string, bool) {
 	return string(data), truncated
 }
 
-// RunCompile runs a shell build command and captures output in *compile*.
-func RunCompile() bool {
-	if PackageHooks.AskString != nil {
-		PackageHooks.AskString("Compile: ", compileLastCommand, func(command string, pr minibuffer.PromptResult) {
-			if pr != minibuffer.PromptResultYes {
-				return
-			}
-			if command == "" {
-				display.MBWrite("[empty compile command]")
-				return
-			}
-			display.MBHistoryAdd(command)
-			compileLastCommand = command
-			_ = StartBackgroundCompile(command)
-		})
+// LastCompileCommand is the default shown in the compile prompt.
+func LastCompileCommand() string { return compileLastCommand }
+
+// CompileWithCommand runs a shell build command and captures output in *compile*.
+func CompileWithCommand(command string) {
+	if command == "" {
+		display.MBWrite("[empty compile command]")
+		return
 	}
-	return true
+	display.MBHistoryAdd(command)
+	compileLastCommand = command
+	_ = StartBackgroundCompile(command)
 }
 
-// VisitCompileDiag jumps to the diagnostic at the current line in *compile*.
-func VisitCompileDiag() bool {
+// CompileDiagAtPoint returns the diagnostic under the cursor in *compile*.
+func CompileDiagAtPoint() (path string, line, column int, ok bool) {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
 	if win == nil || buf == nil || buf.Name != CompileBufferName {
-		return false
+		return "", 0, 0, false
 	}
-	line := buf.Line(win.Cursor.Line)
-	if line == nil || line.Len() == 0 || line.Metadata == nil {
-		return false
+	lineObj := buf.Line(win.Cursor.Line)
+	if lineObj == nil || lineObj.Len() == 0 || lineObj.Metadata == nil {
+		return "", 0, 0, false
 	}
-	data, ok := line.Metadata.(*CompileLineData)
+	data, ok := lineObj.Metadata.(*CompileLineData)
 	if !ok || data == nil || data.Path == "" || data.Line == 0 {
-		return false
+		return "", 0, 0, false
 	}
-
-	markring.PushCurrent()
-	if PackageHooks.VisitLocation == nil {
-		return false
-	}
-	return PackageHooks.VisitLocation(data.Path, data.Line, data.Column)
+	return data.Path, data.Line, data.Column, true
 }

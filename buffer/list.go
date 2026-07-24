@@ -32,12 +32,12 @@ func Create() *Buffer {
 		return nil
 	}
 	buf := New()
+	buf.FillCol = DefaultFillCol
+	buf.Indent = DefaultIndent
+	buf.WhitespaceCleanup = DefaultWhitespaceCleanup
 	buf.Serial = All.NextSerial
 	All.NextSerial++
 	All.Buffers = append(All.Buffers, buf)
-	if PackageHooks.OnBufferCreate != nil {
-		PackageHooks.OnBufferCreate(buf)
-	}
 	return buf
 }
 
@@ -51,9 +51,10 @@ func indexOf(buf *Buffer) int {
 	return -1
 }
 
-// Release removes buf from All and retargets dependents via hooks.
-// The buffer is left for the garbage collector once no longer referenced.
-func Release(buf *Buffer) {
+// Release removes buf from All, forgets its undo history, and retargets
+// All.Current. Returns the replacement buffer (may be nil).
+// Callers that own windows should follow with window.RetargetAfterBufferKill.
+func Release(buf *Buffer) *Buffer {
 	if idx := indexOf(buf); idx != -1 {
 		All.Buffers = slices.Delete(All.Buffers, idx, idx+1)
 	}
@@ -63,17 +64,14 @@ func Release(buf *Buffer) {
 		replacement = All.Buffers[0]
 	}
 
-	if PackageHooks.OnBufferKill != nil {
-		PackageHooks.OnBufferKill(buf, replacement)
-	}
-
 	if All.Current == buf {
 		All.Current = replacement
 	}
 
-	if PackageHooks.UndoForgetBuffer != nil {
-		PackageHooks.UndoForgetBuffer(buf)
+	if History != nil {
+		History.ForgetBuffer(buf)
 	}
+	return replacement
 }
 
 // SetCurrent makes buf the current buffer and moves it to the front of All.Buffers.

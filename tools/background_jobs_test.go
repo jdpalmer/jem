@@ -65,14 +65,6 @@ func TestBackgroundJobGrepCompletion(t *testing.T) {
 	window.WindowSelect(win)
 	buffer.SetCurrent(buf)
 	win.Buffer = buf
-	PackageHooks = Hooks{
-		SwitchBuffer: func(next *buffer.Buffer) {
-			buffer.SetCurrent(next)
-			if cw := window.Active.CurrentWindow; cw != nil {
-				cw.Buffer = next
-			}
-		},
-	}
 
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package main\nfunc foo() {}\n"), 0o644); err != nil {
@@ -106,7 +98,6 @@ func TestBackgroundJobCancel(t *testing.T) {
 	window.WindowSelect(win)
 	buffer.SetCurrent(buf)
 	win.Buffer = buf
-	PackageHooks = Hooks{}
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "big.go")

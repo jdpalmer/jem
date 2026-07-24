@@ -144,10 +144,10 @@ func setLineIndentPy(win *window.Window, col int) bool {
 	}
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, oldFirst)
-	PackageHooks.BeginCommand()
-	err := PackageHooks.SetText(buf, begin, end, spaces, nil)
+	beginEdit()
+	err := window.SetText(buf, begin, end, spaces, nil)
 	ok := err == nil
-	PackageHooks.EndCommand()
+	endEdit()
 	if ok {
 		win.DidEdit = true
 	}
@@ -261,9 +261,7 @@ func cmdPyTopOfFunction(f bool, n int) bool {
 	win := window.Active.CurrentWindow
 	defLine := findDefLineNumber(buf, win.Cursor.Line)
 	if defLine == 0 {
-		if PackageHooks.Message != nil {
-			PackageHooks.Message("[Not in a function]")
-		}
+		Message("[Not in a function]")
 		return false
 	}
 	win.SetCursor(buffer.MakeLocation(defLine, 0))
@@ -278,9 +276,7 @@ func cmdPyEndOfFunction(f bool, n int) bool {
 	win := window.Active.CurrentWindow
 	defLine := findDefLineNumber(buf, win.Cursor.Line)
 	if defLine == 0 {
-		if PackageHooks.Message != nil {
-			PackageHooks.Message("[Not in a function]")
-		}
+		Message("[Not in a function]")
 		return false
 	}
 	def := buf.Line(defLine)
@@ -331,9 +327,7 @@ func cmdPyMarkFunction(f bool, n int) bool {
 		return false
 	}
 	win.DidMove = true
-	if PackageHooks.Message != nil {
-		PackageHooks.Message("[function marked]")
-	}
+	Message("[function marked]")
 	return true
 }
 

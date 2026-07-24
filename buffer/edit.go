@@ -1,7 +1,6 @@
 package buffer
 
 import (
-	"bytes"
 	"math"
 )
 
@@ -32,10 +31,20 @@ func makeBufferLine(buf *Buffer, data []byte) Line {
 	}
 }
 
-// ReplaceRaw replaces text in the buffer at the given range with newText, returning the new end location.
-func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) error {
+// ReplaceMeta describes a completed ReplaceRaw for shell follow-up
+// (window cursor adjust, syntax reparse).
+type ReplaceMeta struct {
+	NewEnd    Location
+	NormEnd   Location
+	FirstLine int
+}
+
+// ReplaceRaw replaces text in the buffer at the given range with newText.
+// It invalidates local syntax marks only; callers that need window/syntax
+// shell updates should use window.SetText or window.NotifyReplace.
+func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Location) (ReplaceMeta, error) {
 	if buf.IsReadonly {
-		return ErrReadonly
+		return ReplaceMeta{}, ErrReadonly
 	}
 	insert := newText
 	if insert == nil {
@@ -43,14 +52,14 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	}
 
 	if begin.Line > end.Line || (begin.Line == end.Line && begin.Offset > end.Offset) {
-		return ErrBadRange
+		return ReplaceMeta{}, ErrBadRange
 	}
 
 	if begin == end && len(insert) == 0 {
 		if newEndOut != nil {
 			*newEndOut = begin
 		}
-		return nil
+		return ReplaceMeta{NewEnd: begin, NormEnd: begin, FirstLine: begin.Line}, nil
 	}
 
 	if len(buf.Lines) == 0 {
@@ -71,7 +80,7 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	if !beginIsEOF {
 		bline = buf.Line(begin.Line)
 		if bline == nil {
-			return ErrBadRange
+			return ReplaceMeta{}, ErrBadRange
 		}
 		bOffset := begin.Offset
 		if bOffset > len(bline.Data) {
@@ -87,7 +96,7 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 	if !endIsEOF {
 		eline = buf.Line(end.Line)
 		if eline == nil {
-			return ErrBadRange
+			return ReplaceMeta{}, ErrBadRange
 		}
 		eOffset = end.Offset
 		if eOffset > len(eline.Data) {
@@ -180,15 +189,9 @@ func (buf *Buffer) ReplaceRaw(begin, end Location, newText []byte, newEndOut *Lo
 		resultFirstLine = begin.Line
 	}
 
-	if PackageHooks.AdjustLocationsAfterReplace != nil {
-		PackageHooks.AdjustLocationsAfterReplace(buf, begin, normEnd, newEnd)
-	}
 	buf.InvalidateSyntaxFrom(resultFirstLine)
-	if PackageHooks.ReparseFrom != nil {
-		PackageHooks.ReparseFrom(buf, resultFirstLine)
-	}
 
-	return nil
+	return ReplaceMeta{NewEnd: newEnd, NormEnd: normEnd, FirstLine: resultFirstLine}, nil
 }
 
 // InvalidateSyntaxFrom clears syntax validity from lineNumber through end of buffer.
@@ -202,15 +205,6 @@ func (buf *Buffer) InvalidateSyntaxFrom(lineNumber int) {
 			line.SyntaxValid = false
 		}
 	}
-}
-
-// NoteEdit marks the buffer changed and notifies PackageHooks when installed.
-func (buf *Buffer) NoteEdit(isStructural bool) {
-	// Hooks run before IsChanged so NoteEdit can detect first-change.
-	if PackageHooks.NoteEdit != nil {
-		PackageHooks.NoteEdit(buf, isStructural)
-	}
-	buf.IsChanged = true
 }
 
 // GetText returns the text content between the two given locations in the buffer.
@@ -351,20 +345,24 @@ func (buf *Buffer) GetText(begin, end Location) []byte {
 	return out
 }
 
-// SetText is the interactive edit entry: optional undo recording, NoteEdit
-// (PackageHooks + IsChanged), then ReplaceRaw (location adjust, syntax
-// invalidate, reparse via PackageHooks).
-func (buf *Buffer) SetText(undo *UndoHistory, begin, end Location, newText []byte, newEndOut *Location) error {
+// SetText records an undoable replace on History and updates IsChanged.
+// It does not adjust window cursors or reparse syntax.
+// Use window.SetText for interactive edits shown in a window.
+// Prefer this for tool/output fills where only the document matters.
+func (buf *Buffer) SetText(begin, end Location, newText []byte, newEndOut *Location) error {
 	if buf.IsReadonly {
 		return ErrReadonly
 	}
-	if undo != nil {
+	if History != nil {
 		oldText := buf.GetText(begin, end)
-		undo.RecordEdit(buf, undo.Pending.Before, begin, oldText, newText)
+		History.RecordEdit(buf, History.Pending.Before, begin, oldText, newText)
 	}
-	isStructural := begin.Line != end.Line || bytes.IndexByte(newText, '\n') >= 0
-	buf.NoteEdit(isStructural)
-	return buf.ReplaceRaw(begin, end, newText, newEndOut)
+	_, err := buf.ReplaceRaw(begin, end, newText, newEndOut)
+	if err != nil {
+		return err
+	}
+	buf.IsChanged = true
+	return nil
 }
 
 // AppendLineBytes appends a new line with the given text to the buffer and returns it.

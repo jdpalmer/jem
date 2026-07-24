@@ -21,8 +21,6 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/files"
-	"github.com/jdpalmer/jem/markring"
-	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/window"
 )
 
@@ -290,7 +288,7 @@ func grepFillBuffer(buf *buffer.Buffer, root string, matches []grepMatch, patter
 	if summaryLine := buf.Line(1); summaryLine != nil {
 		begin := buffer.MakeLocation(1, 0)
 		end := buffer.MakeLocation(1, summaryLine.Len())
-		if err := buf.SetText(nil, begin, end, []byte(summary), nil); err != nil {
+		if err := buf.SetText(begin, end, []byte(summary), nil); err != nil {
 			return 0, false
 		}
 	}
@@ -326,49 +324,36 @@ func grepEnsureBuffer() *buffer.Buffer {
 	return buf
 }
 
-// RunGrep searches the project and opens the *grep* results buffer.
-func RunGrep() bool {
-	if PackageHooks.AskString != nil {
-		PackageHooks.AskString("grep: ", "", func(pattern string, pr minibuffer.PromptResult) {
-			if pr != minibuffer.PromptResultYes {
-				return
-			}
-			if pattern == "" {
-				display.MBWrite("[empty pattern]")
-				return
-			}
-			display.MBHistoryAdd(pattern)
-
-			root, err := grepSearchRoot()
-			if err != nil {
-				display.MBWrite("[grep failed]")
-				return
-			}
-			_ = StartBackgroundGrep(root, pattern)
-		})
+// GrepWithPattern searches the project for pattern and opens the *grep* results buffer.
+func GrepWithPattern(pattern string) {
+	if pattern == "" {
+		display.MBWrite("[empty pattern]")
+		return
 	}
-	return true
+	display.MBHistoryAdd(pattern)
+
+	root, err := grepSearchRoot()
+	if err != nil {
+		display.MBWrite("[grep failed]")
+		return
+	}
+	_ = StartBackgroundGrep(root, pattern)
 }
 
-// VisitGrepMatch jumps to the match at the current line in the *grep* buffer.
-func VisitGrepMatch() bool {
+// GrepMatchAtPoint returns the grep hit under the cursor in *grep*.
+func GrepMatchAtPoint() (path string, line, column int, ok bool) {
 	win := window.Active.CurrentWindow
 	buf := buffer.All.Current
 	if win == nil || buf == nil || buf.Name != GrepBufferName {
-		return false
+		return "", 0, 0, false
 	}
-	line := buf.Line(win.Cursor.Line)
-	if line == nil || line.Len() == 0 || line.Metadata == nil {
-		return false
+	lineObj := buf.Line(win.Cursor.Line)
+	if lineObj == nil || lineObj.Len() == 0 || lineObj.Metadata == nil {
+		return "", 0, 0, false
 	}
-	data, ok := line.Metadata.(*GrepLineData)
+	data, ok := lineObj.Metadata.(*GrepLineData)
 	if !ok || data == nil {
-		return false
+		return "", 0, 0, false
 	}
-
-	markring.PushCurrent()
-	if PackageHooks.VisitLocation == nil {
-		return false
-	}
-	return PackageHooks.VisitLocation(data.Path, data.Line, data.Column)
+	return data.Path, data.Line, data.Column, true
 }

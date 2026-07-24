@@ -69,13 +69,13 @@ func Execute(c int, f bool, n int) bool {
 	if buf := buffer.All.Current; buf != nil && buf.Name == tools.GrepBufferName {
 		keycode := uint32(c)
 		if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
-			return tools.VisitGrepMatch()
+			return CmdGrepVisitMatch()
 		}
 	}
 	if buf := buffer.All.Current; buf != nil && buf.Name == tools.CompileBufferName {
 		keycode := uint32(c)
 		if keycode == term.KeyEnter || keycode == '\r' || keycode == '\n' {
-			return tools.VisitCompileDiag()
+			return CmdCompileVisitDiag()
 		}
 	}
 
@@ -239,14 +239,6 @@ func CmdAbort(f bool, n int) bool {
 	macroRefreshModelines()
 	display.MBWrite("[cancelled]")
 	return false
-}
-
-// macroRecordMinibufferResult records accepted minibuffer text during macro recording.
-func macroRecordMinibufferResult(text []byte) {
-	if !State.IsRecording() || len(text) == 0 {
-		return
-	}
-	_ = macroAppend(event.PromptReplyEvent{Text: string(text)})
 }
 
 // macroRecordBufferName records a buffer name during macro recording.

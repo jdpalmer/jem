@@ -80,7 +80,7 @@ func CmdKillBuffer(f bool, n int) bool {
 				return false
 			}
 			AskYesNo("Kill buffer?", func() {
-				buffer.Release(buf)
+				window.ReleaseBuffer(buf)
 				display.MBWrite("[buffer killed]")
 			}, func() {
 				display.MBWrite("[aborted]")
@@ -97,7 +97,7 @@ func CmdKillBuffer(f bool, n int) bool {
 		return false
 	}
 	AskYesNo("Kill current buffer?", func() {
-		buffer.Release(buf)
+		window.ReleaseBuffer(buf)
 		display.MBWrite("[buffer killed]")
 	}, func() {
 		display.MBWrite("[aborted]")
@@ -131,7 +131,7 @@ func CmdKillBufferFuzzy(f bool, n int) bool {
 			return
 		}
 		AskYesNo("Kill buffer?", func() {
-			buffer.Release(buf)
+			window.ReleaseBuffer(buf)
 			display.MBWrite("[buffer killed]")
 		}, func() {
 			display.MBWrite("[aborted]")

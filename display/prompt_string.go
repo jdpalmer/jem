@@ -52,9 +52,7 @@ func (p *StringPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffe
 	switch {
 	case k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J'):
 		MBHistoryAdd(string(p.state.Text))
-		if PackageHooks.MacroRecordMinibufferResult != nil {
-			PackageHooks.MacroRecordMinibufferResult(p.state.Text)
-		}
+		maybeRecordMinibufferResult(p.state.Text)
 		MBClear()
 		return true, string(p.state.Text), minibuffer.PromptResultYes
 

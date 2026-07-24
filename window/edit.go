@@ -1,10 +1,48 @@
 package window
 
 import (
+	"bytes"
 	"unicode/utf8"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/syntax"
 )
+
+// SetText is the interactive edit entry point: undo on History, text replace,
+// window cursor/mark/topline adjust, dirty flags, and syntax reparse.
+// Use this from commands, modes, and search. Prefer buffer.SetText only when
+// filling a buffer that is not being edited in a window (e.g. tool output).
+func SetText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
+	if buf == nil {
+		return buffer.ErrBadRange
+	}
+	if buf.IsReadonly {
+		return buffer.ErrReadonly
+	}
+	isStructural := begin.Line != end.Line || bytes.IndexByte(newText, '\n') >= 0
+	if buffer.History != nil {
+		oldText := buf.GetText(begin, end)
+		buffer.History.RecordEdit(buf, buffer.History.Pending.Before, begin, oldText, newText)
+	}
+	meta, err := buf.ReplaceRaw(begin, end, newText, newEndOut)
+	if err != nil {
+		return err
+	}
+	NotifyReplace(buf, begin, meta, isStructural)
+	buf.IsChanged = true
+	return nil
+}
+
+// NotifyReplace updates windows and syntax after a ReplaceRaw.
+// Call before setting buf.IsChanged so modeline first-change detection works.
+func NotifyReplace(buf *buffer.Buffer, begin buffer.Location, meta buffer.ReplaceMeta, isStructural bool) {
+	if buf == nil {
+		return
+	}
+	AdjustLocationsAfterReplace(buf, begin, meta.NormEnd, meta.NewEnd)
+	NoteBufferEdit(buf, isStructural)
+	syntax.IncrementalReparse(buf, meta.FirstLine)
+}
 
 // InsertText inserts text at the window cursor and advances the cursor.
 func InsertText(win *Window, text []byte) error {
@@ -12,18 +50,11 @@ func InsertText(win *Window, text []byte) error {
 		return ErrNilWindow
 	}
 	buf := win.Buffer
-	if PackageHooks.BeginCommand != nil {
-		PackageHooks.BeginCommand()
-	}
-	if PackageHooks.EndCommand != nil {
-		defer PackageHooks.EndCommand()
-	}
+	buffer.BeginCommand(win.Cursor)
+	defer buffer.EndCommand()
 	begin := win.Cursor
 	var newEnd buffer.Location
-	if PackageHooks.SetText == nil {
-		return ErrNoEditHook
-	}
-	if err := PackageHooks.SetText(buf, begin, begin, text, &newEnd); err != nil {
+	if err := SetText(buf, begin, begin, text, &newEnd); err != nil {
 		return err
 	}
 	win.Cursor = newEnd

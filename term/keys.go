@@ -36,8 +36,8 @@ const (
 	MouseDrag      uint32 = 0x20000004
 )
 
-// KeyPasteComplete is returned after a bracketed-paste payload is delivered via
-// OnPaste. It is not a user key; the editor maps it to a main-thread redraw.
+// KeyPasteComplete is returned after a bracketed-paste payload is enqueued as
+// PasteEvent. It is not a user key; the editor maps it to a main-thread redraw.
 const KeyPasteComplete uint32 = 0x00FF0002
 
 // UnicodeLimit is one past the highest valid Unicode code point for key payloads.

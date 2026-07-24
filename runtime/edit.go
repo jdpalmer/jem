@@ -9,29 +9,34 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-var defaultHistory buffer.UndoHistory
-var History *buffer.UndoHistory = &defaultHistory
+// History is the process-wide undo history (same pointer as buffer.History after BindHistory).
+var History *buffer.UndoHistory = buffer.History
 
 func BindHistory(h *buffer.UndoHistory) {
-	History = h
+	buffer.BindHistory(h)
+	History = buffer.History
 }
 
 func BeginCommand() {
 	win := window.Active.CurrentWindow
-	if History.IsReplaying || buffer.All.Current == nil || win == nil {
+	if win == nil {
 		return
 	}
-	History.BeginCommand(buffer.All.Current, buffer.MakeLocation(win.Cursor.Line, win.Cursor.Offset))
+	buffer.BeginCommand(win.Cursor)
 }
 
-func EndCommand() { History.EndCommand() }
+func EndCommand() { buffer.EndCommand() }
 
-func ForgetBuffer(buf *buffer.Buffer) { History.ForgetBuffer(buf) }
+func ForgetBuffer(buf *buffer.Buffer) {
+	if History != nil {
+		History.ForgetBuffer(buf)
+	}
+}
 
-func NoteBufferSaved(buf *buffer.Buffer) { History.NoteBufferSaved(buf) }
-
-func SetText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
-	return buf.SetText(History, begin, end, newText, newEndOut)
+func NoteBufferSaved(buf *buffer.Buffer) {
+	if History != nil {
+		History.NoteBufferSaved(buf)
+	}
 }
 
 func MarkPasteDirty() {
@@ -50,8 +55,13 @@ func MarkPasteDirty() {
 func undoInsertText(win *window.Window, lineNumber, offset int, text []byte) error {
 	buf := win.Buffer
 	loc := buffer.MakeLocation(lineNumber, offset)
-	buf.NoteEdit(false)
-	return buf.ReplaceRaw(loc, loc, text, nil)
+	meta, err := buf.ReplaceRaw(loc, loc, text, nil)
+	if err != nil {
+		return err
+	}
+	window.NotifyReplace(buf, loc, meta, false)
+	buf.IsChanged = true
+	return nil
 }
 
 func undoDeleteText(win *window.Window, lineNumber, offset int, text []byte) error {
@@ -67,8 +77,14 @@ func undoDeleteText(win *window.Window, lineNumber, offset int, text []byte) err
 			endOffset++
 		}
 	}
-	buf.NoteEdit(endLine != lineNumber)
-	return buf.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
+	isStructural := endLine != lineNumber
+	meta, err := buf.ReplaceRaw(begin, buffer.MakeLocation(endLine, endOffset), nil, nil)
+	if err != nil {
+		return err
+	}
+	window.NotifyReplace(buf, begin, meta, isStructural)
+	buf.IsChanged = true
+	return nil
 }
 
 func CmdUndo(f bool, n int) bool {

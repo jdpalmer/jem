@@ -164,11 +164,7 @@ func handleBackgroundJobGrep(done BackgroundJobDone) {
 	grepBuf.IsReadonly = true
 
 	markring.PushCurrent()
-	if PackageHooks.SwitchBuffer != nil {
-		PackageHooks.SwitchBuffer(grepBuf)
-	} else {
-		window.SwitchBuffer(grepBuf)
-	}
+	window.SwitchBuffer(grepBuf)
 	if win := window.Active.CurrentWindow; win != nil {
 		win.SetTopLine(1)
 		win.SetCursor(buffer.Location{Line: 1, Offset: 0})
@@ -213,11 +209,7 @@ func handleBackgroundJobCompile(done BackgroundJobDone) {
 	compileBuf.IsReadonly = true
 
 	markring.PushCurrent()
-	if PackageHooks.SwitchBuffer != nil {
-		PackageHooks.SwitchBuffer(compileBuf)
-	} else {
-		window.SwitchBuffer(compileBuf)
-	}
+	window.SwitchBuffer(compileBuf)
 	if win := window.Active.CurrentWindow; win != nil {
 		win.SetTopLine(1)
 		win.SetCursor(buffer.Location{Line: 1, Offset: 0})

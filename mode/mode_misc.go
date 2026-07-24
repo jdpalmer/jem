@@ -282,10 +282,10 @@ func setLineIndentMisc(win *window.Window, spec IndentSpec) bool {
 	}
 	begin := buffer.MakeLocation(ln, 0)
 	end := buffer.MakeLocation(ln, first)
-	PackageHooks.BeginCommand()
-	err := PackageHooks.SetText(buf, begin, end, prefix, nil)
+	beginEdit()
+	err := window.SetText(buf, begin, end, prefix, nil)
 	ok := err == nil
-	PackageHooks.EndCommand()
+	endEdit()
 	if ok {
 		win.DidEdit = true
 	}

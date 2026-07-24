@@ -18,47 +18,37 @@ import (
 	"golang.design/x/clipboard"
 )
 
-// applyCtlxPrefix forms the editor key code for the key following C-x.
-func applyCtlxPrefix(second uint32) uint32 {
-	second = display.DecodeKeyChar(second, true)
-	combined := term.CTLX | second
-	// Chords like C-x b are bound as CTLX|'B'; if Ctrl stays held on the
-	// second key, normalize CTLX|CTL|'B' to the plain binding when needed.
-	if second&term.CTL != 0 {
-		plain := term.CTLX | (second & 0xFF)
-		if _, hasPlain := keybindingsMap[plain]; hasPlain {
-			if _, hasCtrl := keybindingsMap[combined]; !hasCtrl {
-				return plain
-			}
+// normalizeCtlxKey adjusts CTLX|CTL|ch to CTLX|ch when only the plain chord is bound.
+func normalizeCtlxKey(combined uint32) uint32 {
+	if combined&term.CTLX == 0 {
+		return combined
+	}
+	second := combined &^ term.CTLX
+	if second&term.CTL == 0 {
+		return combined
+	}
+	plain := term.CTLX | (second & 0xFF)
+	if _, hasPlain := keybindingsMap[plain]; hasPlain {
+		if _, hasCtrl := keybindingsMap[combined]; !hasCtrl {
+			return plain
 		}
 	}
 	return combined
 }
 
-var editorEscapePrefixPending bool
+// applyCtlxPrefix forms the editor key code for the key following C-x.
+func applyCtlxPrefix(second uint32) uint32 {
+	return normalizeCtlxKey(term.CTLX | display.DecodeKeyChar(second, true))
+}
 
 // editorReadKey reads one editor command key on the main thread.
-// Used during spawn pause while the background key reader is frozen.
 func editorReadKey(keyOut *uint32) bool {
-	for {
-		k, ok := term.ReadKey()
-		if !ok {
-			return false
-		}
-		k = display.DecodeKeyChar(k, false)
-		if !editorEscapePrefixPending {
-			if k == 0x1B {
-				editorEscapePrefixPending = true
-				display.MBWrite("ESC")
-				continue
-			}
-			*keyOut = k
-			return true
-		}
-		editorEscapePrefixPending = false
-		*keyOut = display.ApplyMetaPrefixToKey(k)
-		return true
+	k, ok := display.ReadEditorKey()
+	if !ok {
+		return false
 	}
+	*keyOut = k
+	return true
 }
 
 func anyUnsavedBuffers() bool {
@@ -112,8 +102,7 @@ func Run(e *App) {
 		}
 	}
 
-	// Open terminal and initialize display (term hooks before Open for paste/mouse)
-	EnsureServices()
+	// Open terminal and initialize display
 	term.Open()
 	killring.ClipboardReady = clipboard.Init() == nil
 	display.DisplayInit()

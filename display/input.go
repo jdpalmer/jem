@@ -91,10 +91,7 @@ func decodeAndDeliver(raw uint32) {
 	}
 	if ctlxPending {
 		ctlxPending = false
-		if PackageHooks.ApplyCtlxPrefix == nil {
-			return
-		}
-		deliverDecodedKey(PackageHooks.ApplyCtlxPrefix(k))
+		deliverDecodedKey(term.CTLX | DecodeKeyChar(k, true))
 		return
 	}
 	if k == (term.CTL | 'X') {
@@ -121,7 +118,7 @@ func runKeyReader() {
 			return false
 		}
 		if k == term.KeyPasteComplete {
-			// Paste bytes are already on the bus via PasteEvent (OnPaste).
+			// Paste bytes are already on the bus via PasteEvent.
 			return true
 		}
 		decodeAndDeliver(k)
@@ -164,4 +161,34 @@ var pasteRepaintPending bool
 // NotePasteApplied marks that paste was applied on this tick (repaint nudge).
 func NotePasteApplied() {
 	pasteRepaintPending = true
+}
+
+func maybeRecordMinibufferResult(text []byte) {
+	if !Active.MacroRecording || len(text) == 0 {
+		return
+	}
+	event.Enqueue(event.PromptReplyEvent{Text: string(text)})
+}
+
+var editorEscapePrefixPending bool
+
+// ReadEditorKey reads one decoded editor key on the calling thread (spawn pause).
+func ReadEditorKey() (uint32, bool) {
+	for {
+		k, ok := term.ReadKey()
+		if !ok {
+			return 0, false
+		}
+		k = DecodeKeyChar(k, false)
+		if !editorEscapePrefixPending {
+			if k == 0x1B {
+				editorEscapePrefixPending = true
+				MBWrite("ESC")
+				continue
+			}
+			return k, true
+		}
+		editorEscapePrefixPending = false
+		return ApplyMetaPrefixToKey(k), true
+	}
 }

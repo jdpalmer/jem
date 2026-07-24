@@ -23,28 +23,30 @@ type State struct {
 
 var DefaultState = &State{}
 
-func askString(prompt, initial string, onDone func(string, minibuffer.PromptResult)) {
-	if PackageHooks.AskString != nil {
-		PackageHooks.AskString(prompt, initial, onDone)
-		return
-	}
-	if onDone != nil {
-		onDone("", minibuffer.PromptResultAbort)
-	}
-}
-
-func setText(buf *buffer.Buffer, begin, end buffer.Location, newText []byte, newEndOut *buffer.Location) error {
-	if PackageHooks.SetText == nil {
-		return buffer.ErrNilBuffer
-	}
-	return PackageHooks.SetText(buf, begin, end, newText, newEndOut)
-}
-
 func truncatePattern(s string) string {
 	if len(s) >= display.PatternCapacity {
 		return s[:display.PatternCapacity-1]
 	}
 	return s
+}
+
+// SearchPromptLabel returns the minibuffer prompt for a search entry point.
+func SearchPromptLabel(label string) string {
+	return buildSearchPrompt(label)
+}
+
+// AcceptPromptedPattern updates DefaultState from an AskString reply.
+// Returns true when the caller should proceed (Yes, or No with a retained prior pattern).
+func AcceptPromptedPattern(pattern string, pr minibuffer.PromptResult) bool {
+	if pr == minibuffer.PromptResultYes {
+		DefaultState.SearchPattern = truncatePattern(pattern)
+	} else if pr == minibuffer.PromptResultNo && DefaultState.SearchPattern != "" {
+		// keep existing pattern
+	} else {
+		return false
+	}
+	updateSearchCase(DefaultState.SearchPattern)
+	return true
 }
 
 type ISearchSnapshot struct {

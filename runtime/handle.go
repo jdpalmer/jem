@@ -4,6 +4,7 @@ import (
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/event"
 	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/term"
 	"github.com/jdpalmer/jem/tools"
 	"github.com/jdpalmer/jem/window"
 )
@@ -62,6 +63,20 @@ func Handle(s *ProcState, e event.Event) bool {
 		return handleCommandEvent(ev)
 	case event.PasteEvent:
 		return handlePasteEvent(ev)
+	case event.MouseEvent:
+		display.Active.Mouse.Col = ev.Col
+		display.Active.Mouse.Row = ev.Row
+		return true
+	case event.ResumeEvent:
+		if term.RefreshSize() {
+			display.DisplayInitHeadless(term.Rows(), term.Cols())
+		}
+		return true
+	case event.PromptReplyEvent:
+		if State.IsRecording() {
+			_ = macroAppend(ev)
+		}
+		return true
 	case event.QuitEvent:
 		return handleQuitEvent(s, ev)
 	case event.JobDoneEvent:

@@ -14,7 +14,7 @@ import (
 type isearchSession struct {
 	backward      bool
 	regex         bool
-	win            *window.Window
+	win           *window.Window
 	scope         bufferSearchScope
 	origin        ISearchSnapshot
 	lastSuccess   ISearchSnapshot
@@ -212,30 +212,22 @@ func (s *isearchSession) handleRepeat(plen int) {
 	}
 }
 
-// IsearchForward starts incremental search forward (async listener).
-func IsearchForward() bool {
-	return startISearch(false, false)
+// IsearchForward starts incremental search forward.
+func IsearchForward() KeySession {
+	return newISearchSession(false, false)
 }
 
-// IsearchBackward starts incremental search backward (async listener).
-func IsearchBackward() bool {
-	return startISearch(true, false)
+// IsearchBackward starts incremental search backward.
+func IsearchBackward() KeySession {
+	return newISearchSession(true, false)
 }
 
 // IsearchReForward starts regex incremental search forward.
-func IsearchReForward() bool {
-	return startISearch(false, true)
+func IsearchReForward() KeySession {
+	return newISearchSession(false, true)
 }
 
-// ISearchReBackward starts regex incremental search backward.
-func IsearchReBackward() bool {
-	return startISearch(true, true)
-}
-
-func startISearch(backward, regex bool) bool {
-	s := newISearchSession(backward, regex)
-	if PackageHooks.PushKeySession != nil {
-		PackageHooks.PushKeySession(s)
-	}
-	return true
+// IsearchReBackward starts regex incremental search backward.
+func IsearchReBackward() KeySession {
+	return newISearchSession(true, true)
 }

@@ -22,7 +22,7 @@ func bufferSetText(buf *buffer.Buffer, begin, end buffer.Location, newText []byt
 			return false
 		}
 	}
-	err := SetText(buf, begin, end, newText, newEndOut)
+	err := window.SetText(buf, begin, end, newText, newEndOut)
 	if err != nil {
 		return false
 	}
@@ -39,9 +39,9 @@ func CmdModeNewlineAndIndent(f bool, n int) bool {
 	if buf != nil {
 		switch buf.Name {
 		case tools.GrepBufferName:
-			return tools.VisitGrepMatch()
+			return CmdGrepVisitMatch()
 		case tools.CompileBufferName:
-			return tools.VisitCompileDiag()
+			return CmdCompileVisitDiag()
 		}
 	}
 	return mode.CmdModeNewlineAndIndent(f, n)
