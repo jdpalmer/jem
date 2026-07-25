@@ -86,14 +86,14 @@ func ThemeUpdate() {
 		theme.GutterStyle = buffer.MakeTextStyle(buffer.TermColorBase1, buffer.TermColorBase2, 0)
 		theme.SelectionBg = buffer.TermColorYellow
 		theme.ModelineNameColor = buffer.TermColorBase01
-		theme.PickerSelectionStyle = buffer.MakeTextStyle(buffer.TermColorBase03, theme.SelectionBg, 0)
+		theme.PickerSelectionStyle = buffer.MakeTextStyle(buffer.TermColorYellow, buffer.TermColorBase2, 0)
 	} else {
 		theme.NormalStyle = buffer.MakeTextStyle(buffer.TermColorBase0, buffer.TermColorBase03, 0)
 		theme.CommentStyle = buffer.MakeTextStyle(buffer.TermColorBase01, buffer.TermColorBase03, 0)
 		theme.GutterStyle = buffer.TextStyleGutter
 		theme.SelectionBg = buffer.TermColorBlue
 		theme.ModelineNameColor = buffer.TermColorBase1
-		theme.PickerSelectionStyle = buffer.MakeTextStyle(buffer.TermColorBase3, theme.SelectionBg, 0)
+		theme.PickerSelectionStyle = buffer.MakeTextStyle(buffer.TermColorYellow, buffer.TermColorBase02, 0)
 	}
 	term.ClearStyleCache()
 	for _, s := range []buffer.TextStyle{
