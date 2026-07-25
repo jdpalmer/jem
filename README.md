@@ -21,28 +21,20 @@ go install .
 
 - [Quick reference](docs/QUICKREF.md)
 
-## Configuration
-
-jem reads `~/.jem.json` at startup (theme, indentation, search scope, custom
-keybindings). See the [quick reference](docs/QUICKREF.md#18-configuration) for
-all options.
-
 ## Features
 
-* Windows, macOS, and Linux support (CI: Linux and macOS)
-* Single portable executable
+* Windows, macOS, and Linux support
+* Easy installation: a single portable executable
 * Emacs-style editing commands and `M-x` command palette
-* Light and dark Solarized themes
 * Mouse support (click, drag, scroll wheel)
 * Multiple buffers and split windows
 * UTF-8 files; LF, CRLF, and CR line endings
-* Undo
 * Fast DFA-based syntax highlighting and language-aware indentation
 * Incremental and regex search; query-replace
 * Tags-based navigation and call-site signature hints
-* Native identifier completion
-* Project grep (`ripgrep`) and compile/diagnostic buffers
-* Git gutter markers and branch display in the modeline
+* Project grep and compile/diagnostic buffers
+* Git gutter markers and modeline branch display
+* Fuzzy matching for files, commands, buffers, and more
 * System clipboard integration
 * `~/.jem.json` configuration with custom keybindings
 
@@ -50,18 +42,17 @@ all options.
 
 * No GUI support; modern terminals are GPU accelerated and have advanced key
   events and 24-bit color support
-* No legacy platform support; jem uses modern terminal features extensively and
-  is not encumbered by an architecture designed to support terminal standards
-  that date back to the 1970s
+* No legacy platform support; jem uses modern terminal features extensively
 * No extensibility language; compiling jem is fast; and extending it in
   Go is easy
+* No support for anything except [UTF-8](https://utf8everywhere.org/)
 
 ## Motivation
 
 jem (short for James's Emacs) began as a C fork of Dave Conroy's (1985)
-bare bones public domain `uemacs`. I ported my fork to Go and have continued
-adding features influenced by GNU Emacs, John E. Davis's JED, Linus Torvalds's
-uemacs fork, and others.
+bare bones public domain `uemacs`. I ported my private fork to Go and have
+continued adding features influenced by GNU Emacs, John E. Davis's JED, Linus
+Torvalds's uemacs fork, and others.
 
 ## License
 
