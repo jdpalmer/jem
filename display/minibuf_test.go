@@ -1,6 +1,7 @@
 package display
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -91,5 +92,23 @@ func TestFilenameFuzzyScoreParentEntry(t *testing.T) {
 	ok, _ := filenameFuzzyScore("../", "..")
 	if !ok {
 		t.Fatal("expected ../ to fuzzy-match ..")
+	}
+}
+
+func TestFuzzyMatchesExceedsSixteen(t *testing.T) {
+	names := make([]string, 40)
+	for i := range names {
+		names[i] = fmt.Sprintf("cmd%02d", i)
+	}
+	provider := func(ctx any, idx int) []byte {
+		list := ctx.([]string)
+		if idx < 0 || idx >= len(list) {
+			return nil
+		}
+		return []byte(list[idx])
+	}
+	got := fuzzyMatches(provider, names, len(names), nil, fuzzyMaxMatches)
+	if len(got) < 40 {
+		t.Fatalf("fuzzyMatches returned %d, want all 40 (cap is %d)", len(got), fuzzyMaxMatches)
 	}
 }

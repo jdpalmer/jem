@@ -11,7 +11,9 @@ import (
 	"github.com/jdpalmer/jem/window"
 )
 
-const fuzzyMaxMatches = 16
+// fuzzyMaxMatches caps ranked fuzzy results shown in the *match* window.
+// Large enough to list the full command palette; the window scrolls as needed.
+const fuzzyMaxMatches = 256
 
 type fuzzyMatchCtx struct {
 	provider         minibuffer.MbNameProviderFn
@@ -63,7 +65,7 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 			end = len(line)
 		}
 		if i == selected {
-			out.WriteString("> ")
+			out.WriteString("→ ")
 		} else {
 			out.WriteString("  ")
 		}

@@ -228,17 +228,16 @@ func decodeLineRune(data []byte, i int) (rune, int) {
 	return c, size
 }
 
-// screenPutPickerLine renders a full match-window row using the picker style.
+// screenPutPickerLine renders a match-window row using the picker style.
+// Leaves drawStyle as the picker style so the following screenEraseEol fills
+// the rest of the row with the selection background.
 func screenPutPickerLine(line *buffer.Line) {
-	style := Active.Theme.PickerSelectionStyle
-	savedDrawStyle := drawStyle
-	drawStyle = style
+	drawStyle = Active.Theme.PickerSelectionStyle
 	for i := 0; i < len(line.Data); {
 		c, size := decodeLineRune(line.Data, i)
 		screenPutGlyph(c)
 		i += size
 	}
-	drawStyle = savedDrawStyle
 }
 
 // screenPutLine renders line content with syntax highlight and selection overlay.
@@ -299,7 +298,7 @@ func renderLine(win *window.Window, lineNumber int, row int, selSt *SelState) {
 	oldClipLeft := clipLeftCol
 	clipLeftCol = gutter
 
-	if win.Buffer != nil && win.Buffer.Name == "*match*" && line != nil && line.Len() >= 2 && line.Data[0] == '>' && line.Data[1] == ' ' {
+	if win.Buffer != nil && win.Buffer.Name == "*match*" && lineNumber == win.Cursor.Line {
 		screenPutPickerLine(line)
 	} else {
 		screenPutLine(line, ss, se)

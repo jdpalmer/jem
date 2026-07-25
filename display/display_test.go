@@ -122,3 +122,40 @@ func TestDisplayUpdateRestoresEditorCursorAfterMessage(t *testing.T) {
 		t.Fatal("message text should remain visible until the next key")
 	}
 }
+
+func TestMatchWindowSelectedLineUsesPickerStyle(t *testing.T) {
+	DisplayInitHeadless(24, 80)
+	ThemeUpdate()
+
+	buf := buffer.New()
+	buf.Name = "*match*"
+	buf.DiscardLines()
+	buf.AppendLineBytes([]byte("  alpha"))
+	buf.AppendLineBytes([]byte("→ beta"))
+
+	win := &window.Window{
+		Buffer:       buf,
+		TopLine:      1,
+		Cursor:       buffer.Location{Line: 2, Offset: 0},
+		Height:       10,
+		ScreenTopRow: 0,
+	}
+
+	renderLine(win, 1, 0, nil)
+	renderLine(win, 2, 1, nil)
+
+	picker := Active.Theme.PickerSelectionStyle
+	gutter := win.GutterWidth()
+
+	// Selected cursor line must use picker style (prefix detection used to miss "→ ").
+	if backScreen.Rows[1].Style[gutter] != picker {
+		t.Fatalf("selected match line style = %v, want picker %v (text=%q)",
+			backScreen.Rows[1].Style[gutter], picker, string(backScreen.Rows[1].Text[gutter:gutter+8]))
+	}
+	if backScreen.Rows[1].Style[gutter+20] != picker {
+		t.Fatalf("selected line EOL fill style = %v, want picker %v", backScreen.Rows[1].Style[gutter+20], picker)
+	}
+	if backScreen.Rows[0].Style[gutter] == picker {
+		t.Fatal("unselected match line should not use picker style")
+	}
+}

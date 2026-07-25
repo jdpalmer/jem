@@ -75,28 +75,37 @@ func HideMatchWindow() {
 }
 
 // ScrollMatchToSelection scrolls the *match* window so selected (0-based) is visible.
+// Also moves the window cursor onto the selected line so DisplayUpdate reframing
+// does not yank TopLine back to line 1.
 func ScrollMatchToSelection(selected int) {
 	mw := MatchWindow()
-	if mw == nil || selected == 0 {
+	if mw == nil {
 		return
 	}
-	line := int(selected + 1)
+	if selected < 0 {
+		selected = 0
+	}
+	line := selected + 1
+	if mw.Buffer != nil {
+		n := len(mw.Buffer.Lines)
+		if n > 0 && line > n {
+			line = n
+		}
+	}
+	mw.Cursor = buffer.Location{Line: line, Offset: 0}
+
 	if line < mw.TopLine {
 		mw.TopLine = line
-		mw.ShouldRedraw = true
-		return
-	}
-	if mw.Height == 0 {
-		return
-	}
-	lastVisible := mw.TopLine + mw.Height - 1
-	if line > lastVisible {
-		mw.TopLine = line - mw.Height + 1
-		if mw.TopLine < 1 {
-			mw.TopLine = 1
+	} else if mw.Height > 0 {
+		lastVisible := mw.TopLine + mw.Height - 1
+		if line > lastVisible {
+			mw.TopLine = line - mw.Height + 1
+			if mw.TopLine < 1 {
+				mw.TopLine = 1
+			}
 		}
-		mw.ShouldRedraw = true
 	}
+	mw.ShouldRedraw = true
 }
 
 func ensureMatchBuffer() *buffer.Buffer {
@@ -136,5 +145,10 @@ func SetMatchBufferText(text []byte, selected int) {
 	mbp.IsReadonly = true
 
 	ShowMatchWindow()
+	if mw := MatchWindow(); mw != nil {
+		// buffer.SetText does not mark windows dirty; force a full redraw so the
+		// "> " selection marker and picker highlight colors update.
+		mw.ShouldRedraw = true
+	}
 	ScrollMatchToSelection(selected)
 }
