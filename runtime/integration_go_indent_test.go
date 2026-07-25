@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jdpalmer/jem/buffer"
@@ -121,5 +122,29 @@ func TestCIndentStillUsesSpacesAfterDefaults(t *testing.T) {
 	line := te.BP().Line(te.Cursor().Line)
 	if string(line.Data) != "  " {
 		t.Fatalf("C indent line = %q, want two spaces", string(line.Data))
+	}
+}
+
+// Char literals like '(' / ')' must not drive continuation indent (commands_registry.go).
+func TestGoIndentIgnoresParensInCharLiterals(t *testing.T) {
+	te := NewTestEditor(t)
+	te.SetLangMode(buffer.LModeGo)
+	src := "" +
+		"func InitCommands() {\n" +
+		"\tcommandTable = []Command{\n" +
+		"\t\t{Name: \"macro_end\", Keys: []uint32{term.CTLX | ')'}},\n" +
+		"\t\t{Name: \"macro_start\", Keys: []uint32{term.CTLX | '('}},\n" +
+		"\t\t{Name: \"mark_pop\", Keys: []uint32{term.CTLX | term.CTL | ' '}},\n" +
+		"\t}\n" +
+		"}\n"
+	te.LoadText(src)
+	te.SetCursor(5, 2)
+	if !te.Key(term.KeyTab) {
+		t.Fatal("Tab failed")
+	}
+	line := te.BP().Line(5)
+	got := string(line.Data)
+	if !strings.HasPrefix(got, "\t\t{Name:") {
+		t.Fatalf("after Tab = %q (col %d); want two-tab composite-literal indent", got, line.IndentColumn())
 	}
 }

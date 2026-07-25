@@ -2,10 +2,150 @@ package mode
 
 import (
 	"bytes"
-	"github.com/jdpalmer/jem/window"
 
 	"github.com/jdpalmer/jem/buffer"
+	"github.com/jdpalmer/jem/window"
 )
+
+// codeScanState tracks C-like string/comment context while scanning for delimiters.
+// Indent must ignore brackets inside "...", '...', //, and /* */ (e.g. term.CTLX | '(').
+type codeScanState uint8
+
+const (
+	codeScanCode codeScanState = iota
+	codeScanString
+	codeScanStringEsc
+	codeScanChar
+	codeScanCharEsc
+	codeScanLineCmt
+	codeScanBlockCmt
+	codeScanBlockCmtStar
+)
+
+func codeScanStep(state codeScanState, c, next byte) (codeScanState, bool) {
+	switch state {
+	case codeScanString:
+		switch c {
+		case '\\':
+			return codeScanStringEsc, false
+		case '"':
+			return codeScanCode, false
+		default:
+			return codeScanString, false
+		}
+	case codeScanStringEsc:
+		return codeScanString, false
+	case codeScanChar:
+		switch c {
+		case '\\':
+			return codeScanCharEsc, false
+		case '\'':
+			return codeScanCode, false
+		default:
+			return codeScanChar, false
+		}
+	case codeScanCharEsc:
+		return codeScanChar, false
+	case codeScanLineCmt:
+		return codeScanLineCmt, false
+	case codeScanBlockCmt:
+		if c == '*' {
+			return codeScanBlockCmtStar, false
+		}
+		return codeScanBlockCmt, false
+	case codeScanBlockCmtStar:
+		switch c {
+		case '/':
+			return codeScanCode, false
+		case '*':
+			return codeScanBlockCmtStar, false
+		default:
+			return codeScanBlockCmt, false
+		}
+	default: // codeScanCode
+		switch c {
+		case '"':
+			return codeScanString, false
+		case '\'':
+			return codeScanChar, false
+		case '/':
+			if next == '/' {
+				return codeScanLineCmt, false
+			}
+			if next == '*' {
+				return codeScanBlockCmt, false
+			}
+			return codeScanCode, true
+		default:
+			return codeScanCode, true
+		}
+	}
+}
+
+// scanDelimStacks walks code from the start of buf through endOffset on endLine
+// (exclusive), pushing/popping structural (), [], {} while skipping strings and comments.
+func scanDelimStacks(buf *buffer.Buffer, endLine, endOffset int) (parens, brackets, braces []buffer.Location) {
+	if endLine < 1 {
+		return nil, nil, nil
+	}
+	state := codeScanCode
+	for ln := 1; ln <= endLine; ln++ {
+		if state == codeScanLineCmt {
+			state = codeScanCode
+		}
+		line := buf.Line(ln)
+		if line == nil {
+			continue
+		}
+		limit := len(line.Data)
+		if ln == endLine {
+			if endOffset < limit {
+				limit = endOffset
+			}
+			if limit < 0 {
+				limit = 0
+			}
+		}
+		for i := 0; i < limit; i++ {
+			c := line.Data[i]
+			next := byte(0)
+			if i+1 < len(line.Data) {
+				next = line.Data[i+1]
+			}
+			var inCode bool
+			state, inCode = codeScanStep(state, c, next)
+			if !inCode {
+				// Consume the second byte of // or /* starters.
+				if c == '/' && (next == '/' || next == '*') &&
+					(state == codeScanLineCmt || state == codeScanBlockCmt) {
+					i++
+				}
+				continue
+			}
+			switch c {
+			case '(':
+				parens = append(parens, buffer.MakeLocation(ln, i))
+			case ')':
+				if n := len(parens); n > 0 {
+					parens = parens[:n-1]
+				}
+			case '[':
+				brackets = append(brackets, buffer.MakeLocation(ln, i))
+			case ']':
+				if n := len(brackets); n > 0 {
+					brackets = brackets[:n-1]
+				}
+			case '{':
+				braces = append(braces, buffer.MakeLocation(ln, i))
+			case '}':
+				if n := len(braces); n > 0 {
+					braces = braces[:n-1]
+				}
+			}
+		}
+	}
+	return parens, brackets, braces
+}
 
 func lineColOfOffset(line *buffer.Line, offset int) int {
 	if offset > line.Len() {
@@ -165,91 +305,60 @@ func findCaseIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 
 func findClosingDelimiterIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
 	line := buf.Line(lineNumber)
-	if offset >= line.Len() {
+	if line == nil || offset >= line.Len() {
 		return 0
 	}
 	ch := line.Data[offset]
-	var open byte
+	parens, brackets, braces := scanDelimStacks(buf, lineNumber, offset)
+	var open buffer.Location
+	var ok bool
 	switch ch {
 	case '}':
-		open = '{'
+		if n := len(braces); n > 0 {
+			open, ok = braces[n-1], true
+		}
+		if !ok {
+			return 0
+		}
+		if ol := buf.Line(open.Line); ol != nil {
+			return ol.IndentColumn()
+		}
+		return 0
 	case ')':
-		open = '('
+		if n := len(parens); n > 0 {
+			open, ok = parens[n-1], true
+		}
 	case ']':
-		open = '['
+		if n := len(brackets); n > 0 {
+			open, ok = brackets[n-1], true
+		}
 	default:
 		return 0
 	}
-	// Search strictly before the closer so we do not depth++ the delimiter we are matching.
-	depth := 0
-	for ln := lineNumber; ln >= 1; ln-- {
-		line := buf.Line(ln)
-		if line == nil {
-			continue
-		}
-		start := len(line.Data) - 1
-		if ln == lineNumber {
-			if offset == 0 {
-				continue
-			}
-			start = offset - 1
-		}
-		for i := start; i >= 0; i-- {
-			c := line.Data[i]
-			if c == ch {
-				depth++
-				continue
-			}
-			if c == open {
-				if depth > 0 {
-					depth--
-					continue
-				}
-				// Braces align to the opening line's indent (gofmt / K&R), not the '{' column.
-				if open == '{' {
-					return line.IndentColumn()
-				}
-				return lineColOfOffset(line, i)
-			}
-		}
+	if !ok {
+		return 0
+	}
+	if ol := buf.Line(open.Line); ol != nil {
+		return lineColOfOffset(ol, open.Offset)
 	}
 	return 0
 }
 
 func findUnmatchedOpenDelim(buf *buffer.Buffer, lineNumber, offset int) (buffer.Location, byte, bool) {
-	depthParen := 0
-	depthBracket := 0
-	for ln := lineNumber; ln >= 1; ln-- {
-		line := buf.Line(ln)
-		if line == nil {
-			continue
-		}
-		limit := len(line.Data)
-		if ln == lineNumber {
-			limit = offset
-		}
-		for i := limit - 1; i >= 0; i-- {
-			switch line.Data[i] {
-			case ')':
-				depthParen++
-			case '(':
-				if depthParen > 0 {
-					depthParen--
-				} else {
-					return buffer.MakeLocation(ln, i), '(', true
-				}
-			case ']':
-				depthBracket++
-			case '[':
-				if depthBracket > 0 {
-					depthBracket--
-				} else {
-					return buffer.MakeLocation(ln, i), '[', true
-				}
-			}
+	parens, brackets, _ := scanDelimStacks(buf, lineNumber, offset)
+	var best buffer.Location
+	var kind byte
+	found := false
+	if n := len(parens); n > 0 {
+		best, kind, found = parens[n-1], '(', true
+	}
+	if n := len(brackets); n > 0 {
+		loc := brackets[n-1]
+		if !found || loc.Line > best.Line || (loc.Line == best.Line && loc.Offset > best.Offset) {
+			best, kind, found = loc, '[', true
 		}
 	}
-	return buffer.Location{}, 0, false
+	return best, kind, found
 }
 
 func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber int, offset int) int {
@@ -258,6 +367,9 @@ func findDelimiterContinuationIndent(buf *buffer.Buffer, lineNumber int, offset 
 		return -1
 	}
 	line := buf.Line(open.Line)
+	if line == nil {
+		return -1
+	}
 	tail := open.Offset + 1
 	for tail < line.Len() {
 		ch := line.Data[tail]
@@ -275,32 +387,16 @@ func findEnclosingBlockIndent(buf *buffer.Buffer, lineNumber int, offset int) in
 		return -1
 	}
 	line := buf.Line(open.Line)
+	if line == nil {
+		return -1
+	}
 	return line.IndentColumn() + buf.Indent.Width
 }
 
 func findUnmatchedOpenBrace(buf *buffer.Buffer, lineNumber, offset int) (buffer.Location, bool) {
-	depth := 0
-	for ln := lineNumber; ln >= 1; ln-- {
-		line := buf.Line(ln)
-		if line == nil {
-			continue
-		}
-		limit := len(line.Data)
-		if ln == lineNumber {
-			limit = offset
-		}
-		for i := limit - 1; i >= 0; i-- {
-			switch line.Data[i] {
-			case '}':
-				depth++
-			case '{':
-				if depth > 0 {
-					depth--
-				} else {
-					return buffer.MakeLocation(ln, i), true
-				}
-			}
-		}
+	_, _, braces := scanDelimStacks(buf, lineNumber, offset)
+	if n := len(braces); n > 0 {
+		return braces[n-1], true
 	}
 	return buffer.Location{}, false
 }
