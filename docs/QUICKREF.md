@@ -261,6 +261,10 @@ These commands have no default keybinding; invoke them with `M-x`:
 | `copy_register` | Copy the active region to a named register |
 | `insert_register` | Insert the contents of a named register |
 | `sort_region` | Sort the active region by lines |
+| `camel_case` | Convert identifier at point to camelCase |
+| `pascal_case` | Convert identifier at point to PascalCase |
+| `snake_case` | Convert identifier at point to snake_case |
+| `constant_case` | Convert identifier at point to CONSTANT_CASE |
 
 ---
 

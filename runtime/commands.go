@@ -32,7 +32,7 @@ func CmdCommandPalette(f bool, n int) bool {
 		display.MBWrite("[no commands]")
 		return false
 	}
-	AskFuzzy("M-x: ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
+	AskFuzzy("→ ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}
