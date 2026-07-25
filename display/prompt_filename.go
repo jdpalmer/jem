@@ -204,6 +204,26 @@ func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuf
 			changed = true
 		}
 
+	case k == (term.SHIFT|term.KeyUp) || k == term.KeyPageUp ||
+		k == (term.SHIFT|term.KeyDown) || k == term.KeyPageDown:
+		if len(p.matchIndices) == 0 {
+			term.Beep()
+		} else {
+			delta := matchListPageSize()
+			if k == (term.SHIFT|term.KeyUp) || k == term.KeyPageUp {
+				delta = -delta
+			}
+			prev := p.sel
+			p.sel = matchListMoveSel(p.sel, len(p.matchIndices), delta)
+			if p.sel == prev {
+				term.Beep()
+			} else {
+				p.setPromptText(p.applyMatchSelection())
+				p.syncMatches()
+				changed = true
+			}
+		}
+
 	default:
 		var handled bool
 		handled, changed = promptLineEditKey(&p.state, k)

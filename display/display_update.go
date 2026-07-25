@@ -260,14 +260,17 @@ func DisplayUpdate() {
 
 		if win.DidEdit && !win.DidMove && !win.ShouldRedraw {
 			// Fast path: only re-render the cursor line
-			cursorRow := win.ScreenTopRow + int(win.Cursor.Line-win.TopLine)
+			cursorRow := win.ScreenTopRow + win.ContentRowOffset() + int(win.Cursor.Line-win.TopLine)
 			var selSt SelState
 			selInit(&selSt, win)
 			renderLine(win, win.Cursor.Line, cursorRow, &selSt)
 		} else if win.DidEdit || win.ShouldRedraw {
 			// Compute scroll delta
 			var scrollN int
-			if oldTopLine != win.TopLine {
+			if win.BottomAlign {
+				// Bottom padding makes incremental terminal scroll wrong; always repaint.
+				scrollN = win.Height + 1
+			} else if oldTopLine != win.TopLine {
 				delta := int(oldTopLine) - int(win.TopLine)
 				height := win.Height
 				if delta < 0 {
@@ -324,14 +327,20 @@ func DisplayUpdate() {
 				}
 			}
 
-			// Full render of all rows in this window
+			// Full render of all rows in this window.
+			// BottomAlign leaves blank rows at the top when content is short.
 			var selSt SelState
 			selInit(&selSt, win)
+			pad := win.ContentRowOffset()
 			lineNumber := win.TopLine
 			for r := 0; r < win.Height; r++ {
 				row := win.ScreenTopRow + r
 				if row >= term.Rows() {
 					break
+				}
+				if r < pad {
+					renderBlankRow(row, gutterW)
+					continue
 				}
 				if lineNumber <= len(win.Buffer.Lines) {
 					renderLine(win, lineNumber, row, &selSt)
@@ -342,7 +351,7 @@ func DisplayUpdate() {
 			}
 		}
 
-		if win.ShouldUpdateModeLine {
+		if win.ShouldUpdateModeLine && !win.NoModeLine {
 			renderModeline(win)
 		}
 
@@ -358,7 +367,7 @@ func DisplayUpdate() {
 		if window.Active.CurrentWindow != nil {
 			cw := window.Active.CurrentWindow
 			cursorLineDelta := cw.Cursor.Line - cw.TopLine
-			Active.Cursor.Row = cw.ScreenTopRow + cursorLineDelta
+			Active.Cursor.Row = cw.ScreenTopRow + cw.ContentRowOffset() + cursorLineDelta
 
 			gutterW := cw.GutterWidth()
 			contentCol := WindowCursorScreenCol(cw)

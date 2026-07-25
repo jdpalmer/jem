@@ -39,6 +39,22 @@ func WindowCreate() *Window {
 	return win
 }
 
+// ContentRowOffset returns how many blank rows to leave at the top of the
+// viewport when BottomAlign is set and the buffer does not fill the window.
+func (win *Window) ContentRowOffset() int {
+	if win == nil || !win.BottomAlign || win.Buffer == nil || win.Height <= 0 {
+		return 0
+	}
+	visible := len(win.Buffer.Lines) - win.TopLine + 1
+	if visible < 0 {
+		visible = 0
+	}
+	if visible >= win.Height {
+		return 0
+	}
+	return win.Height - visible
+}
+
 // SaveState persists the window's cursor and mark positions into the buffer.
 func (win *Window) SaveState() {
 	if win != nil && win.Buffer != nil {
@@ -53,7 +69,13 @@ func WindowRetile() {
 	if n == 0 {
 		return
 	}
-	usable := term.Rows() - n
+	modeLines := 0
+	for _, win := range Active.Windows {
+		if win != nil && !win.NoModeLine {
+			modeLines++
+		}
+	}
+	usable := term.Rows() - modeLines
 	if usable < 0 {
 		usable = 0
 	}
@@ -74,7 +96,10 @@ func WindowRetile() {
 		win.Height = rows
 		win.ShouldRedraw = true
 		win.ShouldUpdateModeLine = true
-		top += rows + 1
+		top += rows
+		if !win.NoModeLine {
+			top++
+		}
 	}
 }
 

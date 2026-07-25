@@ -18,6 +18,10 @@ type Window struct {
 	ShouldRedraw         bool
 	ShouldUpdateModeLine bool
 	HScroll              int
+	// BottomAlign pins short buffers to the bottom of the viewport (match picker).
+	BottomAlign bool
+	// NoModeLine omits the mode line; that row is part of Height instead.
+	NoModeLine bool
 }
 
 // Region is a half-open buffer range.

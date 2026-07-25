@@ -10,6 +10,7 @@ import (
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/window"
 )
 
 func TestChoiceRenderIgnoresGutterClip(t *testing.T) {
@@ -110,5 +111,49 @@ func TestFuzzyMatchesExceedsSixteen(t *testing.T) {
 	got := fuzzyMatches(provider, names, len(names), nil, fuzzyMaxMatches)
 	if len(got) < 40 {
 		t.Fatalf("fuzzyMatches returned %d, want all 40 (cap is %d)", len(got), fuzzyMaxMatches)
+	}
+}
+
+func TestMatchListMoveSel(t *testing.T) {
+	if got := matchListMoveSel(0, 20, 10); got != 10 {
+		t.Fatalf("page down from 0 = %d, want 10", got)
+	}
+	if got := matchListMoveSel(15, 20, 10); got != 19 {
+		t.Fatalf("page down near end = %d, want 19", got)
+	}
+	if got := matchListMoveSel(5, 20, -10); got != 0 {
+		t.Fatalf("page up near start = %d, want 0", got)
+	}
+	if got := matchListMoveSel(0, 0, 10); got != 0 {
+		t.Fatalf("empty list = %d, want 0", got)
+	}
+}
+
+func TestMatchBufferNoTrailingEmptyLine(t *testing.T) {
+	term.SetSize(24, 80)
+	window.Active.Windows = nil
+	window.Active.CurrentWindow = nil
+	buffer.All.Buffers = nil
+	buffer.All.Current = nil
+	t.Cleanup(func() {
+		window.Active.Windows = nil
+		window.Active.CurrentWindow = nil
+		buffer.All.Buffers = nil
+		buffer.All.Current = nil
+	})
+	primary := window.WindowCreate()
+	primary.Buffer = buffer.Create()
+	window.Active.CurrentWindow = primary
+
+	writeMatchBufferGeneric(func(out []byte, outSize int, idx int, _ any) {
+		copy(out, []byte("item"))
+		out[4] = 0
+	}, nil, 2, 0)
+	mb := buffer.Find("*match*")
+	if mb == nil {
+		t.Fatal("no match buffer")
+	}
+	if len(mb.Lines) != 2 {
+		t.Fatalf("lines = %d, want 2 (no trailing empty)", len(mb.Lines))
 	}
 }

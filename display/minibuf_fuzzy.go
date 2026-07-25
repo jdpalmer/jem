@@ -64,13 +64,15 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 		if end < 0 {
 			end = len(line)
 		}
+		if i > 0 {
+			out.WriteByte('\n')
+		}
 		if i == selected {
 			out.WriteString("→ ")
 		} else {
 			out.WriteString("  ")
 		}
 		out.Write(line[:end])
-		out.WriteByte('\n')
 	}
 
 	window.SetMatchBufferText([]byte(out.String()), selected)
@@ -101,6 +103,30 @@ func fuzzyMatchRefresh(matches []int, sel int, ctx *fuzzyMatchCtx) {
 func fuzzyListRedraw(prompt string, state *minibuffer.MinibufferState, ctx *fuzzyMatchCtx, matches []int, sel int) {
 	fuzzyMatchRefresh(matches, sel, ctx)
 	MBWritePrompt(promptFormatWithCount(prompt, sel, len(matches)), state.Text, state.CursorPos)
+}
+
+// matchListPageSize is how many rows Shift-Up/Down moves in the *match* list.
+func matchListPageSize() int {
+	if mw := window.MatchWindow(); mw != nil && mw.Height > 1 {
+		return mw.Height
+	}
+	return 10
+}
+
+// matchListMoveSel moves sel by delta within [0, count). Clamps at the ends.
+// Returns the new selection index.
+func matchListMoveSel(sel, count, delta int) int {
+	if count <= 0 {
+		return 0
+	}
+	sel += delta
+	if sel < 0 {
+		return 0
+	}
+	if sel >= count {
+		return count - 1
+	}
+	return sel
 }
 
 // ---- Fuzzy list prompt (generic) --------------------------------------------

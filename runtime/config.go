@@ -73,6 +73,67 @@ func keybindingsFromJSON(raw map[string]json.RawMessage) {
 }
 
 // parseKeySequence implements the same parsing rules as the original C parser.
+// formatKeySequence renders a key code as an Emacs-style chord (e.g. "C-x C-f", "M-x").
+func formatKeySequence(code uint32) string {
+	if code&term.CTLX != 0 {
+		return "C-x " + formatKeyChord(code&^term.CTLX)
+	}
+	return formatKeyChord(code)
+}
+
+func formatKeyChord(code uint32) string {
+	var b strings.Builder
+	if code&term.META != 0 {
+		b.WriteString("M-")
+	}
+	if code&term.CTL != 0 {
+		b.WriteString("C-")
+	}
+	if code&term.SHIFT != 0 {
+		b.WriteString("S-")
+	}
+	base := code &^ term.KeyMask
+	switch base {
+	case term.KeyTab:
+		b.WriteString("TAB")
+	case term.KeyEnter:
+		b.WriteString("ENTER")
+	case ' ':
+		b.WriteString("SPC")
+	case 0x7F:
+		b.WriteString("BACKSPACE")
+	case term.KeyUp:
+		b.WriteString("UP")
+	case term.KeyDown:
+		b.WriteString("DOWN")
+	case term.KeyLeft:
+		b.WriteString("LEFT")
+	case term.KeyRight:
+		b.WriteString("RIGHT")
+	case term.KeyHome:
+		b.WriteString("HOME")
+	case term.KeyEnd:
+		b.WriteString("END")
+	case term.KeyPageUp:
+		b.WriteString("PGUP")
+	case term.KeyPageDown:
+		b.WriteString("PGDOWN")
+	case term.KeyDelete:
+		b.WriteString("DEL")
+	default:
+		if base < 0x80 {
+			ch := byte(base)
+			if ch >= 'A' && ch <= 'Z' {
+				ch = ch - 'A' + 'a'
+			}
+			b.WriteByte(ch)
+		} else {
+			b.WriteRune(rune(base))
+		}
+	}
+	return b.String()
+}
+
 func parseKeySequence(s string) (uint32, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {

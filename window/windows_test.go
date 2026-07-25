@@ -6,6 +6,27 @@ import (
 	"github.com/jdpalmer/jem/buffer"
 )
 
+func TestContentRowOffsetBottomAlign(t *testing.T) {
+	buf := buffer.New()
+	buf.DiscardLines()
+	buf.AppendLineBytes([]byte("a"))
+	buf.AppendLineBytes([]byte("b"))
+	buf.AppendLineBytes([]byte("c"))
+	win := &Window{Buffer: buf, TopLine: 1, Height: 10, BottomAlign: true}
+	if got := win.ContentRowOffset(); got != 7 {
+		t.Fatalf("ContentRowOffset = %d, want 7", got)
+	}
+	win.BottomAlign = false
+	if got := win.ContentRowOffset(); got != 0 {
+		t.Fatalf("ContentRowOffset without BottomAlign = %d, want 0", got)
+	}
+	win.BottomAlign = true
+	win.Height = 2
+	if got := win.ContentRowOffset(); got != 0 {
+		t.Fatalf("full viewport ContentRowOffset = %d, want 0", got)
+	}
+}
+
 func TestAdjustWindowLocationsMovesCursorAndTopLine(t *testing.T) {
 	buf := buffer.New()
 	buf.DiscardLines()

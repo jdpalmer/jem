@@ -94,6 +94,22 @@ func (p *FuzzyPrompt) HandleKey(k uint32) (done bool, text string, pr minibuffer
 			p.sel = (p.sel + len(p.matches) + delta) % len(p.matches)
 		}
 
+	case k == (term.SHIFT|term.KeyUp) || k == term.KeyPageUp ||
+		k == (term.SHIFT|term.KeyDown) || k == term.KeyPageDown:
+		if len(p.matches) == 0 {
+			term.Beep()
+		} else {
+			delta := matchListPageSize()
+			if k == (term.SHIFT|term.KeyUp) || k == term.KeyPageUp {
+				delta = -delta
+			}
+			prev := p.sel
+			p.sel = matchListMoveSel(p.sel, len(p.matches), delta)
+			if p.sel == prev {
+				term.Beep()
+			}
+		}
+
 	default:
 		var handled bool
 		handled, changed = promptLineEditKey(&p.state, k)

@@ -1,30 +1,51 @@
 package runtime
 
 import (
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 	"strings"
 
 	"github.com/jdpalmer/jem/buffer"
 	"github.com/jdpalmer/jem/display"
+	"github.com/jdpalmer/jem/minibuffer"
+	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/window"
 )
 
 // commands.go — command palette and buffer switching
 
 // commandFuzzyCtx is the provider/formatter context for command-name fuzzy lists.
 type commandFuzzyCtx struct {
-	names []string
-	width int
+	names     []string
+	width     int // max command name width
+	bindWidth int // max binding label width (0 if none have bindings)
 }
 
 func newCommandFuzzyCtx(names []string) *commandFuzzyCtx {
-	w := 0
+	w, bw := 0, 0
 	for _, n := range names {
 		if len(n) > w {
 			w = len(n)
 		}
+		if b := commandBindingLabel(n); len(b) > bw {
+			bw = len(b)
+		}
 	}
-	return &commandFuzzyCtx{names: names, width: w}
+	return &commandFuzzyCtx{names: names, width: w, bindWidth: bw}
+}
+
+// commandBindingLabel returns the first non-mouse keybinding for a command, or "".
+func commandBindingLabel(name string) string {
+	cmd := commandByName(name)
+	if cmd == nil {
+		return ""
+	}
+	for _, k := range cmd.Keys {
+		base := k &^ term.KeyMask
+		if base >= term.MouseLeft && base <= term.MouseDrag {
+			continue
+		}
+		return formatKeySequence(k)
+	}
+	return ""
 }
 
 // commandsProvider returns the command name label for the given index.
@@ -45,7 +66,7 @@ func commandsProvider(ctx any, idx int) []byte {
 	return []byte(names[idx])
 }
 
-// commandsMatchFormatter writes "name  <padding>  doc" for the match window.
+// commandsMatchFormatter writes "name  binding  doc" (padded columns) for the match window.
 func commandsMatchFormatter(out []byte, outSize int, idx int, ctx any) {
 	c, ok := ctx.(*commandFuzzyCtx)
 	if !ok || idx < 0 || idx >= len(c.names) {
@@ -55,15 +76,23 @@ func commandsMatchFormatter(out []byte, outSize int, idx int, ctx any) {
 		return
 	}
 	name := c.names[idx]
+	bind := commandBindingLabel(name)
 	doc := ""
 	if cmd := commandByName(name); cmd != nil {
 		doc = cmd.Doc
 	}
 	var b strings.Builder
-	b.Grow(c.width + 2 + len(doc))
+	b.Grow(c.width + c.bindWidth + len(doc) + 4)
 	b.WriteString(name)
 	for i := len(name); i < c.width; i++ {
 		b.WriteByte(' ')
+	}
+	if c.bindWidth > 0 {
+		b.WriteString("  ")
+		b.WriteString(bind)
+		for i := len(bind); i < c.bindWidth; i++ {
+			b.WriteByte(' ')
+		}
 	}
 	if doc != "" {
 		b.WriteString("  ")

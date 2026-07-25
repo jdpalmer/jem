@@ -38,8 +38,9 @@ func ShowMatchWindow() {
 	win.TopLine = 1
 	win.Cursor = buffer.Location{Line: 1, Offset: 0}
 	win.Mark = buffer.Location{Line: 0, Offset: 0}
+	win.BottomAlign = true
+	win.NoModeLine = true
 	win.ShouldRedraw = true
-	win.ShouldUpdateModeLine = true
 	WindowRetile()
 }
 
