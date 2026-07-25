@@ -10,7 +10,8 @@ import (
 	"github.com/jdpalmer/jem/term"
 )
 
-// FilenamePrompt is a filename picker with tab completion / fuzzy matches.
+// FilenamePrompt is a filename picker: typed text filters the match list
+// (like the command palette); Tab completes, Enter accepts the selection.
 type FilenamePrompt struct {
 	prompt         string
 	state          minibuffer.MinibufferState
@@ -88,7 +89,7 @@ func (p *FilenamePrompt) syncMatches() {
 	p.currentDirPart = dirPart
 	p.refreshList(file.OpenDirFromPrompt(dirPart))
 
-	const maxMatches = 16
+	const maxMatches = fuzzyMaxMatches
 	if pattern == "" {
 		n := len(p.filePaths)
 		if n > maxMatches {
@@ -137,12 +138,12 @@ func (p *FilenamePrompt) redraw() {
 			provider:    p.fpProvider,
 			providerCtx: p.filePaths,
 		}
-		fuzzyListRedraw(p.prompt, &p.state, fctx, p.matchIndices, p.sel)
-		return
+		fuzzyMatchRefresh(p.matchIndices, p.sel, fctx)
+	} else {
+		window.DiscardMatchBuffer()
+		DisplayUpdate()
 	}
-	window.DiscardMatchBuffer()
-	DisplayUpdate()
-	MBWritePrompt(promptFormatWithCount(p.prompt, p.sel, len(p.matchIndices)), p.state.Text, p.state.CursorPos)
+	MBWritePrompt(p.prompt, p.state.Text, p.state.CursorPos)
 }
 
 // HandleKey applies one key. On success, text is the chosen path.
@@ -189,9 +190,6 @@ func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuf
 			term.Beep()
 		} else {
 			p.sel = (p.sel + len(p.matchIndices) - 1) % len(p.matchIndices)
-			p.setPromptText(p.applyMatchSelection())
-			p.syncMatches()
-			changed = true
 		}
 
 	case k == term.KeyDown || k == (term.CTL|'N'):
@@ -199,9 +197,6 @@ func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuf
 			term.Beep()
 		} else {
 			p.sel = (p.sel + 1) % len(p.matchIndices)
-			p.setPromptText(p.applyMatchSelection())
-			p.syncMatches()
-			changed = true
 		}
 
 	case k == (term.SHIFT|term.KeyUp) || k == term.KeyPageUp ||
@@ -217,10 +212,6 @@ func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuf
 			p.sel = matchListMoveSel(p.sel, len(p.matchIndices), delta)
 			if p.sel == prev {
 				term.Beep()
-			} else {
-				p.setPromptText(p.applyMatchSelection())
-				p.syncMatches()
-				changed = true
 			}
 		}
 

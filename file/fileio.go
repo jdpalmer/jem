@@ -165,9 +165,9 @@ func LoadCurrentBuffer(fname string, writef func(string, ...any)) error {
 	buf.EnsureMinLines()
 	buf.EolMode = eolMode
 	if nline == 1 {
-		writeMessage(writef, "[Read 1 line]")
+		writeMessage(writef, "[read 1 line]")
 	} else {
-		writeMessage(writef, "[Read lines]")
+		writeMessage(writef, "[read %d lines]", nline)
 	}
 
 	buf.Cursor = buffer.Location{Line: 1, Offset: 0}

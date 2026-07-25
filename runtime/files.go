@@ -144,7 +144,7 @@ func CmdFileVisit(f bool, n int) bool {
 			initial = dir + string(filepath.Separator)
 		}
 	}
-	AskFilename("Visit file: ", initial, func(path string, pr minibuffer.PromptResult) {
+	AskFilename("Find file: ", initial, func(path string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || path == "" {
 			return
 		}
