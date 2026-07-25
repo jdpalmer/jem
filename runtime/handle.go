@@ -47,7 +47,14 @@ func Handle(s *ProcState, e event.Event) bool {
 		top := listenerStack[n-1]
 		switch top.Handle(s, e) {
 		case ConsumedAndPop:
-			listenerStack = listenerStack[:n-1]
+			// Pop by identity so a listener pushed during Handle (e.g. quit
+			// confirm after M-x) is not discarded with the finished prompt.
+			for i := len(listenerStack) - 1; i >= 0; i-- {
+				if listenerStack[i] == top {
+					listenerStack = append(listenerStack[:i], listenerStack[i+1:]...)
+					break
+				}
+			}
 			return true
 		case Consumed:
 			return true

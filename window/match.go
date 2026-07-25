@@ -74,6 +74,14 @@ func HideMatchWindow() {
 	WindowRetile()
 }
 
+// DiscardMatchBuffer hides the *match* window and releases the *match* buffer.
+func DiscardMatchBuffer() {
+	HideMatchWindow()
+	if mbp := buffer.Find(matchBufferName); mbp != nil {
+		ReleaseBuffer(mbp)
+	}
+}
+
 // ScrollMatchToSelection scrolls the *match* window so selected (0-based) is visible.
 // Also moves the window cursor onto the selected line so DisplayUpdate reframing
 // does not yank TopLine back to line 1.
@@ -126,9 +134,7 @@ func ensureMatchBuffer() *buffer.Buffer {
 // If text is empty, hides the match window instead.
 func SetMatchBufferText(text []byte, selected int) {
 	if len(text) == 0 {
-		if buffer.Find(matchBufferName) != nil {
-			HideMatchWindow()
-		}
+		DiscardMatchBuffer()
 		return
 	}
 

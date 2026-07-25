@@ -113,3 +113,36 @@ func TestScrollMatchToSelectionScrollsBackToTop(t *testing.T) {
 		t.Fatal("scroll back to top should mark ShouldRedraw")
 	}
 }
+
+func TestDiscardMatchBufferReleasesBuffer(t *testing.T) {
+	withFreshWindowState(t)
+
+	primary := WindowCreate()
+	if primary == nil {
+		t.Fatal("WindowCreate failed")
+	}
+	primary.Buffer = buffer.Create()
+	Active.CurrentWindow = primary
+
+	SetMatchBufferText([]byte("→ one\n"), 0)
+	if buffer.Find("*match*") == nil {
+		t.Fatal("expected *match* buffer")
+	}
+	if MatchWindow() == nil {
+		t.Fatal("expected match window")
+	}
+	if len(Active.Windows) != 2 {
+		t.Fatalf("windows = %d, want 2", len(Active.Windows))
+	}
+
+	DiscardMatchBuffer()
+	if MatchWindow() != nil {
+		t.Fatal("match window should be gone")
+	}
+	if buffer.Find("*match*") != nil {
+		t.Fatal("*match* buffer should be released")
+	}
+	if len(Active.Windows) != 1 {
+		t.Fatalf("windows = %d, want 1", len(Active.Windows))
+	}
+}

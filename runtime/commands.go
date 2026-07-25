@@ -11,16 +11,70 @@ import (
 
 // commands.go — command palette and buffer switching
 
-// commandsProvider returns the command name label for the given index. ctx is a []string.
+// commandFuzzyCtx is the provider/formatter context for command-name fuzzy lists.
+type commandFuzzyCtx struct {
+	names []string
+	width int
+}
+
+func newCommandFuzzyCtx(names []string) *commandFuzzyCtx {
+	w := 0
+	for _, n := range names {
+		if len(n) > w {
+			w = len(n)
+		}
+	}
+	return &commandFuzzyCtx{names: names, width: w}
+}
+
+// commandsProvider returns the command name label for the given index.
+// ctx may be []string or *commandFuzzyCtx.
 func commandsProvider(ctx any, idx int) []byte {
-	names, ok := ctx.([]string)
-	if !ok {
+	var names []string
+	switch c := ctx.(type) {
+	case []string:
+		names = c
+	case *commandFuzzyCtx:
+		names = c.names
+	default:
 		return nil
 	}
 	if int(idx) >= len(names) {
 		return nil
 	}
 	return []byte(names[idx])
+}
+
+// commandsMatchFormatter writes "name  <padding>  doc" for the match window.
+func commandsMatchFormatter(out []byte, outSize int, idx int, ctx any) {
+	c, ok := ctx.(*commandFuzzyCtx)
+	if !ok || idx < 0 || idx >= len(c.names) {
+		if outSize > 0 {
+			out[0] = 0
+		}
+		return
+	}
+	name := c.names[idx]
+	doc := ""
+	if cmd := commandByName(name); cmd != nil {
+		doc = cmd.Doc
+	}
+	var b strings.Builder
+	b.Grow(c.width + 2 + len(doc))
+	b.WriteString(name)
+	for i := len(name); i < c.width; i++ {
+		b.WriteByte(' ')
+	}
+	if doc != "" {
+		b.WriteString("  ")
+		b.WriteString(doc)
+	}
+	n := copy(out, b.String())
+	if n < outSize {
+		out[n] = 0
+	} else if outSize > 0 {
+		out[outSize-1] = 0
+	}
 }
 
 // CmdCommandPalette opens the command palette (M-x) and executes the chosen command.
@@ -32,13 +86,14 @@ func CmdCommandPalette(f bool, n int) bool {
 		display.MBWrite("[no commands]")
 		return false
 	}
-	AskFuzzy("→ ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
+	ctx := newCommandFuzzyCtx(names)
+	AskFuzzyEx("→ ", commandsProvider, ctx, len(names), commandsMatchFormatter, ctx, func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}
 		cmdName := strings.ToLower(label)
 		if cmdFn, ok := commandNameMap[cmdName]; ok {
-			cmdFn(false, 1)
+			_ = invokeCommand(cmdFn, false, 1)
 			return
 		}
 		display.MBWrite("[unknown command: %s]", label)
@@ -55,7 +110,8 @@ func CmdDescribeCommand(f bool, n int) bool {
 		display.MBWrite("[no commands]")
 		return false
 	}
-	AskFuzzy("Describe: ", commandsProvider, names, len(names), func(label string, pr minibuffer.PromptResult) {
+	ctx := newCommandFuzzyCtx(names)
+	AskFuzzyEx("Describe: ", commandsProvider, ctx, len(names), commandsMatchFormatter, ctx, func(label string, pr minibuffer.PromptResult) {
 		if pr != minibuffer.PromptResultYes || label == "" {
 			return
 		}

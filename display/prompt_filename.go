@@ -53,7 +53,7 @@ func (p *FilenamePrompt) Open() {
 // Close tears down the prompt UI.
 func (p *FilenamePrompt) Close() {
 	minibuffer.Active = nil
-	window.HideMatchWindow()
+	window.DiscardMatchBuffer()
 	DisplayUpdate()
 }
 
@@ -140,7 +140,7 @@ func (p *FilenamePrompt) redraw() {
 		fuzzyListRedraw(p.prompt, &p.state, fctx, p.matchIndices, p.sel)
 		return
 	}
-	window.HideMatchWindow()
+	window.DiscardMatchBuffer()
 	DisplayUpdate()
 	MBWritePrompt(promptFormatWithCount(p.prompt, p.sel, len(p.matchIndices)), p.state.Text, p.state.CursorPos)
 }

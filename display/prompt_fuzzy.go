@@ -54,7 +54,7 @@ func (p *FuzzyPrompt) Open() {
 // Close tears down the prompt UI.
 func (p *FuzzyPrompt) Close() {
 	minibuffer.Active = nil
-	window.HideMatchWindow()
+	window.DiscardMatchBuffer()
 	DisplayUpdate()
 }
 

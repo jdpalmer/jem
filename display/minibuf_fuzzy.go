@@ -58,7 +58,7 @@ func writeMatchBufferGeneric(formatter minibuffer.MbMatchFormatter, ctx any, cou
 
 	var out strings.Builder
 	for i := 0; i < count; i++ {
-		line := make([]byte, 512)
+		line := make([]byte, 1024)
 		formatter(line, len(line), i, ctx)
 		end := bytes.IndexByte(line, 0)
 		if end < 0 {

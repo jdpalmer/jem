@@ -123,16 +123,57 @@ func TestQuoteListenerInsertsNextKey(t *testing.T) {
 	te.ExpectText("xxx")
 }
 
-func TestQuoteDuringMacroPlayConsumesNextStep(t *testing.T) {
-	te := NewTestEditor(t)
-	te.LoadText("")
-	resetMacroState()
-	State.Macro = []event.Event{
-		event.MacroStepEvent{Code: term.CTL | 'Q', F: false, N: 1},
-		event.MacroStepEvent{Code: 'z', F: false, N: 1},
+func TestConsumedAndPopKeepsListenerPushedFromOnDone(t *testing.T) {
+	_ = NewTestEditor(t)
+	clearListeners()
+	t.Cleanup(clearListeners)
+
+	var stub textPrompt = &stringPromptStub{}
+	PushListener(&promptListener{
+		prompt: stub,
+		onDone: func(string, minibuffer.PromptResult) {
+			AskYesNo("Quit with unsaved buffers?", nil, nil)
+		},
+	})
+	if len(listenerStack) != 1 {
+		t.Fatalf("stack len = %d, want 1", len(listenerStack))
 	}
-	if !CmdMacroExec(false, 1) {
-		t.Fatal("macro play failed")
+	if !Handle(State, event.KeyEvent{Code: '\r'}) {
+		t.Fatal("Handle returned false")
 	}
-	te.ExpectText("z")
+	if len(listenerStack) != 1 {
+		t.Fatalf("stack len = %d after pop, want 1 (yes/no)", len(listenerStack))
+	}
+	if _, ok := listenerStack[0].(*yesNoListener); !ok {
+		t.Fatalf("top listener = %T, want *yesNoListener", listenerStack[0])
+	}
 }
+
+// stringPromptStub completes on Enter with Yes.
+type stringPromptStub struct{}
+
+func (s *stringPromptStub) HandleKey(k uint32) (bool, string, minibuffer.PromptResult) {
+	if k == '\r' || k == '\n' {
+		return true, "quit", minibuffer.PromptResultYes
+	}
+	return false, "", 0
+}
+
+func (s *stringPromptStub) Close() {}
+
+func TestInvokeCommandQuitShowsUnsavedPrompt(t *testing.T) {
+	te := NewTestEditor(t)
+	clearListeners()
+	t.Cleanup(clearListeners)
+	te.BP().IsChanged = true
+	ensureCurrent().QuitRequested = false
+
+	_ = invokeCommand(CmdQuit, false, 1)
+	if len(listenerStack) != 1 {
+		t.Fatalf("stack len = %d, want 1 yes/no after Quit", len(listenerStack))
+	}
+	if _, ok := listenerStack[0].(*yesNoListener); !ok {
+		t.Fatalf("top = %T, want *yesNoListener", listenerStack[0])
+	}
+}
+

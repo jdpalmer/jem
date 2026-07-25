@@ -7,6 +7,17 @@ import (
 	"github.com/jdpalmer/jem/tools"
 )
 
+// invokeCommand runs fn then afterKeyCommand (quit confirm, call hints, …).
+func invokeCommand(fn CommandFunc, f bool, n int) bool {
+	if fn == nil {
+		return true
+	}
+	State.Dispatching = true
+	_ = fn(f, n)
+	State.Dispatching = false
+	return afterKeyCommand()
+}
+
 // runBoundKey records a macro step (if any) and Execute's the key with arg f/n.
 func runBoundKey(k uint32, f bool, n int) {
 	if k == 0x03 {
@@ -89,9 +100,5 @@ func handleCommandEvent(ev event.CommandEvent) bool {
 	if n == 0 && !ev.F {
 		n = 1
 	}
-	State.Dispatching = true
-	_ = cmd.Fn(ev.F, n)
-	State.Dispatching = false
-	_ = afterKeyCommand()
-	return true
+	return invokeCommand(cmd.Fn, ev.F, n)
 }

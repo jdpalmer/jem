@@ -79,7 +79,7 @@ func CmdMenuRun(f bool, n int) bool {
 		display.MBClear()
 		c := commandByName(cmd)
 		if c != nil && c.Fn != nil {
-			_ = c.Fn(false, 1)
+			_ = invokeCommand(c.Fn, false, 1)
 		}
 	})
 	return true
