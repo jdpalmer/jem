@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jdpalmer/jem/file"
 
@@ -53,7 +55,7 @@ func TestCollectFuzzyPathsIncludesParent(t *testing.T) {
 	}
 
 	paths := collectFuzzyPaths(child, "")
-	if len(paths) == 0 || paths[0] != "../" {
+	if len(paths) == 0 || paths[0].Name != "../" {
 		t.Fatalf("collectFuzzyPaths(child) = %v, want ../ first", paths)
 	}
 }
@@ -62,7 +64,7 @@ func TestCollectFuzzyPathsRootHasNoParent(t *testing.T) {
 	root := string(filepath.Separator)
 	paths := collectFuzzyPaths(root, "")
 	for _, p := range paths {
-		if p == "../" {
+		if p.Name == "../" {
 			t.Fatalf("collectFuzzyPaths(%q) should not include ../, got %v", root, paths)
 		}
 	}
@@ -72,6 +74,62 @@ func TestEditorlyFilenameSelectionFile(t *testing.T) {
 	got := file.ApplyFilenameSelection("src/", "foo.go")
 	if got != "src/foo.go" {
 		t.Fatalf("file.ApplyFilenameSelection = %q, want src/foo.go", got)
+	}
+}
+
+func TestFilenamePromptEnterOpensDirectory(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "src")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "src_test.go"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "main.go"), []byte("y"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(old) })
+
+	p := NewFilenamePrompt("Find file: ", "", 0)
+	p.state.SetText([]byte("src"))
+	p.syncMatches()
+	// Select the directory entry (ends with /), not src_test.go.
+	found := -1
+	for i, mi := range p.matchIndices {
+		if strings.HasSuffix(p.entryName(mi), "/") {
+			found = i
+			break
+		}
+	}
+	if found < 0 {
+		t.Fatalf("no directory match in %#v", p.matchIndices)
+	}
+	p.sel = found
+	done, _, _ := p.HandleKey(term.KeyEnter)
+	if done {
+		t.Fatal("Enter on directory should keep the prompt open")
+	}
+	text := string(p.state.Text)
+	if !strings.HasSuffix(text, string(filepath.Separator)) {
+		t.Fatalf("prompt text = %q, want trailing separator so the folder opens", text)
+	}
+	dirPart, pattern := file.PromptSplit(text)
+	if pattern != "" {
+		t.Fatalf("PromptSplit(%q) pattern = %q, want empty (list folder contents)", text, pattern)
+	}
+	if file.OpenDirFromPrompt(dirPart) != sub && filepath.Clean(file.OpenDirFromPrompt(dirPart)) != filepath.Clean(sub) {
+		// OpenDir may be relative "src"
+		if filepath.Base(strings.TrimRight(dirPart, `/\`)) != "src" {
+			t.Fatalf("dirPart = %q, want src/", dirPart)
+		}
 	}
 }
 
@@ -155,5 +213,83 @@ func TestMatchBufferNoTrailingEmptyLine(t *testing.T) {
 	}
 	if len(mb.Lines) != 2 {
 		t.Fatalf("lines = %d, want 2 (no trailing empty)", len(mb.Lines))
+	}
+}
+
+func TestFormatFileSize(t *testing.T) {
+	cases := []struct {
+		n    int64
+		want string
+	}{
+		{-1, ""},
+		{0, "0B"},
+		{999, "999B"},
+		{1024, "1k"},
+		{4300, "4.2k"},
+		{1536 * 1024, "1.5M"},
+	}
+	for _, tc := range cases {
+		if got := formatFileSize(tc.n); got != tc.want {
+			t.Fatalf("formatFileSize(%d) = %q, want %q", tc.n, got, tc.want)
+		}
+	}
+}
+
+func TestFormatModTime(t *testing.T) {
+	now := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	cases := []struct {
+		t    time.Time
+		want string
+	}{
+		{time.Time{}, ""},
+		{now.Add(-30 * time.Second), "just now"},
+		{now.Add(-2 * time.Hour), "2h ago"},
+		{now.Add(-3 * 24 * time.Hour), "3d ago"},
+		{time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC), "Jan 15 2024"},
+	}
+	for _, tc := range cases {
+		if got := formatModTime(tc.t, now); got != tc.want {
+			t.Fatalf("formatModTime(%v) = %q, want %q", tc.t, got, tc.want)
+		}
+	}
+}
+
+func TestFilenameMatchFormatterPadsColumns(t *testing.T) {
+	now := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	ctx := &filenameMatchCtx{
+		entries: []fuzzyFileEntry{
+			{Name: "a.go", Size: 100, ModTime: now.Add(-2 * time.Hour)},
+			{Name: "longer.go", Size: 1536 * 1024, ModTime: time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)},
+		},
+		now: now,
+	}
+	for i := range ctx.entries {
+		e := &ctx.entries[i]
+		if n := len(e.Name); n > ctx.nameWidth {
+			ctx.nameWidth = n
+		}
+		if n := len(formatFileSize(e.Size)); n > ctx.sizeWidth {
+			ctx.sizeWidth = n
+		}
+		if n := len(formatModTime(e.ModTime, ctx.now)); n > ctx.timeWidth {
+			ctx.timeWidth = n
+		}
+	}
+	out := make([]byte, 256)
+	filenameMatchFormatter(out, len(out), 0, ctx)
+	end := 0
+	for end < len(out) && out[end] != 0 {
+		end++
+	}
+	got := string(out[:end])
+	if !strings.HasPrefix(got, "a.go") {
+		t.Fatalf("got %q, want name prefix", got)
+	}
+	if !strings.Contains(got, "100B") || !strings.Contains(got, "2h ago") {
+		t.Fatalf("got %q, want size and relative time", got)
+	}
+	// Name column should pad to longer.go width.
+	if got[len("a.go")] != ' ' {
+		t.Fatalf("got %q, want padded name column", got)
 	}
 }

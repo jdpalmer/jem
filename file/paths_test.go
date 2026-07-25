@@ -74,3 +74,14 @@ func TestPromptSplit(t *testing.T) {
 		t.Fatalf("PromptSplit = (%q, %q)", dir, name)
 	}
 }
+
+func TestApplyFilenameSelectionKeepsDirSlash(t *testing.T) {
+	got := ApplyFilenameSelection("a/", "b/")
+	want := filepath.Join("a", "b") + string(filepath.Separator)
+	if got != want {
+		t.Fatalf("ApplyFilenameSelection = %q, want %q", got, want)
+	}
+	if got := ApplyFilenameSelection("", "src/"); got != "src/" {
+		t.Fatalf("ApplyFilenameSelection = %q, want src/", got)
+	}
+}

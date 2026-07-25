@@ -148,12 +148,23 @@ func PromptParentDir(dirPart string) string {
 }
 
 // ApplyFilenameSelection combines dirPart with selected, or navigates up when selected is "../".
+// Directory selections keep a trailing separator so the next prompt lists that folder
+// (filepath.Join would otherwise strip it and leave a basename filter).
 func ApplyFilenameSelection(dirPart, selected string) string {
 	if selected == "../" {
 		return PromptParentDir(dirPart)
 	}
+	var full string
 	if dirPart == "" {
-		return selected
+		full = selected
+	} else {
+		full = filepath.Join(dirPart, selected)
 	}
-	return filepath.Join(dirPart, selected)
+	sep := string(filepath.Separator)
+	if strings.HasSuffix(selected, "/") || strings.HasSuffix(selected, sep) {
+		if !strings.HasSuffix(full, sep) {
+			full += sep
+		}
+	}
+	return full
 }

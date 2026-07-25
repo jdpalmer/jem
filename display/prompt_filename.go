@@ -1,13 +1,13 @@
 package display
 
 import (
-	"github.com/jdpalmer/jem/minibuffer"
-	"github.com/jdpalmer/jem/window"
 	"sort"
 	"strings"
 
 	"github.com/jdpalmer/jem/file"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/term"
+	"github.com/jdpalmer/jem/window"
 )
 
 // FilenamePrompt is a filename picker: typed text filters the match list
@@ -15,7 +15,7 @@ import (
 type FilenamePrompt struct {
 	prompt         string
 	state          minibuffer.MinibufferState
-	filePaths      []string
+	matchCtx       *filenameMatchCtx
 	matchRoot      string
 	currentDirPart string
 	matchIndices   []int
@@ -36,6 +36,7 @@ func NewFilenamePrompt(prompt, initial string, capacity int) *FilenamePrompt {
 			Nbuf:       capacity,
 			HistoryPos: -1,
 		},
+		matchCtx: &filenameMatchCtx{},
 	}
 	if initial != "" {
 		p.state.SetText([]byte(initial))
@@ -62,14 +63,25 @@ func (p *FilenamePrompt) refreshList(dir string) {
 	if dir == p.matchRoot {
 		return
 	}
-	fp := collectFuzzyPaths(dir, "")
-	if len(fp) > 0 && fp[0] == "../" {
-		sort.Strings(fp[1:])
+	entries := collectFuzzyPaths(dir, "")
+	if len(entries) > 0 && entries[0].Name == "../" {
+		sort.Slice(entries[1:], func(i, j int) bool {
+			return entries[i+1].Name < entries[j+1].Name
+		})
 	} else {
-		sort.Strings(fp)
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].Name < entries[j].Name
+		})
 	}
-	p.filePaths = fp
+	p.matchCtx = newFilenameMatchCtx(entries)
 	p.matchRoot = dir
+}
+
+func (p *FilenamePrompt) entryName(idx int) string {
+	if p.matchCtx == nil || idx < 0 || idx >= len(p.matchCtx.entries) {
+		return ""
+	}
+	return p.matchCtx.entries[idx].Name
 }
 
 func (p *FilenamePrompt) syncMatches() {
@@ -89,9 +101,10 @@ func (p *FilenamePrompt) syncMatches() {
 	p.currentDirPart = dirPart
 	p.refreshList(file.OpenDirFromPrompt(dirPart))
 
+	entries := p.matchCtx.entries
 	const maxMatches = fuzzyMaxMatches
 	if pattern == "" {
-		n := len(p.filePaths)
+		n := len(entries)
 		if n > maxMatches {
 			n = maxMatches
 		}
@@ -100,7 +113,7 @@ func (p *FilenamePrompt) syncMatches() {
 			p.matchIndices[i] = i
 		}
 	} else {
-		p.matchIndices = filenameFuzzyMatches(p.filePaths, pattern, maxMatches)
+		p.matchIndices = filenameFuzzyMatches(entries, pattern, maxMatches)
 	}
 	if queryChanged {
 		p.sel = 0
@@ -113,7 +126,7 @@ func (p *FilenamePrompt) applyMatchSelection() string {
 	if len(p.matchIndices) == 0 || p.sel >= len(p.matchIndices) {
 		return string(p.state.Text)
 	}
-	selected := p.filePaths[p.matchIndices[p.sel]]
+	selected := p.entryName(p.matchIndices[p.sel])
 	return file.ApplyFilenameSelection(p.currentDirPart, selected)
 }
 
@@ -121,24 +134,16 @@ func (p *FilenamePrompt) setPromptText(text string) {
 	p.programmatic = true
 	p.state.SetText([]byte(text))
 	p.programmatic = false
-	p.lastQuery = text
-}
-
-func (p *FilenamePrompt) fpProvider(ctx any, idx int) []byte {
-	paths := ctx.([]string)
-	if int(idx) >= len(paths) {
-		return nil
-	}
-	return []byte(paths[int(idx)])
 }
 
 func (p *FilenamePrompt) redraw() {
 	if len(p.matchIndices) > 0 {
-		fctx := &fuzzyMatchCtx{
-			provider:    p.fpProvider,
-			providerCtx: p.filePaths,
-		}
-		fuzzyMatchRefresh(p.matchIndices, p.sel, fctx)
+		fuzzyMatchRefresh(p.matchIndices, p.sel, &fuzzyMatchCtx{
+			provider:         filenameProvider,
+			providerCtx:      p.matchCtx,
+			displayFormatter: filenameMatchFormatter,
+			displayCtx:       p.matchCtx,
+		})
 	} else {
 		window.DiscardMatchBuffer()
 		DisplayUpdate()
@@ -154,7 +159,7 @@ func (p *FilenamePrompt) HandleKey(k uint32) (done bool, text string, pr minibuf
 	case k == term.KeyEnter || k == '\r' || k == '\n' || k == (term.CTL|'M') || k == (term.CTL|'J'):
 		full := p.applyMatchSelection()
 		if len(p.matchIndices) > 0 && p.sel < len(p.matchIndices) {
-			selected := p.filePaths[p.matchIndices[p.sel]]
+			selected := p.entryName(p.matchIndices[p.sel])
 			if selected == "../" || strings.HasSuffix(selected, "/") {
 				p.setPromptText(full)
 				p.syncMatches()
