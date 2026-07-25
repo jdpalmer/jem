@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/term"
 )
 
@@ -86,6 +87,12 @@ func decodeAndDeliver(raw uint32) {
 		return
 	}
 	if k == 0x1B {
+		// While a minibuffer/prompt is active, Esc quits like C-g instead of
+		// starting an ESC-as-Meta prefix chord.
+		if minibuffer.Active != nil {
+			deliverDecodedKey(0x1B)
+			return
+		}
 		escapePending = true
 		return
 	}

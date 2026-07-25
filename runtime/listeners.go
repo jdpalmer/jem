@@ -3,6 +3,7 @@ package runtime
 import (
 	"github.com/jdpalmer/jem/display"
 	"github.com/jdpalmer/jem/event"
+	"github.com/jdpalmer/jem/minibuffer"
 	"github.com/jdpalmer/jem/search"
 	"github.com/jdpalmer/jem/term"
 )
@@ -60,9 +61,10 @@ func PushKeySession(s search.KeySession) {
 	PushListener(&keySessionListener{sess: s})
 }
 
-// yesNoListener consumes a single y/n/C-g key for a prompt, then pops.
+// yesNoListener consumes a single y/n/C-g/Esc key for a prompt, then pops.
 type yesNoListener struct {
 	prompt  string
+	mbState minibuffer.MinibufferState
 	onYes   func()
 	onNo    func()
 	onAbort func()
@@ -74,6 +76,14 @@ func (l *yesNoListener) Handle(s *ProcState, e event.Event) ListenerResult {
 		return PassThrough
 	}
 	code := ke.Code
+	finish := func(fn func()) ListenerResult {
+		minibuffer.Active = nil
+		display.MBClear()
+		if fn != nil {
+			fn()
+		}
+		return ConsumedAndPop
+	}
 	// Normalize letter keys.
 	if code < 128 {
 		c := byte(code)
@@ -82,27 +92,16 @@ func (l *yesNoListener) Handle(s *ProcState, e event.Event) ListenerResult {
 		}
 		switch c {
 		case 'y':
-			display.MBClear()
-			if l.onYes != nil {
-				l.onYes()
-			}
-			return ConsumedAndPop
+			return finish(l.onYes)
 		case 'n':
-			display.MBClear()
-			if l.onNo != nil {
-				l.onNo()
-			}
-			return ConsumedAndPop
+			return finish(l.onNo)
 		}
 	}
 	if code == (term.CTL|'G') || code == 0x1B {
-		display.MBClear()
 		if l.onAbort != nil {
-			l.onAbort()
-		} else if l.onNo != nil {
-			l.onNo()
+			return finish(l.onAbort)
 		}
-		return ConsumedAndPop
+		return finish(l.onNo)
 	}
 	// Ignore other keys while prompting.
 	display.MBWrite("%s (y/n)", l.prompt)
@@ -112,11 +111,13 @@ func (l *yesNoListener) Handle(s *ProcState, e event.Event) ListenerResult {
 // AskYesNo pushes a yes/no listener and shows the prompt. Continuations run
 // when the user answers (next tick).
 func AskYesNo(prompt string, onYes, onNo func()) {
-	PushListener(&yesNoListener{
+	l := &yesNoListener{
 		prompt: prompt,
 		onYes:  onYes,
 		onNo:   onNo,
-	})
+	}
+	minibuffer.Active = &l.mbState
+	PushListener(l)
 	display.MBWrite("%s (y/n)", prompt)
 }
 

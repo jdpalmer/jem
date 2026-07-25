@@ -66,12 +66,9 @@ func (p *ChoosePrompt) HandleKey(k uint32) (done bool, sel int) {
 	case k == 0x0D || k == 0x0A || k == term.KeyEnter || k == (term.CTL|'M') || k == (term.CTL|'J'):
 		MBClear()
 		return true, p.selected
-	case k == 0x07 || k == (term.CTL|'G'):
+	case k == 0x07 || k == (term.CTL|'G') || k == 0x1B:
 		MBClear()
 		return true, -2
-	case k == 0x1B:
-		MBClear()
-		return true, -1
 	case k == term.KeyLeft || k == (term.CTL|'B') || k == term.KeyUp:
 		if p.selected > 0 {
 			p.selected--
