@@ -433,10 +433,12 @@ bool cmd_newline(bool f, int n) {
 
 /* Mode-aware newline+indent (jem.go CmdModeNewlineAndIndent). */
 bool cmd_newline_and_indent(bool f, int n) {
-	Window *w = window_current();
+	Buffer *b = buffer_current();
 	(void)f;
-	if (w == NULL) {
-		return true;
+	if (b != NULL && b.name != NULL) {
+		if (strcmp(b.name, "*grep*") == 0 || strcmp(b.name, "*compile*") == 0) {
+			return job_visit_at_point();
+		}
 	}
 	if (!g_app.auto_indent) {
 		return cmd_newline(false, n);
@@ -2257,13 +2259,39 @@ static bool handle_key(uint32_t key) {
 		Window *w = window_current();
 		int row = term_mouse_row();
 		int col = term_mouse_col();
-		if (w != NULL && row >= w.screen_top_row && row < w.screen_top_row + w.height) {
-			int bline = w.top_line + (row - w.screen_top_row);
-			Line *line = w.buffer.line(bline);
+		if (w != NULL && w.buffer != NULL && row >= w.screen_top_row && row < w.screen_top_row + w.height) {
+			int nlines = w.buffer.line_count_i();
+			int pad = window_content_row_offset(w);
+			int gutter = window_gutter_width(w);
+			int row_in = row - w.screen_top_row - pad;
+			int bline = 0;
+			int text_col = 0;
+			Line *line = {0};
 			Location loc = {0};
+			if (row_in < 0) {
+				row_in = 0;
+			}
+			bline = w.top_line + row_in;
+			if (bline < 1) {
+				bline = 1;
+			}
+			if (nlines < 1) {
+				nlines = 1;
+			}
+			if (bline > nlines) {
+				bline = nlines;
+			}
+			text_col = col - gutter + w.h_scroll;
+			if (text_col < 0) {
+				text_col = 0;
+			}
+			line = w.buffer.line(bline);
 			loc.line = bline;
-			loc.offset = line != NULL ? line.offset_at_display_col(col) : 0;
+			loc.offset = line != NULL ? line.offset_at_display_col(text_col) : 0;
 			w.set_cursor(loc);
+			w.mark.line = 0;
+			w.mark.offset = 0;
+			w.should_update_mode_line = true;
 		}
 		return true;
 	}

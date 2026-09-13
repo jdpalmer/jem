@@ -2,6 +2,7 @@
 import "buffer";
 import "mode";
 import "display";
+import "window";
 import "fs";
 import "os";
 import "path";
@@ -324,6 +325,52 @@ bool file_save(Buffer *buf, char *path) {
 		}
 	}
 	return file_load(path);
+}
+
+// file_visit_location opens path and moves the cursor to 1-based line/column.
+bool file_visit_location(char *path, int line, int column) {
+	Window *w = {0};
+	Line *bline = {0};
+	Location loc = {0};
+	int off = 0;
+	auto (buf, ok) = file_visit(path);
+
+	if (!ok || buf == NULL || line < 1) {
+		return false;
+	}
+	window_switch_buffer(buf);
+	w = window_current();
+	if (w == NULL || w.buffer == NULL) {
+		return false;
+	}
+	if (line > w.buffer.line_count_i()) {
+		display_set_echo(str_from_cstr((char *)"File line out of range"));
+		return false;
+	}
+	bline = w.buffer.line(line);
+	off = column;
+	if (column > 0) {
+		off = column - 1;
+	} else {
+		off = 0;
+	}
+	if (bline != NULL && off > bline.byte_len()) {
+		off = bline.byte_len();
+	}
+	loc.line = line;
+	loc.offset = off;
+	w.set_cursor(loc);
+	w.ensure_visible();
+	/* Rough center when room allows. */
+	if (w.height > 2 && w.cursor.line > w.height / 2) {
+		w.top_line = w.cursor.line - w.height / 2;
+		if (w.top_line < 1) {
+			w.top_line = 1;
+		}
+		w.should_redraw = true;
+	}
+	w.should_update_mode_line = true;
+	return true;
 }
 
 // file_read_into_current loads path into the current buffer (jem.go LoadCurrentBuffer).

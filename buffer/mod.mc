@@ -39,6 +39,8 @@ struct Line {
 	size_t styles_len;
 	bool cache_valid;
 	LangMode lang_mode;
+	/* Owned blob (free'd in line_free). Tools store jump targets here. */
+	void *metadata;
 };
 
 struct Buffer {
@@ -442,6 +444,8 @@ static void line_free(Line *line) {
 	bytes_free(&line.data);
 	free(line.styles);
 	line.styles = NULL;
+	free(line.metadata);
+	line.metadata = NULL;
 }
 
 bool (Buffer *buf).is_scratch(void) {
@@ -979,6 +983,46 @@ bool (Buffer *buf).insert_text(Location at, char *text, size_t n, Location *new_
 bool (Buffer *buf).delete_range(Location begin, Location end) {
 	Location dummy = {0};
 	return buf.replace_raw(begin, end, "", 0, &dummy);
+}
+
+// clear drops all lines to a single blank line (jem.go Buffer.Clear).
+void (Buffer *buf).clear(void) {
+	size_t i = 0;
+	if (buf == NULL) {
+		return;
+	}
+	for (i = 0; i < buf.line_count; i++) {
+		line_free(&buf.lines[i]);
+	}
+	free(buf.lines);
+	buf.lines = NULL;
+	buf.line_count = 0;
+	buf.line_cap = 0;
+	buf.ensure_min_lines();
+	buf.is_changed = false;
+	buf.cursor.line = 1;
+	buf.cursor.offset = 0;
+	buf.mark.line = 0;
+	buf.mark.offset = 0;
+}
+
+// append_line appends a line with text[0..n) and returns it (jem.go AppendLineBytes).
+Line *(Buffer *buf).append_line(char *text, size_t n) {
+	Line line = {0};
+	if (buf == NULL) {
+		return NULL;
+	}
+	buf.ensure_min_lines();
+	if (!buffer_reserve_lines(buf, buf.line_count + 1)) {
+		return NULL;
+	}
+	if (text == NULL) {
+		n = 0;
+	}
+	line = make_line(buf, text, n);
+	buf.lines[buf.line_count] = line;
+	buf.line_count++;
+	return &buf.lines[buf.line_count - 1];
 }
 
 bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
