@@ -1426,7 +1426,6 @@ static void switch_to_buffer(Buffer *buf) {
 }
 
 bool cmd_use_buffer(bool f, int n) {
-	Buffer *other = {0};
 	if (f && n > 0) {
 		if (n <= (int)buffer_all.count && buffer_all.bufs[n - 1] != NULL) {
 			switch_to_buffer(buffer_all.bufs[n - 1]);
@@ -1436,11 +1435,7 @@ bool cmd_use_buffer(bool f, int n) {
 		return false;
 	}
 	push_listener(ListenerUseBuffer);
-	minibuffer_begin("Switch buffer: ", 0);
-	other = buffer_other();
-	if (other != NULL && other.name != NULL) {
-		minibuffer_set_text(other.name);
-	}
+	fuzzy_buffer_open();
 	return true;
 }
 
