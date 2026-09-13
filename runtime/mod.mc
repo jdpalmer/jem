@@ -687,6 +687,7 @@ bool cmd_mark_whole_buffer(bool f, int n) {
 	cur.line = 1;
 	cur.offset = 0;
 	w.set_cursor(cur);
+	w.should_redraw = true;
 	display_set_echo("Mark set");
 	return true;
 }
@@ -1106,6 +1107,7 @@ bool cmd_set_mark(bool f, int n) {
 	if (w != NULL) {
 		w.mark = w.cursor;
 		markring_push(w.cursor);
+		w.should_redraw = true;
 		display_set_echo("Mark set");
 	}
 	return true;
@@ -1122,6 +1124,7 @@ bool cmd_exchange_point_and_mark(bool f, int n) {
 	t = w.cursor;
 	w.set_cursor(w.mark);
 	w.mark = t;
+	w.should_redraw = true;
 	return true;
 }
 
@@ -1159,6 +1162,8 @@ bool cmd_kill_region(bool f, int n) {
 	}
 	buffer_undo.end_command();
 	w.mark.line = 0;
+	w.mark.offset = 0;
+	w.should_redraw = true;
 	return true;
 }
 
@@ -1180,6 +1185,8 @@ bool cmd_copy_region(bool f, int n) {
 	killring_push(text, tlen);
 	free(text);
 	w.mark.line = 0;
+	w.mark.offset = 0;
+	w.should_redraw = true;
 	display_set_echo("Region copied");
 	return true;
 }
@@ -2286,6 +2293,7 @@ static bool handle_key(uint32_t key) {
 			w.set_cursor(loc);
 			w.mark.line = 0;
 			w.mark.offset = 0;
+			w.should_redraw = true;
 			w.should_update_mode_line = true;
 		}
 		return true;

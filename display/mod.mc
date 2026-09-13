@@ -75,6 +75,143 @@ TextStyle style_modeline_dirty(void) {
 	return text_style_make(TermColorRed, text_style_bg(style_gutter()), (uint16_t)TextStyleBold);
 }
 
+static TermColor theme_selection_bg(void) {
+	return TermColorYellow;
+}
+
+static TermColor theme_search_match_bg(void) {
+	if (g_theme_light) {
+		return TermColorBase00;
+	}
+	return TermColorBase01;
+}
+
+static TextStyle selection_style(TextStyle base) {
+	uint16_t flags = (uint16_t)(base.bits & (uint16_t)TextStyleBold);
+	return text_style_make(TermColorBase03, theme_selection_bg(), flags);
+}
+
+static TextStyle search_match_style(TextStyle base) {
+	uint16_t flags = (uint16_t)(base.bits & (uint16_t)(TextStyleBold | TextStyleUnderline));
+	return text_style_make(text_style_fg(base), theme_search_match_bg(), flags);
+}
+
+enum SelPhase {
+	SelBefore = 0,
+	SelInside = 1,
+	SelAfter = 2
+};
+
+struct SelState {
+	bool active;
+	int phase;
+	int start_line;
+	int end_line;
+	int start_o;
+	int end_o;
+};
+
+static void sel_init(SelState *ss, Window *win) {
+	int mark_line = 0;
+	int dot_line = 0;
+	int marko = 0;
+	int doto = 0;
+	if (ss == NULL) {
+		return;
+	}
+	ss.active = false;
+	ss.phase = SelBefore;
+	if (win == NULL || win.mark.line == 0) {
+		return;
+	}
+	mark_line = win.mark.line;
+	dot_line = win.cursor.line;
+	marko = win.mark.offset;
+	doto = win.cursor.offset;
+	if (mark_line == dot_line) {
+		if (marko == doto) {
+			return;
+		}
+		ss.active = true;
+		ss.start_line = mark_line;
+		ss.end_line = mark_line;
+		if (marko < doto) {
+			ss.start_o = marko;
+			ss.end_o = doto;
+		} else {
+			ss.start_o = doto;
+			ss.end_o = marko;
+		}
+		return;
+	}
+	ss.active = true;
+	if (mark_line < dot_line) {
+		ss.start_line = mark_line;
+		ss.start_o = marko;
+		ss.end_line = dot_line;
+		ss.end_o = doto;
+	} else {
+		ss.start_line = dot_line;
+		ss.start_o = doto;
+		ss.end_line = mark_line;
+		ss.end_o = marko;
+	}
+	if (win.top_line > ss.end_line) {
+		ss.active = false;
+	} else if (win.top_line > ss.start_line) {
+		ss.phase = SelInside;
+	}
+}
+
+/* Returns start==-1 when this line has no selection highlight. */
+static void sel_line(SelState *ss, int line_number, int line_len, int *start, int *end) {
+	if (start == NULL || end == NULL) {
+		return;
+	}
+	*start = -1;
+	*end = 0;
+	if (ss == NULL || !ss.active) {
+		return;
+	}
+	if (ss.phase == SelBefore) {
+		if (line_number != ss.start_line) {
+			return;
+		}
+		if (ss.start_line == ss.end_line) {
+			*start = ss.start_o;
+			*end = ss.end_o;
+			ss.phase = SelAfter;
+		} else {
+			*start = ss.start_o;
+			*end = line_len;
+			ss.phase = SelInside;
+		}
+	} else if (ss.phase == SelInside) {
+		if (line_number == ss.end_line) {
+			*start = 0;
+			*end = ss.end_o;
+			ss.phase = SelAfter;
+		} else {
+			*start = 0;
+			*end = line_len;
+		}
+	}
+}
+
+static bool in_search_span(Window *win, int line_number, int byte_off) {
+	int i = 0;
+	if (win == NULL) {
+		return false;
+	}
+	for (i = 0; i < win.search_span_count; i++) {
+		SearchSpan sp = win.search_spans[i];
+		if (sp.line == line_number && byte_off >= sp.start && byte_off < sp.end) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static void screen_free(Screen *s) {
 	free(s.cells);
 	free(s.row_dirty);
@@ -300,7 +437,7 @@ void paint_blank_row(Window *win, int screen_row) {
 	paint_gutter(win, screen_row, 0);
 }
 
-void paint_line_text(Window *win, int screen_row, int buf_line) {
+void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 	Line *line = {0};
 	char[..] v = {0};
 	TextStyle *styles = {0};
@@ -310,6 +447,9 @@ void paint_line_text(Window *win, int screen_row, int buf_line) {
 	int gutter = 0;
 	int h_scroll = 0;
 	int cols = 0;
+	int sel_start = -1;
+	int sel_end = 0;
+	int line_len = 0;
 	TextStyle def = style_default();
 	SynState prev = {0};
 	SynState end = {0};
@@ -326,6 +466,8 @@ void paint_line_text(Window *win, int screen_row, int buf_line) {
 	}
 	cols = term_cols();
 	v = line.view();
+	line_len = (int)len(v);
+	sel_line(sel, buf_line, line_len, &sel_start, &sel_end);
 
 	/* highlight if needed */
 	if (!line.syntax_valid && len(v) != 0) {
@@ -348,7 +490,24 @@ void paint_line_text(Window *win, int screen_row, int buf_line) {
 	styles = line.styles;
 	styles_len = line.styles_len;
 
-	while (i < (int)len(v)) {
+	if (line_len == 0) {
+		int fill = gutter;
+		if (sel_start >= 0) {
+			paint_content_cell(screen_row, 0, h_scroll, gutter, ' ', selection_style(def));
+			fill = gutter + 1;
+			if (fill < gutter) {
+				fill = gutter;
+			}
+		}
+		while (fill < cols) {
+			put_rune(&g_screen, screen_row, fill, ' ', def);
+			fill++;
+		}
+		paint_gutter(win, screen_row, buf_line);
+		return;
+	}
+
+	while (i < line_len) {
 		auto (r, sz) = utf8_decode_rune(v, i);
 		int w = 0;
 		TextStyle st = def;
@@ -364,6 +523,12 @@ void paint_line_text(Window *win, int screen_row, int buf_line) {
 			} else {
 				st = style_resolve(st);
 			}
+		}
+		if (in_search_span(win, buf_line, i)) {
+			st = search_match_style(st);
+		}
+		if (sel_start >= 0 && i >= sel_start && i < sel_end) {
+			st = selection_style(st);
 		}
 		if (r == '\t') {
 			w = 8 - (dcol % 8);
@@ -823,9 +988,11 @@ static void paint_window_body(Window *win) {
 	int pad = 0;
 	int r = 0;
 	int line_number = 0;
+	SelState sel = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
+	sel_init(&sel, win);
 	pad = content_row_offset(win);
 	line_number = win.top_line;
 	for (r = 0; r < win.height; r++) {
@@ -838,7 +1005,7 @@ static void paint_window_body(Window *win) {
 			continue;
 		}
 		if (line_number <= win.buffer.line_count_i()) {
-			paint_line_text(win, row, line_number);
+			paint_line_text(win, row, line_number, &sel);
 			line_number++;
 		} else {
 			paint_blank_row(win, row);
@@ -849,15 +1016,17 @@ static void paint_window_body(Window *win) {
 static void paint_cursor_line(Window *win) {
 	int pad = 0;
 	int row = 0;
+	SelState sel = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
+	sel_init(&sel, win);
 	pad = content_row_offset(win);
 	row = win.screen_top_row + pad + (win.cursor.line - win.top_line);
 	if (row < win.screen_top_row || row >= win.screen_top_row + win.height || row >= term_rows()) {
 		return;
 	}
-	paint_line_text(win, row, win.cursor.line);
+	paint_line_text(win, row, win.cursor.line, &sel);
 }
 
 void display_init(void) {
@@ -953,6 +1122,12 @@ void display_update(void) {
 		old_top = win.top_line;
 		win.ensure_visible();
 		adjust_hscroll(win);
+		/* Region / search overlays need a full body paint each tick. */
+		if ((win.mark.line != 0 || win.search_span_count > 0) && !win.should_redraw) {
+			win.did_edit = false;
+			win.did_move = false;
+			win.should_redraw = true;
+		}
 		if (win.did_edit && !win.did_move && !win.should_redraw) {
 			paint_cursor_line(win);
 		} else if (win.did_edit || win.should_redraw) {

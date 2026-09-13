@@ -136,7 +136,89 @@ void search_begin(bool forward) {
 }
 
 void search_end(void) {
+	Window *win = window_current();
 	g_search.active = false;
+	g_search.have_match = false;
+	if (win != NULL) {
+		window_clear_search_spans(win);
+		if (win.mark.line != 0) {
+			win.should_redraw = true;
+		}
+		win.mark.line = 0;
+		win.mark.offset = 0;
+	}
+}
+
+/* Current match uses Mark↔Cursor (selection paint); other hits use SearchSpans. */
+static void search_highlight_match(Window *win, Location begin, Location end) {
+	if (win == NULL) {
+		return;
+	}
+	if (g_search.forward) {
+		win.mark = begin;
+	} else {
+		win.mark = end;
+	}
+	win.should_redraw = true;
+}
+
+static void search_collect_visible_spans(Window *win) {
+	SearchSpan spans[SearchSpanMax] = {0};
+	int n = 0;
+	int top = 0;
+	int bot = 0;
+	int line_n = 0;
+	if (win == NULL || win.buffer == NULL || g_search.needle_len == 0 || win.height <= 0) {
+		window_clear_search_spans(win);
+		return;
+	}
+	top = win.top_line;
+	if (top < 1) {
+		top = 1;
+	}
+	bot = top + win.height - 1;
+	if (bot > win.buffer.line_count_i()) {
+		bot = win.buffer.line_count_i();
+	}
+	for (line_n = top; line_n <= bot && n < SearchSpanMax; line_n++) {
+		Line *line = win.buffer.line(line_n);
+		int lim = 0;
+		int off = 0;
+		if (line == NULL) {
+			continue;
+		}
+		lim = line.byte_len();
+		while (off <= lim - (int)g_search.needle_len && n < SearchSpanMax) {
+			if (line_match_at(line, off, g_search.needle, g_search.needle_len)) {
+				spans[n].line = line_n;
+				spans[n].start = off;
+				spans[n].end = off + (int)g_search.needle_len;
+				n++;
+				off += (int)g_search.needle_len;
+				if ((int)g_search.needle_len == 0) {
+					break;
+				}
+			} else {
+				off++;
+			}
+		}
+	}
+	window_set_search_spans(win, spans, n);
+}
+
+static void search_apply_highlights(Window *win) {
+	if (win == NULL) {
+		return;
+	}
+	if (!g_search.have_match || g_search.needle_len == 0) {
+		window_clear_search_spans(win);
+		win.mark.line = 0;
+		win.mark.offset = 0;
+		win.should_redraw = true;
+		return;
+	}
+	search_highlight_match(win, g_search.match_begin, g_search.match_end);
+	search_collect_visible_spans(win);
 }
 
 bool search_set_needle(char *s) {
@@ -187,6 +269,7 @@ bool search_next(void) {
 	Location end = {0};
 	if (win == NULL || win.buffer == NULL || g_search.needle_len == 0) {
 		g_search.have_match = false;
+		search_apply_highlights(win);
 		return false;
 	}
 	from = win.cursor;
@@ -208,6 +291,7 @@ bool search_next(void) {
 			win.set_cursor(begin);
 		}
 		win.ensure_visible();
+		search_apply_highlights(win);
 		return true;
 	}
 	/* wrap once */
@@ -236,9 +320,11 @@ bool search_next(void) {
 			win.set_cursor(begin);
 		}
 		win.ensure_visible();
+		search_apply_highlights(win);
 		return true;
 	}
 	g_search.have_match = false;
+	search_apply_highlights(win);
 	return false;
 }
 
@@ -249,6 +335,7 @@ bool search_update(void) {
 	Location end = {0};
 	if (win == NULL || g_search.needle_len == 0) {
 		g_search.have_match = false;
+		search_apply_highlights(win);
 		return false;
 	}
 	from = g_search.start;
@@ -262,9 +349,11 @@ bool search_update(void) {
 			win.set_cursor(begin);
 		}
 		win.ensure_visible();
+		search_apply_highlights(win);
 		return true;
 	}
 	g_search.have_match = false;
+	search_apply_highlights(win);
 	return false;
 }
 

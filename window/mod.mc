@@ -10,7 +10,14 @@ import "term";
 
 enum WindowLimits {
 	WindowMax = 8,
-	GoalColUnset = -1
+	GoalColUnset = -1,
+	SearchSpanMax = 256
+};
+
+struct SearchSpan {
+	int line;
+	int start;
+	int end;
 };
 
 struct Window {
@@ -28,6 +35,8 @@ struct Window {
 	bool did_move;
 	bool did_edit;
 	bool bottom_align;
+	SearchSpan search_spans[SearchSpanMax];
+	int search_span_count;
 };
 
 struct WindowState {
@@ -682,4 +691,30 @@ bool (Window *win).set_text(Location begin, Location end, char *text, size_t n) 
 	note_buffer_edit(win.buffer, structural, was_changed);
 	win.ensure_visible();
 	return true;
+}
+
+void window_clear_search_spans(Window *win) {
+	if (win == NULL || win.search_span_count == 0) {
+		return;
+	}
+	win.search_span_count = 0;
+	win.should_redraw = true;
+}
+
+void window_set_search_spans(Window *win, SearchSpan *spans, int n) {
+	int i = 0;
+	if (win == NULL) {
+		return;
+	}
+	if (n < 0) {
+		n = 0;
+	}
+	if (n > SearchSpanMax) {
+		n = SearchSpanMax;
+	}
+	win.search_span_count = n;
+	for (i = 0; i < n; i++) {
+		win.search_spans[i] = spans[i];
+	}
+	win.should_redraw = true;
 }
