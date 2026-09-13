@@ -1599,7 +1599,7 @@ bool cmd_quit(bool f, int n) {
 	return true;
 }
 
-static static void append_key_text(char *out, size_t cap, char *s) {
+static void append_key_text(char *out, size_t cap, char *s) {
 	size_t n = 0;
 	size_t sl = 0;
 	if (out == NULL || s == NULL || cap == 0) {

@@ -178,22 +178,33 @@ static void emit_color_sgr(TermColor c, int base_sgr) {
 	char buf[48] = {0};
 	char *rgb = {0};
 	int i = (int)c;
+	int n = 0;
 	if (c == TermColorDefault) {
 		return;
 	}
 	if (i >= 8 && i < 16) {
 		/* bright ANSI 90–97 / 100–107 */
-		snprintf(buf, sizeof(buf), ";%d", base_sgr + 60 + (i - 8));
-		term_write_cstr(buf);
+		n = snprintf(buf, sizeof(buf), ";%d", base_sgr + 60 + (i - 8));
+		if (n > 0) {
+			if ((size_t)n >= sizeof(buf)) {
+				n = (int)sizeof(buf) - 1;
+			}
+			term_write(buf, (size_t)n);
+		}
 		return;
 	}
 	rgb = color_rgb_cstr(c);
 	if (rgb == NULL) {
 		return;
 	}
-	/* 38;2;r;g;b / 48;2;r;g;b */
-	snprintf(buf, sizeof(buf), ";%d;2;%s", base_sgr + 8, rgb);
-	term_write_cstr(buf);
+	/* 38;2;r;g;b / 48;2;r;g;b — use snprintf length, not char[N]→char[..] capacity. */
+	n = snprintf(buf, sizeof(buf), ";%d;2;%s", base_sgr + 8, rgb);
+	if (n > 0) {
+		if ((size_t)n >= sizeof(buf)) {
+			n = (int)sizeof(buf) - 1;
+		}
+		term_write(buf, (size_t)n);
+	}
 }
 
 void emit_sgr(TextStyle style) {
@@ -958,9 +969,9 @@ void display_update(void) {
 	}
 
 	if (minibuffer_active()) {
-		char line[1024] = {0};
-		minibuffer_format(line, sizeof(line));
-		snprintf(g_echo, sizeof(g_echo), "%s", line);
+		char mb_line[1024] = {0};
+		minibuffer_format(mb_line, sizeof(mb_line));
+		snprintf(g_echo, sizeof(g_echo), "%s", mb_line);
 	}
 	paint_echo(g_screen.rows - 1);
 
