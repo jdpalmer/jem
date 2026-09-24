@@ -63,6 +63,11 @@ enum AskStringKind {
 	AskInsertRegister = 8
 };
 
+enum AskYesNoKind {
+	AskYesQuit = 0,
+	AskYesRevert = 1
+};
+
 struct Listener {
 	ListenerKind kind;
 	int universal_n;
@@ -1832,10 +1837,49 @@ bool cmd_quit(bool f, int n) {
 	(void)n;
 	if (!f && any_unsaved()) {
 		push_listener(ListenerAskYesNo);
+		{
+			Listener *L = top_listener();
+			if (L != NULL) {
+				L.ask_phase = AskYesQuit;
+			}
+		}
 		minibuffer_begin("Quit with unsaved buffers? (y/n) ", 1);
 		return true;
 	}
 	g_app.running = false;
+	return true;
+}
+
+bool cmd_revert_file(bool f, int n) {
+	Window *w = window_current();
+	Buffer *buf = buffer_current();
+	int line = 1;
+	(void)f;
+	(void)n;
+	if (buf == NULL || len(buf.file_name) == 0) {
+		display_set_echo("[no file associated with buffer]");
+		return false;
+	}
+	if (w != NULL) {
+		line = w.cursor.line;
+	}
+	if (buf.is_changed) {
+		push_listener(ListenerAskYesNo);
+		{
+			Listener *L = top_listener();
+			if (L != NULL) {
+				L.ask_phase = AskYesRevert;
+				snprintf(L.ask_buf, sizeof(L.ask_buf), "%d", line);
+			}
+		}
+		minibuffer_begin("Buffer modified; revert anyway? (y/n) ", 1);
+		return true;
+	}
+	if (!file_reload_current(line)) {
+		display_set_echo("[revert failed]");
+		return false;
+	}
+	display_set_echo("[Reverted]");
 	return true;
 }
 
@@ -2004,6 +2048,7 @@ static void init_commands() {
 	reg_cmd("find-file", cmd_find_file);
 	reg_cmd("write-file", cmd_write_file);
 	reg_cmd("read-file", cmd_read_file);
+	reg_cmd("revert-buffer", cmd_revert_file);
 	reg_cmd("goto-line", cmd_goto_line);
 	reg_cmd("grep", cmd_grep);
 	reg_cmd("compile", cmd_compile);
@@ -2297,17 +2342,52 @@ static bool handle_listener_key(uint32_t key) {
 			display_set_echo("Quit");
 			return true;
 		}
+		if (L.kind == ListenerAskString &&
+			(key == term_key_value(TermKeyTab) || key == (uint32_t)'\t') &&
+			minibuffer_kind() == 2) {
+			char tmp[1024] = {0};
+			char *raw = minibuffer_text();
+			if (raw != NULL) {
+				snprintf(tmp, sizeof(tmp), "%s", raw);
+			}
+			if (file_complete_path(tmp, sizeof(tmp))) {
+				minibuffer_set_text(str_from_cstr(tmp));
+			} else {
+				term_beep();
+			}
+			return true;
+		}
 		if (L.kind == ListenerAskYesNo) {
+			int phase = L.ask_phase;
+			char linebuf[32] = {0};
+			snprintf(linebuf, sizeof(linebuf), "%s", L.ask_buf);
 			if (key == 'y' || key == 'Y') {
 				minibuffer_cancel();
 				pop_listener();
-				g_app.running = false;
+				if (phase == (int)AskYesQuit) {
+					g_app.running = false;
+					return true;
+				}
+				if (phase == (int)AskYesRevert) {
+					int line = 1;
+					(void)parse_positive_line(linebuf, &line);
+					if (!file_reload_current(line)) {
+						display_set_echo("[revert failed]");
+					} else {
+						display_set_echo("[Reverted]");
+					}
+					return true;
+				}
 				return true;
 			}
 			if (key == 'n' || key == 'N') {
 				minibuffer_cancel();
 				pop_listener();
-				display_set_echo("");
+				if (phase == (int)AskYesRevert) {
+					display_set_echo("[not reverted]");
+				} else {
+					display_set_echo("");
+				}
 				return true;
 			}
 			return true;
@@ -2571,6 +2651,9 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (key == (term_key_value(TermCTL) | (uint32_t)'R') || key == (uint32_t)'r') {
 			return execute(cmd_read_file, f, n);
+		}
+		if (key == (term_key_value(TermCTL) | (uint32_t)'V') || key == (uint32_t)'v') {
+			return execute(cmd_revert_file, f, n);
 		}
 		if (key == (term_key_value(TermCTL) | (uint32_t)'K') || key == (uint32_t)'k') {
 			return execute(cmd_kill_buffer, f, n);

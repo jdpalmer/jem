@@ -398,3 +398,224 @@ bool file_read_into_current(char *path) {
 	display_set_echo("Reading file");
 	return true;
 }
+
+// file_reload_current reloads the buffer's on-disk file and restores line (1-based).
+bool file_reload_current(int line_number) {
+	Buffer *buf = buffer_current();
+	Window *w = window_current();
+	char path[FilePathMax] = {0};
+	Location loc = {0};
+	Line *bline = NULL;
+
+	if (buf == NULL || len(buf.file_name) == 0) {
+		return false;
+	}
+	{
+		int n = snprintf(path, sizeof(path), "%s", buf.file_name);
+		if (n < 0 || (size_t)n >= sizeof(path)) {
+			return false;
+		}
+	}
+	if (!file_read_into_current(path)) {
+		return false;
+	}
+	if (w == NULL || w.buffer == NULL) {
+		return true;
+	}
+	if (line_number < 1) {
+		line_number = 1;
+	}
+	if (line_number > w.buffer.line_count_i()) {
+		line_number = w.buffer.line_count_i();
+	}
+	if (line_number < 1) {
+		line_number = 1;
+	}
+	bline = w.buffer.line(line_number);
+	loc.line = line_number;
+	loc.offset = 0;
+	(void)bline;
+	w.set_cursor(loc);
+	w.ensure_visible();
+	w.should_redraw = true;
+	w.should_update_mode_line = true;
+	return true;
+}
+
+static void file_path_split(char *path, char *dir, size_t dircap, char *base, size_t basecap) {
+	size_t n = 0;
+	size_t i = 0;
+	size_t last = 0;
+	bool have_sep = false;
+
+	if (dir != NULL && dircap > 0) {
+		dir[0] = 0;
+	}
+	if (base != NULL && basecap > 0) {
+		base[0] = 0;
+	}
+	if (path == NULL) {
+		return;
+	}
+	n = strlen(path);
+	for (i = 0; i < n; i++) {
+		if (path[i] == '/') {
+			last = i;
+			have_sep = true;
+		}
+	}
+	if (!have_sep) {
+		if (base != NULL && basecap > 0) {
+			snprintf(base, basecap, "%s", path);
+		}
+		return;
+	}
+	if (dir != NULL && dircap > 0) {
+		size_t dlen = last + 1;
+		if (dlen >= dircap) {
+			dlen = dircap - 1;
+		}
+		memcpy(dir, path, dlen);
+		dir[dlen] = 0;
+	}
+	if (base != NULL && basecap > 0) {
+		snprintf(base, basecap, "%s", path + last + 1);
+	}
+}
+
+static bool file_entry_is_dir(char *dir, char *name) {
+	char joined[FilePathMax] = {0};
+	char[..] jv = str_empty();
+	char[..] dv = str_empty();
+	char[..] nv = str_empty();
+
+	if (name == NULL || name[0] == 0) {
+		return false;
+	}
+	dv = str_from_cstr(dir != NULL && dir[0] != 0 ? dir : ".");
+	nv = str_from_cstr(name);
+	{
+		auto (view, ok) = path_join(ranged(joined, 0, sizeof(joined)), dv, nv);
+		if (!ok) {
+			return false;
+		}
+		jv = view;
+	}
+	{
+		auto (info, ok) = fs_stat(jv);
+		if (!ok) {
+			return false;
+		}
+		return info.kind == KindDir;
+	}
+}
+
+// file_complete_path mutates buf in place with longest common filename prefix.
+// Returns true when the text changed. Used by Tab in find/write/read-file prompts.
+bool file_complete_path(char *buf, size_t cap) {
+	char typed[FilePathMax] = {0};
+	char tdir[FilePathMax] = {0};
+	char tprefix[FilePathMax] = {0};
+	char edir[FilePathMax] = {0};
+	char eprefix[FilePathMax] = {0};
+	char common[FilePathMax] = {0};
+	char newbuf[FilePathMax] = {0};
+	char dir_for_open[FilePathMax] = {0};
+	int match_count = 0;
+	bool match_is_dir = false;
+	size_t prefix_len = 0;
+	Dir d = {0};
+	bool dok = false;
+
+	if (buf == NULL || cap < 2) {
+		return false;
+	}
+	snprintf(typed, sizeof(typed), "%s", buf);
+	if (strcmp(typed, "~") == 0) {
+		snprintf(buf, cap, "~/");
+		return true;
+	}
+	file_path_split(typed, tdir, sizeof(tdir), tprefix, sizeof(tprefix));
+	if (tdir[0] == 0) {
+		snprintf(dir_for_open, sizeof(dir_for_open), ".");
+	} else if (!file_resolve_path(dir_for_open, sizeof(dir_for_open), tdir)) {
+		snprintf(dir_for_open, sizeof(dir_for_open), "%s", tdir);
+	}
+	{
+		size_t dl = strlen(dir_for_open);
+		if (dl > 1 && dir_for_open[dl - 1] == '/') {
+			dir_for_open[dl - 1] = 0;
+		}
+	}
+	snprintf(edir, sizeof(edir), "%s", dir_for_open);
+	snprintf(eprefix, sizeof(eprefix), "%s", tprefix);
+	prefix_len = strlen(eprefix);
+	{
+		auto (opened, ok) = dir_open(str_from_cstr(edir));
+		d = opened;
+		dok = ok;
+	}
+	if (!dok) {
+		return false;
+	}
+	for (;;) {
+		auto (namev, nok) = d.next();
+		char name[FilePathMax] = {0};
+		size_t nl = 0;
+		if (!nok) {
+			d.close();
+			return false;
+		}
+		if (len(namev) == 0) {
+			break;
+		}
+		nl = len(namev);
+		if (nl >= sizeof(name)) {
+			nl = sizeof(name) - 1;
+		}
+		memcpy(name, ptr(namev), nl);
+		name[nl] = 0;
+		if (prefix_len == 0 && name[0] == '.') {
+			continue;
+		}
+		if (strncmp(name, eprefix, prefix_len) != 0) {
+			continue;
+		}
+		if (match_count == 0) {
+			snprintf(common, sizeof(common), "%s", name);
+			match_is_dir = file_entry_is_dir(edir, name);
+		} else {
+			size_t i = 0;
+			while (common[i] != 0 && name[i] != 0 && common[i] == name[i]) {
+				i++;
+			}
+			common[i] = 0;
+			match_is_dir = false;
+		}
+		match_count++;
+	}
+	d.close();
+	if (match_count == 0 || common[0] == 0) {
+		return false;
+	}
+	if (tdir[0] != 0) {
+		snprintf(newbuf, sizeof(newbuf), "%s%s", tdir, common);
+	} else {
+		snprintf(newbuf, sizeof(newbuf), "%s", common);
+	}
+	if (match_count == 1 && match_is_dir) {
+		size_t nl = strlen(newbuf);
+		if (nl + 1 < sizeof(newbuf) && (nl == 0 || newbuf[nl - 1] != '/')) {
+			newbuf[nl] = '/';
+			newbuf[nl + 1] = 0;
+		}
+	}
+	if (strlen(newbuf) >= cap) {
+		return false;
+	}
+	if (strcmp(buf, newbuf) == 0) {
+		return false;
+	}
+	snprintf(buf, cap, "%s", newbuf);
+	return true;
+}

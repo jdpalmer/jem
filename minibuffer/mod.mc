@@ -77,6 +77,10 @@ char *minibuffer_text() {
 	return g_mb.text;
 }
 
+int minibuffer_kind() {
+	return g_mb.kind;
+}
+
 bool minibuffer_insert(uint32_t ch) {
 	char utf[8] = {0};
 	int n = 0;
