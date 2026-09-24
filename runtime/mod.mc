@@ -58,7 +58,9 @@ enum AskStringKind {
 	AskGotoLine = 3,
 	AskGrep = 4,
 	AskCompile = 5,
-	AskGotoTag = 6
+	AskGotoTag = 6,
+	AskCopyRegister = 7,
+	AskInsertRegister = 8
 };
 
 struct Listener {
@@ -1102,18 +1104,90 @@ bool cmd_set_mark(bool f, int n) {
 	return true;
 }
 
+bool cmd_mark_push(bool f, int n) {
+	Window *w = window_current();
+	(void)f;
+	(void)n;
+	if (w == NULL) {
+		return true;
+	}
+	markring_push(w.cursor);
+	display_set_echo("[mark pushed]");
+	return true;
+}
+
+bool cmd_mark_pop(bool f, int n) {
+	Window *w = window_current();
+	Location loc = {0};
+	bool ok = false;
+	(void)f;
+	(void)n;
+	if (w == NULL) {
+		return false;
+	}
+	auto (popped, pop_ok) = markring_pop();
+	ok = pop_ok;
+	loc = popped;
+	if (!ok) {
+		display_set_echo("[no saved mark]");
+		return false;
+	}
+	w.set_cursor(loc);
+	w.mark = loc;
+	w.ensure_visible();
+	w.should_redraw = true;
+	w.should_update_mode_line = true;
+	display_set_echo("[mark popped]");
+	return true;
+}
+
 bool cmd_exchange_point_and_mark(bool f, int n) {
 	Window *w = window_current();
 	Location t = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.mark.line == 0) {
-		return true;
+		display_set_echo("[no mark in this window]");
+		return false;
 	}
 	t = w.cursor;
 	w.set_cursor(w.mark);
 	w.mark = t;
+	w.ensure_visible();
 	w.should_redraw = true;
+	return true;
+}
+
+bool cmd_copy_register(bool f, int n) {
+	Window *w = window_current();
+	(void)f;
+	(void)n;
+	if (w == NULL || w.mark.line == 0) {
+		display_set_echo("No mark set");
+		return false;
+	}
+	push_listener(ListenerAskString);
+	{
+		Listener *L = top_listener();
+		if (L != NULL) {
+			L.ask_phase = AskCopyRegister;
+		}
+	}
+	minibuffer_begin("Register Name: ", 0);
+	return true;
+}
+
+bool cmd_insert_register(bool f, int n) {
+	(void)f;
+	(void)n;
+	push_listener(ListenerAskString);
+	{
+		Listener *L = top_listener();
+		if (L != NULL) {
+			L.ask_phase = AskInsertRegister;
+		}
+	}
+	minibuffer_begin("Register Name: ", 0);
 	return true;
 }
 
@@ -1908,7 +1982,11 @@ static void init_commands() {
 	reg_cmd("delete-word-forward", cmd_delete_word_forward);
 	reg_cmd("delete-word-backward", cmd_delete_word_backward);
 	reg_cmd("set-mark-command", cmd_set_mark);
+	reg_cmd("push-mark", cmd_mark_push);
+	reg_cmd("pop-mark", cmd_mark_pop);
 	reg_cmd("exchange-point-and-mark", cmd_exchange_point_and_mark);
+	reg_cmd("copy-to-register", cmd_copy_register);
+	reg_cmd("insert-register", cmd_insert_register);
 	reg_cmd("mark-whole-buffer", cmd_mark_whole_buffer);
 	reg_cmd("kill-region", cmd_kill_region);
 	reg_cmd("copy-region-as-kill", cmd_copy_region);
@@ -2330,6 +2408,78 @@ static bool handle_listener_key(uint32_t key) {
 					goto_line_number(line);
 					return true;
 				}
+				if (phase == (int)AskCopyRegister) {
+					Window *rw = window_current();
+					char *text = NULL;
+					size_t tlen = 0;
+					char name = 0;
+					char msg[64] = {0};
+					char[..] view = {0};
+					if (rw == NULL || rw.mark.line == 0) {
+						display_set_echo("No mark set");
+						return true;
+					}
+					name = text_copy[0];
+					if (name == 0) {
+						display_set_echo("[register name required]");
+						return true;
+					}
+					text = region_text(rw, rw.mark, rw.cursor, &tlen);
+					if (text == NULL && tlen > 0) {
+						display_set_echo("[out of memory]");
+						return true;
+					}
+					if (text != NULL) {
+						view = ranged(text, tlen);
+					} else {
+						view = str_empty();
+					}
+					if (!register_set(name, view)) {
+						free(text);
+						display_set_echo("[invalid register]");
+						return true;
+					}
+					free(text);
+					rw.mark.line = 0;
+					rw.mark.offset = 0;
+					rw.should_redraw = true;
+					snprintf(msg, sizeof(msg), "Register '%c' copied.", name);
+					display_set_echo(msg);
+					return true;
+				}
+				if (phase == (int)AskInsertRegister) {
+					Window *rw = window_current();
+					char name = 0;
+					char[..] data = {0};
+					char msg[64] = {0};
+					Location at = {0};
+					name = text_copy[0];
+					if (name == 0) {
+						display_set_echo("[register name required]");
+						return true;
+					}
+					data = register_get(name);
+					if (len(data) == 0) {
+						snprintf(msg, sizeof(msg), "[register '%c' not found]", name);
+						display_set_echo(msg);
+						return true;
+					}
+					if (rw == NULL) {
+						return true;
+					}
+					at = rw.cursor;
+					buffer_undo.begin_command(rw.buffer, at);
+					if (!rw.set_text(at, at, ptr(data), len(data))) {
+						buffer_undo.end_command();
+						display_set_echo("[insert failed]");
+						return true;
+					}
+					buffer_undo.record_edit(UndoInsert, at.line, at.offset, ptr(data), len(data));
+					buffer_undo.end_command();
+					snprintf(msg, sizeof(msg), "Register '%c' inserted.", name);
+					display_set_echo(msg);
+					return true;
+				}
 				return true;
 			}
 			if (kind == ListenerReplace) {
@@ -2454,6 +2604,26 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (key == (uint32_t)'t' || key == (uint32_t)'T') {
 			return execute(cmd_toggle_theme, f, n);
+		}
+		/* C-x C-x — exchange point and mark */
+		if (key == (term_key_value(TermCTL) | (uint32_t)'X') || key == (term_key_value(TermCTL) | (uint32_t)'x')) {
+			return execute(cmd_exchange_point_and_mark, f, n);
+		}
+		/* C-x C-SPC — pop mark */
+		if (key == (term_key_value(TermCTL) | (uint32_t)' ')) {
+			return execute(cmd_mark_pop, f, n);
+		}
+		/* C-x SPC — push mark */
+		if (key == (uint32_t)' ') {
+			return execute(cmd_mark_push, f, n);
+		}
+		/* C-x x — copy region to register */
+		if (key == (uint32_t)'x' || key == (uint32_t)'X') {
+			return execute(cmd_copy_register, f, n);
+		}
+		/* C-x g — insert register */
+		if (key == (uint32_t)'g' || key == (uint32_t)'G') {
+			return execute(cmd_insert_register, f, n);
 		}
 		(void)combined;
 		(void)fn;
