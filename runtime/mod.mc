@@ -1630,7 +1630,7 @@ bool cmd_other_window(bool f, int n) {
 bool cmd_isearch_forward(bool f, int n) {
 	(void)f;
 	(void)n;
-	search_begin(true);
+	search_begin(true, false);
 	push_listener(ListenerIsearch);
 	display_set_echo("I-search: ");
 	return true;
@@ -1639,9 +1639,27 @@ bool cmd_isearch_forward(bool f, int n) {
 bool cmd_isearch_backward(bool f, int n) {
 	(void)f;
 	(void)n;
-	search_begin(false);
+	search_begin(false, false);
 	push_listener(ListenerIsearch);
 	display_set_echo("I-search backward: ");
+	return true;
+}
+
+bool cmd_isearch_re_forward(bool f, int n) {
+	(void)f;
+	(void)n;
+	search_begin(true, true);
+	push_listener(ListenerIsearch);
+	display_set_echo("RE I-search: ");
+	return true;
+}
+
+bool cmd_isearch_re_backward(bool f, int n) {
+	(void)f;
+	(void)n;
+	search_begin(false, true);
+	push_listener(ListenerIsearch);
+	display_set_echo("RE I-search backward: ");
 	return true;
 }
 
@@ -1657,6 +1675,21 @@ bool cmd_query_replace(bool f, int n) {
 		}
 	}
 	minibuffer_begin("Query replace: ", 0);
+	return true;
+}
+
+bool cmd_query_re_replace(bool f, int n) {
+	(void)f;
+	(void)n;
+	search_begin_replace_re();
+	push_listener(ListenerReplace);
+	{
+		Listener *L = top_listener();
+		if (L != NULL) {
+			L.ask_phase = 0;
+		}
+	}
+	minibuffer_begin("Query re-replace: ", 0);
 	return true;
 }
 
@@ -1909,7 +1942,10 @@ static void init_commands() {
 	reg_cmd("other-window", cmd_other_window);
 	reg_cmd("isearch-forward", cmd_isearch_forward);
 	reg_cmd("isearch-backward", cmd_isearch_backward);
+	reg_cmd("isearch-re-forward", cmd_isearch_re_forward);
+	reg_cmd("isearch-re-backward", cmd_isearch_re_backward);
 	reg_cmd("query-replace", cmd_query_replace);
+	reg_cmd("query-re-replace", cmd_query_re_replace);
 	reg_cmd("toggle-theme", cmd_toggle_theme);
 	reg_cmd("start-kbd-macro", cmd_start_macro);
 	reg_cmd("end-kbd-macro", cmd_end_macro);
@@ -1972,6 +2008,8 @@ static void init_commands() {
 	bind_key(term_key_value(TermCTL) | (uint32_t)'L', cmd_refresh);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_forward);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_backward);
+	bind_key(term_key_value(TermMETA) | term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_re_forward);
+	bind_key(term_key_value(TermMETA) | term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_re_backward);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'U', cmd_universal_argument);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'X', cmd_execute_extended);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'%', cmd_query_replace);
@@ -2027,27 +2065,49 @@ static bool handle_listener_key(uint32_t key) {
 		}
 	}
 	if (L.kind == ListenerIsearch) {
+		char isearch_label[32] = {0};
+		if (search_regexp()) {
+			snprintf(isearch_label, sizeof(isearch_label), "RE I-search");
+		} else {
+			snprintf(isearch_label, sizeof(isearch_label), "I-search");
+		}
 		if (key == (term_key_value(TermCTL) | (uint32_t)'G') || key == 27) {
 			search_end();
 			pop_listener();
 			display_set_echo("");
 			return true;
 		}
-		if (key == (term_key_value(TermCTL) | (uint32_t)'S')) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'S') ||
+			key == (term_key_value(TermMETA) | term_key_value(TermCTL) | (uint32_t)'S')) {
 			search_next();
+			if (search_last_error()[0] != 0) {
+				char err[80] = {0};
+				snprintf(err, sizeof(err), "%s", search_last_error());
+				display_set_echo(err);
+			}
 			return true;
 		}
-		if (key == (term_key_value(TermCTL) | (uint32_t)'R')) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'R') ||
+			key == (term_key_value(TermMETA) | term_key_value(TermCTL) | (uint32_t)'R')) {
 			g_search_force_backward();
 			search_next();
+			if (search_last_error()[0] != 0) {
+				char err[80] = {0};
+				snprintf(err, sizeof(err), "%s", search_last_error());
+				display_set_echo(err);
+			}
 			return true;
 		}
 		if (key == (term_key_value(TermCTL) | (uint32_t)'H') || key == 127) {
 			search_backspace();
 			search_update();
-			{
+			if (search_last_error()[0] != 0) {
+				char err[80] = {0};
+				snprintf(err, sizeof(err), "%s", search_last_error());
+				display_set_echo(err);
+			} else {
 				char msg[300] = {0};
-				snprintf(msg, sizeof(msg), "I-search: %s", search_needle());
+				snprintf(msg, sizeof(msg), "%s: %s", isearch_label, search_needle());
 				display_set_echo(msg);
 			}
 			return true;
@@ -2061,9 +2121,13 @@ static bool handle_listener_key(uint32_t key) {
 		if (key >= 32 && key < 127) {
 			search_append_char(key);
 			search_update();
-			{
+			if (search_last_error()[0] != 0) {
+				char err[80] = {0};
+				snprintf(err, sizeof(err), "%s", search_last_error());
+				display_set_echo(err);
+			} else {
 				char msg[300] = {0};
-				snprintf(msg, sizeof(msg), "I-search: %s", search_needle());
+				snprintf(msg, sizeof(msg), "%s: %s", isearch_label, search_needle());
 				display_set_echo(msg);
 			}
 			return true;

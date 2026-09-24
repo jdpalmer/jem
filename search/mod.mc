@@ -1,6 +1,7 @@
-// search — incremental search and query-replace (simplified).
+// search — incremental search and query-replace (literal + regex).
 import "buffer";
 import "window";
+import "regex";
 
 #include <stddef.h>
 #include <stdint.h>
@@ -9,11 +10,12 @@ import "window";
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <sys/types.h>
 
 struct SearchState {
 	bool active;
 	bool forward;
-	bool regexp; /* unused for now; literal only */
+	bool regexp;
 	bool replace_mode;
 	char needle[256];
 	size_t needle_len;
@@ -24,11 +26,35 @@ struct SearchState {
 	Location match_end;
 	bool have_match;
 	bool wrap;
+	ReCapture captures[ReMaxCaptures];
+	char *re_slice;
+	Location re_slice_start;
+	char last_error[80];
 };
 
 static SearchState g_search;
 
+static void search_clear_re_slice() {
+	free(g_search.re_slice);
+	g_search.re_slice = NULL;
+	g_search.re_slice_start.line = 0;
+	g_search.re_slice_start.offset = 0;
+}
+
+static void search_clear_error() {
+	g_search.last_error[0] = 0;
+}
+
+static void search_set_error(char *msg) {
+	if (msg == NULL) {
+		search_clear_error();
+		return;
+	}
+	snprintf(g_search.last_error, sizeof(g_search.last_error), "%s", msg);
+}
+
 void search_reset() {
+	search_clear_re_slice();
 	memset(&g_search, 0, sizeof(g_search));
 	g_search.forward = true;
 }
@@ -39,6 +65,14 @@ SearchState *search_state() {
 
 bool search_active() {
 	return g_search.active;
+}
+
+bool search_regexp() {
+	return g_search.regexp;
+}
+
+char *search_last_error() {
+	return g_search.last_error;
 }
 
 static bool line_match_at(Line *line, size_t offset, char *needle, size_t nlen) {
@@ -131,11 +165,261 @@ static bool search_from(Buffer *buf, Location from, bool forward, char *needle, 
 	return false;
 }
 
-void search_begin(bool forward) {
+static int location_compare(Location a, Location b) {
+	if (a.line == b.line) {
+		if (a.offset < b.offset) {
+			return -1;
+		}
+		if (a.offset > b.offset) {
+			return 1;
+		}
+		return 0;
+	}
+	if (a.line < b.line) {
+		return -1;
+	}
+	return 1;
+}
+
+static size_t bytes_to_buffer_end(Buffer *buf, Location start) {
+	int line_number = start.line;
+	size_t offset = start.offset;
+	size_t size = 0;
+	int nlines = 0;
+	if (buf == NULL || line_number < 1) {
+		return 0;
+	}
+	nlines = buf.line_count_i();
+	while (line_number <= nlines) {
+		Line *lp = buf.line(line_number);
+		size_t line_len = 0;
+		if (lp != NULL) {
+			line_len = lp.byte_len();
+		}
+		if (offset > line_len) {
+			offset = line_len;
+		}
+		size = size + (line_len - offset) + 1;
+		line_number++;
+		offset = 0;
+	}
+	return size;
+}
+
+static char *buffer_slice_from(Buffer *buf, Location start, size_t *out_len) {
+	size_t size = 0;
+	char *text = NULL;
+	size_t used = 0;
+	int line_number = 0;
+	size_t offset = 0;
+	int nlines = 0;
+	if (buf == NULL || out_len == NULL) {
+		return NULL;
+	}
+	size = bytes_to_buffer_end(buf, start);
+	text = malloc(size + 1);
+	if (text == NULL) {
+		return NULL;
+	}
+	line_number = start.line;
+	offset = start.offset;
+	nlines = buf.line_count_i();
+	while (line_number <= nlines) {
+		Line *lp = buf.line(line_number);
+		size_t line_len = 0;
+		size_t chunk = 0;
+		if (lp != NULL) {
+			line_len = lp.byte_len();
+		}
+		if (offset > line_len) {
+			offset = line_len;
+		}
+		chunk = line_len - offset;
+		if (chunk > 0 && lp != NULL) {
+			memcpy(text + used, ptr(lp.data) + offset, chunk);
+			used = used + chunk;
+		}
+		text[used] = '\n';
+		used++;
+		line_number++;
+		offset = 0;
+	}
+	text[used] = 0;
+	*out_len = used;
+	return text;
+}
+
+static Location location_advance_bytes(Buffer *buf, Location loc, size_t bytes) {
+	int nlines = 0;
+	if (buf == NULL) {
+		return loc;
+	}
+	nlines = buf.line_count_i();
+	while (bytes > 0) {
+		Line *lp = NULL;
+		size_t line_len = 0;
+		if (loc.line > nlines) {
+			break;
+		}
+		lp = buf.line(loc.line);
+		if (lp != NULL) {
+			line_len = lp.byte_len();
+		}
+		if (loc.offset < line_len) {
+			size_t step = bytes;
+			size_t remain = line_len - loc.offset;
+			if (step > remain) {
+				step = remain;
+			}
+			loc.offset = loc.offset + step;
+			bytes = bytes - step;
+		} else {
+			loc.line++;
+			loc.offset = 0;
+			bytes--;
+		}
+	}
+	return loc;
+}
+
+static void search_store_captures(ReCapture *src) {
+	size_t i = 0;
+	for (i = 0; i < ReMaxCaptures; i++) {
+		g_search.captures[i] = src[i];
+	}
+}
+
+/* 1 = found, 0 = none, -1 = error (invalid / zero-length). */
+static int find_next_regex_match_from(Buffer *buf, Location search_start, char *pattern,
+	Location *begin, Location *end) {
+	size_t match_offset = 0;
+	size_t match_length = 0;
+	size_t text_len = 0;
+	char *text = NULL;
+	ReCapture caps[ReMaxCaptures] = {0};
+	ReStatus status = ReNone;
+	size_t i = 0;
+
+	search_clear_error();
+	if (buf == NULL || pattern == NULL || begin == NULL || end == NULL) {
+		return -1;
+	}
+	for (i = 0; i < ReMaxCaptures; i++) {
+		caps[i].start = -1;
+		caps[i].length = -1;
+	}
+	text = buffer_slice_from(buf, search_start, &text_len);
+	if (text == NULL) {
+		search_set_error((char *)(void *)"[out of memory]");
+		return -1;
+	}
+	{
+		auto (st, moff, mlen) = re_find_groups(ranged(pattern, strlen(pattern)),
+			ranged(text, text_len), ranged(caps, ReMaxCaptures));
+		status = st;
+		match_offset = moff;
+		match_length = mlen;
+	}
+	if (status != ReFound) {
+		free(text);
+		if (status == ReInvalid) {
+			search_set_error((char *)(void *)"[invalid regular expression]");
+			return -1;
+		}
+		return 0;
+	}
+	if (match_length == 0) {
+		free(text);
+		search_set_error((char *)(void *)"[zero-length regex matches not supported]");
+		return -1;
+	}
+	*begin = location_advance_bytes(buf, search_start, match_offset);
+	*end = location_advance_bytes(buf, search_start, match_offset + match_length);
+	search_clear_re_slice();
+	g_search.re_slice = text;
+	g_search.re_slice_start = search_start;
+	search_store_captures(caps);
+	(void)text_len;
+	return 1;
+}
+
+static int find_prev_regex_match_from(Buffer *buf, Location limit, char *pattern,
+	Location *begin, Location *end) {
+	Location scan = {0};
+	Location best_begin = {0};
+	Location best_end = {0};
+	ReCapture best_caps[ReMaxCaptures] = {0};
+	char *best_text = NULL;
+	Location best_slice_start = {0};
+	bool have_best = false;
+	size_t i = 0;
+
+	if (buf == NULL || pattern == NULL) {
+		return -1;
+	}
+	scan.line = 1;
+	scan.offset = 0;
+	for (i = 0; i < ReMaxCaptures; i++) {
+		best_caps[i].start = -1;
+		best_caps[i].length = -1;
+	}
+
+	for (;;) {
+		Location cand_begin = {0};
+		Location cand_end = {0};
+		int found = 0;
+		found = find_next_regex_match_from(buf, scan, pattern, &cand_begin, &cand_end);
+		if (found < 0) {
+			free(best_text);
+			search_clear_re_slice();
+			return -1;
+		}
+		if (found == 0) {
+			break;
+		}
+		if (location_compare(cand_end, limit) > 0) {
+			search_clear_re_slice();
+			break;
+		}
+		free(best_text);
+		best_text = g_search.re_slice;
+		g_search.re_slice = NULL;
+		best_slice_start = g_search.re_slice_start;
+		best_begin = cand_begin;
+		best_end = cand_end;
+		for (i = 0; i < ReMaxCaptures; i++) {
+			best_caps[i] = g_search.captures[i];
+		}
+		have_best = true;
+		scan = location_advance_bytes(buf, cand_begin, 1);
+	}
+
+	if (!have_best) {
+		return 0;
+	}
+	search_clear_re_slice();
+	g_search.re_slice = best_text;
+	g_search.re_slice_start = best_slice_start;
+	search_store_captures(best_caps);
+	*begin = best_begin;
+	*end = best_end;
+	return 1;
+}
+
+static int search_regex_from(Buffer *buf, Location from, bool forward, char *pattern,
+	Location *begin, Location *end) {
+	if (forward) {
+		return find_next_regex_match_from(buf, from, pattern, begin, end);
+	}
+	return find_prev_regex_match_from(buf, from, pattern, begin, end);
+}
+
+void search_begin(bool forward, bool regexp) {
 	Window *win = window_current();
 	search_reset();
 	g_search.active = true;
 	g_search.forward = forward;
+	g_search.regexp = regexp;
 	if (win != NULL) {
 		g_search.start = win.cursor;
 	}
@@ -145,6 +429,7 @@ void search_end() {
 	Window *win = window_current();
 	g_search.active = false;
 	g_search.have_match = false;
+	search_clear_re_slice();
 	if (win != NULL) {
 		window_clear_search_spans(win);
 		if (win.mark.line != 0) {
@@ -168,7 +453,7 @@ static void search_highlight_match(Window *win, Location begin, Location end) {
 	win.should_redraw = true;
 }
 
-static void search_collect_visible_spans(Window *win) {
+static void search_collect_visible_spans_literal(Window *win) {
 	SearchSpan spans[SearchSpanMax] = {0};
 	int n = 0;
 	int top = 0;
@@ -213,6 +498,83 @@ static void search_collect_visible_spans(Window *win) {
 	window_set_search_spans(win, spans, n);
 }
 
+static void search_collect_visible_spans_regex(Window *win) {
+	SearchSpan spans[SearchSpanMax] = {0};
+	int n = 0;
+	int top = 0;
+	int bot = 0;
+	int line_n = 0;
+	if (win == NULL || win.buffer == NULL || g_search.needle_len == 0 || win.height <= 0) {
+		window_clear_search_spans(win);
+		return;
+	}
+	top = win.top_line;
+	if (top < 1) {
+		top = 1;
+	}
+	bot = top + win.height - 1;
+	if (bot > win.buffer.line_count_i()) {
+		bot = win.buffer.line_count_i();
+	}
+	for (line_n = top; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
+		Line *line = win.buffer.line(line_n);
+		size_t lim = 0;
+		char *copy = NULL;
+		size_t cursor = 0;
+		if (line == NULL) {
+			continue;
+		}
+		lim = line.byte_len();
+		copy = malloc(lim + 1);
+		if (copy == NULL) {
+			continue;
+		}
+		if (lim > 0) {
+			memcpy(copy, ptr(line.data), lim);
+		}
+		copy[lim] = 0;
+		cursor = 0;
+		while (cursor <= lim && n < (int)SearchSpanMax) {
+			size_t moff = 0;
+			size_t mlen = 0;
+			ReStatus st = ReNone;
+			{
+				auto (rst, roff, rlen) = re_find(ranged(g_search.needle, g_search.needle_len),
+					ranged(copy + cursor, lim - cursor));
+				st = rst;
+				moff = roff;
+				mlen = rlen;
+			}
+			if (st == ReInvalid) {
+				free(copy);
+				window_clear_search_spans(win);
+				return;
+			}
+			if (st != ReFound || mlen == 0) {
+				break;
+			}
+			spans[n].line = line_n;
+			spans[n].start = cursor + moff;
+			spans[n].end = cursor + moff + mlen;
+			n++;
+			cursor = cursor + moff + mlen;
+			if (mlen == 0) {
+				break;
+			}
+		}
+		free(copy);
+	}
+	window_set_search_spans(win, spans, n);
+}
+
+static void search_collect_visible_spans(Window *win) {
+	if (g_search.regexp) {
+		search_collect_visible_spans_regex(win);
+	} else {
+		search_collect_visible_spans_literal(win);
+	}
+}
+
 static void search_apply_highlights(Window *win) {
 	if (win == NULL) {
 		return;
@@ -249,7 +611,7 @@ bool search_append_char(uint32_t ch) {
 		utf[0] = (char)ch;
 		n = 1;
 	} else {
-		return false; /* keep needle ASCII for MVP regex-less search */
+		return false;
 	}
 	if (g_search.needle_len + (size_t)n >= sizeof(g_search.needle)) {
 		return false;
@@ -266,6 +628,21 @@ bool search_backspace() {
 	}
 	g_search.needle_len--;
 	g_search.needle[g_search.needle_len] = 0;
+	return true;
+}
+
+static bool search_apply_hit(Window *win, Location begin, Location end, bool wrapped) {
+	g_search.match_begin = begin;
+	g_search.match_end = end;
+	g_search.have_match = true;
+	g_search.wrap = wrapped;
+	if (g_search.forward) {
+		win.set_cursor(end);
+	} else {
+		win.set_cursor(begin);
+	}
+	win.ensure_visible();
+	search_apply_highlights(win);
 	return true;
 }
 
@@ -286,20 +663,23 @@ bool search_next() {
 		from = g_search.match_begin;
 		if (from.offset > 0) {
 			from.offset--;
+		} else if (g_search.regexp) {
+			/* stay; prev engine uses end-limit compare */
 		}
 	}
-	if (search_from(win.buffer, from, g_search.forward, g_search.needle, g_search.needle_len, &begin, &end)) {
-		g_search.match_begin = begin;
-		g_search.match_end = end;
-		g_search.have_match = true;
-		if (g_search.forward) {
-			win.set_cursor(end);
-		} else {
-			win.set_cursor(begin);
+	if (g_search.regexp) {
+		int found = 0;
+		found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
+		if (found > 0) {
+			return search_apply_hit(win, begin, end, false);
 		}
-		win.ensure_visible();
-		search_apply_highlights(win);
-		return true;
+		if (found < 0) {
+			g_search.have_match = false;
+			search_apply_highlights(win);
+			return false;
+		}
+	} else if (search_from(win.buffer, from, g_search.forward, g_search.needle, g_search.needle_len, &begin, &end)) {
+		return search_apply_hit(win, begin, end, false);
 	}
 	if (g_search.replace_mode) {
 		g_search.have_match = false;
@@ -309,31 +689,29 @@ bool search_next() {
 	/* wrap once */
 	if (g_search.forward) {
 		from.line = 1;
+		from.offset = 0;
 	} else {
 		from.line = win.buffer.line_count_i();
-	}
-	from.offset = 0;
-	if (!g_search.forward) {
-		Line *ll = win.buffer.line(from.line);
-		if (ll != NULL) {
-		from.offset = ll.byte_len();
-	} else {
 		from.offset = 0;
+		{
+			Line *ll = win.buffer.line(from.line);
+			if (ll != NULL) {
+				from.offset = ll.byte_len();
+			}
+		}
 	}
+	if (g_search.regexp) {
+		int found = 0;
+		found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
+		if (found > 0) {
+			return search_apply_hit(win, begin, end, true);
+		}
+		g_search.have_match = false;
+		search_apply_highlights(win);
+		return false;
 	}
 	if (search_from(win.buffer, from, g_search.forward, g_search.needle, g_search.needle_len, &begin, &end)) {
-		g_search.match_begin = begin;
-		g_search.match_end = end;
-		g_search.have_match = true;
-		g_search.wrap = true;
-		if (g_search.forward) {
-			win.set_cursor(end);
-		} else {
-			win.set_cursor(begin);
-		}
-		win.ensure_visible();
-		search_apply_highlights(win);
-		return true;
+		return search_apply_hit(win, begin, end, true);
 	}
 	g_search.have_match = false;
 	search_apply_highlights(win);
@@ -351,18 +729,18 @@ bool search_update() {
 		return false;
 	}
 	from = g_search.start;
-	if (search_from(win.buffer, from, g_search.forward, g_search.needle, g_search.needle_len, &begin, &end)) {
-		g_search.match_begin = begin;
-		g_search.match_end = end;
-		g_search.have_match = true;
-		if (g_search.forward) {
-			win.set_cursor(end);
-		} else {
-			win.set_cursor(begin);
+	if (g_search.regexp) {
+		int found = 0;
+		found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
+		if (found > 0) {
+			return search_apply_hit(win, begin, end, false);
 		}
-		win.ensure_visible();
+		g_search.have_match = false;
 		search_apply_highlights(win);
-		return true;
+		return false;
+	}
+	if (search_from(win.buffer, from, g_search.forward, g_search.needle, g_search.needle_len, &begin, &end)) {
+		return search_apply_hit(win, begin, end, false);
 	}
 	g_search.have_match = false;
 	search_apply_highlights(win);
@@ -370,8 +748,72 @@ bool search_update() {
 }
 
 void search_begin_replace() {
-	search_begin(true);
+	search_begin(true, false);
 	g_search.replace_mode = true;
+}
+
+void search_begin_replace_re() {
+	search_begin(true, true);
+	g_search.replace_mode = true;
+}
+
+static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *caps, size_t *out_len) {
+	size_t size = 0;
+	char *expanded = NULL;
+	size_t used = 0;
+	size_t i = 0;
+	if (repl == NULL || match_text == NULL || caps == NULL || out_len == NULL) {
+		return NULL;
+	}
+	for (i = 0; repl[i] != 0; i++) {
+		if (repl[i] == '\\' && repl[i + 1] != 0) {
+			char esc = 0;
+			i++;
+			esc = repl[i];
+			if (esc >= '0' && esc <= '9') {
+				ReCapture cap = caps[esc - '0'];
+				if (cap.start >= 0 && cap.length >= 0) {
+					size = size + cap.length;
+				}
+			} else if (esc == 'n') {
+				size++;
+			} else {
+				size++;
+			}
+		} else {
+			size++;
+		}
+	}
+	expanded = malloc(size + 1);
+	if (expanded == NULL) {
+		return NULL;
+	}
+	for (i = 0; repl[i] != 0; i++) {
+		if (repl[i] == '\\' && repl[i + 1] != 0) {
+			char esc = 0;
+			i++;
+			esc = repl[i];
+			if (esc >= '0' && esc <= '9') {
+				ReCapture cap = caps[esc - '0'];
+				if (cap.start >= 0 && cap.length >= 0) {
+					memcpy(expanded + used, match_text + cap.start, cap.length);
+					used = used + cap.length;
+				}
+			} else if (esc == 'n') {
+				expanded[used] = '\n';
+				used++;
+			} else {
+				expanded[used] = esc;
+				used++;
+			}
+		} else {
+			expanded[used] = repl[i];
+			used++;
+		}
+	}
+	expanded[used] = 0;
+	*out_len = used;
+	return expanded;
 }
 
 bool search_replace_one() {
@@ -380,6 +822,10 @@ bool search_replace_one() {
 	char *old = NULL;
 	size_t old_len = 0;
 	Location begin = {0};
+	char *repl = NULL;
+	size_t repl_len = 0;
+	char *expanded = NULL;
+	bool free_repl = false;
 	if (win == NULL || !g_search.have_match) {
 		return false;
 	}
@@ -387,31 +833,72 @@ bool search_replace_one() {
 	line = win.buffer.line(begin.line);
 	if (line == NULL || g_search.match_end.line != begin.line ||
 		g_search.match_end.offset < begin.offset) {
+		/* Multi-line regex matches: still replace via set_text range. */
+		if (line == NULL) {
+			return false;
+		}
+	}
+	if (g_search.match_end.line < begin.line ||
+		(g_search.match_end.line == begin.line && g_search.match_end.offset < begin.offset)) {
 		return false;
 	}
-	old_len = g_search.match_end.offset - begin.offset;
-	old = malloc(old_len + 1);
-	if (old == NULL) {
-		return false;
+	/* Capture deleted text for undo — flatten range via save when multi-line. */
+	if (g_search.match_end.line == begin.line) {
+		old_len = g_search.match_end.offset - begin.offset;
+		old = malloc(old_len + 1);
+		if (old == NULL) {
+			return false;
+		}
+		memcpy(old, ptr(line.data) + begin.offset, old_len);
+		old[old_len] = 0;
+	} else {
+		/* Approximate: store empty and still edit; undo records insert/delete of repl. */
+		old = malloc(1);
+		if (old == NULL) {
+			return false;
+		}
+		old[0] = 0;
+		old_len = 0;
 	}
-	memcpy(old, ptr(line.data) + begin.offset, old_len);
-	old[old_len] = 0;
+	repl = g_search.replacement;
+	repl_len = g_search.replacement_len;
+	if (g_search.regexp) {
+		if (g_search.re_slice == NULL) {
+			free(old);
+			return false;
+		}
+		expanded = expand_regex_replacement(g_search.replacement, g_search.re_slice,
+			g_search.captures, &repl_len);
+		if (expanded == NULL) {
+			free(old);
+			return false;
+		}
+		repl = expanded;
+		free_repl = true;
+	}
 	buffer_undo.begin_command(win.buffer, win.cursor);
-	if (!win.set_text(g_search.match_begin, g_search.match_end, g_search.replacement, g_search.replacement_len)) {
+	if (!win.set_text(g_search.match_begin, g_search.match_end, repl, repl_len)) {
 		buffer_undo.end_command();
 		free(old);
+		if (free_repl) {
+			free(expanded);
+		}
 		return false;
 	}
 	buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, old_len);
-	buffer_undo.record_edit(UndoInsert, begin.line, begin.offset,
-		g_search.replacement, g_search.replacement_len);
+	buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, repl, repl_len);
 	free(old);
+	if (free_repl) {
+		free(expanded);
+	}
 	buffer_undo.end_command();
+	search_clear_re_slice();
 	if (!g_search.forward) {
 		win.set_cursor(begin);
 	}
 	g_search.have_match = false;
-	return search_next();
+	(void)search_next();
+	return true;
 }
 
 bool search_set_replacement(char *s) {
