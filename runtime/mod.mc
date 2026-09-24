@@ -2043,6 +2043,8 @@ static void init_commands() {
 	reg_cmd("upcase-word", cmd_upper_word);
 	reg_cmd("capitalize-word", cmd_cap_word);
 	reg_cmd("trim-whitespace", cmd_trim_whitespace);
+	reg_cmd("comment-dwim", mode_comment_dwim);
+	reg_cmd("fill-paragraph", mode_fill_paragraph);
 	reg_cmd("recenter", cmd_refresh);
 	reg_cmd("save-buffer", cmd_save_buffer);
 	reg_cmd("find-file", cmd_find_file);
@@ -2128,6 +2130,8 @@ static void init_commands() {
 	bind_key(term_key_value(TermMETA) | (uint32_t)'U', cmd_upper_word);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'C', cmd_cap_word);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'\\', cmd_trim_whitespace);
+	bind_key(term_key_value(TermMETA) | (uint32_t)';', mode_comment_dwim);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'Q', mode_fill_paragraph);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'L', cmd_refresh);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_forward);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_backward);

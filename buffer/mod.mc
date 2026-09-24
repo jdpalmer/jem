@@ -359,6 +359,7 @@ Buffer *buffer_new() {
 	buf.eol_mode = EModeLF;
 	buf.lang_mode = LModeNone;
 	buf.indent.width = 2;
+	buf.fill_col = 80;
 	buf.cursor.line = 1;
 	buf.cursor.offset = 0;
 	buf.mark.line = 0;

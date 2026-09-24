@@ -1,0 +1,160 @@
+import "mode";
+import "buffer";
+import "window";
+
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void check(bool value) {
+	if (!value) {
+		abort();
+	}
+}
+
+static void expect_text(Buffer *buf, const char *want) {
+	auto (saved, saved_len, saved_ok) = buf.save_bytes();
+	check(saved_ok);
+	check(saved_len == strlen(want));
+	check(memcmp(saved, want, saved_len) == 0);
+	free(saved);
+}
+
+static void test_comment_dwim_line() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf != NULL);
+	buf.lang_mode = LModeGo;
+	check(buf.load_bytes("\tx := 1", strlen("\tx := 1"), EModeLF));
+	win = window_create();
+	check(win != NULL);
+	window_select(win);
+	loc.line = 1;
+	loc.offset = 1;
+	win.set_cursor(loc);
+	win.mark.line = 0;
+	win.mark.offset = 0;
+
+	check(mode_comment_dwim(false, 1));
+	expect_text(buf, "\t// x := 1");
+	check(mode_comment_dwim(false, 1));
+	expect_text(buf, "\tx := 1");
+}
+
+static void test_comment_dwim_python() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+
+	buffer_list_init();
+	buf = buffer_current();
+	buf.lang_mode = LModePython;
+	check(buf.load_bytes("    x = 1", strlen("    x = 1"), EModeLF));
+	win = window_create();
+	window_select(win);
+	loc.line = 1;
+	loc.offset = 4;
+	win.set_cursor(loc);
+	win.mark.line = 0;
+
+	check(mode_comment_dwim(false, 1));
+	expect_text(buf, "    # x = 1");
+	check(mode_comment_dwim(false, 1));
+	expect_text(buf, "    x = 1");
+}
+
+static void test_comment_dwim_unsupported() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+
+	buffer_list_init();
+	buf = buffer_current();
+	buf.lang_mode = LModeCSS;
+	check(buf.load_bytes("color: red;", strlen("color: red;"), EModeLF));
+	win = window_create();
+	window_select(win);
+	loc.line = 1;
+	loc.offset = 0;
+	win.set_cursor(loc);
+	win.mark.line = 0;
+
+	check(!mode_comment_dwim(false, 1));
+	expect_text(buf, "color: red;");
+}
+
+static void test_comment_dwim_region() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+
+	buffer_list_init();
+	buf = buffer_current();
+	buf.lang_mode = LModeGo;
+	check(buf.load_bytes("a := 1\nb := 2\nc := 3", strlen("a := 1\nb := 2\nc := 3"), EModeLF));
+	win = window_create();
+	window_select(win);
+	win.mark.line = 1;
+	win.mark.offset = 0;
+	loc.line = 2;
+	loc.offset = 0;
+	win.set_cursor(loc);
+
+	check(mode_comment_dwim(false, 1));
+	expect_text(buf, "// a := 1\n// b := 2\nc := 3");
+
+	win.mark.line = 1;
+	win.mark.offset = 0;
+	loc.line = 2;
+	loc.offset = 0;
+	win.set_cursor(loc);
+	check(mode_comment_dwim(false, 1));
+	expect_text(buf, "a := 1\nb := 2\nc := 3");
+}
+
+static void test_fill_paragraph() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+	char src[] = "one two three four five six seven eight nine ten eleven twelve";
+
+	buffer_list_init();
+	buf = buffer_current();
+	buf.fill_col = 20;
+	check(buf.load_bytes(src, strlen(src), EModeLF));
+	win = window_create();
+	window_select(win);
+	loc.line = 1;
+	loc.offset = 0;
+	win.set_cursor(loc);
+
+	check(mode_fill_paragraph(false, 1));
+	check(buf.line_count_i() >= 2);
+	{
+		Line *line1 = buf.line(1);
+		check(line1 != NULL);
+		check(line1.byte_len() <= 20);
+	}
+}
+
+static void test_line_comment_prefix() {
+	check(strcmp(mode_line_comment(LModeGo), "//") == 0);
+	check(strcmp(mode_line_comment(LModePython), "#") == 0);
+	check(strcmp(mode_line_comment(LModeLisp), ";") == 0);
+	check(strcmp(mode_line_comment(LModeLua), "--") == 0);
+	check(mode_line_comment(LModeCSS)[0] == 0);
+}
+
+int main() {
+	test_line_comment_prefix();
+	test_comment_dwim_line();
+	test_comment_dwim_python();
+	test_comment_dwim_unsupported();
+	test_comment_dwim_region();
+	test_fill_paragraph();
+	return 0;
+}
