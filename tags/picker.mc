@@ -55,7 +55,7 @@ static bool tag_picker_score_before(TagPickScore a, TagPickScore b) {
 static void tag_picker_rebuild(const char *query) {
 	size_t i = 0;
 	g_tp_match_count = 0;
-	for (i = 0; i < g_tp_entries.count; i++) {
+	for (i = 0; i < len(g_tp_entries.items); i++) {
 		TagEntry *entry = g_tp_entries.items[i];
 		TagPickScore candidate = {0};
 		int pos = 0;
@@ -153,7 +153,7 @@ static void tag_picker_refresh() {
 
 bool tags_picker_open(TagList *entries, int purpose, const char[..] prompt,
 	bool with_path) {
-	if (entries == NULL || entries.count == 0) {
+	if (entries == NULL || len(entries.items) == 0) {
 		return false;
 	}
 	if (g_tp_active) {
@@ -162,9 +162,7 @@ bool tags_picker_open(TagList *entries, int purpose, const char[..] prompt,
 		minibuffer_cancel();
 	}
 	g_tp_entries = *entries;
-	entries.items = NULL;
-	entries.count = 0;
-	entries.capacity = 0;
+	entries.items = ranged((TagEntry **)0, 0);
 	g_tp_purpose = purpose;
 	g_tp_with_path = with_path;
 	g_tp_selected = 0;

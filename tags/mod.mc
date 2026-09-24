@@ -46,16 +46,12 @@ struct TagDb {
 	char path[TagPathMax];
 	char anchor[TagPathMax];
 	int64_t mtime;
-	TagEntry *entries;
-	size_t count;
-	size_t capacity;
-	TagEntry **by_name;
+	TagEntry[..] entries; /* owned heap */
+	TagEntry *[..] by_name; /* owned heap; pointers into entries */
 };
 
 struct TagList {
-	TagEntry **items;
-	size_t count;
-	size_t capacity;
+	TagEntry *[..] items; /* owned heap of TagEntry*; entries owned */
 };
 
 /* Same layout as job loc metadata: line, column, then path bytes. */
@@ -123,11 +119,11 @@ static void tag_db_free(TagDb *db) {
 	if (db == NULL) {
 		return;
 	}
-	for (auto *e : ranged(db.entries, db.count)) {
+	for (auto *e : db.entries) {
 		tag_entry_free(e);
 	}
-	free(db.entries);
-	free(db.by_name);
+	free(ptr(db.entries));
+	free(ptr(db.by_name));
 	memset(db, 0, sizeof(*db));
 }
 
@@ -135,21 +131,35 @@ void tags_invalidate() {
 	tag_db_free(&g_tags);
 }
 
+static bool tag_db_reserve(size_t need) {
+	TagEntry *grown = {0};
+	size_t ncap = 0;
+	if (need <= cap(g_tags.entries)) {
+		return true;
+	}
+	ncap = cap(g_tags.entries) != 0 ? cap(g_tags.entries) : 256;
+	while (ncap < need) {
+		ncap = ncap * 2;
+	}
+	grown = realloc(ptr(g_tags.entries), ncap * sizeof(TagEntry));
+	if (grown == NULL) {
+		return false;
+	}
+	g_tags.entries = ranged(grown, len(g_tags.entries), ncap);
+	return true;
+}
+
 static bool tag_db_append(TagEntry *e) {
-	TagEntry *grown = NULL;
+	size_t n = 0;
 	if (e == NULL) {
 		return false;
 	}
-	if (g_tags.count == g_tags.capacity) {
-		size_t ncap = g_tags.capacity == 0 ? 256 : g_tags.capacity * 2;
-		grown = realloc(g_tags.entries, ncap * sizeof(TagEntry));
-		if (grown == NULL) {
-			return false;
-		}
-		g_tags.entries = grown;
-		g_tags.capacity = ncap;
+	n = len(g_tags.entries);
+	if (!tag_db_reserve(n + 1)) {
+		return false;
 	}
-	g_tags.entries[g_tags.count++] = *e;
+	g_tags.entries = ranged(ptr(g_tags.entries), n + 1, cap(g_tags.entries));
+	g_tags.entries[n] = *e;
 	e.name = NULL;
 	e.path = NULL;
 	e.kind = NULL;
@@ -165,32 +175,46 @@ void tags_list_free(TagList *list) {
 	if (list == NULL) {
 		return;
 	}
-	for (auto e : ranged(list.items, list.count)) {
+	for (auto e : list.items) {
 		if (e != NULL) {
 			tag_entry_free(e);
 			free(e);
 		}
 	}
-	free(list.items);
-	list.items = NULL;
-	list.count = 0;
-	list.capacity = 0;
+	free(ptr(list.items));
+	list.items = ranged((TagEntry **)0, 0);
+}
+
+static bool tag_list_reserve(TagList *list, size_t need) {
+	TagEntry **grown = {0};
+	size_t ncap = 0;
+	if (list == NULL) {
+		return false;
+	}
+	if (need <= cap(list.items)) {
+		return true;
+	}
+	ncap = cap(list.items) != 0 ? cap(list.items) : 32;
+	while (ncap < need) {
+		ncap = ncap * 2;
+	}
+	grown = realloc(ptr(list.items), ncap * sizeof(TagEntry *));
+	if (grown == NULL) {
+		return false;
+	}
+	list.items = ranged(grown, len(list.items), ncap);
+	return true;
 }
 
 static bool tag_list_append(TagList *list, TagEntry *entry) {
-	TagEntry **grown = NULL;
-	TagEntry *copy = NULL;
+	TagEntry *copy = {0};
+	size_t n = 0;
 	if (list == NULL || entry == NULL) {
 		return false;
 	}
-	if (list.count == list.capacity) {
-		size_t ncap = list.capacity == 0 ? 32 : list.capacity * 2;
-		grown = realloc(list.items, ncap * sizeof(TagEntry *));
-		if (grown == NULL) {
-			return false;
-		}
-		list.items = grown;
-		list.capacity = ncap;
+	n = len(list.items);
+	if (!tag_list_reserve(list, n + 1)) {
+		return false;
 	}
 	copy = calloc(1, sizeof(TagEntry));
 	if (copy == NULL) {
@@ -215,7 +239,8 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 		free(copy);
 		return false;
 	}
-	list.items[list.count++] = copy;
+	list.items = ranged(ptr(list.items), n + 1, cap(list.items));
+	list.items[n] = copy;
 	return true;
 }
 
@@ -248,37 +273,39 @@ static int tag_entry_name_cmp(TagEntry *a, TagEntry *b) {
 
 static bool tag_db_rebuild_index() {
 	TagEntry **tmp = NULL;
+	TagEntry **indexed = NULL;
 	size_t width = 1;
 	size_t i = 0;
-	free(g_tags.by_name);
-	g_tags.by_name = NULL;
-	if (g_tags.count == 0) {
+	size_t n = len(g_tags.entries);
+	free(ptr(g_tags.by_name));
+	g_tags.by_name = ranged((TagEntry **)0, 0);
+	if (n == 0) {
 		return true;
 	}
-	g_tags.by_name = malloc(g_tags.count * sizeof(TagEntry *));
-	tmp = malloc(g_tags.count * sizeof(TagEntry *));
-	if (g_tags.by_name == NULL || tmp == NULL) {
-		free(g_tags.by_name);
+	indexed = malloc(n * sizeof(TagEntry *));
+	tmp = malloc(n * sizeof(TagEntry *));
+	if (indexed == NULL || tmp == NULL) {
+		free(indexed);
 		free(tmp);
-		g_tags.by_name = NULL;
 		return false;
 	}
-	for (i = 0; i < g_tags.count; i++) {
+	g_tags.by_name = ranged(indexed, n, n);
+	for (i = 0; i < n; i++) {
 		g_tags.by_name[i] = &g_tags.entries[i];
 	}
-	while (width < g_tags.count) {
+	while (width < n) {
 		size_t left = 0;
-		for (left = 0; left < g_tags.count; left += width * 2) {
+		for (left = 0; left < n; left += width * 2) {
 			size_t mid = left + width;
 			size_t right = left + width * 2;
 			size_t a = left;
 			size_t b = 0;
 			size_t out = left;
-			if (mid > g_tags.count) {
-				mid = g_tags.count;
+			if (mid > n) {
+				mid = n;
 			}
-			if (right > g_tags.count) {
-				right = g_tags.count;
+			if (right > n) {
+				right = n;
 			}
 			b = mid;
 			while (a < mid && b < right) {
@@ -295,10 +322,10 @@ static bool tag_db_rebuild_index() {
 				tmp[out++] = g_tags.by_name[b++];
 			}
 		}
-		for (i = 0; i < g_tags.count; i++) {
+		for (i = 0; i < n; i++) {
 			g_tags.by_name[i] = tmp[i];
 		}
-		if (width > g_tags.count / 2) {
+		if (width > n / 2) {
 			break;
 		}
 		width *= 2;
@@ -309,7 +336,7 @@ static bool tag_db_rebuild_index() {
 
 static size_t tag_index_lower_bound(char *name) {
 	size_t lo = 0;
-	size_t hi = g_tags.count;
+	size_t hi = len(g_tags.by_name);
 	while (lo < hi) {
 		size_t mid = lo + (hi - lo) / 2;
 		char *at = g_tags.by_name[mid].name;
@@ -677,7 +704,7 @@ bool tags_ensure_loaded(bool quiet) {
 		}
 		return false;
 	}
-	if (g_tags.entries != NULL && strcmp(g_tags.path, path) == 0 && strcmp(g_tags.anchor, anchor) == 0) {
+	if (g_tags.path[0] != 0 && strcmp(g_tags.path, path) == 0 && strcmp(g_tags.anchor, anchor) == 0) {
 		auto (info, sok) = fs_stat(str_from_cstr(path));
 		if (sok && info.mtime_ns == g_tags.mtime) {
 			return true;
@@ -792,7 +819,7 @@ bool tags_prefix_at_point(char *dst, size_t cap) {
 }
 
 bool tags_ready() {
-	return g_tags.path[0] != 0 && g_tags.by_name != NULL;
+	return g_tags.path[0] != 0;
 }
 
 bool tags_paths_equal(const char[..] a, const char[..] b) {
@@ -1003,7 +1030,7 @@ static void tag_list_sort_ranked(TagList *list) {
 	char scope_hint[TagNameMax] = {0};
 	size_t i = 0;
 	tag_scope_hint(scope_hint, sizeof(scope_hint));
-	for (i = 1; i < list.count; i++) {
+	for (i = 1; i < len(list.items); i++) {
 		TagEntry *key = list.items[i];
 		size_t j = i;
 		while (j > 0 && tag_rank_cmp(list.items[j - 1], key,
@@ -1017,12 +1044,12 @@ static void tag_list_sort_ranked(TagList *list) {
 
 bool tags_collect_matches(char *name, TagList *out) {
 	size_t i = 0;
-	if (name == NULL || name[0] == 0 || out == NULL || g_tags.by_name == NULL) {
+	if (name == NULL || name[0] == 0 || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
 	i = tag_index_lower_bound(name);
-	while (i < g_tags.count && strcmp(g_tags.by_name[i].name, name) == 0) {
+	while (i < len(g_tags.by_name) && strcmp(g_tags.by_name[i].name, name) == 0) {
 		if (!tag_list_append(out, g_tags.by_name[i])) {
 			tags_list_free(out);
 			return false;
@@ -1039,22 +1066,21 @@ bool tags_collect_completions(char *prefix, TagList *out) {
 	char scope_hint[TagNameMax] = {0};
 	size_t plen = 0;
 	size_t i = 0;
-	if (prefix == NULL || prefix[0] == 0 || out == NULL ||
-		g_tags.by_name == NULL) {
+	if (prefix == NULL || prefix[0] == 0 || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
 	plen = strlen(prefix);
 	tag_scope_hint(scope_hint, sizeof(scope_hint));
 	i = tag_index_lower_bound(prefix);
-	while (i < g_tags.count) {
+	while (i < len(g_tags.by_name)) {
 		TagEntry *best = NULL;
 		char *name = g_tags.by_name[i].name;
 		size_t j = i;
 		if (name == NULL || strncmp(name, prefix, plen) != 0) {
 			break;
 		}
-		while (j < g_tags.count && strcmp(g_tags.by_name[j].name, name) == 0) {
+		while (j < len(g_tags.by_name) && strcmp(g_tags.by_name[j].name, name) == 0) {
 			TagEntry *candidate = g_tags.by_name[j];
 			if (best == NULL || tag_rank_cmp(candidate, best,
 				cur_path, scope_hint) < 0) {
@@ -1201,7 +1227,7 @@ void tags_maybe_show_call_hint() {
 		return;
 	}
 	i = tag_index_lower_bound(name);
-	while (i < g_tags.count && strcmp(g_tags.by_name[i].name, name) == 0) {
+	while (i < len(g_tags.by_name) && strcmp(g_tags.by_name[i].name, name) == 0) {
 		TagEntry *entry = g_tags.by_name[i++];
 		int score = 0;
 		if (entry.signature == NULL || entry.signature[0] == 0) {
@@ -1282,7 +1308,7 @@ static bool tag_qualified_duplicate(TagList *list, TagEntry *entry) {
 	if (entry == NULL || entry.name == NULL || strchr(entry.name, '.') == NULL) {
 		return false;
 	}
-	for (auto other : ranged(list.items, list.count)) {
+	for (auto other : list.items) {
 		if (other != NULL && other.name != NULL &&
 			strchr(other.name, '.') == NULL && other.line == entry.line &&
 			tag_nullable_cmp(other.kind, entry.kind) == 0) {
@@ -1298,7 +1324,7 @@ bool tags_collect_in_file(const char[..] file_path, TagList *out) {
 		return false;
 	}
 	tags_list_free(out);
-	for (auto *entry : ranged(g_tags.entries, g_tags.count)) {
+	for (auto *entry : g_tags.entries) {
 		if (entry.path != NULL &&
 			tags_paths_equal(str_from_cstr(entry.path), file_path)) {
 			if (!tag_list_append(out, entry)) {
@@ -1307,21 +1333,21 @@ bool tags_collect_in_file(const char[..] file_path, TagList *out) {
 			}
 		}
 	}
-	for (i = 0; i < out.count;) {
+	for (i = 0; i < len(out.items);) {
 		if (tag_qualified_duplicate(out, out.items[i])) {
 			size_t j = i;
+			size_t n = len(out.items);
 			tag_entry_free(out.items[i]);
 			free(out.items[i]);
-			for (j = i; j + 1 < out.count; j++) {
+			for (j = i; j + 1 < n; j++) {
 				out.items[j] = out.items[j + 1];
 			}
-			out.count--;
-			out.items[out.count] = NULL;
+			out.items = ranged(ptr(out.items), n - 1, cap(out.items));
 		} else {
 			i++;
 		}
 	}
-	for (i = 1; i < out.count; i++) {
+	for (i = 1; i < len(out.items); i++) {
 		TagEntry *key = out.items[i];
 		size_t j = i;
 		while (j > 0 && out.items[j - 1].line > key.line) {
@@ -1497,7 +1523,7 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 	Buffer *buf = NULL;
 	bool was_ro = false;
 	char header[256] = {0};
-	if (matches == NULL || matches.count == 0) {
+	if (matches == NULL || len(matches.items) == 0) {
 		return false;
 	}
 	buf = tags_ensure_list_buf();
@@ -1517,7 +1543,7 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 			return false;
 		}
 	}
-	for (auto e : ranged(matches.items, matches.count)) {
+	for (auto e : matches.items) {
 		char linebuf[TagPathMax + TagNameMax + 64] = {0};
 		Line *ln = NULL;
 		char kind_default[4] = {0};
@@ -1555,14 +1581,14 @@ bool tags_goto_name(char *name) {
 		display_set_echo("[cannot collect tags]");
 		return false;
 	}
-	if (matches.count == 0) {
+	if (len(matches.items) == 0) {
 		char msg[TagNameMax + 32] = {0};
 		snprintf(msg, sizeof(msg), "[tag not found: %s]", name);
 		display_set_echo(msg);
 		tags_list_free(&matches);
 		return false;
 	}
-	if (matches.count == 1) {
+	if (len(matches.items) == 1) {
 		bool ok = tags_visit_entry(matches.items[0]);
 		tags_list_free(&matches);
 		return ok;
@@ -1588,7 +1614,7 @@ bool tags_goto_buffer() {
 		display_set_echo("[cannot collect buffer tags]");
 		return false;
 	}
-	if (matches.count == 0) {
+	if (len(matches.items) == 0) {
 		display_set_echo("[no tags in buffer]");
 		tags_list_free(&matches);
 		return false;

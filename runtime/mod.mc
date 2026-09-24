@@ -1532,12 +1532,12 @@ bool cmd_complete_symbol(bool f, int n) {
 		display_set_echo("[completion: cannot collect matches]");
 		return false;
 	}
-	if (matches.count == 0) {
+	if (len(matches.items) == 0) {
 		display_set_echo("[completion: no matches]");
 		tags_list_free(&matches);
 		return false;
 	}
-	if (matches.count == 1) {
+	if (len(matches.items) == 1) {
 		ok = insert_tag_completion(matches.items[0]);
 		tags_list_free(&matches);
 		return ok;

@@ -304,7 +304,7 @@ bool tags_describe_symbol() {
 		!tags_collect_matches(symbol, &matches)) {
 		return false;
 	}
-	if (matches.count == 0) {
+	if (len(matches.items) == 0) {
 		display_set_echo("[describe: tag not found]");
 		tags_list_free(&matches);
 		return false;
