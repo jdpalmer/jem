@@ -1,5 +1,6 @@
 // buffer — document model, line storage, undo, UTF-8 helpers.
 import "syntax";
+import "str";
 
 #include <stddef.h>
 #include <stdint.h>
@@ -12,7 +13,6 @@ enum EolMode {
 	EModeCRLF = 1
 };
 
-// IndentConfig matches jem.go/buffer.IndentConfig.
 struct IndentConfig {
 	int width;
 	int brace;
@@ -22,17 +22,11 @@ struct IndentConfig {
 
 struct Location {
 	int line;
-	int offset;
-};
-
-struct Bytes {
-	char *ptr;
-	size_t len;
-	size_t cap;
+	size_t offset;
 };
 
 struct Line {
-	Bytes data;
+	char[..] data; /* owned heap */
 	SynState syntax_end;
 	bool syntax_valid;
 	TextStyle *styles;
@@ -44,9 +38,7 @@ struct Line {
 };
 
 struct Buffer {
-	Line *lines;
-	size_t line_count;
-	size_t line_cap;
+	Line[..] lines; /* owned heap */
 	uint32_t serial;
 	uint32_t saved_undo_serial;
 	bool is_changed;
@@ -56,8 +48,8 @@ struct Buffer {
 	int fill_col;
 	IndentConfig indent;
 	bool whitespace_cleanup;
-	char *name;
-	char *file_name;
+	char[..] name; /* owned heap */
+	char[..] file_name; /* owned heap */
 	int64_t edit_time;
 	int64_t access_time;
 	Location cursor;
@@ -72,12 +64,12 @@ enum UndoKind {
 struct UndoRecord {
 	UndoKind kind;
 	int line_num;
-	int offset;
-	Bytes text;
+	size_t offset;
+	Location end;
+	char[..] text; /* owned heap */
 };
 
 enum UndoLimits {
-	UndoGroupMaxRecords = 64,
 	UndoHistoryMax = 64
 };
 
@@ -86,8 +78,7 @@ struct UndoGroup {
 	uint32_t buffer_serial;
 	uint32_t group_serial;
 	Location before;
-	UndoRecord records[UndoGroupMaxRecords];
-	int count;
+	UndoRecord[..] records; /* owned heap */
 };
 
 struct UndoHistory {
@@ -98,169 +89,80 @@ struct UndoHistory {
 	bool is_replaying;
 };
 
-struct BufferList {
-	Buffer **bufs;
-	size_t count;
-	size_t cap;
-	Buffer *current;
-};
-
-BufferList buffer_all;
+Buffer *[..] buffer_all; /* owned heap of Buffer*; Buffers owned separately */
+static Buffer *g_buffer_cur;
 UndoHistory buffer_undo;
 
 static char ScratchName[] = "*scratch*";
 
-static Bytes bytes_empty(void) {
-	Bytes b = {0};
-	return b;
-}
-
-static bool bytes_reserve(Bytes *b, size_t need) {
-	char *p = {0};
-	size_t ncap = {0};
-	if (b == NULL) {
-		return false;
-	}
-	if (need <= b.cap) {
-		return true;
-	}
-	ncap = b.cap != 0 ? b.cap : 32;
-	while (ncap < need) {
-		ncap = ncap * 2;
-	}
-	p = realloc(b.ptr, ncap);
-	if (p == NULL) {
-		return false;
-	}
-	b.ptr = p;
-	b.cap = ncap;
-	return true;
-}
-
-static bool bytes_set(Bytes *b, char *src, size_t n) {
-	if (!bytes_reserve(b, n + 1)) {
-		return false;
-	}
-	if (n != 0 && src != NULL) {
-		memcpy(b.ptr, src, n);
-	}
-	b.len = n;
-	if (b.ptr != NULL) {
-		b.ptr[n] = 0;
-	}
-	return true;
-}
-
-static bool bytes_append(Bytes *b, char *src, size_t n) {
-	if (!bytes_reserve(b, b.len + n + 1)) {
-		return false;
-	}
-	if (n != 0 && src != NULL) {
-		memcpy(b.ptr + b.len, src, n);
-	}
-	b.len = b.len + n;
-	b.ptr[b.len] = 0;
-	return true;
-}
-
-static void bytes_free(Bytes *b) {
-	if (b == NULL) {
-		return;
-	}
-	free(b.ptr);
-	b.ptr = NULL;
-	b.len = 0;
-	b.cap = 0;
-}
-
-static char *xstrdup(char *s) {
-	size_t n = {0};
-	char *p = {0};
-	if (s == NULL) {
-		s = "";
-	}
-	n = strlen(s);
-	p = malloc(n + 1);
-	if (p == NULL) {
-		return NULL;
-	}
-	memcpy(p, s, n + 1);
-	return p;
-}
-
 // utf8_next_offset returns the next rune start after offset.
-int utf8_next_offset(char[..] data, int offset) {
-	size_t n = len(data);
-	unsigned char c = {0};
-	int size = 1;
-	char *dp = ptr(data);
-	if (offset < 0 || (size_t)offset >= n || dp == NULL) {
+size_t utf8_next_offset(const char[..] data, size_t offset) {
+	size_t size = 1;
+	if (offset >= len(data)) {
 		return offset;
 	}
-	c = (unsigned char)dp[offset];
-	if (c < (unsigned char)0x80) {
+	char c = data[offset];
+	if (c < 0x80) {
 		size = 1;
-	} else if ((c & (unsigned char)0xE0) == (unsigned char)0xC0) {
+	} else if ((c & 0xE0) == 0xC0) {
 		size = 2;
-	} else if ((c & (unsigned char)0xF0) == (unsigned char)0xE0) {
+	} else if ((c & 0xF0) == 0xE0) {
 		size = 3;
-	} else if ((c & (unsigned char)0xF8) == (unsigned char)0xF0) {
+	} else if ((c & 0xF8) == 0xF0) {
 		size = 4;
-	} else {
-		size = 1;
 	}
-	if ((size_t)offset + (size_t)size > n) {
+	if (offset + size > len(data)) {
 		return offset + 1;
 	}
 	return offset + size;
 }
 
 // utf8_prev_offset returns the start of the rune before offset.
-int utf8_prev_offset(char[..] data, int offset) {
-	int i = {0};
-	char *dp = ptr(data);
-	if (offset <= 0 || dp == NULL) {
+size_t utf8_prev_offset(const char[..] data, size_t offset) {
+	size_t i = 0;
+	if (offset == 0 || len(data) == 0) {
 		return 0;
 	}
 	i = offset - 1;
-	while (i > 0 && ((unsigned char)dp[i] & 0xC0) == 0x80) {
+	if (i >= len(data)) {
+		i = len(data) - 1;
+	}
+	while (i > 0 && (data[i] & 0xC0) == 0x80) {
 		i--;
 	}
 	return i;
 }
 
 // utf8_decode_rune reads one rune at offset; returns (rune, size).
-(uint32_t, int) utf8_decode_rune(char[..] data, int offset) {
+(uint32_t, size_t) utf8_decode_rune(const char[..] data, size_t offset) {
 	size_t n = len(data);
-	unsigned char c = {0};
-	uint32_t r = {0};
-	char *dp = ptr(data);
-	if (offset < 0 || (size_t)offset >= n || dp == NULL) {
+	if (offset >= n) {
 		return (0, 0);
 	}
-	c = (unsigned char)dp[offset];
+	char c = data[offset];
+	uint32_t r = 0;
 	if (c < 0x80) {
-		return ((uint32_t)c, 1);
+		return (c, 1);
 	}
-	if ((c & 0xE0) == 0xC0 && (size_t)offset + 1 < n) {
+	if ((c & 0xE0) == 0xC0 && offset + 1 < n) {
 		r = (uint32_t)(c & 0x1F) << 6;
-		r |= (uint32_t)((unsigned char)dp[offset + 1] & 0x3F);
+		r |= data[offset + 1] & 0x3F;
 		return (r, 2);
 	}
-	if ((c & 0xF0) == 0xE0 && (size_t)offset + 2 < n) {
+	if ((c & 0xF0) == 0xE0 && offset + 2 < n) {
 		r = (uint32_t)(c & 0x0F) << 12;
-		r |= (uint32_t)((unsigned char)dp[offset + 1] & 0x3F) << 6;
-		r |= (uint32_t)((unsigned char)dp[offset + 2] & 0x3F);
+		r |= (uint32_t)(data[offset + 1] & 0x3F) << 6;
+		r |= data[offset + 2] & 0x3F;
 		return (r, 3);
 	}
-	if ((c & 0xF8) == 0xF0 && (size_t)offset + 3 < n) {
+	if ((c & 0xF8) == 0xF0 && offset + 3 < n) {
 		r = (uint32_t)(c & 0x07) << 18;
-		r |= (uint32_t)((unsigned char)dp[offset + 1] & 0x3F) << 12;
-		r |= (uint32_t)((unsigned char)dp[offset + 2] & 0x3F) << 6;
-		r |= (uint32_t)((unsigned char)dp[offset + 3] & 0x3F);
+		r |= (uint32_t)(data[offset + 1] & 0x3F) << 12;
+		r |= (uint32_t)(data[offset + 2] & 0x3F) << 6;
+		r |= data[offset + 3] & 0x3F;
 		return (r, 4);
 	}
-	return ((uint32_t)c, 1);
+	return (c, 1);
 }
 
 // rune_display_width returns columns for r (ASCII/CJK heuristic).
@@ -285,80 +187,54 @@ int rune_display_width(uint32_t r) {
 }
 
 // view returns a non-owning slice of line bytes.
-char[..] (Line *line).view(void) {
-	if (line == NULL || line.data.ptr == NULL) {
-		return ranged((char *)0, 0);
-	}
-	return ranged(line.data.ptr, line.data.len);
+char[..] (Line *line).view() {
+	return line.data;
 }
 
-int (Line *line).byte_len(void) {
-	if (line == NULL) {
-		return 0;
-	}
-	return (int)line.data.len;
+size_t (Line *line).byte_len() {
+	return len(line.data);
 }
 
 // first_nonblank returns the byte index of the first non-space/tab (jem.go Line.FirstNonblank).
-int (Line *line).first_nonblank(void) {
-	char[..] v = {0};
-	int i = 0;
-	if (line == NULL) {
-		return 0;
-	}
-	v = line.view();
-	{
-		char *vp = ptr(v);
-		while (i < (int)len(v)) {
-			char c = vp[i];
+size_t (Line *line).first_nonblank() {
+	char[..] v = line.view();
+	size_t i = 0;
+	char *vp = ptr(v);
+	while (i < len(v)) {
+		char c = vp[i];
 		if (c != ' ' && c != '\t') {
 			return i;
 		}
-			i++;
-		}
+		i++;
 	}
-	return (int)len(v);
+	return len(v);
 }
 
-bool (Line *line).is_blank(void) {
-	return line != NULL && line.first_nonblank() >= line.byte_len();
+bool (Line *line).is_blank() {
+	return line.first_nonblank() >= line.byte_len();
 }
 
-int (Line *line).indent_column(void) {
-	if (line == NULL) {
-		return 0;
-	}
+size_t (Line *line).indent_column() {
 	return line.display_col_at_offset(line.first_nonblank());
 }
 
-char (Line *line).last_byte(void) {
-	int n = 0;
-	if (line == NULL) {
+char (Line *line).last_byte() {
+	size_t n = line.byte_len();
+	if (n == 0) {
 		return 0;
 	}
-	n = line.byte_len();
-	if (n <= 0) {
-		return 0;
-	}
-	return line.data.ptr[n - 1];
+	return line.data[n - 1];
 }
 
-char (Line *line).first_byte(void) {
-	int i = 0;
-	if (line == NULL) {
-		return 0;
-	}
-	i = line.first_nonblank();
+char (Line *line).first_byte() {
+	size_t i = line.first_nonblank();
 	if (i >= line.byte_len()) {
 		return 0;
 	}
-	return line.data.ptr[i];
+	return line.data[i];
 }
 
-void (Line *line).invalidate(void) {
-	if (line == NULL) {
-		return;
-	}
+void (Line *line).invalidate() {
 	line.syntax_valid = false;
 	line.cache_valid = false;
 	free(line.styles);
@@ -366,27 +242,16 @@ void (Line *line).invalidate(void) {
 	line.styles_len = 0;
 }
 
-int (Line *line).display_col_at_offset(int offset) {
-	char[..] v = {0};
-	int i = 0;
-	int col = 0;
-	uint32_t r = {0};
-	int sz = 0;
-	if (line == NULL) {
-		return 0;
-	}
-	v = line.view();
-	if (offset < 0) {
-		offset = 0;
-	}
-	if ((size_t)offset > len(v)) {
-		offset = (int)len(v);
+size_t (Line *line).display_col_at_offset(size_t offset) {
+	char[..] v = line.view();
+	size_t i = 0;
+	size_t col = 0;
+	if (offset > len(v)) {
+		offset = len(v);
 	}
 	while (i < offset) {
-		auto (rr, ss) = utf8_decode_rune(v, i);
-		r = rr;
-		sz = ss;
-		if (sz <= 0) {
+		auto (r, sz) = utf8_decode_rune(v, i);
+		if (sz == 0) {
 			break;
 		}
 		if (r == (uint32_t)'\t') {
@@ -399,32 +264,24 @@ int (Line *line).display_col_at_offset(int offset) {
 	return col;
 }
 
-int (Line *line).offset_at_display_col(int goal) {
-	char[..] v = {0};
-	int i = 0;
-	int col = 0;
-	uint32_t r = {0};
-	int sz = 0;
-	int w = 0;
-	if (line == NULL) {
+size_t (Line *line).offset_at_display_col(size_t goal) {
+	char[..] v = line.view();
+	size_t i = 0;
+	size_t col = 0;
+	size_t w = 0;
+	if (goal == 0) {
 		return 0;
 	}
-	v = line.view();
-	if (goal <= 0) {
-		return 0;
-	}
-	while (i < (int)len(v)) {
-		auto (rr, ss) = utf8_decode_rune(v, i);
-		r = rr;
-		sz = ss;
-		if (sz <= 0) {
+	while (i < len(v)) {
+		auto (r, sz) = utf8_decode_rune(v, i);
+		if (sz == 0) {
 			break;
 		}
 		if (r == (uint32_t)'\t') {
 			w = 8 - (col % 8);
 		} else {
 			w = rune_display_width(r);
-			if (w <= 0) {
+			if (w == 0) {
 				w = 1;
 			}
 		}
@@ -434,29 +291,29 @@ int (Line *line).offset_at_display_col(int goal) {
 		col = col + w;
 		i = i + sz;
 	}
-	return (int)len(v);
+	return len(v);
 }
 
 static void line_free(Line *line) {
 	if (line == NULL) {
 		return;
 	}
-	bytes_free(&line.data);
+	str_free(&line.data);
 	free(line.styles);
 	line.styles = NULL;
 	free(line.metadata);
 	line.metadata = NULL;
 }
 
-bool (Buffer *buf).is_scratch(void) {
-	if (buf == NULL || buf.name == NULL) {
+bool (Buffer *buf).is_scratch() {
+	if (len(buf.name) == 0) {
 		return false;
 	}
-	return strcmp(buf.name, ScratchName) == 0;
+	return str_eq(buf.name, ScratchName);
 }
 
-void (Buffer *buf).mark_changed(void) {
-	if (buf == NULL || buf.is_scratch()) {
+void (Buffer *buf).mark_changed() {
+	if (buf.is_scratch()) {
 		return;
 	}
 	buf.is_changed = true;
@@ -465,41 +322,36 @@ void (Buffer *buf).mark_changed(void) {
 static bool buffer_reserve_lines(Buffer *buf, size_t need) {
 	Line *p = {0};
 	size_t ncap = {0};
-	if (need <= buf.line_cap) {
+	if (need <= cap(buf.lines)) {
 		return true;
 	}
-	ncap = buf.line_cap != 0 ? buf.line_cap : 8;
+	ncap = cap(buf.lines) != 0 ? cap(buf.lines) : 8;
 	while (ncap < need) {
 		ncap = ncap * 2;
 	}
-	p = realloc(buf.lines, ncap * sizeof(Line));
+	p = realloc(ptr(buf.lines), ncap * sizeof(Line));
 	if (p == NULL) {
 		return false;
 	}
-	buf.lines = p;
-	buf.line_cap = ncap;
+	buf.lines = ranged(p, len(buf.lines), ncap);
 	return true;
 }
 
-void (Buffer *buf).ensure_min_lines(void) {
+void (Buffer *buf).ensure_min_lines() {
 	Line empty = {0};
-	if (buf == NULL) {
-		return;
-	}
-	if (buf.line_count != 0) {
+	if (len(buf.lines) != 0) {
 		return;
 	}
 	if (!buffer_reserve_lines(buf, 1)) {
 		return;
 	}
-	empty.data = bytes_empty();
 	empty.lang_mode = buf.lang_mode;
+	buf.lines = ranged(ptr(buf.lines), 1, cap(buf.lines));
 	buf.lines[0] = empty;
-	buf.line_count = 1;
 }
 
 // buffer_new allocates an empty buffer with one blank line.
-Buffer *buffer_new(void) {
+Buffer *buffer_new() {
 	Buffer *buf = calloc(1, sizeof(Buffer));
 	if (buf == NULL) {
 		return NULL;
@@ -514,73 +366,66 @@ Buffer *buffer_new(void) {
 	return buf;
 }
 
-void (Buffer *buf).free(void) {
-	size_t i = 0;
-	if (buf == NULL) {
-		return;
+void (Buffer *buf).free() {
+	for (auto *line : buf.lines) {
+		line_free(line);
 	}
-	for (i = 0; i < buf.line_count; i++) {
-		line_free(&buf.lines[i]);
-	}
-	free(buf.lines);
-	free(buf.name);
-	free(buf.file_name);
+	free(ptr(buf.lines));
+	str_free(&buf.name);
+	str_free(&buf.file_name);
 	free(buf);
 }
 
 Line *(Buffer *buf).line(int line_num) {
-	if (buf == NULL || line_num < 1 || (size_t)line_num > buf.line_count) {
+	if (line_num < 1 || (size_t)line_num > len(buf.lines)) {
 		return NULL;
 	}
 	return &buf.lines[line_num - 1];
 }
 
-int (Buffer *buf).line_count_i(void) {
-	if (buf == NULL) {
-		return 0;
-	}
-	return (int)buf.line_count;
+int (Buffer *buf).line_count_i() {
+	return (int)len(buf.lines);
 }
 
-int (Buffer *buf).eof_line(void) {
+int (Buffer *buf).eof_line() {
 	return buf.line_count_i() + 1;
 }
 
-static bool list_reserve(BufferList *list, size_t need) {
+static bool buffers_reserve(size_t need) {
 	Buffer **p = {0};
 	size_t ncap = {0};
-	if (need <= list.cap) {
+	if (need <= cap(buffer_all)) {
 		return true;
 	}
-	ncap = list.cap != 0 ? list.cap : 4;
+	ncap = cap(buffer_all) != 0 ? cap(buffer_all) : 4;
 	while (ncap < need) {
 		ncap = ncap * 2;
 	}
-	p = realloc(list.bufs, ncap * sizeof(Buffer *));
+	p = realloc(ptr(buffer_all), ncap * sizeof(Buffer *));
 	if (p == NULL) {
 		return false;
 	}
-	list.bufs = p;
-	list.cap = ncap;
+	buffer_all = ranged(p, len(buffer_all), ncap);
 	return true;
 }
 
-void buffer_list_init(void) {
+void buffer_list_init() {
 	Buffer *scratch = {0};
-	memset(&buffer_all, 0, sizeof(buffer_all));
+	buffer_all = ranged((Buffer **)0, 0);
+	g_buffer_cur = NULL;
 	memset(&buffer_undo, 0, sizeof(buffer_undo));
 	scratch = buffer_new();
 	if (scratch == NULL) {
 		return;
 	}
-	scratch.name = xstrdup(ScratchName);
-	if (!list_reserve(&buffer_all, 1)) {
+	scratch.set_name(ScratchName);
+	if (!buffers_reserve(1)) {
 		scratch.free();
 		return;
 	}
-	buffer_all.bufs[0] = scratch;
-	buffer_all.count = 1;
-	buffer_all.current = scratch;
+	buffer_all = ranged(ptr(buffer_all), 1, cap(buffer_all));
+	buffer_all[0] = scratch;
+	g_buffer_cur = scratch;
 }
 
 void buffer_set_current(Buffer *buf) {
@@ -588,23 +433,24 @@ void buffer_set_current(Buffer *buf) {
 	if (buf == NULL) {
 		return;
 	}
-	buffer_all.current = buf;
+	g_buffer_cur = buf;
 	buf.access_time = access_seq++;
 }
 
-Buffer *buffer_current(void) {
-	return buffer_all.current;
+Buffer *buffer_current() {
+	return g_buffer_cur;
 }
 
 bool buffer_list_add(Buffer *buf) {
 	if (buf == NULL) {
 		return false;
 	}
-	if (!list_reserve(&buffer_all, buffer_all.count + 1)) {
+	size_t n = len(buffer_all);
+	if (!buffers_reserve(n + 1)) {
 		return false;
 	}
-	buffer_all.bufs[buffer_all.count] = buf;
-	buffer_all.count++;
+	buffer_all = ranged(ptr(buffer_all), n + 1, cap(buffer_all));
+	buffer_all[n] = buf;
 	buffer_set_current(buf);
 	return true;
 }
@@ -614,23 +460,19 @@ bool buffer_list_append(Buffer *buf) {
 	if (buf == NULL) {
 		return false;
 	}
-	if (!list_reserve(&buffer_all, buffer_all.count + 1)) {
+	size_t n = len(buffer_all);
+	if (!buffers_reserve(n + 1)) {
 		return false;
 	}
-	buffer_all.bufs[buffer_all.count] = buf;
-	buffer_all.count++;
+	buffer_all = ranged(ptr(buffer_all), n + 1, cap(buffer_all));
+	buffer_all[n] = buf;
 	return true;
 }
 
-Buffer *buffer_find_by_name(char *name) {
-	size_t i = 0;
-	if (name == NULL) {
-		return NULL;
-	}
-	for (i = 0; i < buffer_all.count; i++) {
-		if (buffer_all.bufs[i] != NULL && buffer_all.bufs[i].name != NULL &&
-			strcmp(buffer_all.bufs[i].name, name) == 0) {
-			return buffer_all.bufs[i];
+Buffer *buffer_find_by_name(const char[..] name) {
+	for (auto b : buffer_all) {
+		if (b != NULL && str_eq(b.name, name)) {
+			return b;
 		}
 	}
 	return NULL;
@@ -643,12 +485,11 @@ static char ascii_fold(char c) {
 	return c;
 }
 
-static bool name_equal_fold(char *a, char *b) {
-	size_t i = 0;
-	if (a == NULL || b == NULL) {
+static bool name_equal_fold(const char[..] a, const char[..] b) {
+	if (len(a) != len(b)) {
 		return false;
 	}
-	for (i = 0; a[i] != 0 || b[i] != 0; i++) {
+	for (size_t i = 0; i < len(a); i++) {
 		if (ascii_fold(a[i]) != ascii_fold(b[i])) {
 			return false;
 		}
@@ -657,14 +498,12 @@ static bool name_equal_fold(char *a, char *b) {
 }
 
 // buffer_find_by_label matches buffer name case-insensitively (jem.go findBufferByLabel).
-Buffer *buffer_find_by_label(char *label) {
-	size_t i = 0;
-	if (label == NULL || label[0] == 0) {
+Buffer *buffer_find_by_label(const char[..] label) {
+	if (len(label) == 0) {
 		return NULL;
 	}
-	for (i = 0; i < buffer_all.count; i++) {
-		Buffer *b = buffer_all.bufs[i];
-		if (b != NULL && b.name != NULL && name_equal_fold(b.name, label)) {
+	for (auto b : buffer_all) {
+		if (b != NULL && name_equal_fold(b.name, label)) {
 			return b;
 		}
 	}
@@ -672,12 +511,11 @@ Buffer *buffer_find_by_label(char *label) {
 }
 
 // buffer_other returns a non-current buffer when one exists (fuzzy default stand-in).
-Buffer *buffer_other(void) {
+Buffer *buffer_other() {
 	Buffer *cur = buffer_current();
-	size_t i = 0;
-	for (i = 0; i < buffer_all.count; i++) {
-		if (buffer_all.bufs[i] != NULL && buffer_all.bufs[i] != cur) {
-			return buffer_all.bufs[i];
+	for (auto b : buffer_all) {
+		if (b != NULL && b != cur) {
+			return b;
 		}
 	}
 	return NULL;
@@ -685,33 +523,50 @@ Buffer *buffer_other(void) {
 
 /* Remove buf from the list and free it. Does not retarget windows (caller must). */
 void buffer_release(Buffer *buf) {
-	size_t i = 0;
-	size_t j = 0;
-	if (buf == NULL || buf.is_scratch()) {
+	if (buf == NULL) {
 		return;
 	}
-	for (i = 0; i < buffer_all.count; i++) {
-		if (buffer_all.bufs[i] != buf) {
+	if (buf.is_scratch()) {
+		return;
+	}
+	size_t n = len(buffer_all);
+	for (size_t i = 0; i < n; i++) {
+		if (buffer_all[i] != buf) {
 			continue;
 		}
-		for (j = i; j + 1 < buffer_all.count; j++) {
-			buffer_all.bufs[j] = buffer_all.bufs[j + 1];
+		for (size_t j = i; j + 1 < n; j++) {
+			buffer_all[j] = buffer_all[j + 1];
 		}
-		buffer_all.count--;
-		buffer_all.bufs[buffer_all.count] = NULL;
-		if (buffer_all.current == buf) {
-			buffer_all.current = buffer_all.count > 0 ? buffer_all.bufs[0] : NULL;
+		n--;
+		buffer_all = ranged(ptr(buffer_all), n, cap(buffer_all));
+		if (g_buffer_cur == buf) {
+			g_buffer_cur = n > 0 ? buffer_all[0] : NULL;
 		}
 		buf.free();
 		return;
 	}
 }
 
-void (UndoHistory *h).begin_command(Buffer *buf, Location before) {
-	if (h == NULL || h.is_replaying) {
+static void undo_record_free(UndoRecord *r) {
+	str_free(&r.text);
+}
+
+static void undo_group_reset(UndoGroup *g) {
+	if (g == NULL) {
 		return;
 	}
-	memset(&h.pending, 0, sizeof(h.pending));
+	for (auto *r : g.records) {
+		undo_record_free(r);
+	}
+	free(ptr(g.records));
+	memset(g, 0, sizeof(*g));
+}
+
+void (UndoHistory *h).begin_command(Buffer *buf, Location before) {
+	if (h.is_replaying) {
+		return;
+	}
+	undo_group_reset(&h.pending);
 	h.pending.buffer = buf;
 	if (buf != NULL) {
 		h.pending.buffer_serial = buf.serial;
@@ -719,35 +574,20 @@ void (UndoHistory *h).begin_command(Buffer *buf, Location before) {
 	h.pending.before = before;
 }
 
-static void undo_record_free(UndoRecord *r) {
-	bytes_free(&r.text);
-}
-
-static void undo_group_reset(UndoGroup *g) {
+void (UndoHistory *h).end_command() {
 	int i = 0;
-	if (g == NULL) {
+	if (h.is_replaying) {
 		return;
 	}
-	for (i = 0; i < g.count; i++) {
-		undo_record_free(&g.records[i]);
-	}
-	memset(g, 0, sizeof(*g));
-}
-
-void (UndoHistory *h).end_command(void) {
-	int i = 0;
-	if (h == NULL || h.is_replaying) {
-		return;
-	}
-	if (h.pending.count == 0) {
+	if (len(h.pending.records) == 0) {
 		undo_group_reset(&h.pending);
 		return;
 	}
-	if (h.count == UndoHistoryMax) {
-		undo_group_reset(&h.groups[UndoHistoryMax - 1]);
+	if (h.count == (int)UndoHistoryMax) {
+		undo_group_reset(&h.groups[(int)UndoHistoryMax - 1]);
 		h.count--;
 	}
-	for (i = (int)h.count; i > 0; i--) {
+	for (i = h.count; i > 0; i--) {
 		h.groups[i] = h.groups[i - 1];
 	}
 	h.pending.group_serial = h.next_group_serial;
@@ -757,36 +597,56 @@ void (UndoHistory *h).end_command(void) {
 	h.count++;
 }
 
-void (UndoHistory *h).record_edit(UndoKind kind, int line_num, int offset, char *text, size_t n) {
-	UndoRecord *r = {0};
-	if (h == NULL || h.is_replaying) {
+void (UndoHistory *h).record_edit(UndoKind kind, int line_num, size_t offset, const char *text, size_t n) {
+	if (h.is_replaying) {
 		return;
 	}
-	if (h.pending.count >= UndoGroupMaxRecords) {
-		return;
+	size_t nrec = len(h.pending.records);
+	if (nrec == cap(h.pending.records)) {
+		size_t ncap = cap(h.pending.records) != 0 ? cap(h.pending.records) * 2 : 16;
+		UndoRecord *records = realloc(ptr(h.pending.records),
+			ncap * sizeof(UndoRecord));
+		if (records == NULL) {
+			return;
+		}
+		memset(records + nrec, 0, (ncap - nrec) * sizeof(UndoRecord));
+		h.pending.records = ranged(records, nrec, ncap);
 	}
-	r = &h.pending.records[h.pending.count];
+	h.pending.records = ranged(ptr(h.pending.records), nrec + 1,
+		cap(h.pending.records));
+	UndoRecord *r = &h.pending.records[nrec];
 	r.kind = kind;
 	r.line_num = line_num;
 	r.offset = offset;
-	r.text = bytes_empty();
-	bytes_set(&r.text, text, n);
-	h.pending.count++;
+	r.end.line = line_num;
+	r.end.offset = offset;
+	if (kind == UndoInsert) {
+		for (size_t i = 0; i < n; i++) {
+			if (text[i] == '\n') {
+				r.end.line++;
+				r.end.offset = 0;
+			} else {
+				r.end.offset++;
+			}
+		}
+	}
+	if (!str_set(&r.text, ranged(text, n))) {
+		memset(r, 0, sizeof(*r));
+		h.pending.records = ranged(ptr(h.pending.records), nrec,
+			cap(h.pending.records));
+		return;
+	}
 }
 
 /* Undo the most recent group on its buffer; restores *cursor_out to pre-edit point. */
-bool (UndoHistory *h).undo_once(Location *cursor_out) {
-	UndoGroup g = {0};
-	int i = 0;
-	int j = 0;
-	Buffer *buf = {0};
-	if (h == NULL || h.count == 0) {
+bool (UndoHistory *h).undo_once(Location *cursor_out, Buffer **buffer_out) {
+	if (h.count == 0) {
 		return false;
 	}
-	g = h.groups[0];
-	buf = g.buffer;
+	UndoGroup g = h.groups[0];
+	Buffer *buf = g.buffer;
 	h.is_replaying = true;
-	for (i = g.count - 1; i >= 0; i--) {
+	for (int i = (int)len(g.records) - 1; i >= 0; i--) {
 		UndoRecord *r = &g.records[i];
 		Location at = {0};
 		at.line = r.line_num;
@@ -795,59 +655,82 @@ bool (UndoHistory *h).undo_once(Location *cursor_out) {
 			continue;
 		}
 		if (r.kind == UndoInsert) {
-			Location end = at;
-			end.offset = at.offset + (int)r.text.len;
-			buf.delete_range(at, end);
+			buf.delete_range(at, r.end);
 		} else {
-			buf.insert_text(at, r.text.ptr, r.text.len, NULL);
+			buf.insert_text(at, ptr(r.text), len(r.text), NULL);
 		}
 	}
 	h.is_replaying = false;
 	if (cursor_out != NULL) {
 		*cursor_out = g.before;
 	}
+	if (buffer_out != NULL) {
+		*buffer_out = buf;
+	}
 	undo_group_reset(&h.groups[0]);
-	for (j = 0; j + 1 < (int)h.count; j++) {
+	for (int j = 0; j + 1 < (int)h.count; j++) {
 		h.groups[j] = h.groups[j + 1];
 	}
 	h.count--;
 	return true;
 }
 
+void (UndoHistory *h).forget_buffer(Buffer *buf) {
+	int i = 0;
+	if (buf == NULL) {
+		return;
+	}
+	if (h.pending.buffer == buf) {
+		undo_group_reset(&h.pending);
+	}
+	while (i < (int)h.count) {
+		if (h.groups[i].buffer == buf) {
+			int j = 0;
+			undo_group_reset(&h.groups[i]);
+			for (j = i; j + 1 < (int)h.count; j++) {
+				h.groups[j] = h.groups[j + 1];
+			}
+			memset(&h.groups[h.count - 1], 0, sizeof(UndoGroup));
+			h.count--;
+		} else {
+			i++;
+		}
+	}
+}
+
 /* ---- text mutation ------------------------------------------------------- */
 
-static Line make_line(Buffer *buf, char *data, size_t n) {
+static bool make_line(Line *out, Buffer *buf, const char[..] data) {
 	Line line = {0};
-	line.data = bytes_empty();
-	bytes_set(&line.data, data, n);
+	if (out == NULL || !str_set(&line.data, data)) {
+		return false;
+	}
 	if (buf != NULL) {
 		line.lang_mode = buf.lang_mode;
 	} else {
 		line.lang_mode = LModeNone;
 	}
-	return line;
+	*out = line;
+	return true;
 }
 
-bool (Buffer *buf).replace_raw(Location begin, Location end, char *new_text, size_t new_len, Location *new_end_out) {
+bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_text, size_t new_len, Location *new_end_out) {
 	Line *bline = {0};
 	Line *eline = {0};
-	Bytes prefix = {0};
-	Bytes suffix = {0};
-	Bytes rebuilt = {0};
+	char[..] rebuilt = {0};
 	size_t i = 0;
 	size_t part_start = 0;
 	size_t n_parts = 0;
-	size_t p = 0;
 	size_t new_line_count = 0;
 	size_t keep_before = 0;
 	size_t keep_after = 0;
 	Line *new_lines = {0};
 	size_t out = 0;
 	Location new_end = {0};
-	char *insert = {0};
+	const char *insert = {0};
 	size_t insert_len = 0;
 
-	if (buf == NULL || buf.is_readonly) {
+	if (buf.is_readonly) {
 		return false;
 	}
 	buf.ensure_min_lines();
@@ -858,20 +741,18 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, char *new_text, siz
 	if (end.line < begin.line || (end.line == begin.line && end.offset < begin.offset)) {
 		return false;
 	}
-	if (begin.line > (int)buf.line_count) {
-		begin.line = (int)buf.line_count;
-		begin.offset = buf.lines[buf.line_count - 1].byte_len();
+	if (begin.line > (int)len(buf.lines)) {
+		begin.line = (int)len(buf.lines);
+		begin.offset = buf.lines[len(buf.lines) - 1].byte_len();
 	}
-	if (end.line > (int)buf.line_count) {
-		end.line = (int)buf.line_count;
-		end.offset = buf.lines[buf.line_count - 1].byte_len();
+	if (end.line > (int)len(buf.lines)) {
+		end.line = (int)len(buf.lines);
+		end.offset = buf.lines[len(buf.lines) - 1].byte_len();
 	}
 
 	insert = new_text;
 	if (insert == NULL) {
-		static char empty_ins[1];
-		empty_ins[0] = 0;
-		insert = empty_ins;
+		insert = "";
 	}
 	insert_len = new_len;
 
@@ -887,47 +768,45 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, char *new_text, siz
 		end.offset = eline.byte_len();
 	}
 
-	prefix = bytes_empty();
-	suffix = bytes_empty();
-	bytes_set(&prefix, bline.data.ptr, (size_t)begin.offset);
-	bytes_set(&suffix, eline.data.ptr + end.offset, eline.data.len - (size_t)end.offset);
-
-	rebuilt = bytes_empty();
-	bytes_append(&rebuilt, prefix.ptr, prefix.len);
-	bytes_append(&rebuilt, insert, insert_len);
-	bytes_append(&rebuilt, suffix.ptr, suffix.len);
+	if (!str_append(&rebuilt, bline.data[..begin.offset]) ||
+		!str_append(&rebuilt, ranged(insert, insert_len)) ||
+		!str_append(&rebuilt, eline.data[end.offset..])) {
+		str_free(&rebuilt);
+		return false;
+	}
 
 	/* count newline-separated parts */
 	n_parts = 1;
-	for (i = 0; i < rebuilt.len; i++) {
-		if (rebuilt.ptr[i] == '\n') {
+	for (auto c : rebuilt) {
+		if (c == '\n') {
 			n_parts++;
 		}
 	}
 
-	keep_before = (size_t)(begin.line - 1);
-	keep_after = buf.line_count - (size_t)end.line;
+	keep_before = begin.line - 1;
+	keep_after = len(buf.lines) - (size_t)end.line;
 	new_line_count = keep_before + n_parts + keep_after;
 	new_lines = calloc(new_line_count, sizeof(Line));
 	if (new_lines == NULL) {
-		bytes_free(&prefix);
-		bytes_free(&suffix);
-		bytes_free(&rebuilt);
+		str_free(&rebuilt);
 		return false;
 	}
 
-	for (i = 0; i < keep_before; i++) {
-		new_lines[out++] = buf.lines[i];
-		memset(&buf.lines[i], 0, sizeof(Line));
-	}
-
 	part_start = 0;
-	p = 0;
-	for (i = 0; i <= rebuilt.len; i++) {
-		if (i == rebuilt.len || rebuilt.ptr[i] == '\n') {
-			new_lines[out] = make_line(buf, rebuilt.ptr + part_start, i - part_start);
+	out = keep_before;
+	for (i = 0; i <= len(rebuilt); i++) {
+		if (i == len(rebuilt) || rebuilt[i] == '\n') {
+			if (!make_line(&new_lines[out], buf,
+					rebuilt[part_start..i])) {
+				size_t j = 0;
+				for (j = keep_before; j < out; j++) {
+					line_free(&new_lines[j]);
+				}
+				free(new_lines);
+				str_free(&rebuilt);
+				return false;
+			}
 			out++;
-			p++;
 			part_start = i + 1;
 		}
 	}
@@ -944,31 +823,35 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, char *new_text, siz
 		}
 		new_end.line = begin.line + (int)nl;
 		if (nl == 0) {
-			new_end.offset = begin.offset + (int)insert_len;
+			new_end.offset = begin.offset + insert_len;
 		} else {
-			new_end.offset = (int)(insert_len - last_start);
+			new_end.offset = insert_len - last_start;
 		}
 	}
 
-	for (i = (size_t)end.line; i < buf.line_count; i++) {
+	for (i = 0; i < keep_before; i++) {
+		new_lines[i] = buf.lines[i];
+		memset(&buf.lines[i], 0, sizeof(Line));
+	}
+	out = keep_before + n_parts;
+	for (i = end.line; i < len(buf.lines); i++) {
 		new_lines[out++] = buf.lines[i];
 		memset(&buf.lines[i], 0, sizeof(Line));
 	}
+	for (i = keep_before; i < new_line_count; i++) {
+		new_lines[i].invalidate();
+	}
 
 	/* free replaced lines */
-	for (i = keep_before; i < (size_t)end.line && i < buf.line_count; i++) {
+	for (i = keep_before; i < (size_t)end.line && i < len(buf.lines); i++) {
 		line_free(&buf.lines[i]);
 	}
-	free(buf.lines);
-	buf.lines = new_lines;
-	buf.line_count = new_line_count;
-	buf.line_cap = new_line_count;
+	free(ptr(buf.lines));
+	buf.lines = ranged(new_lines, new_line_count, new_line_count);
 	buf.serial++;
 	buf.mark_changed();
 
-	bytes_free(&prefix);
-	bytes_free(&suffix);
-	bytes_free(&rebuilt);
+	str_free(&rebuilt);
 
 	if (new_end_out != NULL) {
 		*new_end_out = new_end;
@@ -976,7 +859,7 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, char *new_text, siz
 	return true;
 }
 
-bool (Buffer *buf).insert_text(Location at, char *text, size_t n, Location *new_end_out) {
+bool (Buffer *buf).insert_text(Location at, const char *text, size_t n, Location *new_end_out) {
 	return buf.replace_raw(at, at, text, n, new_end_out);
 }
 
@@ -986,18 +869,12 @@ bool (Buffer *buf).delete_range(Location begin, Location end) {
 }
 
 // clear drops all lines to a single blank line (jem.go Buffer.Clear).
-void (Buffer *buf).clear(void) {
-	size_t i = 0;
-	if (buf == NULL) {
-		return;
+void (Buffer *buf).clear() {
+	for (auto *line : buf.lines) {
+		line_free(line);
 	}
-	for (i = 0; i < buf.line_count; i++) {
-		line_free(&buf.lines[i]);
-	}
-	free(buf.lines);
-	buf.lines = NULL;
-	buf.line_count = 0;
-	buf.line_cap = 0;
+	free(ptr(buf.lines));
+	buf.lines = ranged((Line *)0, 0);
 	buf.ensure_min_lines();
 	buf.is_changed = false;
 	buf.cursor.line = 1;
@@ -1006,43 +883,35 @@ void (Buffer *buf).clear(void) {
 	buf.mark.offset = 0;
 }
 
-// append_line appends a line with text[0..n) and returns it (jem.go AppendLineBytes).
-Line *(Buffer *buf).append_line(char *text, size_t n) {
+// append_line appends a line view and returns it (jem.go AppendLineBytes).
+Line *(Buffer *buf).append_line(const char[..] text) {
 	Line line = {0};
-	if (buf == NULL) {
-		return NULL;
-	}
 	buf.ensure_min_lines();
-	if (!buffer_reserve_lines(buf, buf.line_count + 1)) {
+	size_t n = len(buf.lines);
+	if (!buffer_reserve_lines(buf, n + 1)) {
 		return NULL;
 	}
-	if (text == NULL) {
-		n = 0;
+	if (!make_line(&line, buf, text)) {
+		return NULL;
 	}
-	line = make_line(buf, text, n);
-	buf.lines[buf.line_count] = line;
-	buf.line_count++;
-	return &buf.lines[buf.line_count - 1];
+	buf.lines = ranged(ptr(buf.lines), n + 1, cap(buf.lines));
+	buf.lines[n] = line;
+	return &buf.lines[n];
 }
 
-bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
+bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	size_t i = 0;
 	size_t start = 0;
 	size_t line_i = 0;
 	size_t count = 1;
-	char *p = {0};
+	const char *p = {0};
 	size_t ln = 0;
 
-	if (buf == NULL) {
-		return false;
+	for (auto *line : buf.lines) {
+		line_free(line);
 	}
-	for (i = 0; i < buf.line_count; i++) {
-		line_free(&buf.lines[i]);
-	}
-	free(buf.lines);
-	buf.lines = NULL;
-	buf.line_count = 0;
-	buf.line_cap = 0;
+	free(ptr(buf.lines));
+	buf.lines = ranged((Line *)0, 0);
 
 	if (data == NULL) {
 		n = 0;
@@ -1063,16 +932,25 @@ bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
 		if (i == n || data[i] == '\n') {
 			p = data + start;
 			ln = i - start;
-			if (eol == EModeCRLF && ln != 0 && (unsigned char)p[ln - 1] == (unsigned char)'\r') {
+			if (eol == EModeCRLF && ln != 0 && p[ln - 1] == '\r') {
 				ln--;
 			}
-			buf.lines[line_i] = make_line(buf, p, ln);
+			if (!make_line(&ptr(buf.lines)[line_i], buf, ranged(p, ln))) {
+				size_t j = 0;
+				for (j = 0; j < line_i; j++) {
+					line_free(&ptr(buf.lines)[j]);
+				}
+				free(ptr(buf.lines));
+				buf.lines = ranged((Line *)0, 0);
+				buf.ensure_min_lines();
+				return false;
+			}
 			line_i++;
 			start = i + 1;
 		}
 	}
-	buf.line_count = line_i;
-	if (buf.line_count == 0) {
+	buf.lines = ranged(ptr(buf.lines), line_i, cap(buf.lines));
+	if (len(buf.lines) == 0) {
 		buf.ensure_min_lines();
 	}
 	buf.eol_mode = eol;
@@ -1083,7 +961,7 @@ bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
 	return true;
 }
 
-(char *, size_t, bool) (Buffer *buf).save_bytes(void) {
+(char *, size_t, bool) (Buffer *buf).save_bytes() {
 	size_t i = 0;
 	size_t total = 0;
 	char *out = {0};
@@ -1091,14 +969,11 @@ bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
 	char *nl = {0};
 	size_t nllen = 0;
 
-	if (buf == NULL) {
-		return (NULL, 0, false);
-	}
 	nl = (char *)(void *)(buf.eol_mode == EModeCRLF ? "\r\n" : "\n");
 	nllen = buf.eol_mode == EModeCRLF ? 2 : 1;
-	for (i = 0; i < buf.line_count; i++) {
-		total = total + buf.lines[i].data.len;
-		if (i + 1 < buf.line_count) {
+	for (i = 0; i < len(buf.lines); i++) {
+		total = total + len(buf.lines[i].data);
+		if (i + 1 < len(buf.lines)) {
 			total = total + nllen;
 		}
 	}
@@ -1106,12 +981,12 @@ bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
 	if (out == NULL) {
 		return (NULL, 0, false);
 	}
-	for (i = 0; i < buf.line_count; i++) {
-		if (buf.lines[i].data.len != 0) {
-			memcpy(out + off, buf.lines[i].data.ptr, buf.lines[i].data.len);
-			off = off + buf.lines[i].data.len;
+	for (i = 0; i < len(buf.lines); i++) {
+		if (len(buf.lines[i].data) != 0) {
+			memcpy(out + off, ptr(buf.lines[i].data), len(buf.lines[i].data));
+			off = off + len(buf.lines[i].data);
 		}
-		if (i + 1 < buf.line_count) {
+		if (i + 1 < len(buf.lines)) {
 			memcpy(out + off, nl, nllen);
 			off = off + nllen;
 		}
@@ -1120,19 +995,11 @@ bool (Buffer *buf).load_bytes(char *data, size_t n, EolMode eol) {
 	return (out, off, true);
 }
 
-void (Buffer *buf).set_name(char *name) {
-	if (buf == NULL) {
-		return;
-	}
-	free(buf.name);
-	buf.name = xstrdup(name);
+void (Buffer *buf).set_name(const char[..] name) {
+	(void)str_set(&buf.name, name);
 }
 
-void (Buffer *buf).set_file_name(char *path) {
-	if (buf == NULL) {
-		return;
-	}
-	free(buf.file_name);
-	buf.file_name = xstrdup(path);
+void (Buffer *buf).set_file_name(const char[..] path) {
+	(void)str_set(&buf.file_name, path);
 }
 

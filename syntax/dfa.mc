@@ -3,31 +3,31 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-static TextStyle a_normal(void) {
+static TextStyle a_normal() {
 	return text_style_make(TermColorDefault, TermColorDefault, 0);
 }
 
-static TextStyle a_comment(void) {
+static TextStyle a_comment() {
 	return text_style_make(TermColorBase01, TermColorDefault, 0);
 }
 
-static TextStyle a_string(void) {
+static TextStyle a_string() {
 	return text_style_make(TermColorCyan, TermColorDefault, 0);
 }
 
-static TextStyle a_number(void) {
+static TextStyle a_number() {
 	return text_style_make(TermColorMagenta, TermColorDefault, 0);
 }
 
-static TextStyle a_preproc(void) {
+static TextStyle a_preproc() {
 	return text_style_make(TermColorRed, TermColorDefault, 0);
 }
 
-static TextStyle a_heading(void) {
+static TextStyle a_heading() {
 	return text_style_make(TermColorYellow, TermColorDefault, (uint16_t)TextStyleBold);
 }
 
-static TextStyle a_bold(void) {
+static TextStyle a_bold() {
 	return text_style_make(TermColorDefault, TermColorDefault, (uint16_t)TextStyleBold);
 }
 
@@ -64,7 +64,7 @@ static int line_byte(char[..] line, size_t i) {
 		if (lp == NULL) {
 			return 0;
 		}
-		return (int)(unsigned char)lp[i];
+		return lp[i];
 	}
 }
 
@@ -86,7 +86,7 @@ static bool is_ident_start(int c, uint32_t flags) {
 	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
 		return true;
 	}
-	if ((flags & ModeFlagIdentLispSigil) != 0 && (c == '#' || c == '&')) {
+	if ((flags & (uint32_t)ModeFlagIdentLispSigil) != 0 && (c == '#' || c == '&')) {
 		return true;
 	}
 	return false;
@@ -97,10 +97,10 @@ static bool is_ident_cont(int c, uint32_t flags) {
 		(c >= '0' && c <= '9') || c == '_') {
 		return true;
 	}
-	if ((flags & ModeFlagIdentDash) != 0 && c == '-') {
+	if ((flags & (uint32_t)ModeFlagIdentDash) != 0 && c == '-') {
 		return true;
 	}
-	if ((flags & ModeFlagIdentLispExtra) != 0) {
+	if ((flags & (uint32_t)ModeFlagIdentLispExtra) != 0) {
 		switch (c) {
 		case '-':
 		case '?':
@@ -152,7 +152,7 @@ static bool is_operator_char(int c) {
 }
 
 static TextStyle paren_style(TermColor base, int depth) {
-	TermColor cycle[4] = {0, TermColorCyan, TermColorRed, TermColorYellow};
+	TermColor cycle[4] = {TermColorBlack, TermColorCyan, TermColorRed, TermColorYellow};
 	TermColor fg = base;
 	if ((depth & 3) != 0) {
 		fg = cycle[depth & 3];
@@ -195,11 +195,11 @@ static void paint_delimiter(SynState* syn, int ch, size_t idx, TextStyle[..] sty
 	old = *dptr;
 	meta = (uint8_t)(old & 0x80);
 	if (ch == open) {
-		depth = (int)(old & 0x7F);
+		depth = old & 0x7F;
 		put_paint(styles, idx, paren_style(color, depth));
 		*dptr = (uint8_t)(((depth + 1) & 0x7F) | meta);
 	} else {
-		depth = (int)(old & 0x7F);
+		depth = old & 0x7F;
 		if (depth > 0) {
 			depth = depth - 1;
 		}
@@ -291,16 +291,16 @@ static void highlight_html(char[..] line, TextStyle[..] styles, SynState* syn) {
 
 	for (i = 0; i < n; i++) {
 		c = line_byte(line, i);
-		dfa = (int)syn.dfa;
-		if (dfa == SynStateHTMLCmt || dfa == SynStateHTMLCmtD1 || dfa == SynStateHTMLCmtD2) {
+		dfa = syn.dfa;
+		if (dfa == (int)SynStateHTMLCmt || dfa == (int)SynStateHTMLCmtD1 || dfa == (int)SynStateHTMLCmtD2) {
 			put_paint(styles, i, a_comment());
 			if (c == '-') {
-				if (dfa == SynStateHTMLCmtD1) {
+				if (dfa == (int)SynStateHTMLCmtD1) {
 					syn.dfa = SynStateHTMLCmtD2;
 				} else {
 					syn.dfa = SynStateHTMLCmtD1;
 				}
-			} else if (c == '>' && dfa == SynStateHTMLCmtD2) {
+			} else if (c == '>' && dfa == (int)SynStateHTMLCmtD2) {
 				syn.dfa = SynStateNormal;
 			} else {
 				syn.dfa = SynStateHTMLCmt;
@@ -366,20 +366,20 @@ static void on_enter(int state, char[..] line, size_t i, size_t token_start, Tex
 }
 
 static bool skip_enter_on_string_close(int cur, int new_state, int c) {
-	if (new_state != SynStateNormal) {
+	if (new_state != (int)SynStateNormal) {
 		return false;
 	}
-	if (cur == SynStateStringD) {
+	if (cur == (int)SynStateStringD) {
 		return c == '"';
 	}
-	if (cur == SynStateStringS) {
+	if (cur == (int)SynStateStringS) {
 		return c == '\'';
 	}
 	return false;
 }
 
 static void on_exit(int state, char[..] line, size_t i, size_t token_start, LangMode lm, TextStyle[..] styles) {
-	if (state == SynStateIdent) {
+	if (state == (int)SynStateIdent) {
 		paint_ident_range(line, token_start, i, lm, styles);
 	}
 }
@@ -388,8 +388,8 @@ static void on_exit(int state, char[..] line, size_t i, size_t token_start, Lang
 // returns the SynState after the line (for the next line's prev).
 // prev may be NULL (treated as zero SynState).
 SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, TextStyle[..] styles) {
-	Spec info = {0};
-	SynState syn = {0};
+	Spec info = {ModeSyntaxGeneral};
+	SynState syn = {SynStateNormal};
 	size_t n = 0;
 	size_t i = 0;
 	size_t token_start = 0;
@@ -464,8 +464,8 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 	token_start = 0;
 	i = 0;
 	while (i < n) {
-		cur = (int)syn.dfa;
-		if (cur < 0 || cur >= SynStateCount) {
+		cur = syn.dfa;
+		if (cur < 0 || cur >= (int)SynStateCount) {
 			syn.dfa = SynStateNormal;
 			cur = SynStateNormal;
 		}
@@ -476,20 +476,20 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 
 		switch (cur) {
 		case SynStateNormal:
-			if ((flags & ModeFlagCommentSlashLine) != 0 && c == '/' && lookahead == '/') {
+			if ((flags & (uint32_t)ModeFlagCommentSlashLine) != 0 && c == '/' && lookahead == '/') {
 				fill_paint(styles, i, n, a_comment());
 				syn.dfa = SynStateCmtLine;
 				i = n;
 				break;
 			}
-			if ((flags & ModeFlagCommentSlashBlock) != 0 && c == '/' && lookahead == '*') {
+			if ((flags & (uint32_t)ModeFlagCommentSlashBlock) != 0 && c == '/' && lookahead == '*') {
 				put_paint(styles, i, a_comment());
 				put_paint(styles, i + 1, a_comment());
 				syn.dfa = SynStateCmtBlock;
 				i = i + 1;
 				break;
 			}
-			if ((flags & ModeFlagPreprocHashAtBOL) != 0 && c == '#') {
+			if ((flags & (uint32_t)ModeFlagPreprocHashAtBOL) != 0 && c == '#') {
 				any_before = false;
 				for (k = 0; k < i; k++) {
 					if (line_byte(line, k) != ' ' && line_byte(line, k) != '\t') {
@@ -508,30 +508,30 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 					break;
 				}
 			}
-			if ((flags & ModeFlagCommentHash) != 0 && c == '#') {
+			if ((flags & (uint32_t)ModeFlagCommentHash) != 0 && c == '#') {
 				fill_paint(styles, i, n, a_comment());
 				syn.dfa = SynStateCmtLine;
 				i = n;
 				break;
 			}
-			if ((flags & ModeFlagCommentSemi) != 0 && c == ';') {
+			if ((flags & (uint32_t)ModeFlagCommentSemi) != 0 && c == ';') {
 				fill_paint(styles, i, n, a_comment());
 				syn.dfa = SynStateCmtLine;
 				i = n;
 				break;
 			}
-			if ((flags & ModeFlagCommentLua) != 0 && c == '-') {
+			if ((flags & (uint32_t)ModeFlagCommentLua) != 0 && c == '-') {
 				token_start = i;
 				syn.dfa = SynStateLuaDash;
 				put_paint(styles, i, a_normal());
 				break;
 			}
-			if ((flags & ModeFlagCommentPascalBrace) != 0 && c == '{') {
+			if ((flags & (uint32_t)ModeFlagCommentPascalBrace) != 0 && c == '{') {
 				put_paint(styles, i, a_comment());
 				syn.dfa = SynStateCmtBrace;
 				break;
 			}
-			if ((flags & ModeFlagCommentPascalParen) != 0 && c == '(' && lookahead == '*') {
+			if ((flags & (uint32_t)ModeFlagCommentPascalParen) != 0 && c == '(' && lookahead == '*') {
 				put_paint(styles, i, a_comment());
 				put_paint(styles, i + 1, a_comment());
 				syn.dfa = SynStateCmtParen;
@@ -556,15 +556,15 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 				syn.dfa = SynStateIdent;
 				break;
 			}
-			if ((flags & ModeFlagAtRule) != 0 && c == '@' && lookahead >= 'a' && lookahead <= 'z') {
+			if ((flags & (uint32_t)ModeFlagAtRule) != 0 && c == '@' && lookahead >= 'a' && lookahead <= 'z') {
 				put_paint(styles, i, a_preproc());
 				token_start = i + 1;
 				syn.dfa = SynStateIdent;
 				break;
 			}
 			if (c == '(' || c == ')' || c == '[' || c == ']' ||
-				(c == '{' && (flags & ModeFlagNoCurlyRainbow) == 0) ||
-				(c == '}' && (flags & ModeFlagNoCurlyRainbow) == 0)) {
+				(c == '{' && (flags & (uint32_t)ModeFlagNoCurlyRainbow) == 0) ||
+				(c == '}' && (flags & (uint32_t)ModeFlagNoCurlyRainbow) == 0)) {
 				paint_delimiter(&syn, c, i, styles);
 				break;
 			}
@@ -691,8 +691,8 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 			break;
 		}
 
-		new_state = (int)syn.dfa;
-		if (new_state < 0 || new_state >= SynStateCount) {
+		new_state = syn.dfa;
+		if (new_state < 0 || new_state >= (int)SynStateCount) {
 			syn.dfa = SynStateNormal;
 			new_state = SynStateNormal;
 		}

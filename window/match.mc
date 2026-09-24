@@ -6,7 +6,7 @@
 
 static char MatchBufferName[] = "*match*";
 
-Window *window_match(void) {
+Window *window_match() {
 	Buffer *mb = buffer_find_by_name(MatchBufferName);
 	size_t i = 0;
 	if (mb == NULL) {
@@ -65,7 +65,7 @@ static Window *window_ensure_buffer(Buffer *buf) {
 	return win;
 }
 
-static void window_hide_match(void) {
+static void window_hide_match() {
 	Window *mw = window_match();
 	size_t i = 0;
 	size_t j = 0;
@@ -94,7 +94,7 @@ static void window_hide_match(void) {
 	}
 }
 
-void window_discard_match_buffer(void) {
+void window_discard_match_buffer() {
 	Buffer *mb = {0};
 	window_hide_match();
 	mb = buffer_find_by_name(MatchBufferName);
@@ -139,7 +139,7 @@ static void window_scroll_match_to_selection(int selected) {
 	mw.should_redraw = true;
 }
 
-static Buffer *ensure_match_buffer(void) {
+static Buffer *ensure_match_buffer() {
 	Buffer *mb = buffer_find_by_name(MatchBufferName);
 	if (mb != NULL) {
 		return mb;
@@ -157,7 +157,7 @@ static Buffer *ensure_match_buffer(void) {
 	return mb;
 }
 
-static void show_match_window(void) {
+static void show_match_window() {
 	Buffer *mb = buffer_find_by_name(MatchBufferName);
 	Window *win = {0};
 	if (mb == NULL) {

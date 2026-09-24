@@ -1,12 +1,13 @@
 // register — named text registers (a-z).
+import "str";
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
 struct Reg {
-	char *data;
-	size_t len;
+	char[..] data; /* owned heap */
 };
 
 static Reg g_regs[26];
@@ -21,33 +22,19 @@ static int reg_index(char name) {
 	return -1;
 }
 
-bool register_set(char name, char *data, size_t n) {
+bool register_set(char name, const char[..] src) {
 	int i = reg_index(name);
-	Reg *r = {0};
 	if (i < 0) {
 		return false;
 	}
-	r = &g_regs[i];
-	free(r.data);
-	r.data = NULL;
-	r.len = 0;
-	if (n == 0) {
-		return true;
-	}
-	r.data = malloc(n + 1);
-	if (r.data == NULL) {
-		return false;
-	}
-	memcpy(r.data, data, n);
-	r.data[n] = 0;
-	r.len = n;
-	return true;
+	return str_set(&g_regs[i].data, src);
 }
 
-(char *, size_t) register_get(char name) {
+/* Borrow of register contents (owned by register). */
+char[..] register_get(char name) {
 	int i = reg_index(name);
 	if (i < 0) {
-		return (NULL, 0);
+		return str_empty();
 	}
-	return (g_regs[i].data, g_regs[i].len);
+	return g_regs[i].data;
 }

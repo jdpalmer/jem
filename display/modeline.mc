@@ -13,27 +13,25 @@ void display_set_macro_state(bool recording, bool present) {
 	g_macro_present = present;
 }
 
-static void fit_buffer_name(char *name, char *out, size_t cap) {
-	size_t n = 0;
+static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
+	size_t n = len(name);
 	int width = 0;
-	int end = 0;
+	size_t end = 0;
 	int max_cols = 16;
 	if (out == NULL || cap == 0) {
 		return;
 	}
 	out[0] = 0;
-	if (name == NULL || name[0] == 0) {
+	if (n == 0 || ptr(name) == NULL) {
 		return;
 	}
-	n = strlen(name);
 	{
-		char[..] v = ranged(name, n);
 		int col = 0;
-		int at = 0;
-		while (at < (int)n) {
-			auto (r, sz) = utf8_decode_rune(v, at);
+		size_t at = 0;
+		while (at < n) {
+			auto (r, sz) = utf8_decode_rune(name, at);
 			int w = 0;
-			if (sz <= 0) {
+			if (sz == 0) {
 				break;
 			}
 			w = rune_display_width(r);
@@ -49,20 +47,19 @@ static void fit_buffer_name(char *name, char *out, size_t cap) {
 		if (n >= cap) {
 			n = cap - 1;
 		}
-		memcpy(out, name, n);
+		memcpy(out, ptr(name), n);
 		out[n] = 0;
 		return;
 	}
 	{
-		char[..] v = ranged(name, n);
 		int budget = max_cols - 1;
 		int col = 0;
-		int at = 0;
+		size_t at = 0;
 		end = 0;
-		while (at < (int)n) {
-			auto (r, sz) = utf8_decode_rune(v, at);
+		while (at < n) {
+			auto (r, sz) = utf8_decode_rune(name, at);
 			int w = 0;
-			if (sz <= 0) {
+			if (sz == 0) {
 				break;
 			}
 			w = rune_display_width(r);
@@ -77,28 +74,29 @@ static void fit_buffer_name(char *name, char *out, size_t cap) {
 			end = at;
 		}
 	}
-	if ((size_t)end + 4 >= cap) {
-		end = (int)cap - 4;
-		if (end < 0) {
+	if (end + 4 >= cap) {
+		if (cap > 4) {
+			end = cap - 4;
+		} else {
 			end = 0;
 		}
 	}
 	if (end > 0) {
-		memcpy(out, name, (size_t)end);
+		memcpy(out, ptr(name), end);
 	}
-	out[end] = (char)0xE2;
-	out[end + 1] = (char)0x80;
-	out[end + 2] = (char)0xA6;
+	out[end] = 0xE2;
+	out[end + 1] = 0x80;
+	out[end + 2] = 0xA6;
 	out[end + 3] = 0;
 }
 
-static void put_ascii(int row, int *col, char *s, TextStyle st) {
+static void put_ascii(int row, int *col, const char *s, TextStyle st) {
 	int cols = term_cols();
 	if (s == NULL || col == NULL) {
 		return;
 	}
 	while (*s != 0 && *col < cols) {
-		put_rune(&g_screen, row, *col, (uint32_t)(unsigned char)*s, st);
+		put_rune(&g_screen, row, *col, *s, st);
 		(*col)++;
 		s++;
 	}
@@ -110,8 +108,8 @@ void paint_modeline(Window *win, int row) {
 	TextStyle dirty_st = style_modeline_dirty();
 	char fitted[32] = {0};
 	char pos[64] = {0};
-	char *lang = {0};
-	char *eol = {0};
+	const char *lang = {0};
+	const char *eol = {0};
 	int col = 0;
 	int cols = 0;
 	int gutter_w = 0;
@@ -147,15 +145,15 @@ void paint_modeline(Window *win, int row) {
 	}
 	cline = win.buffer.line(lineno);
 	if (cline != NULL) {
-		colno = cline.display_col_at_offset(win.cursor.offset) + 1;
+		colno = (int)cline.display_col_at_offset(win.cursor.offset) + 1;
 	}
 	snprintf(pos, sizeof(pos), "%3d%% L%d C%d", pct, lineno, colno);
 	lang = mode_display_name(win.buffer.lang_mode);
-	eol = (char *)(void *)"LF";
+	eol = "LF";
 	if (win.buffer.eol_mode == EModeCRLF) {
-		eol = (char *)(void *)"CRLF";
+		eol = "CRLF";
 	}
-	if (win.buffer.name != NULL && win.buffer.name[0] != 0) {
+	if (len(win.buffer.name) > 0) {
 		fit_buffer_name(win.buffer.name, fitted, sizeof(fitted));
 	} else {
 		snprintf(fitted, sizeof(fitted), "[No File]");

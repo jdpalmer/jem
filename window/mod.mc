@@ -7,6 +7,7 @@ import "term";
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 enum WindowLimits {
 	WindowMax = 8,
@@ -16,8 +17,8 @@ enum WindowLimits {
 
 struct SearchSpan {
 	int line;
-	int start;
-	int end;
+	size_t start;
+	size_t end;
 };
 
 struct Window {
@@ -25,7 +26,7 @@ struct Window {
 	int top_line;
 	Location cursor;
 	Location mark;
-	int goal_col;
+	ssize_t goal_col;
 	int h_scroll;
 	int screen_top_row;
 	int height;
@@ -62,7 +63,7 @@ void window_select(Window *win) {
 	win.should_update_mode_line = true;
 }
 
-Window *window_create(void) {
+Window *window_create() {
 	Window *win = {0};
 	if (window_active.count >= (size_t)WindowMax) {
 		return NULL;
@@ -84,7 +85,7 @@ Window *window_create(void) {
 	return win;
 }
 
-void window_retile(void) {
+void window_retile() {
 	size_t n = window_active.count;
 	size_t i = 0;
 	int mode_lines = 0;
@@ -127,12 +128,12 @@ void window_retile(void) {
 	}
 }
 
-Window *window_current(void) {
+Window *window_current() {
 	return window_active.current;
 }
 
-void (Window *win).save_state(void) {
-	if (win == NULL || win.buffer == NULL) {
+void (Window *win).save_state() {
+	if (win.buffer == NULL) {
 		return;
 	}
 	win.buffer.cursor = win.cursor;
@@ -173,6 +174,26 @@ void window_switch_buffer(Buffer *buf) {
 		cw.set_cursor(loc);
 	}
 	cw.mark = buf.mark;
+}
+
+void window_replace_buffer(Buffer *old, Buffer *replacement) {
+	size_t i = 0;
+	if (old == NULL || replacement == NULL || old == replacement) {
+		return;
+	}
+	for (i = 0; i < window_active.count; i++) {
+		Window *win = window_active.windows[i];
+		if (win == NULL || win.buffer != old) {
+			continue;
+		}
+		win.buffer = replacement;
+		win.cursor = replacement.cursor;
+		win.mark = replacement.mark;
+		win.top_line = 1;
+		win.h_scroll = 0;
+		win.should_redraw = true;
+		win.should_update_mode_line = true;
+	}
 }
 
 int window_gutter_width(Window *win) {
@@ -259,9 +280,6 @@ static void mark_moved(Window *win) {
 }
 
 void (Window *win).set_cursor(Location loc) {
-	if (win == NULL) {
-		return;
-	}
 	win.cursor = loc;
 	win.goal_col = GoalColUnset;
 	mark_moved(win);
@@ -269,7 +287,7 @@ void (Window *win).set_cursor(Location loc) {
 
 void (Window *win).move_vertical(int delta) {
 	int nlines = 0;
-	if (win == NULL || win.buffer == NULL || delta == 0) {
+	if (win.buffer == NULL || delta == 0) {
 		return;
 	}
 	ensure_goal_col(win);
@@ -294,7 +312,7 @@ void (Window *win).move_vertical(int delta) {
 
 void (Window *win).move_forward_char(int n) {
 	int i = 0;
-	if (win == NULL || win.buffer == NULL || n <= 0) {
+	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
 	for (i = 0; i < n; i++) {
@@ -314,7 +332,7 @@ void (Window *win).move_forward_char(int n) {
 
 void (Window *win).move_backward_char(int n) {
 	int i = 0;
-	if (win == NULL || win.buffer == NULL || n <= 0) {
+	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
 	for (i = 0; i < n; i++) {
@@ -337,14 +355,14 @@ void (Window *win).move_backward_char(int n) {
 	mark_moved(win);
 }
 
-static bool is_word_char(unsigned char b) {
+static bool is_word_char(char b) {
 	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9') || b == '_';
 }
 
 static Location forward_word_loc(Buffer *buf, Location loc) {
 	Line *line = {0};
 	char[..] v = {0};
-	int off = 0;
+	size_t off = 0;
 	int nlines = 0;
 	if (buf == NULL) {
 		return loc;
@@ -356,7 +374,7 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 	}
 	v = line.view();
 	off = loc.offset;
-	if (off >= (int)len(v)) {
+	if (off >= len(v)) {
 		if (loc.line >= nlines) {
 			loc.offset = line.byte_len();
 			return loc;
@@ -366,7 +384,7 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 	} else {
 		{
 			char *vp = ptr(v);
-			while (off < (int)len(v) && !is_word_char((unsigned char)vp[off])) {
+			while (off < len(v) && !is_word_char(vp[off])) {
 				off++;
 			}
 		}
@@ -379,11 +397,11 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 		v = line.view();
 		{
 			char *vp = ptr(v);
-			while (off < (int)len(v) && !is_word_char((unsigned char)vp[off])) {
+			while (off < len(v) && !is_word_char(vp[off])) {
 				off++;
 			}
-			if (off < (int)len(v)) {
-				while (off < (int)len(v) && is_word_char((unsigned char)vp[off])) {
+			if (off < len(v)) {
+				while (off < len(v) && is_word_char(vp[off])) {
 					off++;
 				}
 				loc.offset = off;
@@ -405,7 +423,7 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 static Location backward_word_loc(Buffer *buf, Location loc) {
 	Line *line = {0};
 	char[..] v = {0};
-	int off = 0;
+	size_t off = 0;
 	if (buf == NULL) {
 		return loc;
 	}
@@ -424,7 +442,7 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 			line = buf.line(loc.line);
 			if (line != NULL) {
 				v = line.view();
-				off = (int)len(v);
+				off = len(v);
 			} else {
 				off = 0;
 			}
@@ -433,8 +451,8 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 		}
 	}
 	while (off > 0) {
-		int prev = utf8_prev_offset(v, off);
-		unsigned char b = 0;
+		size_t prev = utf8_prev_offset(v, off);
+		char b = 0;
 		if (prev == off) {
 			off--;
 		} else {
@@ -442,8 +460,8 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 		}
 		{
 			char *vp = ptr(v);
-			if (off < (int)len(v)) {
-				b = (unsigned char)vp[off];
+			if (off < len(v)) {
+				b = vp[off];
 			}
 			if (is_word_char(b) || off == 0) {
 				break;
@@ -452,10 +470,10 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 	}
 	{
 		char *vp = ptr(v);
-		while (off > 0 && !is_word_char((unsigned char)vp[off - 1])) {
+		while (off > 0 && !is_word_char(vp[off - 1])) {
 			off--;
 		}
-		while (off > 0 && is_word_char((unsigned char)vp[off - 1])) {
+		while (off > 0 && is_word_char(vp[off - 1])) {
 			off--;
 		}
 	}
@@ -465,7 +483,7 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 
 void (Window *win).move_forward_word(int n) {
 	int i = 0;
-	if (win == NULL || win.buffer == NULL || n <= 0) {
+	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
 	for (i = 0; i < n; i++) {
@@ -477,7 +495,7 @@ void (Window *win).move_forward_word(int n) {
 
 void (Window *win).move_backward_word(int n) {
 	int i = 0;
-	if (win == NULL || win.buffer == NULL || n <= 0) {
+	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
 	for (i = 0; i < n; i++) {
@@ -487,18 +505,15 @@ void (Window *win).move_backward_word(int n) {
 	mark_moved(win);
 }
 
-void (Window *win).move_bol(void) {
-	if (win == NULL) {
-		return;
-	}
+void (Window *win).move_bol() {
 	win.cursor.offset = 0;
 	sync_goal_col(win);
 	mark_moved(win);
 }
 
-void (Window *win).move_eol(void) {
+void (Window *win).move_eol() {
 	Line *line = {0};
-	if (win == NULL || win.buffer == NULL) {
+	if (win.buffer == NULL) {
 		return;
 	}
 	line = win.buffer.line(win.cursor.line);
@@ -511,9 +526,9 @@ void (Window *win).move_eol(void) {
 	mark_moved(win);
 }
 
-void (Window *win).ensure_visible(void) {
+void (Window *win).ensure_visible() {
 	int bottom = 0;
-	if (win == NULL || win.height <= 0) {
+	if (win.height <= 0) {
 		return;
 	}
 	if (win.cursor.line < win.top_line) {
@@ -530,7 +545,7 @@ void (Window *win).ensure_visible(void) {
 	}
 }
 
-bool window_split(void) {
+bool window_split() {
 	Window *cur = window_current();
 	Window *nw = {0};
 	if (cur == NULL) {
@@ -549,7 +564,7 @@ bool window_split(void) {
 	return true;
 }
 
-bool window_only(void) {
+bool window_only() {
 	Window *cur = window_current();
 	size_t i = 0;
 	if (cur == NULL) {
@@ -566,7 +581,7 @@ bool window_only(void) {
 	return true;
 }
 
-bool window_delete(void) {
+bool window_delete() {
 	Window *cur = window_current();
 	size_t i = 0;
 	size_t j = 0;
@@ -595,7 +610,7 @@ bool window_delete(void) {
 	return false;
 }
 
-bool window_next(void) {
+bool window_next() {
 	size_t i = 0;
 	if (window_active.count <= (size_t)1) {
 		return false;
@@ -609,7 +624,7 @@ bool window_next(void) {
 	return false;
 }
 
-void window_init(void) {
+void window_init() {
 	Window *win = {0};
 	memset(&window_active, 0, sizeof(window_active));
 	win = window_create();
@@ -633,7 +648,7 @@ static int windows_showing(Buffer *buf) {
 	return n;
 }
 
-static bool text_has_nl(char *text, size_t n) {
+static bool text_has_nl(const char *text, size_t n) {
 	size_t i = 0;
 	if (text == NULL) {
 		return false;
@@ -672,12 +687,12 @@ static void note_buffer_edit(Buffer *buf, bool structural, bool was_changed) {
 	}
 }
 
-bool (Window *win).set_text(Location begin, Location end, char *text, size_t n) {
+bool (Window *win).set_text(Location begin, Location end, const char *text, size_t n) {
 	Location new_end = {0};
 	bool ok = false;
 	bool was_changed = false;
 	bool structural = false;
-	if (win == NULL || win.buffer == NULL) {
+	if (win.buffer == NULL) {
 		return false;
 	}
 	was_changed = win.buffer.is_changed;
@@ -709,7 +724,7 @@ void window_set_search_spans(Window *win, SearchSpan *spans, int n) {
 	if (n < 0) {
 		n = 0;
 	}
-	if (n > SearchSpanMax) {
+	if (n > (int)SearchSpanMax) {
 		n = SearchSpanMax;
 	}
 	win.search_span_count = n;

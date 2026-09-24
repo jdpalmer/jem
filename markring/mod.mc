@@ -17,7 +17,7 @@ static MarkRing g_marks;
 
 void markring_push(Location loc) {
 	int i = 0;
-	if (g_marks.count == MarkRingMax) {
+	if (g_marks.count == (int)MarkRingMax) {
 		g_marks.count--;
 	}
 	for (i = g_marks.count; i > 0; i--) {
@@ -27,7 +27,7 @@ void markring_push(Location loc) {
 	g_marks.count++;
 }
 
-(Location, bool) markring_pop(void) {
+(Location, bool) markring_pop() {
 	Location loc = {0};
 	int i = 0;
 	if (g_marks.count == 0) {
@@ -41,10 +41,10 @@ void markring_push(Location loc) {
 	return (loc, true);
 }
 
-void markring_clear(void) {
+void markring_clear() {
 	g_marks.count = 0;
 }
 
-int markring_count(void) {
+int markring_count() {
 	return g_marks.count;
 }

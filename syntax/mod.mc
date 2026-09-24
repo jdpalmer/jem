@@ -42,27 +42,32 @@ struct TextStyle {
 };
 
 TextStyle TextStyleDefault = {
-	.bits = (uint16_t)((TermColorDefault << TextStyleFgShift) |
-		(TermColorDefault << TextStyleBgShift)),
+	.bits = (uint16_t)(((uint16_t)TermColorDefault <<
+		(uint16_t)TextStyleFgShift) | ((uint16_t)TermColorDefault <<
+		(uint16_t)TextStyleBgShift)),
 };
 
 // text_style_make packs fg, bg, and flag bits into a TextStyle.
 TextStyle text_style_make(TermColor fg, TermColor bg, uint16_t flags) {
 	TextStyle s = {0};
-	s.bits = (uint16_t)((((uint16_t)fg) & TextStyleColorMask) << TextStyleFgShift |
-		(((uint16_t)bg) & TextStyleColorMask) << TextStyleBgShift |
+	s.bits = (uint16_t)((((uint16_t)fg) & (uint16_t)TextStyleColorMask) <<
+		(uint16_t)TextStyleFgShift |
+		(((uint16_t)bg) & (uint16_t)TextStyleColorMask) <<
+		(uint16_t)TextStyleBgShift |
 		flags);
 	return s;
 }
 
 // text_style_fg returns the foreground TermColor.
 TermColor text_style_fg(TextStyle style) {
-	return (TermColor)((style.bits >> TextStyleFgShift) & TextStyleColorMask);
+	return (TermColor)((style.bits >> (uint16_t)TextStyleFgShift) &
+		(uint16_t)TextStyleColorMask);
 }
 
 // text_style_bg returns the background TermColor.
 TermColor text_style_bg(TextStyle style) {
-	return (TermColor)((style.bits >> TextStyleBgShift) & TextStyleColorMask);
+	return (TermColor)((style.bits >> (uint16_t)TextStyleBgShift) &
+		(uint16_t)TextStyleColorMask);
 }
 
 // text_style_eq reports equal packed bits.
@@ -164,7 +169,7 @@ struct Spec {
 
 // syntax_spec_for returns kind/flags for mode (unknown → text fallback).
 Spec syntax_spec_for(LangMode mode) {
-	Spec s = {0};
+	Spec s = {ModeSyntaxGeneral};
 	switch (mode) {
 	case LModeNone:
 		s.kind = ModeSyntaxNone;
@@ -196,15 +201,15 @@ Spec syntax_spec_for(LangMode mode) {
 	case LModePython:
 	case LModeR:
 		s.kind = ModeSyntaxGeneral;
-		s.flags = (uint32_t)ModeFlagCommentHash;
+		s.flags = ModeFlagCommentHash;
 		break;
 	case LModeMake:
 		s.kind = ModeSyntaxHashCommentOnly;
-		s.flags = (uint32_t)ModeFlagCommentHash;
+		s.flags = ModeFlagCommentHash;
 		break;
 	case LModeLua:
 		s.kind = ModeSyntaxGeneral;
-		s.flags = (uint32_t)ModeFlagCommentLua;
+		s.flags = ModeFlagCommentLua;
 		break;
 	case LModeLisp:
 		s.kind = ModeSyntaxGeneral;

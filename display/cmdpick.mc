@@ -26,7 +26,7 @@ static int g_cp_name_width;
 static bool g_cp_active;
 static char g_cp_last[CmdPickNameCap];
 
-static int cmdpick_page_size(void) {
+static int cmdpick_page_size() {
 	Window *mw = window_match();
 	if (mw != NULL && mw.height > 1) {
 		return mw.height;
@@ -34,7 +34,7 @@ static int cmdpick_page_size(void) {
 	return 10;
 }
 
-static void cmdpick_clamp_sel(void) {
+static void cmdpick_clamp_sel() {
 	if (g_cp_match_count == 0) {
 		g_cp_sel = 0;
 		return;
@@ -47,7 +47,7 @@ static void cmdpick_clamp_sel(void) {
 	}
 }
 
-static void cmdpick_rebuild(char *query) {
+static void cmdpick_rebuild(const char *query) {
 	struct {
 		int idx;
 		int score;
@@ -83,7 +83,7 @@ static void cmdpick_rebuild(char *query) {
 	}
 }
 
-static void cmdpick_refresh(void) {
+static void cmdpick_refresh() {
 	char *out = NULL;
 	size_t cap = 0;
 	size_t len = 0;
@@ -108,7 +108,7 @@ static void cmdpick_refresh(void) {
 	for (i = 0; i < g_cp_match_count; i++) {
 		CmdPickEntry *e = &g_cp[g_cp_matches[i]];
 		char line[160] = {0};
-		char *arrow = (i == g_cp_sel) ? (char *)(void *)"→ " : (char *)(void *)"  ";
+		const char *arrow = (i == g_cp_sel) ? "→ " : "  ";
 		int n = 0;
 		n = snprintf(line, sizeof(line), "%s%-*s  %s", arrow, g_cp_name_width, e.name, e.bind);
 		if (n < 0) {
@@ -121,15 +121,15 @@ static void cmdpick_refresh(void) {
 		if (len + (size_t)n + 1 > cap) {
 			break;
 		}
-		memcpy(out + len, line, (size_t)n);
-		len += (size_t)n;
+		memcpy(out + len, line, n);
+		len += n;
 		out[len] = 0;
 	}
 	window_set_match_buffer_text(out, len, g_cp_sel);
 	free(out);
 }
 
-static bool name_eq_fold(char *a, char *b) {
+static bool name_eq_fold(const char *a, const char *b) {
 	if (a == NULL || b == NULL) {
 		return false;
 	}
@@ -151,7 +151,7 @@ static bool name_eq_fold(char *a, char *b) {
 	return *a == 0 && *b == 0;
 }
 
-static int cmdpick_find_name(char *name) {
+static int cmdpick_find_name(const char *name) {
 	int i = 0;
 	if (name == NULL || name[0] == 0) {
 		return 0;
@@ -164,7 +164,7 @@ static int cmdpick_find_name(char *name) {
 	return 0;
 }
 
-void fuzzy_command_open(char **names, char **binds, int count, char *initial_name) {
+void fuzzy_command_open(const char **names, const char **binds, int count, const char *initial_name) {
 	int i = 0;
 	int j = 0;
 	int initial = 0;
@@ -231,17 +231,17 @@ void fuzzy_command_open(char **names, char **binds, int count, char *initial_nam
 	cmdpick_refresh();
 }
 
-void fuzzy_command_close(void) {
+void fuzzy_command_close() {
 	g_cp_active = false;
 	window_discard_match_buffer();
 	minibuffer_cancel();
 }
 
-bool fuzzy_command_active(void) {
+bool fuzzy_command_active() {
 	return g_cp_active;
 }
 
-char *fuzzy_command_selected(void) {
+char *fuzzy_command_selected() {
 	if (!g_cp_active || g_cp_match_count == 0) {
 		return NULL;
 	}
@@ -251,7 +251,7 @@ char *fuzzy_command_selected(void) {
 	return g_cp[g_cp_matches[g_cp_sel]].name;
 }
 
-void fuzzy_command_remember(char *name) {
+void fuzzy_command_remember(const char *name) {
 	size_t n = 0;
 	g_cp_last[0] = 0;
 	if (name == NULL) {
@@ -270,20 +270,20 @@ FuzzyKeyResult fuzzy_command_handle_key(uint32_t key) {
 	if (!g_cp_active) {
 		return FuzzyAbort;
 	}
-	if (key == TermKeyEnter || key == (uint32_t)'\r' || key == (uint32_t)'\n' ||
-		key == (TermCTL | (uint32_t)'M') || key == (TermCTL | (uint32_t)'J')) {
+	if (key == term_key_value(TermKeyEnter) || key == (uint32_t)'\r' || key == (uint32_t)'\n' ||
+		key == (term_key_value(TermCTL) | (uint32_t)'M') || key == (term_key_value(TermCTL) | (uint32_t)'J')) {
 		return FuzzyAccept;
 	}
-	if (key == (TermCTL | (uint32_t)'G') || key == 0x07 || key == 0x1B) {
+	if (key == (term_key_value(TermCTL) | (uint32_t)'G') || key == 0x07 || key == 0x1B) {
 		return FuzzyAbort;
 	}
-	if (key == TermKeyUp || key == (TermCTL | (uint32_t)'P') ||
-		key == TermKeyDown || key == (TermCTL | (uint32_t)'N')) {
+	if (key == term_key_value(TermKeyUp) || key == (term_key_value(TermCTL) | (uint32_t)'P') ||
+		key == term_key_value(TermKeyDown) || key == (term_key_value(TermCTL) | (uint32_t)'N')) {
 		if (g_cp_match_count == 0) {
 			term_beep();
 		} else {
 			int delta = 1;
-			if (key == TermKeyUp || key == (TermCTL | (uint32_t)'P')) {
+			if (key == term_key_value(TermKeyUp) || key == (term_key_value(TermCTL) | (uint32_t)'P')) {
 				delta = -1;
 			}
 			g_cp_sel = (g_cp_sel + g_cp_match_count + delta) % g_cp_match_count;
@@ -291,14 +291,14 @@ FuzzyKeyResult fuzzy_command_handle_key(uint32_t key) {
 		cmdpick_refresh();
 		return FuzzyContinue;
 	}
-	if (key == (TermSHIFT | TermKeyUp) || key == TermKeyPageUp ||
-		key == (TermSHIFT | TermKeyDown) || key == TermKeyPageDown) {
+	if (key == (term_key_value(TermSHIFT) | term_key_value(TermKeyUp)) || key == term_key_value(TermKeyPageUp) ||
+		key == (term_key_value(TermSHIFT) | term_key_value(TermKeyDown)) || key == term_key_value(TermKeyPageDown)) {
 		if (g_cp_match_count == 0) {
 			term_beep();
 		} else {
 			int delta = cmdpick_page_size();
 			int prev = g_cp_sel;
-			if (key == (TermSHIFT | TermKeyUp) || key == TermKeyPageUp) {
+			if (key == (term_key_value(TermSHIFT) | term_key_value(TermKeyUp)) || key == term_key_value(TermKeyPageUp)) {
 				delta = -delta;
 			}
 			g_cp_sel += delta;
@@ -310,13 +310,13 @@ FuzzyKeyResult fuzzy_command_handle_key(uint32_t key) {
 		cmdpick_refresh();
 		return FuzzyContinue;
 	}
-	if (key == (TermCTL | (uint32_t)'H') || key == 127) {
+	if (key == (term_key_value(TermCTL) | (uint32_t)'H') || key == 127) {
 		if (minibuffer_backspace()) {
 			changed = true;
 		} else {
 			term_beep();
 		}
-	} else if (key >= 32 && (key & TermKeyMask) == 0 && key < 0x10000000) {
+	} else if (key >= 32 && (key & term_key_value(TermKeyMask)) == 0 && key < 0x10000000) {
 		if (minibuffer_insert(key)) {
 			changed = true;
 		} else {

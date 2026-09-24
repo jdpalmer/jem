@@ -107,7 +107,7 @@ static bool stack_pop(Location *stack, int *n, Location *out) {
 	return true;
 }
 
-static void scan_delim_stacks(Buffer *buf, int end_line, int end_offset, DelimStacks *out) {
+static void scan_delim_stacks(Buffer *buf, int end_line, size_t end_offset, DelimStacks *out) {
 	int state = CodeScanCode;
 	int ln = 0;
 	memset(out, 0, sizeof(*out));
@@ -116,8 +116,8 @@ static void scan_delim_stacks(Buffer *buf, int end_line, int end_offset, DelimSt
 	}
 	for (ln = 1; ln <= end_line; ln++) {
 		Line *line = {0};
-		int limit = 0;
-		int i = 0;
+		size_t limit = 0;
+		size_t i = 0;
 		if (state == CodeScanLineCmt) {
 			state = CodeScanCode;
 		}
@@ -130,17 +130,14 @@ static void scan_delim_stacks(Buffer *buf, int end_line, int end_offset, DelimSt
 			if (end_offset < limit) {
 				limit = end_offset;
 			}
-			if (limit < 0) {
-				limit = 0;
-			}
 		}
 		for (i = 0; i < limit; i++) {
-			char c = line.data.ptr[i];
+			char c = line.data[i];
 			char next = 0;
 			bool in_code = false;
 			Location loc = {0};
 			if (i + 1 < line.byte_len()) {
-				next = line.data.ptr[i + 1];
+				next = line.data[i + 1];
 			}
 			state = code_scan_step(state, c, next, &in_code);
 			if (!in_code) {
@@ -176,18 +173,18 @@ static void scan_delim_stacks(Buffer *buf, int end_line, int end_offset, DelimSt
 	}
 }
 
-static int line_col_of_offset(Line *line, int offset) {
+static int line_col_of_offset(Line *line, size_t offset) {
 	if (line == NULL) {
 		return 0;
 	}
 	if (offset > line.byte_len()) {
 		offset = line.byte_len();
 	}
-	return line.display_col_at_offset(offset);
+	return (int)line.display_col_at_offset(offset);
 }
 
-static int line_first_nonblank_ch(Line *line, char *fc) {
-	int i = 0;
+static size_t line_first_nonblank_ch(Line *line, char *fc) {
+	size_t i = 0;
 	if (fc != NULL) {
 		*fc = 0;
 	}
@@ -196,28 +193,28 @@ static int line_first_nonblank_ch(Line *line, char *fc) {
 	}
 	i = line.first_nonblank();
 	if (fc != NULL && i < line.byte_len()) {
-		*fc = line.data.ptr[i];
+		*fc = line.data[i];
 	}
 	return i;
 }
 
-static bool line_starts_with(Line *line, char *text) {
-	int off = 0;
+static bool line_starts_with(Line *line, const char *text) {
+	size_t off = 0;
 	size_t tlen = 0;
 	if (line == NULL || text == NULL) {
 		return false;
 	}
 	off = line.first_nonblank();
 	tlen = strlen(text);
-	if (off + (int)tlen > line.byte_len()) {
+	if (off + tlen > line.byte_len()) {
 		return false;
 	}
-	return memcmp(line.data.ptr + off, text, tlen) == 0;
+	return memcmp(ptr(line.data) + off, text, tlen) == 0;
 }
 
 static bool line_is_comment_or_preproc(Buffer *buf, int line_number) {
 	Line *line = {0};
-	int off = 0;
+	size_t off = 0;
 	char ch = 0;
 	(void)buf;
 	line = buf.line(line_number);
@@ -232,7 +229,7 @@ static bool line_is_comment_or_preproc(Buffer *buf, int line_number) {
 		return true;
 	}
 	if (ch == '/' && off + 1 < line.byte_len()) {
-		char next = line.data.ptr[off + 1];
+		char next = line.data[off + 1];
 		if (next == '/' || next == '*') {
 			return true;
 		}
@@ -267,7 +264,7 @@ static int prev_code_line_number(Buffer *buf, int line_number) {
 }
 
 static bool line_is_case_label(Line *line) {
-	int off = 0;
+	size_t off = 0;
 	if (line == NULL) {
 		return false;
 	}
@@ -275,16 +272,16 @@ static bool line_is_case_label(Line *line) {
 	if (off >= line.byte_len()) {
 		return false;
 	}
-	if (off + 4 <= line.byte_len() && memcmp(line.data.ptr + off, "case", 4) == 0) {
+	if (off + 4 <= line.byte_len() && memcmp(ptr(line.data) + off, "case", 4) == 0) {
 		if (off + 4 == line.byte_len()) {
 			return true;
 		}
 		{
-			char nc = line.data.ptr[off + 4];
+			char nc = line.data[off + 4];
 			return nc == ' ' || nc == '\t' || nc == '(';
 		}
 	}
-	if (off + 7 <= line.byte_len() && memcmp(line.data.ptr + off, "default", 7) == 0) {
+	if (off + 7 <= line.byte_len() && memcmp(ptr(line.data) + off, "default", 7) == 0) {
 		return true;
 	}
 	return false;
@@ -329,12 +326,12 @@ static int calc_comment_indent(Buffer *buf, int line_number) {
 			continue;
 		}
 		if (line_starts_with(prev, "/*")) {
-			return prev.indent_column() + 1;
+			return (int)prev.indent_column() + 1;
 		}
 		if (prev.first_nonblank() < prev.byte_len()) {
-			char ch = prev.data.ptr[prev.first_nonblank()];
+			char ch = prev.data[prev.first_nonblank()];
 			if (ch == '*' || line_starts_with(prev, "*/")) {
-				return prev.indent_column();
+				return (int)prev.indent_column();
 			}
 		}
 		break;
@@ -348,13 +345,13 @@ static int find_case_indent(Buffer *buf, int line_number) {
 	int ln = 0;
 	for (ln = line_number; ln >= 1; ln--) {
 		Line *line = buf.line(ln);
-		int i = 0;
+		size_t i = 0;
 		if (line == NULL) {
 			continue;
 		}
 		for (i = 0; i < line.byte_len(); i++) {
-			if (line.data.ptr[i] == '{') {
-				int base = line.indent_column() + c_indent + c_colon;
+			if (line.data[i] == '{') {
+				int base = (int)line.indent_column() + c_indent + c_colon;
 				if (base < 0) {
 					return 0;
 				}
@@ -365,7 +362,7 @@ static int find_case_indent(Buffer *buf, int line_number) {
 	return 0;
 }
 
-static int find_closing_delimiter_indent(Buffer *buf, int line_number, int offset) {
+static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t offset) {
 	Line *line = buf.line(line_number);
 	DelimStacks stacks = {0};
 	char ch = 0;
@@ -374,7 +371,7 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, int offse
 	if (line == NULL || offset >= line.byte_len()) {
 		return 0;
 	}
-	ch = line.data.ptr[offset];
+	ch = line.data[offset];
 	scan_delim_stacks(buf, line_number, offset, &stacks);
 	switch (ch) {
 	case '}':
@@ -385,7 +382,7 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, int offse
 		{
 			Line *ol = buf.line(open.line);
 			if (ol != NULL) {
-				return ol.indent_column();
+				return (int)ol.indent_column();
 			}
 		}
 		return 0;
@@ -410,7 +407,7 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, int offse
 	return 0;
 }
 
-static bool find_unmatched_open_delim(Buffer *buf, int line_number, int offset, Location *best, char *kind) {
+static bool find_unmatched_open_delim(Buffer *buf, int line_number, size_t offset, Location *best, char *kind) {
 	DelimStacks stacks = {0};
 	bool found = false;
 	scan_delim_stacks(buf, line_number, offset, &stacks);
@@ -430,11 +427,11 @@ static bool find_unmatched_open_delim(Buffer *buf, int line_number, int offset, 
 	return found;
 }
 
-static int find_delimiter_continuation_indent(Buffer *buf, int line_number, int offset) {
+static int find_delimiter_continuation_indent(Buffer *buf, int line_number, size_t offset) {
 	Location open = {0};
 	char kind = 0;
 	Line *line = {0};
-	int tail = 0;
+	size_t tail = 0;
 	if (!find_unmatched_open_delim(buf, line_number, offset, &open, &kind)) {
 		return -1;
 	}
@@ -445,16 +442,16 @@ static int find_delimiter_continuation_indent(Buffer *buf, int line_number, int 
 	}
 	tail = open.offset + 1;
 	while (tail < line.byte_len()) {
-		char c = line.data.ptr[tail];
+		char c = line.data[tail];
 		if (c != ' ' && c != '\t') {
 			return line_col_of_offset(line, tail);
 		}
 		tail++;
 	}
-	return line.indent_column() + buf.indent.width;
+	return (int)line.indent_column() + buf.indent.width;
 }
 
-static int find_enclosing_block_indent(Buffer *buf, int line_number, int offset) {
+static int find_enclosing_block_indent(Buffer *buf, int line_number, size_t offset) {
 	DelimStacks stacks = {0};
 	Location open = {0};
 	Line *line = {0};
@@ -467,7 +464,7 @@ static int find_enclosing_block_indent(Buffer *buf, int line_number, int offset)
 	if (line == NULL) {
 		return -1;
 	}
-	return line.indent_column() + buf.indent.width;
+	return (int)line.indent_column() + buf.indent.width;
 }
 
 static int calc_indent_c(Buffer *buf, int line_number) {
@@ -475,7 +472,7 @@ static int calc_indent_c(Buffer *buf, int line_number) {
 	int c_indent = buf.indent.width;
 	int c_brace = buf.indent.brace;
 	char fc = 0;
-	int first = 0;
+	size_t first = 0;
 	int indent = 0;
 	int ref_line = 0;
 	Line *ref = {0};
@@ -514,7 +511,7 @@ static int calc_indent_c(Buffer *buf, int line_number) {
 	if (ref == NULL) {
 		return 0;
 	}
-	ind = ref.indent_column();
+	ind = (int)ref.indent_column();
 	if (ref.last_byte() == ':' && line_is_case_label(ref)) {
 		ind += c_indent;
 	} else if (line_ends_with_continuation(ref)) {
@@ -538,25 +535,25 @@ static int calc_indent_go(Buffer *buf, int line_number) {
 	return ind;
 }
 
-static bool lp_keyword(Line *line, int i, char *kw) {
+static bool lp_keyword(Line *line, size_t i, const char *kw) {
 	size_t klen = 0;
-	int after = 0;
+	size_t after = 0;
 	char nc = 0;
 	if (line == NULL || kw == NULL) {
 		return false;
 	}
 	klen = strlen(kw);
-	if (i + (int)klen > line.byte_len()) {
+	if (i + klen > line.byte_len()) {
 		return false;
 	}
-	if (memcmp(line.data.ptr + i, kw, klen) != 0) {
+	if (memcmp(ptr(line.data) + i, kw, klen) != 0) {
 		return false;
 	}
-	after = i + (int)klen;
+	after = i + klen;
 	if (after >= line.byte_len()) {
 		return true;
 	}
-	nc = line.data.ptr[after];
+	nc = line.data[after];
 	return nc == ' ' || nc == '\t' || nc == ':' || nc == '(' || nc == '\r';
 }
 
@@ -577,13 +574,13 @@ static int prev_code_line_number_py(Buffer *buf, int line_number) {
 }
 
 static bool line_is_deindent_kw(Line *line) {
-	int i = line.first_nonblank();
+	size_t i = line.first_nonblank();
 	return lp_keyword(line, i, "elif") || lp_keyword(line, i, "else") ||
 		lp_keyword(line, i, "except") || lp_keyword(line, i, "finally");
 }
 
 static bool line_is_dedent_stmt(Line *line) {
-	int i = line.first_nonblank();
+	size_t i = line.first_nonblank();
 	return lp_keyword(line, i, "return") || lp_keyword(line, i, "break") ||
 		lp_keyword(line, i, "continue") || lp_keyword(line, i, "raise") ||
 		lp_keyword(line, i, "pass");
@@ -608,7 +605,7 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 			return 0;
 		}
 		{
-			int ind = ref.indent_column() - py_width;
+			int ind = (int)ref.indent_column() - py_width;
 			if (ind < 0) {
 				return 0;
 			}
@@ -639,7 +636,7 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 	if (ref == NULL) {
 		return 0;
 	}
-	ref_ind = ref.indent_column();
+	ref_ind = (int)ref.indent_column();
 	{
 		Line *prev = buf.line(ref_line);
 		if (prev == NULL) {
@@ -659,7 +656,7 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 	{
 		Line *prev = buf.line(ref_line);
 		if (prev != NULL && line_is_dedent_stmt(prev)) {
-			int cur_ind = prev.indent_column();
+			int cur_ind = (int)prev.indent_column();
 			int ln = prev_code_line_number_py(buf, ref_line);
 			while (ln != 0) {
 				Line *p = buf.line(ln);
@@ -668,7 +665,7 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 					ln = prev_code_line_number_py(buf, ln);
 					continue;
 				}
-				ind = p.indent_column();
+				ind = (int)p.indent_column();
 				if (ind < cur_ind) {
 					if (ind < 0) {
 						return 0;
@@ -710,7 +707,7 @@ static size_t build_space_indent(int col, char *out, size_t cap) {
 	for (i = 0; i < col; i++) {
 		out[i] = ' ';
 	}
-	return (size_t)col;
+	return col;
 }
 
 static size_t build_go_indent(int col, char *out, size_t cap) {
@@ -735,8 +732,8 @@ static size_t build_go_indent(int col, char *out, size_t cap) {
 /* Replace leading whitespace; records undo edits (caller owns begin/end_command). */
 static bool replace_leading(Window *win, char *prefix, size_t plen) {
 	Line *line = {0};
-	int first = 0;
-	int old_off = 0;
+	size_t first = 0;
+	size_t old_off = 0;
 	Location begin = {0};
 	Location end = {0};
 	char *old = NULL;
@@ -754,30 +751,27 @@ static bool replace_leading(Window *win, char *prefix, size_t plen) {
 	end.line = win.cursor.line;
 	end.offset = first;
 	if (first > 0) {
-		old = malloc((size_t)first);
+		old = malloc(first);
 		if (old == NULL) {
 			return false;
 		}
-		memcpy(old, line.data.ptr, (size_t)first);
+		memcpy(old, ptr(line.data), first);
 	}
 	if (!win.set_text(begin, end, prefix, plen)) {
 		free(old);
 		return false;
 	}
 	if (first > 0) {
-		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, (size_t)first);
+		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, first);
 	}
 	if (plen > 0) {
 		buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, prefix, plen);
 	}
 	free(old);
 	if (old_off <= first) {
-		win.cursor.offset = (int)plen;
+		win.cursor.offset = plen;
 	} else {
-		win.cursor.offset = old_off + (int)plen - first;
-		if (win.cursor.offset < 0) {
-			win.cursor.offset = 0;
-		}
+		win.cursor.offset = old_off - first + plen;
 	}
 	line = win.buffer.line(win.cursor.line);
 	if (line != NULL && win.cursor.offset > line.byte_len()) {
@@ -834,8 +828,8 @@ static int prev_nonblank_line(Buffer *buf, int line_number) {
 static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 	char[..] p = {0};
 	size_t n = 0;
-	int i = 0;
-	int save = 0;
+	size_t i = 0;
+	size_t save = 0;
 	int num = 0;
 	if (line == NULL || cap == 0) {
 		return 0;
@@ -843,22 +837,22 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 	p = line.view();
 	{
 		char *pp = ptr(p);
-		while (i < (int)len(p) && (pp[i] == ' ' || pp[i] == '\t') && n < cap) {
+		while (i < len(p) && (pp[i] == ' ' || pp[i] == '\t') && n < cap) {
 			out[n++] = pp[i++];
 		}
-		while (i < (int)len(p) && pp[i] == '>' && n + 2 <= cap) {
+		while (i < len(p) && pp[i] == '>' && n + 2 <= cap) {
 			out[n++] = '>';
 			out[n++] = ' ';
 			i++;
-			if (i < (int)len(p) && pp[i] == ' ') {
+			if (i < len(p) && pp[i] == ' ') {
 				i++;
 			}
-			while (i < (int)len(p) && pp[i] == ' ') {
+			while (i < len(p) && pp[i] == ' ') {
 				i++;
 			}
 		}
-		if (i < (int)len(p) && (pp[i] == '-' || pp[i] == '*' || pp[i] == '+')) {
-			if (i + 1 < (int)len(p) && pp[i + 1] == ' ' && n + 2 <= cap) {
+		if (i < len(p) && (pp[i] == '-' || pp[i] == '*' || pp[i] == '+')) {
+			if (i + 1 < len(p) && pp[i + 1] == ' ' && n + 2 <= cap) {
 				out[n++] = pp[i];
 				out[n++] = ' ';
 				return n;
@@ -866,13 +860,13 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 		}
 		save = i;
 		num = 0;
-		while (i < (int)len(p) && pp[i] >= '0' && pp[i] <= '9') {
-			num = num * 10 + (int)(pp[i] - '0');
+		while (i < len(p) && pp[i] >= '0' && pp[i] <= '9') {
+			num = num * 10 + (pp[i] - '0');
 			i++;
 		}
-		if (i > save && i < (int)len(p)) {
+		if (i > save && i < len(p)) {
 			char del = pp[i];
-			if ((del == '.' || del == ')') && i + 1 < (int)len(p) && pp[i + 1] == ' ') {
+			if ((del == '.' || del == ')') && i + 1 < len(p) && pp[i + 1] == ' ') {
 				int next = num + 1;
 				char digits[16] = {0};
 				int dlen = 0;
@@ -892,8 +886,8 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 					}
 				}
 				if (n + (size_t)dlen + 2 <= cap) {
-					memcpy(out + n, digits, (size_t)dlen);
-					n += (size_t)dlen;
+					memcpy(out + n, digits, dlen);
+					n += dlen;
 					out[n++] = del;
 					out[n++] = ' ';
 					return n;
@@ -1074,7 +1068,7 @@ bool mode_close_brace(bool f, int n) {
 		}
 		{
 			Line *line = win.buffer.line(win.cursor.line);
-			int off = col + n;
+			size_t off = (size_t)col + (size_t)n;
 			if (line != NULL && off > line.byte_len()) {
 				off = line.byte_len();
 			}

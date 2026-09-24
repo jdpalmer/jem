@@ -6,6 +6,7 @@ import "syntax";
 import "minibuffer";
 import "mode";
 import "markring";
+import "str";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +14,7 @@ import "markring";
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 struct DispCell {
 	uint32_t ch;
@@ -33,8 +35,9 @@ static bool g_screen_dirty;
 static bool g_have_style;
 static TextStyle g_active_style;
 static char g_echo[256];
+static uint64_t g_echo_generation;
 
-static TextStyle style_default(void) {
+static TextStyle style_default() {
 	if (g_theme_light) {
 		return text_style_make(TermColorBase00, TermColorBase3, 0);
 	}
@@ -46,7 +49,8 @@ static TextStyle style_resolve(TextStyle style) {
 	TextStyle def = style_default();
 	TermColor fg = text_style_fg(style);
 	TermColor bg = text_style_bg(style);
-	uint16_t flags = (uint16_t)(style.bits & (uint16_t)(TextStyleBold | TextStyleUnderline | TextStyleReverse));
+	uint16_t flags = (uint16_t)(style.bits & ((uint16_t)TextStyleBold |
+		(uint16_t)TextStyleUnderline | (uint16_t)TextStyleReverse));
 	if (fg == TermColorDefault) {
 		fg = text_style_fg(def);
 	}
@@ -56,14 +60,14 @@ static TextStyle style_resolve(TextStyle style) {
 	return text_style_make(fg, bg, flags);
 }
 
-TextStyle style_gutter(void) {
+TextStyle style_gutter() {
 	if (g_theme_light) {
 		return text_style_make(TermColorBase1, TermColorBase2, 0);
 	}
 	return text_style_make(TermColorBase01, TermColorBase02, 0);
 }
 
-TextStyle style_modeline_name(void) {
+TextStyle style_modeline_name() {
 	TermColor bg = text_style_bg(style_gutter());
 	if (g_theme_light) {
 		return text_style_make(TermColorBase01, bg, (uint16_t)TextStyleBold);
@@ -71,15 +75,15 @@ TextStyle style_modeline_name(void) {
 	return text_style_make(TermColorBase1, bg, (uint16_t)TextStyleBold);
 }
 
-TextStyle style_modeline_dirty(void) {
+TextStyle style_modeline_dirty() {
 	return text_style_make(TermColorRed, text_style_bg(style_gutter()), (uint16_t)TextStyleBold);
 }
 
-static TermColor theme_selection_bg(void) {
+static TermColor theme_selection_bg() {
 	return TermColorYellow;
 }
 
-static TermColor theme_search_match_bg(void) {
+static TermColor theme_search_match_bg() {
 	if (g_theme_light) {
 		return TermColorBase00;
 	}
@@ -92,7 +96,8 @@ static TextStyle selection_style(TextStyle base) {
 }
 
 static TextStyle search_match_style(TextStyle base) {
-	uint16_t flags = (uint16_t)(base.bits & (uint16_t)(TextStyleBold | TextStyleUnderline));
+	uint16_t flags = (uint16_t)(base.bits & ((uint16_t)TextStyleBold |
+		(uint16_t)TextStyleUnderline));
 	return text_style_make(text_style_fg(base), theme_search_match_bg(), flags);
 }
 
@@ -107,15 +112,15 @@ struct SelState {
 	int phase;
 	int start_line;
 	int end_line;
-	int start_o;
-	int end_o;
+	size_t start_o;
+	size_t end_o;
 };
 
 static void sel_init(SelState *ss, Window *win) {
 	int mark_line = 0;
 	int dot_line = 0;
-	int marko = 0;
-	int doto = 0;
+	size_t marko = 0;
+	size_t doto = 0;
 	if (ss == NULL) {
 		return;
 	}
@@ -164,7 +169,7 @@ static void sel_init(SelState *ss, Window *win) {
 }
 
 /* Returns start==-1 when this line has no selection highlight. */
-static void sel_line(SelState *ss, int line_number, int line_len, int *start, int *end) {
+static void sel_line(SelState *ss, int line_number, size_t line_len, ssize_t *start, size_t *end) {
 	if (start == NULL || end == NULL) {
 		return;
 	}
@@ -173,7 +178,7 @@ static void sel_line(SelState *ss, int line_number, int line_len, int *start, in
 	if (ss == NULL || !ss.active) {
 		return;
 	}
-	if (ss.phase == SelBefore) {
+	if (ss.phase == (int)SelBefore) {
 		if (line_number != ss.start_line) {
 			return;
 		}
@@ -186,7 +191,7 @@ static void sel_line(SelState *ss, int line_number, int line_len, int *start, in
 			*end = line_len;
 			ss.phase = SelInside;
 		}
-	} else if (ss.phase == SelInside) {
+	} else if (ss.phase == (int)SelInside) {
 		if (line_number == ss.end_line) {
 			*start = 0;
 			*end = ss.end_o;
@@ -198,7 +203,7 @@ static void sel_line(SelState *ss, int line_number, int line_len, int *start, in
 	}
 }
 
-static bool in_search_span(Window *win, int line_number, int byte_off) {
+static bool in_search_span(Window *win, int line_number, size_t byte_off) {
 	int i = 0;
 	if (win == NULL) {
 		return false;
@@ -237,8 +242,8 @@ static bool screen_resize(Screen *s, int rows, int cols) {
 		return true;
 	}
 	n = rows * cols;
-	p = calloc((size_t)n, sizeof(DispCell));
-	dirty = calloc((size_t)rows, sizeof(bool));
+	p = calloc(n, sizeof(DispCell));
+	dirty = calloc(rows, sizeof(bool));
 	if (p == NULL || dirty == NULL) {
 		free(p);
 		free(dirty);
@@ -280,8 +285,8 @@ void put_rune(Screen *s, int row, int col, uint32_t ch, TextStyle style) {
 }
 
 /* Solarized / ANSI RGB — match jem.go/term/term_style.go (truecolor, not 256). */
-static char *color_rgb_cstr(TermColor c) {
-	static char *base[8] = {
+static const char *color_rgb_cstr(TermColor c) {
+	static const char *base[8] = {
 		"7;54;66",
 		"220;50;47",
 		"133;153;0",
@@ -291,7 +296,7 @@ static char *color_rgb_cstr(TermColor c) {
 		"42;161;152",
 		"238;232;213",
 	};
-	static char *sol[8] = {
+	static const char *sol[8] = {
 		"0;43;54",
 		"7;54;66",
 		"88;110;117",
@@ -301,7 +306,7 @@ static char *color_rgb_cstr(TermColor c) {
 		"238;232;213",
 		"253;246;227",
 	};
-	int i = (int)c;
+	int i = c;
 	if (i >= 0 && i <= 7) {
 		return base[i];
 	}
@@ -313,8 +318,8 @@ static char *color_rgb_cstr(TermColor c) {
 
 static void emit_color_sgr(TermColor c, int base_sgr) {
 	char buf[48] = {0};
-	char *rgb = {0};
-	int i = (int)c;
+	const char *rgb = {0};
+	int i = c;
 	int n = 0;
 	if (c == TermColorDefault) {
 		return;
@@ -326,7 +331,7 @@ static void emit_color_sgr(TermColor c, int base_sgr) {
 			if ((size_t)n >= sizeof(buf)) {
 				n = (int)sizeof(buf) - 1;
 			}
-			term_write(buf, (size_t)n);
+			term_write(buf, n);
 		}
 		return;
 	}
@@ -340,7 +345,7 @@ static void emit_color_sgr(TermColor c, int base_sgr) {
 		if ((size_t)n >= sizeof(buf)) {
 			n = (int)sizeof(buf) - 1;
 		}
-		term_write(buf, (size_t)n);
+		term_write(buf, n);
 	}
 }
 
@@ -403,7 +408,7 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 		if (src >= 0 && src < nlen) {
 			ch = num[src];
 		}
-		put_rune(&g_screen, screen_row, 1 + i, (uint32_t)(unsigned char)ch, st);
+		put_rune(&g_screen, screen_row, 1 + i, ch, st);
 	}
 	if (width >= 2) {
 		uint32_t clip = ' ';
@@ -443,16 +448,16 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 	TextStyle *styles = {0};
 	size_t styles_len = 0;
 	int dcol = 0;
-	int i = 0;
+	size_t i = 0;
 	int gutter = 0;
 	int h_scroll = 0;
 	int cols = 0;
-	int sel_start = -1;
-	int sel_end = 0;
-	int line_len = 0;
+	ssize_t sel_start = -1;
+	size_t sel_end = 0;
+	size_t line_len = 0;
 	TextStyle def = style_default();
-	SynState prev = {0};
-	SynState end = {0};
+	SynState prev = {SynStateNormal};
+	SynState end = {SynStateNormal};
 
 	line = win.buffer.line(buf_line);
 	if (line == NULL) {
@@ -466,7 +471,7 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 	}
 	cols = term_cols();
 	v = line.view();
-	line_len = (int)len(v);
+	line_len = len(v);
 	sel_line(sel, buf_line, line_len, &sel_start, &sel_end);
 
 	/* highlight if needed */
@@ -513,10 +518,10 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 		TextStyle st = def;
 		int c = 0;
 		int scol = 0;
-		if (sz <= 0) {
+		if (sz == 0) {
 			break;
 		}
-		if (styles != NULL && (size_t)i < styles_len) {
+		if (styles != NULL && i < styles_len) {
 			st = styles[i];
 			if (st.bits == 0) {
 				st = def;
@@ -527,7 +532,7 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 		if (in_search_span(win, buf_line, i)) {
 			st = search_match_style(st);
 		}
-		if (sel_start >= 0 && i >= sel_start && i < sel_end) {
+		if (sel_start >= 0 && i >= (size_t)sel_start && i < sel_end) {
 			st = selection_style(st);
 		}
 		if (r == '\t') {
@@ -582,9 +587,9 @@ void paint_echo(int row) {
 	int i = 0;
 	size_t n = strlen(g_echo);
 	for (i = 0; i < term_cols(); i++) {
-		uint32_t ch = (unsigned char)' ';
+		uint32_t ch = ' ';
 		if ((size_t)i < n) {
-			ch = (unsigned char)g_echo[i];
+			ch = g_echo[i];
 		}
 		put_rune(&g_screen, row, i, ch, st);
 	}
@@ -633,14 +638,14 @@ static void screen_write_span(int row, int from, int to) {
 			sz = 4;
 		}
 		if (out_len + sz > (int)sizeof(out)) {
-			term_write(out, (size_t)out_len);
+			term_write(out, out_len);
 			out_len = 0;
 		}
-		memcpy(out + out_len, tmp, (size_t)sz);
+		memcpy(out + out_len, tmp, sz);
 		out_len += sz;
 	}
 	if (out_len > 0) {
-		term_write(out, (size_t)out_len);
+		term_write(out, out_len);
 	}
 }
 
@@ -769,7 +774,7 @@ static void row_sync(int row) {
 	}
 }
 
-static void mark_all_dirty(void) {
+static void mark_all_dirty() {
 	int i = 0;
 	if (g_screen.row_dirty == NULL) {
 		return;
@@ -779,7 +784,7 @@ static void mark_all_dirty(void) {
 	}
 }
 
-static void reset_front_to_spaces(void) {
+static void reset_front_to_spaces() {
 	int i = 0;
 	int n = 0;
 	TextStyle normal = style_default();
@@ -793,7 +798,7 @@ static void reset_front_to_spaces(void) {
 	}
 }
 
-static void screen_sync(void) {
+static void screen_sync() {
 	int i = 0;
 	int sync_rows = term_rows();
 	if (g_screen_dirty) {
@@ -959,7 +964,7 @@ static void adjust_hscroll(Window *win) {
 	if (line == NULL) {
 		return;
 	}
-	cc = line.display_col_at_offset(win.cursor.offset);
+	cc = (int)line.display_col_at_offset(win.cursor.offset);
 	visible = term_cols() - gutter_w;
 	if (visible < 1) {
 		visible = 1;
@@ -1029,35 +1034,35 @@ static void paint_cursor_line(Window *win) {
 	paint_line_text(win, row, win.cursor.line, &sel);
 }
 
-void display_init(void) {
+void display_init() {
 	g_theme_light = false;
 	g_echo[0] = 0;
+	g_echo_generation = 0;
 	g_screen_dirty = true;
 	g_have_style = false;
 	screen_resize(&g_screen, term_rows() + 1, term_cols());
 	screen_resize(&g_prev, term_rows() + 1, term_cols());
 }
 
-void display_shutdown(void) {
+void display_shutdown() {
 	screen_free(&g_screen);
 	screen_free(&g_prev);
 }
 
-void display_set_echo(char[..] msg) {
-	size_t n = 0;
+void display_set_echo(const char[..] msg) {
+	g_echo_generation++;
 	if (len(msg) == 0 || ptr(msg) == NULL) {
 		g_echo[0] = 0;
 		return;
 	}
-	n = len(msg);
-	if (n >= sizeof(g_echo)) {
-		n = sizeof(g_echo) - 1;
-	}
-	memcpy(g_echo, ptr(msg), n);
-	g_echo[n] = 0;
+	(void)snprintf(g_echo, sizeof(g_echo), "%s", msg);
 }
 
-void display_invalidate(void) {
+uint64_t display_echo_generation() {
+	return g_echo_generation;
+}
+
+void display_invalidate() {
 	size_t i = 0;
 	g_screen_dirty = true;
 	for (i = 0; i < window_active.count; i++) {
@@ -1070,13 +1075,13 @@ void display_invalidate(void) {
 	}
 }
 
-void display_toggle_theme(void) {
+void display_toggle_theme() {
 	g_theme_light = !g_theme_light;
 	g_have_style = false;
 	display_invalidate();
 }
 
-void display_update(void) {
+void display_update() {
 	size_t wi = 0;
 	Window *cur = window_current();
 	int cursor_row = 0;
@@ -1171,7 +1176,7 @@ void display_update(void) {
 		cursor_row = cur.screen_top_row + content_row_offset(cur) + (cur.cursor.line - cur.top_line);
 		if (line != NULL) {
 			int gutter_w = window_gutter_width(cur);
-			cursor_col = gutter_w + line.display_col_at_offset(cur.cursor.offset) - cur.h_scroll;
+			cursor_col = gutter_w + (int)line.display_col_at_offset(cur.cursor.offset) - cur.h_scroll;
 			if (cursor_col < gutter_w) {
 				cursor_col = gutter_w;
 			}

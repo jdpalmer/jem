@@ -16,7 +16,7 @@ static char ascii_lower(char c) {
 	return c;
 }
 
-static bool path_ends_with_ci(char[..] path, char[..] ext) {
+static bool path_ends_with_ci(const char[..] path, const char[..] ext) {
 	size_t plen = len(path);
 	size_t elen = len(ext);
 	size_t i = 0;
@@ -26,8 +26,8 @@ static bool path_ends_with_ci(char[..] path, char[..] ext) {
 	}
 	off = plen - elen;
 	{
-		char *pp = ptr(path);
-		char *ep = ptr(ext);
+		const char *pp = ptr(path);
+		const char *ep = ptr(ext);
 		for (i = 0; i < elen; i++) {
 			if (ascii_lower(pp[off + i]) != ep[i]) {
 				return false;
@@ -38,7 +38,7 @@ static bool path_ends_with_ci(char[..] path, char[..] ext) {
 }
 
 // mode_detect infers LangMode from a filename or path (extension only).
-LangMode mode_detect(char[..] path) {
+LangMode mode_detect(const char[..] path) {
 	if (path_ends_with_ci(path, ".go")) {
 		return LModeGo;
 	}
@@ -73,56 +73,56 @@ IndentConfig mode_indent_default(LangMode lang) {
 	return cfg;
 }
 
-char *mode_display_name(LangMode lang) {
+const char *mode_display_name(LangMode lang) {
 	switch (lang) {
 	case LModeC:
-		return (char *)(void *)"C";
+		return "C";
 	case LModeJava:
-		return (char *)(void *)"Java";
+		return "Java";
 	case LModePython:
-		return (char *)(void *)"Python";
+		return "Python";
 	case LModeLua:
-		return (char *)(void *)"Lua";
+		return "Lua";
 	case LModeLisp:
-		return (char *)(void *)"Lisp";
+		return "Lisp";
 	case LModeMarkdown:
-		return (char *)(void *)"Markdown";
+		return "Markdown";
 	case LModePascal:
-		return (char *)(void *)"Pascal";
+		return "Pascal";
 	case LModeVerilog:
-		return (char *)(void *)"Verilog";
+		return "Verilog";
 	case LModeMake:
-		return (char *)(void *)"Make";
+		return "Make";
 	case LModeSwift:
-		return (char *)(void *)"Swift";
+		return "Swift";
 	case LModeJavaScript:
-		return (char *)(void *)"JavaScript";
+		return "JavaScript";
 	case LModeActionScript:
-		return (char *)(void *)"ActionScript";
+		return "ActionScript";
 	case LModeTypeScript:
-		return (char *)(void *)"TypeScript";
+		return "TypeScript";
 	case LModeDart:
-		return (char *)(void *)"Dart";
+		return "Dart";
 	case LModeGo:
-		return (char *)(void *)"Go";
+		return "Go";
 	case LModeCSharp:
-		return (char *)(void *)"C#";
+		return "C#";
 	case LModeRust:
-		return (char *)(void *)"Rust";
+		return "Rust";
 	case LModeR:
-		return (char *)(void *)"R";
+		return "R";
 	case LModeKotlin:
-		return (char *)(void *)"Kotlin";
+		return "Kotlin";
 	case LModeHTML:
-		return (char *)(void *)"HTML/XML";
+		return "HTML/XML";
 	case LModeCSS:
-		return (char *)(void *)"CSS";
+		return "CSS";
 	default:
-		return (char *)(void *)"Text";
+		return "Text";
 	}
 }
 
-void mode_apply_from_path(Buffer *buf, char *path) {
+void mode_apply_from_path(Buffer *buf, const char *path) {
 	char[..] v = {0};
 	size_t plen = 0;
 	if (buf == NULL) {

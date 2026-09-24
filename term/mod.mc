@@ -3,6 +3,7 @@ import "event";
 import "fs";
 import "tty";
 import "os";
+import "str";
 
 #include <stddef.h>
 #include <stdint.h>
@@ -16,7 +17,8 @@ enum TermKeys {
 	TermMETA = 0x02000000,
 	TermCTLX = 0x04000000,
 	TermSHIFT = 0x08000000,
-	TermKeyMask = TermCTL | TermMETA | TermCTLX | TermSHIFT,
+	TermKeyMask = (int)TermCTL | (int)TermMETA | (int)TermCTLX |
+		(int)TermSHIFT,
 	TermKeyUp = 0x10000001,
 	TermKeyDown = 0x10000002,
 	TermKeyLeft = 0x10000003,
@@ -41,12 +43,17 @@ enum TermKeys {
 	TermKittyKeyPageUp = 57361,
 	TermKittyKeyPageDown = 57362,
 	TermKittyKeyDelete = 57363,
+	TermKeyPasteComplete = 0x00FF0002,
 };
 
 enum TermBufLimits {
 	TermOutCap = 8192,
 	TermInCap = 4096
 };
+
+uint32_t term_key_value(TermKeys key) {
+	return key;
+}
 
 static int g_rows = 24;
 static int g_cols = 80;
@@ -72,9 +79,9 @@ static char g_ibuf[TermInCap];
 static int g_ilen;
 static int g_ipos;
 
-static int term_write_out(char *buf, size_t n) {
+static int term_write_out(const char *buf, size_t n) {
 	size_t left = n;
-	char *p = buf;
+	const char *p = buf;
 	if (!g_tty_std_ok || buf == NULL || n == 0) {
 		return n == 0 ? 0 : -1;
 	}
@@ -95,7 +102,6 @@ static int term_write_out(char *buf, size_t n) {
 static bool term_wait_readable(int timeout_ms) {
 	Poll pol = {
 		0 };
-	int rev = 0;
 	if (!g_tty_std_ok || file_fd(&g_fin) < 0) {
 		return false;
 	}
@@ -105,7 +111,7 @@ static bool term_wait_readable(int timeout_ms) {
 		return false;
 	}
 	{
-		auto (n, ok) = pol.wait((int64_t)timeout_ms);
+		auto (n, ok) = pol.wait(timeout_ms);
 		if (!ok || n <= 0) {
 			pol.close();
 			return false;
@@ -114,28 +120,18 @@ static bool term_wait_readable(int timeout_ms) {
 			pol.close();
 			return false;
 		}
-		{
-			auto (rf, revents) = pol.ready_file(0);
-			rev = revents;
-			(void)rf;
-		}
+		auto (rf, rev) = pol.ready_file(0);
+		(void)rf;
+		pol.close();
+		return (rev & (PollIn | PollHup | PollErr)) != 0;
 	}
-	pol.close();
-	return (rev & (PollIn | PollHup | PollErr)) != 0;
 }
 
 static bool term_query_size(int *rows, int *cols) {
-	WinSize wz = {
-		0 };
-	bool ok = false;
 	if (!g_tty_std_ok) {
 		return false;
 	}
-	{
-		auto (w, wok) = tty_size(&g_fin);
-		wz = w;
-		ok = wok;
-	}
+	auto (wz, ok) = tty_size(&g_fin);
 	if (!ok || wz.rows < 2 || wz.cols < 1) {
 		return false;
 	}
@@ -148,11 +144,11 @@ static bool term_query_size(int *rows, int *cols) {
 	return true;
 }
 
-static void term_buf_reset(void) {
+static void term_buf_reset() {
 	g_olen = 0;
 }
 
-static void term_buf_flush(void) {
+static void term_buf_flush() {
 	if (g_olen == 0) {
 		return;
 	}
@@ -160,7 +156,7 @@ static void term_buf_flush(void) {
 	g_olen = 0;
 }
 
-static void term_buf_write(char *buf, size_t n) {
+static void term_buf_write(const char *buf, size_t n) {
 	if (buf == NULL || n == 0) {
 		return;
 	}
@@ -175,25 +171,19 @@ static void term_buf_write(char *buf, size_t n) {
 	g_olen = g_olen + n;
 }
 
-static void term_in_reset(void) {
+static void term_in_reset() {
 	g_ilen = 0;
 	g_ipos = 0;
 }
 
 static int term_in_append_read(int maxn) {
-	int64_t n = 0;
-	bool ok = false;
-	if (maxn > TermInCap) {
+	if (maxn > (int)TermInCap) {
 		maxn = TermInCap;
 	}
 	if (!g_tty_std_ok || file_fd(&g_fin) < 0) {
 		return -1;
 	}
-	{
-		auto (nr, rok) = g_fin.read(ranged(g_ibuf, (size_t)maxn));
-		n = nr;
-		ok = rok;
-	}
+	auto (n, ok) = g_fin.read(ranged(g_ibuf, (size_t)maxn));
 	if (!ok) {
 		g_ilen = 0;
 		g_ipos = 0;
@@ -204,32 +194,32 @@ static int term_in_append_read(int maxn) {
 	return (int)n;
 }
 
-static void term_in_unshift(unsigned char b) {
+static void term_in_unshift(char b) {
 	if (g_ipos > 0) {
 		g_ipos--;
-		g_ibuf[g_ipos] = (char)b;
+		g_ibuf[g_ipos] = b;
 		return;
 	}
-	if (g_ilen + 1 > TermInCap) {
+	if (g_ilen + 1 > (int)TermInCap) {
 		return;
 	}
-	memmove(g_ibuf + 1, g_ibuf, (size_t)g_ilen);
-	g_ibuf[0] = (char)b;
+	memmove(g_ibuf + 1, g_ibuf, g_ilen);
+	g_ibuf[0] = b;
 	g_ilen++;
 }
 
-void term_out_flush(void) {
+void term_out_flush() {
 	term_buf_flush();
 }
 
-void term_emit(char *s, size_t n) {
+void term_emit(const char *s, size_t n) {
 	if (s == NULL || n == 0) {
 		return;
 	}
 	term_buf_write(s, n);
 }
 
-void term_emit_cstr(char[..] s) {
+void term_emit_cstr(const char[..] s) {
 	if (len(s) == 0 || ptr(s) == NULL) {
 		return;
 	}
@@ -240,7 +230,7 @@ void term_emit_u32(uint32_t v) {
 	char buf[16] = {0};
 	int n = snprintf(buf, sizeof(buf), "%u", v);
 	if (n > 0) {
-		term_emit(buf, (size_t)n);
+		term_emit(buf, n);
 	}
 }
 
@@ -250,13 +240,13 @@ static void term_emit_csi(int first, bool has_second, int second, char final_b) 
 	term_emit_cstr("\x1b[");
 	n = snprintf(buf, sizeof(buf), "%u", (unsigned)first);
 	if (n > 0) {
-		term_emit(buf, (size_t)n);
+		term_emit(buf, n);
 	}
 	if (has_second) {
 		term_emit_cstr(";");
 		n = snprintf(buf, sizeof(buf), "%u", (unsigned)second);
 		if (n > 0) {
-			term_emit(buf, (size_t)n);
+			term_emit(buf, n);
 		}
 	}
 	term_emit(&final_b, 1);
@@ -280,19 +270,19 @@ static bool term_fill_in(int timeout_ms) {
 	return true;
 }
 
-(unsigned char, bool) term_read_byte(int timeout_ms) {
-	unsigned char b = 0;
+(char, bool) term_read_byte(int timeout_ms) {
+	char b = 0;
 	if (g_ipos >= g_ilen) {
 		if (!term_fill_in(timeout_ms)) {
 			return (0, false);
 		}
 	}
-	b = (unsigned char)g_ibuf[g_ipos];
+	b = g_ibuf[g_ipos];
 	g_ipos++;
 	return (b, true);
 }
 
-static void term_unread_byte(unsigned char b) {
+static void term_unread_byte(char b) {
 	term_in_unshift(b);
 }
 
@@ -303,13 +293,13 @@ static uint32_t csi_modifier_flags(int modifier_param) {
 		bits = modifier_param - 1;
 	}
 	if (bits & 1) {
-		flags |= TermSHIFT;
+		flags |= term_key_value(TermSHIFT);
 	}
 	if (bits & 2) {
-		flags |= TermMETA;
+		flags |= term_key_value(TermMETA);
 	}
 	if (bits & 4) {
-		flags |= TermCTL;
+		flags |= term_key_value(TermCTL);
 	}
 	return flags;
 }
@@ -354,73 +344,71 @@ static uint32_t csi_u_key_code(int codepoint, int modifier_param, int event_type
 	case 27:
 		return 27 | modifiers;
 	case 13:
-		return TermKeyEnter | (modifiers & (TermCTL | TermSHIFT | TermMETA));
+		return term_key_value(TermKeyEnter) | (modifiers &
+			(term_key_value(TermCTL) | term_key_value(TermSHIFT) | term_key_value(TermMETA)));
 	case 10:
-		return TermCTL | (uint32_t)'J';
+		return term_key_value(TermCTL) | (uint32_t)'J';
 	case 9:
-		if ((modifiers & TermSHIFT) != 0) {
-			return TermSHIFT | TermKeyTab;
+		if ((modifiers & term_key_value(TermSHIFT)) != 0) {
+			return term_key_value(TermSHIFT) | term_key_value(TermKeyTab);
 		}
 		return TermKeyTab;
 	case 127:
-		return TermCTL | (uint32_t)'H';
+		return term_key_value(TermCTL) | (uint32_t)'H';
 	case 32:
-		if ((modifiers & TermCTL) != 0) {
-			return TermCTL | (uint32_t)' ';
+		if ((modifiers & term_key_value(TermCTL)) != 0) {
+			return term_key_value(TermCTL) | (uint32_t)' ';
 		}
 		return 32 | modifiers;
 	case TermKittyKeyLeft:
-		return TermKeyLeft | modifiers;
+		return term_key_value(TermKeyLeft) | modifiers;
 	case TermKittyKeyUp:
-		return TermKeyUp | modifiers;
+		return term_key_value(TermKeyUp) | modifiers;
 	case TermKittyKeyDown:
-		return TermKeyDown | modifiers;
+		return term_key_value(TermKeyDown) | modifiers;
 	case TermKittyKeyRight:
-		return TermKeyRight | modifiers;
+		return term_key_value(TermKeyRight) | modifiers;
 	case TermKittyKeyHome:
-		return TermKeyHome | modifiers;
+		return term_key_value(TermKeyHome) | modifiers;
 	case TermKittyKeyEnd:
-		return TermKeyEnd | modifiers;
+		return term_key_value(TermKeyEnd) | modifiers;
 	case TermKittyKeyPageUp:
-		return TermKeyPageUp | modifiers;
+		return term_key_value(TermKeyPageUp) | modifiers;
 	case TermKittyKeyPageDown:
-		return TermKeyPageDown | modifiers;
+		return term_key_value(TermKeyPageDown) | modifiers;
 	case TermKittyKeyDelete:
-		return TermKeyDelete | modifiers;
+		return term_key_value(TermKeyDelete) | modifiers;
 	default:
 		break;
 	}
 	if (codepoint >= 32 && codepoint < 128) {
-		modifiers &= ~TermSHIFT;
-		if ((modifiers & TermCTL) != 0 && (modifiers & TermMETA) == 0) {
+		modifiers &= ~term_key_value(TermSHIFT);
+		if ((modifiers & term_key_value(TermCTL)) != 0 &&
+			(modifiers & term_key_value(TermMETA)) == 0) {
 			if (codepoint >= 'a' && codepoint <= 'z') {
 				codepoint = codepoint - ('a' - 'A');
 			}
-			return TermCTL | (uint32_t)codepoint;
+			return term_key_value(TermCTL) | (uint32_t)codepoint;
 		}
-		if ((modifiers & TermMETA) != 0) {
+		if ((modifiers & term_key_value(TermMETA)) != 0) {
 			/* Match Esc-as-Meta: M-x is META|'X' (bindings use uppercase). */
 			if (codepoint >= 'a' && codepoint <= 'z') {
 				codepoint = codepoint - ('a' - 'A');
 			}
-			return (uint32_t)codepoint | TermMETA;
+			return (uint32_t)codepoint | term_key_value(TermMETA);
 		}
-		return (uint32_t)codepoint;
+		return codepoint;
 	}
 	if (codepoint >= 128 && codepoint < 0x110000) {
-		modifiers &= ~TermSHIFT;
+		modifiers &= ~term_key_value(TermSHIFT);
 		return (uint32_t)codepoint | modifiers;
 	}
 	return res;
 }
 
-static bool term_probe_kitty(void) {
-	unsigned char b = 0;
-	bool ok = false;
-	term_write_out((char *)(void *)"\x1b[?u", 4);
-	auto (b0, ok0) = term_read_byte(1000);
-	b = b0;
-	ok = ok0;
+static bool term_probe_kitty() {
+	term_write_out("\x1b[?u", 4);
+	auto (b, ok) = term_read_byte(1000);
 	if (!ok || b != 0x1B) {
 		return false;
 	}
@@ -444,7 +432,7 @@ static bool term_probe_kitty(void) {
 	}
 }
 
-static void term_enable_modes(void) {
+static void term_enable_modes() {
 	term_emit_cstr("\x1b[?1049h\x1b[>1u\x1b[?2004h\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[?2048h");
 	term_out_flush();
 	g_altbuf = true;
@@ -453,7 +441,7 @@ static void term_enable_modes(void) {
 }
 
 // term_open enters raw mode and probes Kitty keyboard support.
-bool term_open(void) {
+bool term_open() {
 	int rows = 0;
 	int cols = 0;
 	bool fin_ok = false;
@@ -510,7 +498,7 @@ bool term_open(void) {
 }
 
 // term_close restores the terminal.
-void term_close(void) {
+void term_close() {
 	if (!g_open) {
 		return;
 	}
@@ -528,15 +516,15 @@ void term_close(void) {
 	g_open = false;
 }
 
-int term_rows(void) {
+int term_rows() {
 	return g_rows;
 }
 
-int term_cols(void) {
+int term_cols() {
 	return g_cols;
 }
 
-bool term_refresh_size(void) {
+bool term_refresh_size() {
 	int rows = 0;
 	int cols = 0;
 	int new_rows = 0;
@@ -557,15 +545,15 @@ bool term_refresh_size(void) {
 	return true;
 }
 
-void term_flush(void) {
+void term_flush() {
 	term_out_flush();
 }
 
-void term_hide_cursor(void) {
+void term_hide_cursor() {
 	term_emit_cstr("\x1b[?25l");
 }
 
-void term_show_cursor(void) {
+void term_show_cursor() {
 	term_emit_cstr("\x1b[?25h");
 }
 
@@ -573,11 +561,11 @@ void term_move(int row, int col) {
 	term_emit_csi(row + 1, true, col + 1, 'H');
 }
 
-void term_erase_eol(void) {
+void term_erase_eol() {
 	term_emit_cstr("\x1b[K");
 }
 
-void term_erase_eos(void) {
+void term_erase_eos() {
 	term_reset_scroll_region();
 	term_emit_cstr("\x1b[J");
 }
@@ -591,7 +579,7 @@ void term_set_scroll_region(int top, int bottom) {
 	g_scroll_bottom = bottom;
 }
 
-void term_reset_scroll_region(void) {
+void term_reset_scroll_region() {
 	int rows = term_rows();
 	if (g_scroll_top == 0 && g_scroll_bottom == rows) {
 		return;
@@ -617,47 +605,96 @@ void term_scroll_rows(int top, int bottom, int row_count) {
 	}
 }
 
-void term_write(char *s, size_t n) {
+void term_write(const char *s, size_t n) {
 	term_emit(s, n);
 }
 
-void term_write_cstr(char[..] s) {
+void term_write_cstr(const char[..] s) {
 	term_emit_cstr(s);
 }
 
-void term_beep(void) {
+void term_beep() {
 	term_emit_cstr("\a");
 	term_out_flush();
 }
 
-int term_mouse_col(void) {
+int term_mouse_col() {
 	return g_mouse_col;
 }
 
-int term_mouse_row(void) {
+int term_mouse_row() {
 	return g_mouse_row;
 }
 
-static uint32_t term_decode_csi(void) {
+static bool term_paste_terminator(char *data, size_t n) {
+	char terminator[6] = {0x1B, '[', '2', '0', '1', '~'};
+	return data != NULL && n >= sizeof(terminator) &&
+		memcmp(data + n - sizeof(terminator), terminator,
+			sizeof(terminator)) == 0;
+}
+
+static void term_read_bracketed_paste() {
+	enum { PasteMax = 64 * 1024 };
+	char *data = malloc((size_t)PasteMax + 6);
+	char recent[6] = {0};
+	size_t used = 0;
+	size_t recent_len = 0;
+	bool truncated = false;
+	if (data == NULL) {
+		return;
+	}
+	for (;;) {
+		auto (byte, ok) = term_read_byte(-1);
+		if (!ok) {
+			free(data);
+			return;
+		}
+		if (recent_len < sizeof(recent)) {
+			recent[recent_len++] = byte;
+		} else {
+			memmove(recent, recent + 1, sizeof(recent) - 1);
+			recent[sizeof(recent) - 1] = byte;
+		}
+		if (truncated) {
+			if (term_paste_terminator(recent, recent_len)) {
+				return;
+			}
+			continue;
+		}
+		data[used++] = byte;
+		if (term_paste_terminator(data, used)) {
+			size_t payload_len = used - 6;
+			if (payload_len > 0) {
+				event_enqueue(event_paste(data, payload_len));
+				data = NULL;
+			}
+			free(data);
+			return;
+		}
+		if (used > (size_t)PasteMax) {
+			event_enqueue(event_paste(data, PasteMax));
+			data = NULL;
+			truncated = true;
+		}
+	}
+}
+
+static uint32_t term_decode_csi() {
 	int params[8] = {0};
 	int nparams = 0;
 	int val = 0;
 	bool in_num = false;
 	bool is_u = false;
 	bool is_mouse = false;
-	unsigned char b = 0;
-	bool ok = false;
 	int i = 0;
 
 	for (i = 0; i < 64; i++) {
-		auto (bx, okx) = term_read_byte(50);
-		b = bx;
-		ok = okx;
+		auto (b, ok) = term_read_byte(50);
 		if (!ok) {
 			return 0;
 		}
 		if (b >= '0' && b <= '9') {
-			val = val * 10 + (int)(b - '0');
+			val = val * 10 + (b - '0');
 			in_num = true;
 			continue;
 		}
@@ -713,24 +750,28 @@ static uint32_t term_decode_csi(void) {
 				} else if (nparams == 1 && params[0] > 1) {
 					mod = csi_modifier_flags(params[0]);
 				}
-				auto (k, kok) = cursor_key_code((int)b, mod);
+				auto (k, kok) = cursor_key_code(b, mod);
 				return kok ? k : 0;
 			}
 			if (b == '~' && nparams >= 1) {
+				if (params[0] == 200) {
+					term_read_bracketed_paste();
+					return TermKeyPasteComplete;
+				}
 				uint32_t mod = nparams >= 2 ? csi_modifier_flags(params[1]) : 0;
 				switch (params[0]) {
 				case 1:
 				case 7:
-					return TermKeyHome | mod;
+					return term_key_value(TermKeyHome) | mod;
 				case 3:
-					return TermKeyDelete | mod;
+					return term_key_value(TermKeyDelete) | mod;
 				case 4:
 				case 8:
-					return TermKeyEnd | mod;
+					return term_key_value(TermKeyEnd) | mod;
 				case 5:
-					return TermKeyPageUp | mod;
+					return term_key_value(TermKeyPageUp) | mod;
 				case 6:
-					return TermKeyPageDown | mod;
+					return term_key_value(TermKeyPageDown) | mod;
 				default:
 					return 0;
 				}
@@ -751,12 +792,12 @@ static uint32_t term_decode_csi(void) {
 	return 0;
 }
 
-static uint32_t term_decode_utf8(unsigned char first) {
+static uint32_t term_decode_utf8(char first) {
 	char buf[4] = {0};
 	int need = 1;
 	int i = 1;
 	uint32_t r = 0;
-	buf[0] = (char)first;
+	buf[0] = first;
 	if ((first & 0xE0) == 0xC0) {
 		need = 2;
 	} else if ((first & 0xF0) == 0xE0) {
@@ -764,36 +805,36 @@ static uint32_t term_decode_utf8(unsigned char first) {
 	} else if ((first & 0xF8) == 0xF0) {
 		need = 4;
 	} else {
-		return (uint32_t)first;
+		return first;
 	}
 	for (i = 1; i < need; i++) {
 		auto (bx, okx) = term_read_byte(50);
 		if (!okx) {
 			return 0;
 		}
-		buf[i] = (char)bx;
+		buf[i] = bx;
 	}
 	if (need == 2) {
 		r = (uint32_t)(first & 0x1F) << 6;
-		r |= (uint32_t)((unsigned char)buf[1] & 0x3F);
+		r |= buf[1] & 0x3F;
 	} else if (need == 3) {
 		r = (uint32_t)(first & 0x0F) << 12;
-		r |= (uint32_t)((unsigned char)buf[1] & 0x3F) << 6;
-		r |= (uint32_t)((unsigned char)buf[2] & 0x3F);
+		r |= (uint32_t)(buf[1] & 0x3F) << 6;
+		r |= buf[2] & 0x3F;
 	} else {
 		r = (uint32_t)(first & 0x07) << 18;
-		r |= (uint32_t)((unsigned char)buf[1] & 0x3F) << 12;
-		r |= (uint32_t)((unsigned char)buf[2] & 0x3F) << 6;
-		r |= (uint32_t)((unsigned char)buf[3] & 0x3F);
+		r |= (uint32_t)(buf[1] & 0x3F) << 12;
+		r |= (uint32_t)(buf[2] & 0x3F) << 6;
+		r |= buf[3] & 0x3F;
 	}
 	return r;
 }
 
 // term_read_key blocks for one decoded key.
-(uint32_t, bool) term_read_key(void) {
+(uint32_t, bool) term_read_key() {
 	for (;;) {
 		auto (b, ok) = term_read_byte(-1);
-		unsigned char first = b;
+		char first = b;
 		if (!ok) {
 			return (0, false);
 		}
@@ -805,7 +846,7 @@ static uint32_t term_decode_utf8(unsigned char first) {
 			continue;
 		}
 		if (first != 0x1B) {
-			return ((uint32_t)first, true);
+			return (first, true);
 		}
 		auto (b2, ok2) = term_read_byte(50);
 		if (!ok2) {
@@ -823,7 +864,7 @@ static uint32_t term_decode_utf8(unsigned char first) {
 			if (!ok3) {
 				return (0, false);
 			}
-			auto (k, kok) = cursor_key_code((int)b3, 0);
+			auto (k, kok) = cursor_key_code(b3, 0);
 			if (kok) {
 				return (k, true);
 			}
@@ -846,39 +887,3 @@ static uint32_t term_decode_utf8(unsigned char first) {
 	return term_read_key();
 }
 
-// term_osc52_copy sends text to the clipboard via OSC 52.
-void term_osc52_copy(char *data, size_t n) {
-	static char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	size_t i = 0;
-	term_emit_cstr("\x1b]52;c;");
-	for (i = 0; i + 2 < n; i += 3) {
-		char o[4] = {0};
-		unsigned char a = (unsigned char)data[i];
-		unsigned char b = (unsigned char)data[i + 1];
-		unsigned char c = (unsigned char)data[i + 2];
-		o[0] = b64[a >> 2];
-		o[1] = b64[((a & 3) << 4) | (b >> 4)];
-		o[2] = b64[((b & 15) << 2) | (c >> 6)];
-		o[3] = b64[c & 63];
-		term_emit(o, 4);
-	}
-	if (i < n) {
-		char o[4] = {0};
-		unsigned char a = (unsigned char)data[i];
-		unsigned char b = (unsigned char)0;
-		if (i + 1 < n) {
-			b = (unsigned char)data[i + 1];
-		}
-		o[0] = b64[a >> 2];
-		o[1] = b64[((a & 3) << 4) | (b >> 4)];
-		if (i + 1 < n) {
-			o[2] = b64[((b & 15) << 2)];
-		} else {
-			o[2] = (char)'=';
-		}
-		o[3] = (char)'=';
-		term_emit(o, 4);
-	}
-	term_emit_cstr("\x07");
-	term_out_flush();
-}

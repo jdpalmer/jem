@@ -21,12 +21,11 @@ struct MinibufferState {
 
 static MinibufferState g_mb;
 
-bool minibuffer_active(void) {
+bool minibuffer_active() {
 	return g_mb.active;
 }
 
-void minibuffer_set_prompt(char[..] prompt) {
-	size_t n = 0;
+void minibuffer_set_prompt(const char[..] prompt) {
 	if (!g_mb.active) {
 		return;
 	}
@@ -34,58 +33,47 @@ void minibuffer_set_prompt(char[..] prompt) {
 	if (len(prompt) == 0 || ptr(prompt) == NULL) {
 		return;
 	}
-	n = len(prompt);
-	if (n >= sizeof(g_mb.prompt)) {
-		n = sizeof(g_mb.prompt) - 1;
-	}
-	memcpy(g_mb.prompt, ptr(prompt), n);
-	g_mb.prompt[n] = 0;
+	(void)snprintf(g_mb.prompt, sizeof(g_mb.prompt), "%s", prompt);
 }
 
-void minibuffer_begin(char[..] prompt, int kind) {
-	size_t n = 0;
+void minibuffer_begin(const char[..] prompt, int kind) {
 	memset(&g_mb, 0, sizeof(g_mb));
 	g_mb.active = true;
 	g_mb.kind = kind;
 	if (len(prompt) != 0 && ptr(prompt) != NULL) {
-		n = len(prompt);
-		if (n >= sizeof(g_mb.prompt)) {
-			n = sizeof(g_mb.prompt) - 1;
-		}
-		memcpy(g_mb.prompt, ptr(prompt), n);
-		g_mb.prompt[n] = 0;
+		(void)snprintf(g_mb.prompt, sizeof(g_mb.prompt), "%s", prompt);
 	}
 }
 
-void minibuffer_cancel(void) {
+void minibuffer_cancel() {
 	g_mb.active = false;
 	g_mb.len = 0;
 	g_mb.cursor = 0;
 	g_mb.text[0] = 0;
 }
 
-void minibuffer_set_text(char *s) {
+void minibuffer_set_text(const char[..] s) {
 	size_t n = 0;
 	if (!g_mb.active) {
 		return;
 	}
-	if (s == NULL) {
+	if (len(s) == 0 || ptr(s) == NULL) {
 		g_mb.len = 0;
 		g_mb.cursor = 0;
 		g_mb.text[0] = 0;
 		return;
 	}
-	n = strlen(s);
+	n = len(s);
 	if (n >= (size_t)MinibufCap) {
 		n = (size_t)MinibufCap - 1;
 	}
-	memcpy(g_mb.text, s, n);
+	memcpy(g_mb.text, ptr(s), n);
 	g_mb.text[n] = 0;
 	g_mb.len = n;
 	g_mb.cursor = n;
 }
 
-char *minibuffer_text(void) {
+char *minibuffer_text() {
 	return g_mb.text;
 }
 
@@ -121,20 +109,48 @@ bool minibuffer_insert(uint32_t ch) {
 		return false;
 	}
 	memmove(g_mb.text + g_mb.cursor + (size_t)n, g_mb.text + g_mb.cursor, g_mb.len - g_mb.cursor);
-	memcpy(g_mb.text + g_mb.cursor, utf, (size_t)n);
+	memcpy(g_mb.text + g_mb.cursor, utf, n);
 	g_mb.cursor = g_mb.cursor + (size_t)n;
 	g_mb.len = g_mb.len + (size_t)n;
 	g_mb.text[g_mb.len] = 0;
 	return true;
 }
 
-bool minibuffer_backspace(void) {
+bool minibuffer_insert_paste(const char[..] text) {
+	size_t insert_len = 0;
+	size_t i = 0;
+	if (!g_mb.active || len(text) == 0) {
+		return false;
+	}
+	insert_len = len(text);
+	if (g_mb.len + insert_len >= (size_t)MinibufCap) {
+		insert_len = (size_t)MinibufCap - g_mb.len - 1;
+	}
+	if (insert_len == 0) {
+		return false;
+	}
+	memmove(g_mb.text + g_mb.cursor + insert_len,
+		g_mb.text + g_mb.cursor, g_mb.len - g_mb.cursor);
+	for (i = 0; i < insert_len; i++) {
+		char ch = ptr(text)[i];
+		if (ch == '\r') {
+			ch = '\n';
+		}
+		g_mb.text[g_mb.cursor + i] = ch;
+	}
+	g_mb.cursor += insert_len;
+	g_mb.len += insert_len;
+	g_mb.text[g_mb.len] = 0;
+	return true;
+}
+
+bool minibuffer_backspace() {
 	if (!g_mb.active || g_mb.cursor == 0) {
 		return false;
 	}
 	/* delete one UTF-8 trail */
 	size_t i = g_mb.cursor - 1;
-	while (i != 0 && ((unsigned char)g_mb.text[i] & 0xC0) == 0x80) {
+	while (i != 0 && (g_mb.text[i] & 0xC0) == 0x80) {
 		i--;
 	}
 	memmove(g_mb.text + i, g_mb.text + g_mb.cursor, g_mb.len - g_mb.cursor);
@@ -144,36 +160,9 @@ bool minibuffer_backspace(void) {
 	return true;
 }
 
-/* Forward-declared Screen/DispCell painting via opaque row write helper. */
-struct DispCellFwd {
-	uint32_t ch;
-	uint16_t style_bits;
-};
-
-/* minibuffer_paint_row writes prompt+text into a simple char row buffer. */
 void minibuffer_format(char *out, size_t cap) {
 	if (out == NULL || cap == 0) {
 		return;
 	}
 	snprintf(out, cap, "%s%s", g_mb.prompt, g_mb.text);
-}
-
-/* Used by display: paint into last row via callbacks stored as extern from display.
-   We provide a simple API that display calls with its Screen — but Screen is in
-   display. To avoid cycles, display paints using minibuffer_format. */
-void minibuffer_paint_raw(void *screen_cells, int cols, int row, int cell_stride) {
-	char line[1024] = {0};
-	int i = 0;
-	size_t n = 0;
-	unsigned char *base = (unsigned char *)screen_cells;
-	minibuffer_format(line, sizeof(line));
-	n = strlen(line);
-	for (i = 0; i < cols; i++) {
-		/* DispCell is {uint32_t ch; TextStyle style} — TextStyle is {uint16_t bits} */
-		uint32_t *chp = (uint32_t *)(base + (size_t)(row * cols + i) * (size_t)cell_stride);
-		uint16_t *bits = (uint16_t *)((char *)chp + sizeof(uint32_t));
-		*chp = (size_t)i < n ? (unsigned char)line[i] : ' ';
-		*bits = 0; /* default; display may restyle */
-		(void)bits;
-	}
 }

@@ -79,28 +79,28 @@ bool event_try_dequeue(Event *out) {
 }
 
 // event_queue_len returns pending count.
-size_t event_queue_len(void) {
+size_t event_queue_len() {
 	return g_count;
 }
 
 // event_key builds a KeyEvent.
 Event event_key(uint32_t code) {
-	Event e = {0};
+	Event e = {EventNone};
 	e.kind = EventKey;
 	e.key_code = code;
 	return e;
 }
 
 // event_resize builds a ResizeEvent.
-Event event_resize(void) {
-	Event e = {0};
+Event event_resize() {
+	Event e = {EventNone};
 	e.kind = EventResize;
 	return e;
 }
 
 // event_quit builds a QuitEvent.
 Event event_quit(bool force) {
-	Event e = {0};
+	Event e = {EventNone};
 	e.kind = EventQuit;
 	e.quit_force = force;
 	return e;
@@ -108,7 +108,7 @@ Event event_quit(bool force) {
 
 // event_mouse builds a MouseEvent.
 Event event_mouse(int col, int row) {
-	Event e = {0};
+	Event e = {EventNone};
 	e.kind = EventMouse;
 	e.mouse_col = col;
 	e.mouse_row = row;
@@ -117,7 +117,7 @@ Event event_mouse(int col, int row) {
 
 // event_paste takes ownership of data (malloc'd) of length n.
 Event event_paste(char *data, size_t n) {
-	Event e = {0};
+	Event e = {EventNone};
 	e.kind = EventPaste;
 	e.paste_data = data;
 	e.paste_len = n;

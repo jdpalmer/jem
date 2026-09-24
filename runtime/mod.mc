@@ -12,6 +12,7 @@ import "search";
 import "register";
 import "mode";
 import "job";
+import "tags";
 import "os";
 import "fs";
 import "path";
@@ -28,7 +29,7 @@ import "str";
 typedef bool (*CommandFn)(bool f, int n);
 
 struct Command {
-	char *name;
+	const char[..] name;
 	CommandFn fn;
 };
 
@@ -46,7 +47,8 @@ enum ListenerKind {
 	ListenerAskYesNo = 5,
 	ListenerCtlx = 6,
 	ListenerMx = 7, /* fuzzy command palette (M-x) */
-	ListenerUseBuffer = 8
+	ListenerUseBuffer = 8,
+	ListenerTagPicker = 9
 };
 
 enum AskStringKind {
@@ -55,11 +57,12 @@ enum AskStringKind {
 	AskReadFile = 2,
 	AskGotoLine = 3,
 	AskGrep = 4,
-	AskCompile = 5
+	AskCompile = 5,
+	AskGotoTag = 6
 };
 
 struct Listener {
-	int kind;
+	ListenerKind kind;
 	int universal_n;
 	bool universal_f;
 	char ask_buf[512];
@@ -91,36 +94,36 @@ static bool g_escape_pending;
 /* Map raw bytes to editor keys (jem.go/display.DecodeKeyChar). */
 static uint32_t decode_key_char(uint32_t key) {
 	if (key == (uint32_t)'\t') {
-		return TermKeyTab;
+		return term_key_value(TermKeyTab);
 	}
 	if (key == (uint32_t)'\r' || key == (uint32_t)'\n') {
-		return TermKeyEnter;
+		return term_key_value(TermKeyEnter);
 	}
-	if (key == (uint32_t)0x1B) {
-		return (uint32_t)0x1B;
+	if (key == 0x1B) {
+		return 0x1B;
 	}
 	if (key == 0) {
-		return TermCTL | (uint32_t)' ';
+		return term_key_value(TermCTL) | (uint32_t)' ';
 	}
 	if (key >= (uint32_t)0x01 && key <= (uint32_t)0x1F) {
-		return TermCTL | (key + (uint32_t)'@');
+		return term_key_value(TermCTL) | (key + (uint32_t)'@');
 	}
 	return key;
 }
 
 /* Esc-as-Meta: lowercase letters become META|Upper (jem.go ApplyMetaPrefixToKey). */
 static uint32_t apply_meta_prefix(uint32_t k) {
-	if ((k & TermKeyMask) == 0 && k >= (uint32_t)'a' && k <= (uint32_t)'z') {
-		return TermMETA | (k - ((uint32_t)'a' - (uint32_t)'A'));
+	if ((k & term_key_value(TermKeyMask)) == 0 && k >= (uint32_t)'a' && k <= (uint32_t)'z') {
+		return term_key_value(TermMETA) | (k - ((uint32_t)'a' - (uint32_t)'A'));
 	}
-	return k | TermMETA;
+	return k | term_key_value(TermMETA);
 }
 
 /* Kitty Alt+letter reports lowercase; bindings use META|'X'. */
 static uint32_t normalize_meta_case(uint32_t k) {
-	uint32_t base = k & ~(uint32_t)TermKeyMask;
-	if ((k & TermMETA) != 0 && base >= (uint32_t)'a' && base <= (uint32_t)'z') {
-		return (k & (uint32_t)TermKeyMask) | (base - ((uint32_t)'a' - (uint32_t)'A'));
+	uint32_t base = k & ~term_key_value(TermKeyMask);
+	if ((k & term_key_value(TermMETA)) != 0 && base >= (uint32_t)'a' && base <= (uint32_t)'z') {
+		return (k & term_key_value(TermKeyMask)) | (base - ((uint32_t)'a' - (uint32_t)'A'));
 	}
 	return k;
 }
@@ -134,10 +137,10 @@ static bool prepare_editor_key(uint32_t raw, uint32_t *out_key) {
 		*out_key = normalize_meta_case(apply_meta_prefix(k));
 		return true;
 	}
-	if (k == (uint32_t)0x1B) {
+	if (k == 0x1B) {
 		/* Esc quits prompts; otherwise start M- chord (jem.go decodeAndDeliver). */
 		if (minibuffer_active() || g_app.listener_top > 0) {
-			*out_key = (uint32_t)0x1B;
+			*out_key = 0x1B;
 			return true;
 		}
 		g_escape_pending = true;
@@ -157,7 +160,7 @@ static void bind_key(uint32_t key, CommandFn fn) {
 	g_bind_count++;
 }
 
-static void reg_cmd(char *name, CommandFn fn) {
+static void reg_cmd(const char[..] name, CommandFn fn) {
 	if (g_cmd_count >= 128) {
 		return;
 	}
@@ -166,13 +169,13 @@ static void reg_cmd(char *name, CommandFn fn) {
 	g_cmd_count++;
 }
 
-static CommandFn find_cmd(char *name) {
+static CommandFn find_cmd(const char *name) {
 	int i = 0;
 	if (name == NULL) {
 		return NULL;
 	}
 	for (i = 0; i < g_cmd_count; i++) {
-		if (strcmp(g_cmds[i].name, name) == 0) {
+		if (str_eq(g_cmds[i].name, str_from_cstr(name))) {
 			return g_cmds[i].fn;
 		}
 	}
@@ -189,7 +192,7 @@ static CommandFn find_bind(uint32_t key) {
 	return NULL;
 }
 
-static void push_listener(int kind) {
+static void push_listener(ListenerKind kind) {
 	Listener *L = {0};
 	if (g_app.listener_top >= 8) {
 		return;
@@ -199,23 +202,21 @@ static void push_listener(int kind) {
 	L.kind = kind;
 }
 
-static void pop_listener(void) {
+static void pop_listener() {
 	if (g_app.listener_top > 0) {
 		g_app.listener_top--;
 	}
 }
 
-static Listener *top_listener(void) {
+static Listener *top_listener() {
 	if (g_app.listener_top == 0) {
 		return NULL;
 	}
 	return &g_app.listeners[g_app.listener_top - 1];
 }
 
-static bool any_unsaved(void) {
-	size_t i = 0;
-	for (i = 0; i < buffer_all.count; i++) {
-		Buffer *b = buffer_all.bufs[i];
+static bool any_unsaved() {
+	for (auto b : buffer_all) {
 		if (b != NULL && b.is_changed && !b.is_scratch()) {
 			return true;
 		}
@@ -399,10 +400,10 @@ bool cmd_insert_pending(bool f, int n) {
 	at = w.cursor;
 	buffer_undo.begin_command(w.buffer, at);
 	while (n-- > 0) {
-		if (!w.set_text(w.cursor, w.cursor, utf, (size_t)len)) {
+		if (!w.set_text(w.cursor, w.cursor, utf, len)) {
 			break;
 		}
-		buffer_undo.record_edit(UndoInsert, at.line, at.offset, utf, (size_t)len);
+		buffer_undo.record_edit(UndoInsert, at.line, at.offset, utf, len);
 		at = w.cursor;
 	}
 	buffer_undo.end_command();
@@ -435,9 +436,13 @@ bool cmd_newline(bool f, int n) {
 bool cmd_newline_and_indent(bool f, int n) {
 	Buffer *b = buffer_current();
 	(void)f;
-	if (b != NULL && b.name != NULL) {
-		if (strcmp(b.name, "*grep*") == 0 || strcmp(b.name, "*compile*") == 0) {
+	if (b != NULL && len(b.name) > 0) {
+		if (str_eq(b.name, "*grep*") || str_eq(b.name, "*compile*")) {
 			return job_visit_at_point();
+		}
+		if (str_eq(b.name, "*tags*") ||
+			str_eq(b.name, "*describe*")) {
+			return tags_visit_at_point();
 		}
 	}
 	if (!g_app.auto_indent) {
@@ -492,21 +497,19 @@ static char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 		size_t cap = 0;
 		while (line <= end.line) {
 			Line *ln = w.buffer.line(line);
-			int from = line == begin.line ? begin.offset : 0;
-			int to = 0;
+			size_t from = line == begin.line ? begin.offset : 0;
+			size_t to = 0;
+			size_t chunk = 0;
 			if (line == end.line) {
 				to = end.offset;
 			} else if (ln != NULL) {
 				to = ln.byte_len();
 			}
-			int chunk = to - from;
-			if (chunk < 0) {
-				chunk = 0;
-			}
-			if (n + (size_t)chunk + 2 > cap) {
+			chunk = to > from ? to - from : 0;
+			if (n + chunk + 2 > cap) {
 				size_t ncap = cap != 0 ? cap * 2 : 256;
 				char *p = {0};
-				while (ncap < n + (size_t)chunk + 2) {
+				while (ncap < n + chunk + 2) {
 					ncap *= 2;
 				}
 				p = realloc(data, ncap);
@@ -518,8 +521,8 @@ static char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 				cap = ncap;
 			}
 			if (chunk > 0 && ln != NULL) {
-				memcpy(data + n, ln.data.ptr + from, (size_t)chunk);
-				n += (size_t)chunk;
+				memcpy(data + n, ptr(ln.data) + from, chunk);
+				n += chunk;
 			}
 			if (line < end.line) {
 				data[n++] = '\n';
@@ -703,9 +706,9 @@ bool cmd_trim_whitespace(bool f, int n) {
 	Window *w = window_current();
 	Line *line = {0};
 	char[..] v = {0};
-	int pos = 0;
-	int start = 0;
-	int end = 0;
+	size_t pos = 0;
+	size_t start = 0;
+	size_t end = 0;
 	Location begin = {0};
 	Location finish = {0};
 	(void)f;
@@ -730,7 +733,7 @@ bool cmd_trim_whitespace(bool f, int n) {
 			start--;
 		}
 		end = pos;
-		while (end < (int)len(v)) {
+		while (end < len(v)) {
 			char c = vp[end];
 			if (c != ' ' && c != '\t') {
 				break;
@@ -758,11 +761,11 @@ bool cmd_transpose_chars(bool f, int n) {
 	Window *w = window_current();
 	Line *line = {0};
 	char[..] v = {0};
-	int offset = 0;
-	int right_start = 0;
-	int right_end = 0;
-	int left_start = 0;
-	int left_end = 0;
+	size_t offset = 0;
+	size_t right_start = 0;
+	size_t right_end = 0;
+	size_t left_start = 0;
+	size_t left_end = 0;
 	char *swapped = {0};
 	size_t left_len = 0;
 	size_t right_len = 0;
@@ -779,7 +782,7 @@ bool cmd_transpose_chars(bool f, int n) {
 	}
 	v = line.view();
 	offset = w.cursor.offset;
-	if (offset == (int)len(v)) {
+	if (offset == len(v)) {
 		right_end = offset;
 		right_start = utf8_prev_offset(v, right_end);
 	} else {
@@ -794,8 +797,8 @@ bool cmd_transpose_chars(bool f, int n) {
 	if (left_start == left_end) {
 		return false;
 	}
-	left_len = (size_t)(left_end - left_start);
-	right_len = (size_t)(right_end - right_start);
+	left_len = left_end - left_start;
+	right_len = right_end - right_start;
 	swapped = malloc(left_len + right_len);
 	if (swapped == NULL) {
 		return false;
@@ -920,14 +923,14 @@ bool cmd_cap_word(bool f, int n) {
 	return transform_word_case(2);
 }
 
-static bool is_word_byte(unsigned char b) {
+static bool is_word_byte(char b) {
 	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9') || b == '_';
 }
 
 static Location next_word_start(Buffer *buf, Location loc) {
 	Line *line = {0};
 	char[..] v = {0};
-	int off = 0;
+	size_t off = 0;
 	int nlines = 0;
 	if (buf == NULL) {
 		return loc;
@@ -947,11 +950,11 @@ static Location next_word_start(Buffer *buf, Location loc) {
 		v = line.view();
 		{
 			char *vp = ptr(v);
-			while (off < (int)len(v) && !is_word_byte((unsigned char)vp[off])) {
+			while (off < len(v) && !is_word_byte(vp[off])) {
 				off++;
 			}
 		}
-		if (off < (int)len(v)) {
+		if (off < len(v)) {
 			loc.offset = off;
 			return loc;
 		}
@@ -1039,33 +1042,17 @@ bool cmd_delete_backward(bool f, int n) {
 		Location end = w.cursor;
 		Location begin = end;
 		Line *line = w.buffer.line(end.line);
-		char *deleted = {0};
-		size_t dlen = 0;
 		if (end.offset > 0 && line != NULL) {
 			begin.offset = utf8_prev_offset(line.view(), end.offset);
-			dlen = (size_t)(end.offset - begin.offset);
-			deleted = malloc(dlen + 1);
-			if (deleted != NULL) {
-				memcpy(deleted, line.data.ptr + begin.offset, dlen);
-				deleted[dlen] = 0;
-			}
 		} else if (end.line > 1) {
 			Line *prev = w.buffer.line(end.line - 1);
 			begin.line = end.line - 1;
 			begin.offset = prev != NULL ? prev.byte_len() : 0;
-			deleted = malloc(2);
-			if (deleted != NULL) {
-				deleted[0] = '\n';
-				deleted[1] = 0;
-				dlen = 1;
-			}
 		} else {
 			break;
 		}
-		w.set_text(begin, end, "", 0);
-		if (deleted != NULL) {
-			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, deleted, dlen);
-			free(deleted);
+		if (!delete_range_undo(w, begin, end)) {
+			break;
 		}
 	}
 	buffer_undo.end_command();
@@ -1094,7 +1081,9 @@ bool cmd_delete_forward(bool f, int n) {
 		} else {
 			break;
 		}
-		w.set_text(begin, end, "", 0);
+		if (!delete_range_undo(w, begin, end)) {
+			break;
+		}
 	}
 	buffer_undo.end_command();
 	return true;
@@ -1144,7 +1133,7 @@ bool cmd_kill_region(bool f, int n) {
 	end = w.cursor;
 	text = region_text(w, begin, end, &tlen);
 	if (text != NULL) {
-		killring_push(text, tlen);
+		killring_kill(ranged(text, tlen));
 	}
 	buffer_undo.begin_command(w.buffer, w.cursor);
 	{
@@ -1182,7 +1171,7 @@ bool cmd_copy_region(bool f, int n) {
 		display_set_echo("Out of memory");
 		return true;
 	}
-	killring_push(text, tlen);
+	killring_kill(ranged(text, tlen));
 	free(text);
 	w.mark.line = 0;
 	w.mark.offset = 0;
@@ -1216,7 +1205,7 @@ bool cmd_kill_line(bool f, int n) {
 	}
 	text = region_text(w, begin, end, &tlen);
 	if (text != NULL) {
-		killring_push(text, tlen);
+		killring_kill(ranged(text, tlen));
 	}
 	buffer_undo.begin_command(w.buffer, begin);
 	w.set_text(begin, end, "", 0);
@@ -1230,21 +1219,34 @@ bool cmd_kill_line(bool f, int n) {
 
 bool cmd_yank(bool f, int n) {
 	Window *w = window_current();
-	auto (data, len) = killring_yank();
+	char[..] yank = ranged((char *)0, 0);
 	(void)f;
-	(void)n;
-	if (w == NULL || data == NULL || len == 0) {
-		return true;
+	if (n < 0) {
+		return false;
+	}
+	if (!killring_read_clipboard() && !killring_in_sequence()) {
+		return false;
+	}
+	yank = killring_yank();
+	if (w == NULL || len(yank) == 0) {
+		return false;
 	}
 	buffer_undo.begin_command(w.buffer, w.cursor);
-	w.set_text(w.cursor, w.cursor, data, len);
-	buffer_undo.record_edit(UndoInsert, w.cursor.line, w.cursor.offset, data, len);
+	while (n-- > 0) {
+		Location at = w.cursor;
+		if (!w.set_text(at, at, ptr(yank), len(yank))) {
+			break;
+		}
+		buffer_undo.record_edit(UndoInsert, at.line, at.offset, ptr(yank),
+			len(yank));
+	}
 	buffer_undo.end_command();
 	return true;
 }
 
 bool cmd_undo(bool f, int n) {
 	Window *w = window_current();
+	Buffer *undone = NULL;
 	Location before = {0};
 	(void)f;
 	(void)n;
@@ -1253,12 +1255,16 @@ bool cmd_undo(bool f, int n) {
 		term_beep();
 		return true;
 	}
-	if (!buffer_undo.undo_once(&before)) {
+	if (!buffer_undo.undo_once(&before, &undone)) {
 		display_set_echo("No further undo");
 		term_beep();
 		return true;
 	}
-	if (w != NULL) {
+	if (undone != NULL && buffer_current() != undone) {
+		switch_to_buffer(undone);
+		w = window_current();
+	}
+	if (w != NULL && w.buffer == undone) {
 		w.set_cursor(before);
 	}
 	display_set_echo("Undo");
@@ -1277,7 +1283,7 @@ bool cmd_write_file(bool f, int n) {
 		}
 	}
 	minibuffer_begin("Write file: ", 2);
-	if (b != NULL && b.file_name != NULL && b.file_name[0] != 0) {
+	if (b != NULL && len(b.file_name) > 0) {
 		minibuffer_set_text(b.file_name);
 	}
 	return true;
@@ -1290,7 +1296,7 @@ bool cmd_save_buffer(bool f, int n) {
 	if (b == NULL) {
 		return true;
 	}
-	if (b.file_name == NULL || b.file_name[0] == 0) {
+	if (len(b.file_name) == 0) {
 		return cmd_write_file(false, 1);
 	}
 	if (file_save(b, NULL)) {
@@ -1362,7 +1368,7 @@ static bool parse_positive_line(char *s, int *out) {
 		if (c < '0' || c > '9') {
 			return false;
 		}
-		n = n * 10 + (int)(c - '0');
+		n = n * 10 + (c - '0');
 		if (n == 0) {
 			return false;
 		}
@@ -1418,9 +1424,130 @@ bool cmd_compile(bool f, int n) {
 	{
 		char *last = job_last_compile_command();
 		if (last != NULL && last[0] != 0) {
-			minibuffer_set_text(last);
+			minibuffer_set_text(str_from_cstr(last));
 		}
 	}
+	return true;
+}
+
+bool cmd_goto_tag(bool f, int n) {
+	char sym[256] = {0};
+	bool ok = false;
+	(void)f;
+	(void)n;
+	if (tags_symbol_at_point(sym, sizeof(sym))) {
+		ok = tags_goto_name(sym);
+		if (ok && tags_picker_active()) {
+			push_listener(ListenerTagPicker);
+		}
+		return ok;
+	}
+	push_listener(ListenerAskString);
+	{
+		Listener *L = top_listener();
+		if (L != NULL) {
+			L.ask_phase = AskGotoTag;
+		}
+	}
+	minibuffer_begin("Goto tag: ", 0);
+	return true;
+}
+
+bool cmd_goto_buffer_tag(bool f, int n) {
+	bool ok = false;
+	(void)f;
+	(void)n;
+	ok = tags_goto_buffer();
+	if (ok && tags_picker_active()) {
+		push_listener(ListenerTagPicker);
+	}
+	return ok;
+}
+
+bool cmd_build_tags(bool f, int n) {
+	(void)f;
+	(void)n;
+	return tags_build();
+}
+
+bool cmd_describe_symbol(bool f, int n) {
+	(void)f;
+	(void)n;
+	return tags_describe_symbol();
+}
+
+static bool insert_tag_completion(TagEntry *entry) {
+	Window *w = window_current();
+	char prefix[TagNameMax] = {0};
+	size_t plen = 0;
+	size_t n = 0;
+	Location at = {0};
+	if (w == NULL || w.buffer == NULL || entry == NULL || entry.name == NULL) {
+		return false;
+	}
+	if (w.buffer.is_readonly) {
+		display_set_echo("[read-only buffer]");
+		return false;
+	}
+	if (!tags_prefix_at_point(prefix, sizeof(prefix))) {
+		display_set_echo("[completion: no prefix at point]");
+		return false;
+	}
+	plen = strlen(prefix);
+	if (strncmp(entry.name, prefix, plen) != 0) {
+		return false;
+	}
+	n = strlen(entry.name + plen);
+	if (n == 0) {
+		return true;
+	}
+	at = w.cursor;
+	buffer_undo.begin_command(w.buffer, at);
+	if (!w.set_text(at, at, entry.name + plen, n)) {
+		buffer_undo.end_command();
+		display_set_echo("[completion: insert failed]");
+		return false;
+	}
+	buffer_undo.record_edit(UndoInsert, at.line, at.offset,
+		entry.name + plen, n);
+	buffer_undo.end_command();
+	display_set_echo("");
+	return true;
+}
+
+bool cmd_complete_symbol(bool f, int n) {
+	TagList matches = {0};
+	char prefix[TagNameMax] = {0};
+	bool ok = false;
+	(void)f;
+	(void)n;
+	if (!tags_prefix_at_point(prefix, sizeof(prefix))) {
+		display_set_echo("[completion: no prefix at point]");
+		return false;
+	}
+	if (!tags_ensure_loaded(false)) {
+		return false;
+	}
+	if (!tags_collect_completions(prefix, &matches)) {
+		display_set_echo("[completion: cannot collect matches]");
+		return false;
+	}
+	if (matches.count == 0) {
+		display_set_echo("[completion: no matches]");
+		tags_list_free(&matches);
+		return false;
+	}
+	if (matches.count == 1) {
+		ok = insert_tag_completion(matches.items[0]);
+		tags_list_free(&matches);
+		return ok;
+	}
+	if (!tags_picker_open(&matches, TagPickerComplete,
+		"Complete: ", true)) {
+		tags_list_free(&matches);
+		return false;
+	}
+	push_listener(ListenerTagPicker);
 	return true;
 }
 
@@ -1429,13 +1556,14 @@ static void switch_to_buffer(Buffer *buf) {
 		return;
 	}
 	window_switch_buffer(buf);
+	tags_preload();
 	display_set_echo("");
 }
 
 bool cmd_use_buffer(bool f, int n) {
 	if (f && n > 0) {
-		if (n <= (int)buffer_all.count && buffer_all.bufs[n - 1] != NULL) {
-			switch_to_buffer(buffer_all.bufs[n - 1]);
+		if (n <= (int)len(buffer_all) && buffer_all[n - 1] != NULL) {
+			switch_to_buffer(buffer_all[n - 1]);
 			return true;
 		}
 		display_set_echo("No such buffer");
@@ -1448,28 +1576,26 @@ bool cmd_use_buffer(bool f, int n) {
 
 bool cmd_kill_buffer(bool f, int n) {
 	Buffer *b = buffer_current();
-	size_t i = 0;
+	Buffer *replacement = NULL;
 	(void)f;
 	(void)n;
 	if (b == NULL || b.is_scratch()) {
 		display_set_echo("Can't kill *scratch*");
 		return true;
 	}
-	for (i = 0; i < buffer_all.count; i++) {
-		if (buffer_all.bufs[i] == b) {
-			size_t j = 0;
-			for (j = i; j + 1 < buffer_all.count; j++) {
-				buffer_all.bufs[j] = buffer_all.bufs[j + 1];
-			}
-			buffer_all.count--;
-			b.free();
-			buffer_set_current(buffer_all.bufs[0]);
-			if (window_current() != NULL) {
-				window_switch_buffer(buffer_current());
-			}
+	for (auto other : buffer_all) {
+		if (other != b) {
+			replacement = other;
 			break;
 		}
 	}
+	if (replacement == NULL) {
+		return false;
+	}
+	window_replace_buffer(b, replacement);
+	buffer_undo.forget_buffer(b);
+	buffer_set_current(replacement);
+	buffer_release(b);
 	return true;
 }
 
@@ -1606,7 +1732,7 @@ bool cmd_quit(bool f, int n) {
 	return true;
 }
 
-static void append_key_text(char *out, size_t cap, char *s) {
+static void append_key_text(char *out, size_t cap, const char *s) {
 	size_t n = 0;
 	size_t sl = 0;
 	if (out == NULL || s == NULL || cap == 0) {
@@ -1625,41 +1751,41 @@ static void format_key_chord(uint32_t code, char *out, size_t cap) {
 	uint32_t base = 0;
 	char ch[2] = {0};
 	out[0] = 0;
-	if ((code & TermMETA) != 0) {
+	if ((code & term_key_value(TermMETA)) != 0) {
 		append_key_text(out, cap, "M-");
 	}
-	if ((code & TermCTL) != 0) {
+	if ((code & term_key_value(TermCTL)) != 0) {
 		append_key_text(out, cap, "C-");
 	}
-	if ((code & TermSHIFT) != 0) {
+	if ((code & term_key_value(TermSHIFT)) != 0) {
 		append_key_text(out, cap, "S-");
 	}
-	base = code & ~(uint32_t)TermKeyMask;
-	if (base == TermKeyTab) {
+	base = code & ~term_key_value(TermKeyMask);
+	if (base == term_key_value(TermKeyTab)) {
 		append_key_text(out, cap, "TAB");
-	} else if (base == TermKeyEnter) {
+	} else if (base == term_key_value(TermKeyEnter)) {
 		append_key_text(out, cap, "ENTER");
 	} else if (base == (uint32_t)' ') {
 		append_key_text(out, cap, "SPC");
 	} else if (base == 0x7F) {
 		append_key_text(out, cap, "BACKSPACE");
-	} else if (base == TermKeyUp) {
+	} else if (base == term_key_value(TermKeyUp)) {
 		append_key_text(out, cap, "UP");
-	} else if (base == TermKeyDown) {
+	} else if (base == term_key_value(TermKeyDown)) {
 		append_key_text(out, cap, "DOWN");
-	} else if (base == TermKeyLeft) {
+	} else if (base == term_key_value(TermKeyLeft)) {
 		append_key_text(out, cap, "LEFT");
-	} else if (base == TermKeyRight) {
+	} else if (base == term_key_value(TermKeyRight)) {
 		append_key_text(out, cap, "RIGHT");
-	} else if (base == TermKeyHome) {
+	} else if (base == term_key_value(TermKeyHome)) {
 		append_key_text(out, cap, "HOME");
-	} else if (base == TermKeyEnd) {
+	} else if (base == term_key_value(TermKeyEnd)) {
 		append_key_text(out, cap, "END");
-	} else if (base == TermKeyPageUp) {
+	} else if (base == term_key_value(TermKeyPageUp)) {
 		append_key_text(out, cap, "PGUP");
-	} else if (base == TermKeyPageDown) {
+	} else if (base == term_key_value(TermKeyPageDown)) {
 		append_key_text(out, cap, "PGDOWN");
-	} else if (base == TermKeyDelete) {
+	} else if (base == term_key_value(TermKeyDelete)) {
 		append_key_text(out, cap, "DEL");
 	} else if (base < 0x80) {
 		ch[0] = (char)base;
@@ -1671,18 +1797,18 @@ static void format_key_chord(uint32_t code, char *out, size_t cap) {
 }
 
 static void format_key_label(uint32_t code, char *out, size_t cap) {
-	if ((code & TermCTLX) != 0) {
+	if ((code & term_key_value(TermCTLX)) != 0) {
 		out[0] = 0;
 		append_key_text(out, cap, "C-x ");
-		format_key_chord(code & ~(uint32_t)TermCTLX, out + strlen(out), cap - strlen(out));
+		format_key_chord(code & ~term_key_value(TermCTLX), out + strlen(out), cap - strlen(out));
 		return;
 	}
 	format_key_chord(code, out, cap);
 }
 
 static bool key_is_mouse(uint32_t code) {
-	uint32_t base = code & ~(uint32_t)TermKeyMask;
-	return base >= TermMouseLeft && base <= TermMouseDrag;
+	uint32_t base = code & ~term_key_value(TermKeyMask);
+	return base >= term_key_value(TermMouseLeft) && base <= term_key_value(TermMouseDrag);
 }
 
 static void command_bind_label(CommandFn fn, char *out, size_t cap) {
@@ -1701,9 +1827,9 @@ static void command_bind_label(CommandFn fn, char *out, size_t cap) {
 }
 
 bool cmd_execute_extended(bool f, int n) {
-	char *names[128] = {0};
+	const char *names[128] = {0};
 	char binds_store[128][32] = {0};
-	char *binds[128] = {0};
+	const char *binds[128] = {0};
 	int i = 0;
 	int ncmd = g_cmd_count;
 	(void)f;
@@ -1716,7 +1842,7 @@ bool cmd_execute_extended(bool f, int n) {
 		ncmd = 128;
 	}
 	for (i = 0; i < ncmd; i++) {
-		names[i] = g_cmds[i].name;
+		names[i] = ptr(g_cmds[i].name);
 		command_bind_label(g_cmds[i].fn, binds_store[i], sizeof(binds_store[i]));
 		binds[i] = binds_store[i];
 	}
@@ -1725,133 +1851,151 @@ bool cmd_execute_extended(bool f, int n) {
 	return true;
 }
 
-static void init_commands(void) {
-	reg_cmd((char *)"forward-char", cmd_forward_char);
-	reg_cmd((char *)"backward-char", cmd_backward_char);
-	reg_cmd((char *)"next-line", cmd_next_line);
-	reg_cmd((char *)"previous-line", cmd_prev_line);
-	reg_cmd((char *)"forward-word", cmd_forward_word);
-	reg_cmd((char *)"backward-word", cmd_backward_word);
-	reg_cmd((char *)"scroll-up", cmd_forward_page);
-	reg_cmd((char *)"scroll-down", cmd_backward_page);
-	reg_cmd((char *)"beginning-of-line", cmd_beginning_of_line);
-	reg_cmd((char *)"end-of-line", cmd_end_of_line);
-	reg_cmd((char *)"beginning-of-buffer", cmd_goto_bof);
-	reg_cmd((char *)"end-of-buffer", cmd_goto_eof);
-	reg_cmd((char *)"back-to-indentation", cmd_back_to_indentation);
-	reg_cmd((char *)"newline", cmd_newline);
-	reg_cmd((char *)"newline-and-indent", cmd_newline_and_indent);
-	reg_cmd((char *)"indent-line", cmd_indent_line);
-	reg_cmd((char *)"close-brace", cmd_close_brace);
-	reg_cmd((char *)"open-line", cmd_open_line);
-	reg_cmd((char *)"delete-backward-char", cmd_delete_backward);
-	reg_cmd((char *)"delete-char", cmd_delete_forward);
-	reg_cmd((char *)"delete-word-forward", cmd_delete_word_forward);
-	reg_cmd((char *)"delete-word-backward", cmd_delete_word_backward);
-	reg_cmd((char *)"set-mark-command", cmd_set_mark);
-	reg_cmd((char *)"exchange-point-and-mark", cmd_exchange_point_and_mark);
-	reg_cmd((char *)"mark-whole-buffer", cmd_mark_whole_buffer);
-	reg_cmd((char *)"kill-region", cmd_kill_region);
-	reg_cmd((char *)"copy-region-as-kill", cmd_copy_region);
-	reg_cmd((char *)"kill-line", cmd_kill_line);
-	reg_cmd((char *)"yank", cmd_yank);
-	reg_cmd((char *)"undo", cmd_undo);
-	reg_cmd((char *)"transpose-chars", cmd_transpose_chars);
-	reg_cmd((char *)"transpose-words", cmd_transpose_words);
-	reg_cmd((char *)"downcase-word", cmd_lower_word);
-	reg_cmd((char *)"upcase-word", cmd_upper_word);
-	reg_cmd((char *)"capitalize-word", cmd_cap_word);
-	reg_cmd((char *)"trim-whitespace", cmd_trim_whitespace);
-	reg_cmd((char *)"recenter", cmd_refresh);
-	reg_cmd((char *)"save-buffer", cmd_save_buffer);
-	reg_cmd((char *)"find-file", cmd_find_file);
-	reg_cmd((char *)"write-file", cmd_write_file);
-	reg_cmd((char *)"read-file", cmd_read_file);
-	reg_cmd((char *)"goto-line", cmd_goto_line);
-	reg_cmd((char *)"grep", cmd_grep);
-	reg_cmd((char *)"compile", cmd_compile);
-	reg_cmd((char *)"switch-to-buffer", cmd_use_buffer);
-	reg_cmd((char *)"kill-buffer", cmd_kill_buffer);
-	reg_cmd((char *)"split-window", cmd_split_window);
-	reg_cmd((char *)"delete-other-windows", cmd_delete_other_windows);
-	reg_cmd((char *)"delete-window", cmd_delete_window);
-	reg_cmd((char *)"other-window", cmd_other_window);
-	reg_cmd((char *)"isearch-forward", cmd_isearch_forward);
-	reg_cmd((char *)"isearch-backward", cmd_isearch_backward);
-	reg_cmd((char *)"query-replace", cmd_query_replace);
-	reg_cmd((char *)"toggle-theme", cmd_toggle_theme);
-	reg_cmd((char *)"start-kbd-macro", cmd_start_macro);
-	reg_cmd((char *)"end-kbd-macro", cmd_end_macro);
-	reg_cmd((char *)"call-last-kbd-macro", cmd_call_macro);
-	reg_cmd((char *)"universal-argument", cmd_universal_argument);
-	reg_cmd((char *)"save-buffers-kill-terminal", cmd_quit);
-	reg_cmd((char *)"execute-extended-command", cmd_execute_extended);
+static void init_commands() {
+	reg_cmd("forward-char", cmd_forward_char);
+	reg_cmd("backward-char", cmd_backward_char);
+	reg_cmd("next-line", cmd_next_line);
+	reg_cmd("previous-line", cmd_prev_line);
+	reg_cmd("forward-word", cmd_forward_word);
+	reg_cmd("backward-word", cmd_backward_word);
+	reg_cmd("scroll-up", cmd_forward_page);
+	reg_cmd("scroll-down", cmd_backward_page);
+	reg_cmd("beginning-of-line", cmd_beginning_of_line);
+	reg_cmd("end-of-line", cmd_end_of_line);
+	reg_cmd("beginning-of-buffer", cmd_goto_bof);
+	reg_cmd("end-of-buffer", cmd_goto_eof);
+	reg_cmd("back-to-indentation", cmd_back_to_indentation);
+	reg_cmd("newline", cmd_newline);
+	reg_cmd("newline-and-indent", cmd_newline_and_indent);
+	reg_cmd("indent-line", cmd_indent_line);
+	reg_cmd("close-brace", cmd_close_brace);
+	reg_cmd("open-line", cmd_open_line);
+	reg_cmd("delete-backward-char", cmd_delete_backward);
+	reg_cmd("delete-char", cmd_delete_forward);
+	reg_cmd("delete-word-forward", cmd_delete_word_forward);
+	reg_cmd("delete-word-backward", cmd_delete_word_backward);
+	reg_cmd("set-mark-command", cmd_set_mark);
+	reg_cmd("exchange-point-and-mark", cmd_exchange_point_and_mark);
+	reg_cmd("mark-whole-buffer", cmd_mark_whole_buffer);
+	reg_cmd("kill-region", cmd_kill_region);
+	reg_cmd("copy-region-as-kill", cmd_copy_region);
+	reg_cmd("kill-line", cmd_kill_line);
+	reg_cmd("yank", cmd_yank);
+	reg_cmd("undo", cmd_undo);
+	reg_cmd("transpose-chars", cmd_transpose_chars);
+	reg_cmd("transpose-words", cmd_transpose_words);
+	reg_cmd("downcase-word", cmd_lower_word);
+	reg_cmd("upcase-word", cmd_upper_word);
+	reg_cmd("capitalize-word", cmd_cap_word);
+	reg_cmd("trim-whitespace", cmd_trim_whitespace);
+	reg_cmd("recenter", cmd_refresh);
+	reg_cmd("save-buffer", cmd_save_buffer);
+	reg_cmd("find-file", cmd_find_file);
+	reg_cmd("write-file", cmd_write_file);
+	reg_cmd("read-file", cmd_read_file);
+	reg_cmd("goto-line", cmd_goto_line);
+	reg_cmd("grep", cmd_grep);
+	reg_cmd("compile", cmd_compile);
+	reg_cmd("goto-tag", cmd_goto_tag);
+	reg_cmd("goto-buffer-tag", cmd_goto_buffer_tag);
+	reg_cmd("build-tags", cmd_build_tags);
+	reg_cmd("complete-symbol", cmd_complete_symbol);
+	reg_cmd("describe-symbol", cmd_describe_symbol);
+	reg_cmd("switch-to-buffer", cmd_use_buffer);
+	reg_cmd("kill-buffer", cmd_kill_buffer);
+	reg_cmd("split-window", cmd_split_window);
+	reg_cmd("delete-other-windows", cmd_delete_other_windows);
+	reg_cmd("delete-window", cmd_delete_window);
+	reg_cmd("other-window", cmd_other_window);
+	reg_cmd("isearch-forward", cmd_isearch_forward);
+	reg_cmd("isearch-backward", cmd_isearch_backward);
+	reg_cmd("query-replace", cmd_query_replace);
+	reg_cmd("toggle-theme", cmd_toggle_theme);
+	reg_cmd("start-kbd-macro", cmd_start_macro);
+	reg_cmd("end-kbd-macro", cmd_end_macro);
+	reg_cmd("call-last-kbd-macro", cmd_call_macro);
+	reg_cmd("universal-argument", cmd_universal_argument);
+	reg_cmd("save-buffers-kill-terminal", cmd_quit);
+	reg_cmd("execute-extended-command", cmd_execute_extended);
 
-	bind_key(TermKeyRight, cmd_forward_char);
-	bind_key(TermKeyLeft, cmd_backward_char);
-	bind_key(TermKeyDown, cmd_next_line);
-	bind_key(TermKeyUp, cmd_prev_line);
-	bind_key(TermSHIFT | TermKeyRight, cmd_forward_word);
-	bind_key(TermSHIFT | TermKeyLeft, cmd_backward_word);
-	bind_key(TermSHIFT | TermKeyDown, cmd_forward_page);
-	bind_key(TermSHIFT | TermKeyUp, cmd_backward_page);
-	bind_key(TermMETA | (uint32_t)'F', cmd_forward_word);
-	bind_key(TermMETA | (uint32_t)'B', cmd_backward_word);
-	bind_key(TermKeyPageDown, cmd_forward_page);
-	bind_key(TermKeyPageUp, cmd_backward_page);
-	bind_key(TermCTL | (uint32_t)'V', cmd_forward_page);
-	bind_key(TermMETA | (uint32_t)'V', cmd_backward_page);
-	bind_key(TermCTL | (uint32_t)'F', cmd_forward_char);
-	bind_key(TermCTL | (uint32_t)'B', cmd_backward_char);
-	bind_key(TermCTL | (uint32_t)'N', cmd_next_line);
-	bind_key(TermCTL | (uint32_t)'P', cmd_prev_line);
-	bind_key(TermCTL | (uint32_t)'A', cmd_beginning_of_line);
-	bind_key(TermCTL | (uint32_t)'E', cmd_end_of_line);
-	bind_key(TermKeyHome, cmd_beginning_of_line);
-	bind_key(TermKeyEnd, cmd_end_of_line);
-	bind_key(TermMETA | (uint32_t)'<', cmd_goto_bof);
-	bind_key(TermMETA | (uint32_t)'>', cmd_goto_eof);
-	bind_key(TermMETA | (uint32_t)'M', cmd_back_to_indentation);
-	bind_key(TermKeyEnter, cmd_newline_and_indent);
-	bind_key((uint32_t)'\r', cmd_newline_and_indent);
-	bind_key((uint32_t)'\n', cmd_newline_and_indent);
-	bind_key(TermCTL | (uint32_t)'J', cmd_newline_and_indent);
-	bind_key(TermKeyTab, cmd_indent_line);
-	bind_key((uint32_t)'}', cmd_close_brace);
-	bind_key(TermCTL | (uint32_t)'O', cmd_open_line);
-	bind_key(TermCTL | (uint32_t)'H', cmd_delete_backward);
+	bind_key(term_key_value(TermKeyRight), cmd_forward_char);
+	bind_key(term_key_value(TermKeyLeft), cmd_backward_char);
+	bind_key(term_key_value(TermKeyDown), cmd_next_line);
+	bind_key(term_key_value(TermKeyUp), cmd_prev_line);
+	bind_key(term_key_value(TermSHIFT) | term_key_value(TermKeyRight), cmd_forward_word);
+	bind_key(term_key_value(TermSHIFT) | term_key_value(TermKeyLeft), cmd_backward_word);
+	bind_key(term_key_value(TermSHIFT) | term_key_value(TermKeyDown), cmd_forward_page);
+	bind_key(term_key_value(TermSHIFT) | term_key_value(TermKeyUp), cmd_backward_page);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'F', cmd_forward_word);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'B', cmd_backward_word);
+	bind_key(term_key_value(TermKeyPageDown), cmd_forward_page);
+	bind_key(term_key_value(TermKeyPageUp), cmd_backward_page);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'V', cmd_forward_page);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'V', cmd_backward_page);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'F', cmd_forward_char);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'B', cmd_backward_char);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'N', cmd_next_line);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'P', cmd_prev_line);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'A', cmd_beginning_of_line);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'E', cmd_end_of_line);
+	bind_key(term_key_value(TermKeyHome), cmd_beginning_of_line);
+	bind_key(term_key_value(TermKeyEnd), cmd_end_of_line);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'<', cmd_goto_bof);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'>', cmd_goto_eof);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'M', cmd_back_to_indentation);
+	bind_key(term_key_value(TermKeyEnter), cmd_newline_and_indent);
+	bind_key('\r', cmd_newline_and_indent);
+	bind_key('\n', cmd_newline_and_indent);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'J', cmd_newline_and_indent);
+	bind_key(term_key_value(TermKeyTab), cmd_indent_line);
+	bind_key('}', cmd_close_brace);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'O', cmd_open_line);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'H', cmd_delete_backward);
 	bind_key(127, cmd_delete_backward);
-	bind_key(TermKeyDelete, cmd_delete_forward);
-	bind_key(TermCTL | (uint32_t)'D', cmd_delete_forward);
-	bind_key(TermMETA | (uint32_t)'D', cmd_delete_word_forward);
-	bind_key(TermMETA | (uint32_t)'H', cmd_delete_word_backward);
-	bind_key(TermMETA | 0x7F, cmd_delete_word_backward);
-	bind_key(TermCTL | (uint32_t)' ', cmd_set_mark);
-	bind_key(TermCTL | (uint32_t)'W', cmd_kill_region);
-	bind_key(TermMETA | (uint32_t)'W', cmd_copy_region);
-	bind_key(TermCTL | (uint32_t)'K', cmd_kill_line);
-	bind_key(TermCTL | (uint32_t)'Y', cmd_yank);
-	bind_key(TermCTL | (uint32_t)'Z', cmd_undo);
-	bind_key(TermCTL | (uint32_t)'T', cmd_transpose_chars);
-	bind_key(TermMETA | (uint32_t)'T', cmd_transpose_words);
-	bind_key(TermMETA | (uint32_t)'L', cmd_lower_word);
-	bind_key(TermMETA | (uint32_t)'U', cmd_upper_word);
-	bind_key(TermMETA | (uint32_t)'C', cmd_cap_word);
-	bind_key(TermMETA | (uint32_t)'\\', cmd_trim_whitespace);
-	bind_key(TermCTL | (uint32_t)'L', cmd_refresh);
-	bind_key(TermCTL | (uint32_t)'S', cmd_isearch_forward);
-	bind_key(TermCTL | (uint32_t)'R', cmd_isearch_backward);
-	bind_key(TermCTL | (uint32_t)'U', cmd_universal_argument);
-	bind_key(TermMETA | (uint32_t)'X', cmd_execute_extended);
-	bind_key(TermMETA | (uint32_t)'%', cmd_query_replace);
-	bind_key(TermMETA | (uint32_t)'G', cmd_goto_line);
+	bind_key(term_key_value(TermKeyDelete), cmd_delete_forward);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'D', cmd_delete_forward);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'D', cmd_delete_word_forward);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'H', cmd_delete_word_backward);
+	bind_key(term_key_value(TermMETA) | 0x7F, cmd_delete_word_backward);
+	bind_key(term_key_value(TermCTL) | (uint32_t)' ', cmd_set_mark);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'W', cmd_kill_region);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'W', cmd_copy_region);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'K', cmd_kill_line);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'Y', cmd_yank);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'Z', cmd_undo);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'T', cmd_transpose_chars);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'T', cmd_transpose_words);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'L', cmd_lower_word);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'U', cmd_upper_word);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'C', cmd_cap_word);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'\\', cmd_trim_whitespace);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'L', cmd_refresh);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_forward);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_backward);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'U', cmd_universal_argument);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'X', cmd_execute_extended);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'%', cmd_query_replace);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'G', cmd_goto_line);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'.', cmd_goto_tag);
+	bind_key(term_key_value(TermSHIFT) | term_key_value(TermKeyTab), cmd_complete_symbol);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'/', cmd_complete_symbol);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'?', cmd_describe_symbol);
 }
 
 static bool execute(CommandFn fn, bool f, int n) {
+	uint64_t echo_before = 0;
+	bool ok = true;
 	if (fn == NULL) {
 		return true;
 	}
-	return fn(f, n);
+	echo_before = display_echo_generation();
+	ok = fn(f, n);
+	killring_tick();
+	if (g_app.listener_top == 0 && !g_app.macro_recording &&
+		!g_app.macro_playing && display_echo_generation() == echo_before) {
+		tags_maybe_show_call_hint();
+	}
+	return ok;
 }
 
 static bool handle_listener_key(uint32_t key) {
@@ -1859,9 +2003,10 @@ static bool handle_listener_key(uint32_t key) {
 	if (L == NULL) {
 		return false;
 	}
+	killring_tick();
 	if (L.kind == ListenerUniversal) {
 		if (key >= '0' && key <= '9') {
-			L.universal_n = (int)(key - '0');
+			L.universal_n = key - '0';
 			display_set_echo("C-u digit");
 			return true;
 		}
@@ -1874,7 +2019,7 @@ static bool handle_listener_key(uint32_t key) {
 			if (fn != NULL) {
 				return execute(fn, f, n);
 			}
-			if (key >= 32 && key < 0x110000 && (key & TermKeyMask) == 0 && key < 0x10000000) {
+			if (key >= 32 && key < 0x110000 && (key & term_key_value(TermKeyMask)) == 0 && key < 0x10000000) {
 				g_pending_insert = key;
 				return execute(cmd_insert_pending, f, n);
 			}
@@ -1882,22 +2027,22 @@ static bool handle_listener_key(uint32_t key) {
 		}
 	}
 	if (L.kind == ListenerIsearch) {
-		if (key == (TermCTL | (uint32_t)'G') || key == 27) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'G') || key == 27) {
 			search_end();
 			pop_listener();
 			display_set_echo("");
 			return true;
 		}
-		if (key == (TermCTL | (uint32_t)'S')) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'S')) {
 			search_next();
 			return true;
 		}
-		if (key == (TermCTL | (uint32_t)'R')) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'R')) {
 			g_search_force_backward();
 			search_next();
 			return true;
 		}
-		if (key == (TermCTL | (uint32_t)'H') || key == 127) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'H') || key == 127) {
 			search_backspace();
 			search_update();
 			{
@@ -1907,7 +2052,7 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			return true;
 		}
-		if (key == TermKeyEnter) {
+		if (key == term_key_value(TermKeyEnter)) {
 			search_end();
 			pop_listener();
 			display_set_echo("");
@@ -1923,6 +2068,32 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			return true;
 		}
+		return true;
+	}
+	if (L.kind == ListenerTagPicker) {
+		FuzzyKeyResult fr = tags_picker_handle_key(key);
+		if (fr == FuzzyContinue) {
+			return true;
+		}
+		if (fr == FuzzyAccept) {
+			TagEntry *entry = tags_picker_selected();
+			int purpose = tags_picker_purpose();
+			tags_picker_close();
+			pop_listener();
+			if (entry == NULL) {
+				display_set_echo("[no tag selected]");
+				return true;
+			}
+			if (purpose == (int)TagPickerComplete) {
+				insert_tag_completion(entry);
+			} else {
+				tags_visit_entry(entry);
+			}
+			return true;
+		}
+		tags_picker_close();
+		pop_listener();
+		display_set_echo("Quit");
 		return true;
 	}
 	if (L.kind == ListenerUseBuffer) {
@@ -1975,8 +2146,11 @@ static bool handle_listener_key(uint32_t key) {
 		return true;
 	}
 	if (L.kind == ListenerAskString || L.kind == ListenerAskYesNo || L.kind == ListenerReplace) {
-		if (key == 27 || key == (TermCTL | (uint32_t)'G')) {
+		if (key == 27 || key == (term_key_value(TermCTL) | (uint32_t)'G')) {
 			minibuffer_cancel();
+			if (L.kind == ListenerReplace) {
+				search_end();
+			}
 			pop_listener();
 			display_set_echo("Quit");
 			return true;
@@ -1996,10 +2170,10 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			return true;
 		}
-		if (key == TermKeyEnter) {
+		if (key == term_key_value(TermKeyEnter)) {
 			char text_copy[1024] = {0};
 			char *raw = minibuffer_text();
-			int kind = L.kind;
+			ListenerKind kind = L.kind;
 			int phase = L.ask_phase;
 			if (raw != NULL) {
 				snprintf(text_copy, sizeof(text_copy), "%s", raw);
@@ -2008,17 +2182,18 @@ static bool handle_listener_key(uint32_t key) {
 			pop_listener();
 			if (kind == ListenerAskString) {
 				Window *w = window_current();
-				if (phase == AskFindFile) {
+				if (phase == (int)AskFindFile) {
 					auto (buf, ok) = file_visit(text_copy);
 					if (ok && buf != NULL) {
 						window_switch_buffer(buf);
+						tags_preload();
 						display_set_echo("File visited");
 					} else {
 						display_set_echo("Visit failed");
 					}
 					return true;
 				}
-				if (phase == AskWriteFile) {
+				if (phase == (int)AskWriteFile) {
 					Buffer *b = buffer_current();
 					if (text_copy[0] == 0 || b == NULL) {
 						display_set_echo("Write failed");
@@ -2036,7 +2211,7 @@ static bool handle_listener_key(uint32_t key) {
 					}
 					return true;
 				}
-				if (phase == AskReadFile) {
+				if (phase == (int)AskReadFile) {
 					if (text_copy[0] == 0) {
 						display_set_echo("Read failed");
 						return true;
@@ -2055,7 +2230,7 @@ static bool handle_listener_key(uint32_t key) {
 					}
 					return true;
 				}
-				if (phase == AskGrep) {
+				if (phase == (int)AskGrep) {
 					if (text_copy[0] == 0) {
 						display_set_echo("Empty pattern");
 						return true;
@@ -2063,7 +2238,7 @@ static bool handle_listener_key(uint32_t key) {
 					job_start_grep(text_copy);
 					return true;
 				}
-				if (phase == AskCompile) {
+				if (phase == (int)AskCompile) {
 					if (text_copy[0] == 0) {
 						display_set_echo("Empty command");
 						return true;
@@ -2071,7 +2246,18 @@ static bool handle_listener_key(uint32_t key) {
 					job_start_compile(text_copy);
 					return true;
 				}
-				if (phase == AskGotoLine) {
+				if (phase == (int)AskGotoTag) {
+					if (text_copy[0] == 0) {
+						display_set_echo("Empty tag name");
+						return true;
+					}
+					tags_goto_name(text_copy);
+					if (tags_picker_active()) {
+						push_listener(ListenerTagPicker);
+					}
+					return true;
+				}
+				if (phase == (int)AskGotoLine) {
 					int line = 0;
 					if (!parse_positive_line(text_copy, &line)) {
 						display_set_echo("Invalid line number");
@@ -2130,7 +2316,7 @@ static bool handle_listener_key(uint32_t key) {
 				display_set_echo("Replaced");
 				return true;
 			}
-			if (key == 27 || key == (TermCTL | (uint32_t)'G')) {
+			if (key == 27 || key == (term_key_value(TermCTL) | (uint32_t)'G')) {
 				pop_listener();
 				search_end();
 				display_set_echo("");
@@ -2138,18 +2324,18 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			return true;
 		}
-		if (key == (TermCTL | (uint32_t)'H') || key == 127) {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'H') || key == 127) {
 			minibuffer_backspace();
 			return true;
 		}
-		if (key >= 32 && (key & TermKeyMask) == 0 && key < 0x10000000) {
+		if (key >= 32 && (key & term_key_value(TermKeyMask)) == 0 && key < 0x10000000) {
 			minibuffer_insert(key);
 			return true;
 		}
 		return true;
 	}
 	if (L.kind == ListenerCtlx) {
-		uint32_t combined = TermCTLX | key;
+		uint32_t combined = term_key_value(TermCTLX) | key;
 		CommandFn fn = {0};
 		bool f = L.universal_f;
 		int n = L.universal_n;
@@ -2157,25 +2343,25 @@ static bool handle_listener_key(uint32_t key) {
 		if (n < 1) {
 			n = 1;
 		}
-		if (key == (TermCTL | (uint32_t)'C') || key == (uint32_t)'c') {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'C') || key == (uint32_t)'c') {
 			return execute(cmd_quit, f, n);
 		}
-		if (key == (TermCTL | (uint32_t)'S') || key == (uint32_t)'s') {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'S') || key == (uint32_t)'s') {
 			return execute(cmd_save_buffer, f, n);
 		}
-		if (key == (TermCTL | (uint32_t)'F') || key == (uint32_t)'f') {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'F') || key == (uint32_t)'f') {
 			return execute(cmd_find_file, f, n);
 		}
-		if (key == (TermCTL | (uint32_t)'W') || key == (uint32_t)'w' || key == (uint32_t)'W') {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'W') || key == (uint32_t)'w' || key == (uint32_t)'W') {
 			return execute(cmd_write_file, f, n);
 		}
-		if (key == (TermCTL | (uint32_t)'R') || key == (uint32_t)'r') {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'R') || key == (uint32_t)'r') {
 			return execute(cmd_read_file, f, n);
 		}
-		if (key == (TermCTL | (uint32_t)'K') || key == (uint32_t)'k') {
+		if (key == (term_key_value(TermCTL) | (uint32_t)'K') || key == (uint32_t)'k') {
 			return execute(cmd_kill_buffer, f, n);
 		}
-		if (key == (uint32_t)'b' || key == (uint32_t)'B' || key == (TermCTL | (uint32_t)'B')) {
+		if (key == (uint32_t)'b' || key == (uint32_t)'B' || key == (term_key_value(TermCTL) | (uint32_t)'B')) {
 			return execute(cmd_use_buffer, f, n);
 		}
 		if (key == (uint32_t)'2') {
@@ -2214,7 +2400,7 @@ static bool handle_listener_key(uint32_t key) {
 }
 
 /* stub used above — set search direction */
-void g_search_force_backward(void) {
+void g_search_force_backward() {
 	SearchState *s = search_state();
 	if (s != NULL) {
 		s.forward = false;
@@ -2229,12 +2415,12 @@ static bool handle_key(uint32_t key) {
 		(void)handle_listener_key(key);
 		return g_app.running;
 	}
-	if (key == (TermCTL | (uint32_t)'X')) {
+	if (key == (term_key_value(TermCTL) | (uint32_t)'X')) {
 		push_listener(ListenerCtlx);
 		display_set_echo("C-x-");
 		return true;
 	}
-	if (key == (TermCTL | (uint32_t)'G')) {
+	if (key == (term_key_value(TermCTL) | (uint32_t)'G')) {
 		if (job_running()) {
 			job_cancel();
 			return true;
@@ -2247,17 +2433,17 @@ static bool handle_key(uint32_t key) {
 		return execute(fn, false, 1);
 	}
 	/* self-insert printable */
-	if (key >= 32 && (key & TermKeyMask) == 0 && key < 0x10000000) {
+	if (key >= 32 && (key & term_key_value(TermKeyMask)) == 0 && key < 0x10000000) {
 		g_pending_insert = key;
 		return execute(cmd_insert_pending, false, 1);
 	}
-	if (key == TermMouseWheelUp) {
+	if (key == term_key_value(TermMouseWheelUp)) {
 		return execute(cmd_prev_line, false, 3);
 	}
-	if (key == TermMouseWheelDown) {
+	if (key == term_key_value(TermMouseWheelDown)) {
 		return execute(cmd_next_line, false, 3);
 	}
-	if (key == TermMouseLeft) {
+	if (key == term_key_value(TermMouseLeft)) {
 		Window *w = window_current();
 		int row = term_mouse_row();
 		int col = term_mouse_col();
@@ -2319,13 +2505,23 @@ static bool handle_event(Event *e) {
 		return execute(cmd_quit, e.quit_force, 1);
 	case EventPaste:
 		if (e.paste_data != NULL && e.paste_len > 0) {
-			Window *w = window_current();
-			if (w != NULL) {
-				buffer_undo.begin_command(w.buffer, w.cursor);
-				w.set_text(w.cursor, w.cursor, e.paste_data, e.paste_len);
-				buffer_undo.end_command();
+			if (minibuffer_active()) {
+				(void)minibuffer_insert_paste(
+					ranged(e.paste_data, e.paste_len, e.paste_len));
+			} else {
+				Window *w = window_current();
+				if (w != NULL && w.buffer != NULL) {
+					Location at = w.cursor;
+					buffer_undo.begin_command(w.buffer, at);
+					if (w.set_text(at, at, e.paste_data, e.paste_len)) {
+						buffer_undo.record_edit(UndoInsert, at.line, at.offset,
+							e.paste_data, e.paste_len);
+					}
+					buffer_undo.end_command();
+				}
 			}
 		}
+		killring_tick();
 		return true;
 	case EventMouse:
 		return true;
@@ -2334,7 +2530,7 @@ static bool handle_event(Event *e) {
 	}
 }
 
-static void config_load(void) {
+static void config_load() {
 	char path[512] = {0};
 	FILE *fp = {0};
 	char *home = getenv("HOME");
@@ -2388,6 +2584,7 @@ void runtime_run(int argc, char **argv) {
 		}
 		if (first != NULL && window_current() != NULL) {
 			window_switch_buffer(first);
+			tags_preload();
 		}
 	}
 	window_retile();
@@ -2395,10 +2592,14 @@ void runtime_run(int argc, char **argv) {
 
 	while (g_app.running) {
 		job_poll();
+		if (job_take_tags_changed()) {
+			tags_invalidate();
+			tags_preload();
+		}
 		display_update();
 		/* drain queued events */
 		{
-			Event e = {0};
+			Event e = {EventNone};
 			while (event_try_dequeue(&e)) {
 				if (!handle_event(&e)) {
 					g_app.running = false;
@@ -2412,7 +2613,8 @@ void runtime_run(int argc, char **argv) {
 		{
 			auto (key, ok) = term_try_read_key(100);
 			uint32_t editor_key = 0;
-			if (ok && prepare_editor_key(key, &editor_key)) {
+			if (ok && key != term_key_value(TermKeyPasteComplete) &&
+				prepare_editor_key(key, &editor_key)) {
 				event_enqueue(event_key(editor_key));
 			}
 		}

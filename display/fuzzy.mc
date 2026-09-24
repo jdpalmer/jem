@@ -39,7 +39,7 @@ static char fuzzy_lower(char c) {
 	return c;
 }
 
-static bool fuzzy_is_word_start(char *name, int nlen, int i) {
+static bool fuzzy_is_word_start(const char *name, int nlen, int i) {
 	char c = 0;
 	char p = 0;
 	if (i <= 0) {
@@ -57,7 +57,7 @@ static bool fuzzy_is_word_start(char *name, int nlen, int i) {
 }
 
 /* Returns (matched, score). Empty query matches everything with score 1. */
-(bool, int) fuzzy_score(char *name, char *query) {
+(bool, int) fuzzy_score(const char *name, const char *query) {
 	int nlen = 0;
 	int qlen = 0;
 	int ni = 0;
@@ -118,8 +118,6 @@ static int cmp_access_desc(void *a, void *b) {
 	Buffer *bb = *(Buffer **)b;
 	int64_t ta = 0;
 	int64_t tb = 0;
-	char *na = {0};
-	char *nb = {0};
 	if (ba == NULL || bb == NULL) {
 		return 0;
 	}
@@ -128,9 +126,7 @@ static int cmp_access_desc(void *a, void *b) {
 	if (ta != tb) {
 		return ta > tb ? -1 : 1;
 	}
-	na = ba.name != NULL ? ba.name : (char *)(void *)"";
-	nb = bb.name != NULL ? bb.name : (char *)(void *)"";
-	return strcmp(na, nb);
+	return str_cmp(ba.name, bb.name);
 }
 
 static void sort_buffers_by_access(Buffer **list, int n) {
@@ -147,7 +143,7 @@ static void sort_buffers_by_access(Buffer **list, int n) {
 	}
 }
 
-static void fuzzy_rebuild_matches(char *query) {
+static void fuzzy_rebuild_matches(const char *query) {
 	struct {
 		int idx;
 		int score;
@@ -186,7 +182,7 @@ static void fuzzy_rebuild_matches(char *query) {
 	}
 }
 
-static void fuzzy_refresh_match_window(void) {
+static void fuzzy_refresh_match_window() {
 	char *out = NULL;
 	size_t cap = 0;
 	size_t len = 0;
@@ -209,7 +205,7 @@ static void fuzzy_refresh_match_window(void) {
 		FuzzyBufEntry *e = &g_fb_entries[g_fb_matches[i]];
 		char line[320] = {0};
 		int n = 0;
-		char *arrow = (i == g_fb_sel) ? (char *)(void *)"→ " : (char *)(void *)"  ";
+		const char *arrow = (i == g_fb_sel) ? "→ " : "  ";
 		n = snprintf(line, sizeof(line), "%s%s  %d", arrow, e.name, e.lines);
 		if (n < 0) {
 			n = 0;
@@ -223,15 +219,15 @@ static void fuzzy_refresh_match_window(void) {
 		if (len + (size_t)n + 1 > cap) {
 			break;
 		}
-		memcpy(out + len, line, (size_t)n);
-		len += (size_t)n;
+		memcpy(out + len, line, n);
+		len += n;
 		out[len] = 0;
 	}
 	window_set_match_buffer_text(out, len, g_fb_sel);
 	free(out);
 }
 
-static void fuzzy_clamp_sel(void) {
+static void fuzzy_clamp_sel() {
 	if (g_fb_match_count == 0) {
 		g_fb_sel = 0;
 		return;
@@ -244,7 +240,7 @@ static void fuzzy_clamp_sel(void) {
 	}
 }
 
-void fuzzy_buffer_open(void) {
+void fuzzy_buffer_open() {
 	Buffer *list[FuzzyMaxBuffers] = {0};
 	int n = 0;
 	size_t i = 0;
@@ -254,12 +250,14 @@ void fuzzy_buffer_open(void) {
 	g_fb_match_count = 0;
 	g_fb_sel = 0;
 	g_fb_active = true;
-	for (i = 0; i < buffer_all.count && n < FuzzyMaxBuffers; i++) {
-		Buffer *b = buffer_all.bufs[i];
-		if (b == NULL || b.name == NULL) {
+	for (auto b : buffer_all) {
+		if (n >= FuzzyMaxBuffers) {
+			break;
+		}
+		if (b == NULL || len(b.name) == 0) {
 			continue;
 		}
-		if (strcmp(b.name, "*match*") == 0) {
+		if (str_eq(b.name, "*match*")) {
 			continue;
 		}
 		list[n++] = b;
@@ -268,11 +266,11 @@ void fuzzy_buffer_open(void) {
 	for (i = 0; i < (size_t)n; i++) {
 		Buffer *b = list[i];
 		FuzzyBufEntry *e = &g_fb_entries[g_fb_count];
-		size_t namelen = strlen(b.name);
+		size_t namelen = len(b.name);
 		if (namelen >= (size_t)FuzzyNameCap) {
 			namelen = (size_t)FuzzyNameCap - 1;
 		}
-		memcpy(e.name, b.name, namelen);
+		memcpy(e.name, ptr(b.name), namelen);
 		e.name[namelen] = 0;
 		e.lines = b.line_count_i();
 		e.modified = b.is_changed;
@@ -290,17 +288,17 @@ void fuzzy_buffer_open(void) {
 	fuzzy_refresh_match_window();
 }
 
-void fuzzy_buffer_close(void) {
+void fuzzy_buffer_close() {
 	g_fb_active = false;
 	window_discard_match_buffer();
 	minibuffer_cancel();
 }
 
-bool fuzzy_buffer_active(void) {
+bool fuzzy_buffer_active() {
 	return g_fb_active;
 }
 
-Buffer *fuzzy_buffer_selected(void) {
+Buffer *fuzzy_buffer_selected() {
 	if (!g_fb_active || g_fb_match_count == 0) {
 		return NULL;
 	}
@@ -310,7 +308,7 @@ Buffer *fuzzy_buffer_selected(void) {
 	return g_fb_entries[g_fb_matches[g_fb_sel]].buf;
 }
 
-static int match_page_size(void) {
+static int match_page_size() {
 	Window *mw = window_match();
 	if (mw != NULL && mw.height > 1) {
 		return mw.height;
@@ -323,20 +321,20 @@ FuzzyKeyResult fuzzy_buffer_handle_key(uint32_t key) {
 	if (!g_fb_active) {
 		return FuzzyAbort;
 	}
-	if (key == TermKeyEnter || key == (uint32_t)'\r' || key == (uint32_t)'\n' ||
-		key == (TermCTL | (uint32_t)'M') || key == (TermCTL | (uint32_t)'J')) {
+	if (key == term_key_value(TermKeyEnter) || key == (uint32_t)'\r' || key == (uint32_t)'\n' ||
+		key == (term_key_value(TermCTL) | (uint32_t)'M') || key == (term_key_value(TermCTL) | (uint32_t)'J')) {
 		return FuzzyAccept;
 	}
-	if (key == (TermCTL | (uint32_t)'G') || key == 0x07 || key == 0x1B) {
+	if (key == (term_key_value(TermCTL) | (uint32_t)'G') || key == 0x07 || key == 0x1B) {
 		return FuzzyAbort;
 	}
-	if (key == TermKeyUp || key == (TermCTL | (uint32_t)'P') ||
-		key == TermKeyDown || key == (TermCTL | (uint32_t)'N')) {
+	if (key == term_key_value(TermKeyUp) || key == (term_key_value(TermCTL) | (uint32_t)'P') ||
+		key == term_key_value(TermKeyDown) || key == (term_key_value(TermCTL) | (uint32_t)'N')) {
 		if (g_fb_match_count == 0) {
 			term_beep();
 		} else {
 			int delta = 1;
-			if (key == TermKeyUp || key == (TermCTL | (uint32_t)'P')) {
+			if (key == term_key_value(TermKeyUp) || key == (term_key_value(TermCTL) | (uint32_t)'P')) {
 				delta = -1;
 			}
 			g_fb_sel = (g_fb_sel + g_fb_match_count + delta) % g_fb_match_count;
@@ -344,14 +342,14 @@ FuzzyKeyResult fuzzy_buffer_handle_key(uint32_t key) {
 		fuzzy_refresh_match_window();
 		return FuzzyContinue;
 	}
-	if (key == (TermSHIFT | TermKeyUp) || key == TermKeyPageUp ||
-		key == (TermSHIFT | TermKeyDown) || key == TermKeyPageDown) {
+	if (key == (term_key_value(TermSHIFT) | term_key_value(TermKeyUp)) || key == term_key_value(TermKeyPageUp) ||
+		key == (term_key_value(TermSHIFT) | term_key_value(TermKeyDown)) || key == term_key_value(TermKeyPageDown)) {
 		if (g_fb_match_count == 0) {
 			term_beep();
 		} else {
 			int delta = match_page_size();
 			int prev = g_fb_sel;
-			if (key == (TermSHIFT | TermKeyUp) || key == TermKeyPageUp) {
+			if (key == (term_key_value(TermSHIFT) | term_key_value(TermKeyUp)) || key == term_key_value(TermKeyPageUp)) {
 				delta = -delta;
 			}
 			g_fb_sel += delta;
@@ -363,13 +361,13 @@ FuzzyKeyResult fuzzy_buffer_handle_key(uint32_t key) {
 		fuzzy_refresh_match_window();
 		return FuzzyContinue;
 	}
-	if (key == (TermCTL | (uint32_t)'H') || key == 127) {
+	if (key == (term_key_value(TermCTL) | (uint32_t)'H') || key == 127) {
 		if (minibuffer_backspace()) {
 			changed = true;
 		} else {
 			term_beep();
 		}
-	} else if (key >= 32 && (key & TermKeyMask) == 0 && key < 0x10000000) {
+	} else if (key >= 32 && (key & term_key_value(TermKeyMask)) == 0 && key < 0x10000000) {
 		if (minibuffer_insert(key)) {
 			changed = true;
 		} else {
