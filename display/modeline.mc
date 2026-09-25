@@ -167,7 +167,11 @@ void paint_modeline(Window *win, int row) {
 		put_rune(&g_screen, row, col, ' ', gut);
 	}
 	col++;
-	put_rune(&g_screen, row, col, ' ', gut);
+	if (win.buffer.notified_mtime_ns != 0) {
+		put_rune(&g_screen, row, col, 'D', dirty_st);
+	} else {
+		put_rune(&g_screen, row, col, ' ', gut);
+	}
 	col++;
 	if (g_macro_recording) {
 		put_rune(&g_screen, row, col, 'm', dirty_st);

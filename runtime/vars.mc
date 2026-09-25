@@ -48,6 +48,7 @@ void vars_init() {
 	g_app.indent.continued = 4;
 	g_app.whitespace_cleanup = true;
 	g_app.auto_indent = true;
+	g_app.auto_revert_mode = false;
 
 	v = &g_vars[g_var_count++];
 	v.name = "fill-column";
@@ -80,6 +81,13 @@ void vars_init() {
 	v = &g_vars[g_var_count++];
 	v.name = "auto-indent";
 	v.doc = "Insert mode-aware indent after newline: 0 off, 1 on.";
+	v.min_v = 0;
+	v.max_v = 1;
+	v.local = false;
+
+	v = &g_vars[g_var_count++];
+	v.name = "auto-revert-mode";
+	v.doc = "Reload buffers from disk when the file changes externally: 0 prompt if modified, 1 always reload.";
 	v.min_v = 0;
 	v.max_v = 1;
 	v.local = false;
@@ -170,6 +178,9 @@ static int var_read_global(EditorVar *v) {
 	if (strcmp(v.name, "auto-indent") == 0) {
 		return bool_to_int(g_app.auto_indent);
 	}
+	if (strcmp(v.name, "auto-revert-mode") == 0) {
+		return bool_to_int(g_app.auto_revert_mode);
+	}
 	if (strcmp(v.name, "indent-width") == 0) {
 		return g_app.indent.width;
 	}
@@ -244,6 +255,10 @@ static void var_write_global(EditorVar *v, int value) {
 	}
 	if (strcmp(v.name, "auto-indent") == 0) {
 		g_app.auto_indent = value != 0;
+		return;
+	}
+	if (strcmp(v.name, "auto-revert-mode") == 0) {
+		g_app.auto_revert_mode = value != 0;
 		return;
 	}
 	if (strcmp(v.name, "indent-width") == 0) {

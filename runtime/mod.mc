@@ -77,7 +77,9 @@ enum AskYesNoKind {
 	AskYesQuit = 0,
 	AskYesRevert = 1,
 	AskYesKillBuffer = 2,
-	AskYesDeleteFile = 3
+	AskYesDeleteFile = 3,
+	AskYesDiskRevert = 4, /* file changed on disk; revert dirty buffer */
+	AskYesOverwrite = 5 /* file changed on disk; overwrite on save */
 };
 
 enum VarFuzzyKind {
@@ -106,6 +108,7 @@ struct App {
 	int macro_pos;
 	/* config / editor variables */
 	bool auto_indent;
+	bool auto_revert_mode;
 	int fill_col;
 	IndentConfig indent;
 	bool whitespace_cleanup;
@@ -1388,6 +1391,21 @@ bool cmd_save_buffer(bool f, int n) {
 	if (len(b.file_name) == 0) {
 		return cmd_write_file(false, 1);
 	}
+	if (file_needs_overwrite_confirm(b, NULL)) {
+		push_listener(ListenerAskYesNo);
+		{
+			Listener *L = top_listener();
+			if (L != NULL) {
+				L.ask_phase = AskYesOverwrite;
+				{
+					int wn = snprintf(L.ask_buf, sizeof(L.ask_buf), "%s", b.file_name);
+					(void)wn;
+				}
+			}
+		}
+		minibuffer_begin("file changed on disk. overwrite (y/n) ", 1);
+		return true;
+	}
 	if (file_save(b, NULL)) {
 		display_set_echo("Wrote file");
 	} else {
@@ -2488,6 +2506,27 @@ static bool handle_listener_key(uint32_t key) {
 					misc_delete_file_yes();
 					return true;
 				}
+				if (phase == (int)AskYesDiskRevert) {
+					int line = 1;
+					(void)parse_positive_line(linebuf, &line);
+					if (!file_reload_current(line)) {
+						display_set_echo("[revert failed]");
+					} else {
+						display_set_echo("[Reverted]");
+					}
+					return true;
+				}
+				if (phase == (int)AskYesOverwrite) {
+					Buffer *b = buffer_current();
+					char *path = linebuf[0] != 0 ? linebuf : NULL;
+					if (b != NULL && file_save(b, path)) {
+						display_set_echo("Wrote file");
+					} else {
+						display_set_echo("Write failed");
+						term_beep();
+					}
+					return true;
+				}
 				return true;
 			}
 			if (key == 'n' || key == 'N') {
@@ -2495,6 +2534,10 @@ static bool handle_listener_key(uint32_t key) {
 				pop_listener();
 				if (phase == (int)AskYesRevert) {
 					display_set_echo("[not reverted]");
+				} else if (phase == (int)AskYesDiskRevert) {
+					display_set_echo("[keeping edited buffer]");
+				} else if (phase == (int)AskYesOverwrite) {
+					display_set_echo("[not overwritten]");
 				} else if (phase == (int)AskYesKillBuffer) {
 					misc_kill_pending_no();
 				} else if (phase == (int)AskYesDeleteFile) {
@@ -2539,6 +2582,18 @@ static bool handle_listener_key(uint32_t key) {
 					Buffer *b = buffer_current();
 					if (text_copy[0] == 0 || b == NULL) {
 						display_set_echo("Write failed");
+						return true;
+					}
+					if (file_needs_overwrite_confirm(b, text_copy)) {
+						push_listener(ListenerAskYesNo);
+						{
+							Listener *Ow = top_listener();
+							if (Ow != NULL) {
+								Ow.ask_phase = AskYesOverwrite;
+								snprintf(Ow.ask_buf, sizeof(Ow.ask_buf), "%s", text_copy);
+							}
+						}
+						minibuffer_begin("file changed on disk. overwrite (y/n) ", 1);
 						return true;
 					}
 					if (file_save(b, text_copy)) {
@@ -2981,6 +3036,28 @@ static void config_load() {
 }
 
 // runtime_run is the process entry after main.
+// file_check_reload reloads the current buffer when its file changes on disk
+// (jem.go CheckReloadCurrentBuffer / jem.c file_check_reload).
+static void file_check_reload() {
+	int line = 1;
+
+	if (minibuffer_active() || g_app.dispatching || g_app.listener_top > 0) {
+		return;
+	}
+	if (!file_check_reload_current(false, g_app.auto_revert_mode, true, &line)) {
+		return;
+	}
+	push_listener(ListenerAskYesNo);
+	{
+		Listener *L = top_listener();
+		if (L != NULL) {
+			L.ask_phase = AskYesDiskRevert;
+			snprintf(L.ask_buf, sizeof(L.ask_buf), "%d", line);
+		}
+	}
+	minibuffer_begin("File changed on disk; revert (y/n) ", 1);
+}
+
 void runtime_run(int argc, char **argv) {
 	int i = 0;
 	memset(&g_app, 0, sizeof(g_app));
@@ -3024,6 +3101,7 @@ void runtime_run(int argc, char **argv) {
 			tags_invalidate();
 			tags_preload();
 		}
+		file_check_reload();
 		display_update();
 		/* drain queued events */
 		{

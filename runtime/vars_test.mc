@@ -65,6 +65,12 @@ static void test_vars_theme_and_auto_indent() {
 	check(vars_get_named("auto-indent") == 0);
 	check(vars_set_named("auto-indent", 1));
 	check(vars_get_named("auto-indent") == 1);
+	check(vars_set_named("auto-revert-mode", 1));
+	check(vars_get_named("auto-revert-mode") == 1);
+	check(g_app.auto_revert_mode);
+	check(vars_set_named("auto-revert-mode", 0));
+	check(vars_get_named("auto-revert-mode") == 0);
+	check(!g_app.auto_revert_mode);
 }
 
 static void test_vars_indent() {

@@ -50,6 +50,8 @@ struct Buffer {
 	bool whitespace_cleanup;
 	char[..] name; /* owned heap */
 	char[..] file_name; /* owned heap */
+	int64_t file_mtime_ns; /* last known on-disk mtime; 0 = unset */
+	int64_t notified_mtime_ns; /* mtime user was warned about (dirty+disk); 0 = none */
 	int64_t edit_time;
 	int64_t access_time;
 	Location cursor;

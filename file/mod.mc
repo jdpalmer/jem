@@ -13,6 +13,7 @@ import "str";
 #include <string.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <unistd.h>
 #include "temp.h"
 
@@ -100,6 +101,74 @@ static void file_apply_path_meta(Buffer *buf, char *path) {
 	mode_apply_from_path(buf, path);
 }
 
+// file_mtime_ns returns the modification time of path in nanoseconds, or 0 on error.
+int64_t file_mtime_ns(char *path) {
+	if (path == NULL || path[0] == 0) {
+		return 0;
+	}
+	{
+		auto (info, ok) = fs_stat(str_from_cstr(path));
+		if (!ok) {
+			return 0;
+		}
+		return info.mtime_ns;
+	}
+}
+
+// file_sync_mtime refreshes FileModTime from the buffer's path and clears the D marker.
+void file_sync_mtime(Buffer *buf) {
+	char path[FilePathMax] = {0};
+	if (buf == NULL) {
+		return;
+	}
+	if (len(buf.file_name) == 0) {
+		buf.file_mtime_ns = 0;
+		buf.notified_mtime_ns = 0;
+		return;
+	}
+	{
+		int n = snprintf(path, sizeof(path), "%s", buf.file_name);
+		if (n < 0 || (size_t)n >= sizeof(path)) {
+			buf.file_mtime_ns = 0;
+			buf.notified_mtime_ns = 0;
+			return;
+		}
+	}
+	buf.file_mtime_ns = file_mtime_ns(path);
+	buf.notified_mtime_ns = 0;
+}
+
+// file_needs_overwrite_confirm is true when path's mtime differs from the buffer's.
+bool file_needs_overwrite_confirm(Buffer *buf, char *path) {
+	char resolved[FilePathMax] = {0};
+	char *use = NULL;
+	int64_t cur = 0;
+
+	if (buf == NULL || buf.file_mtime_ns == 0) {
+		return false;
+	}
+	if (path != NULL && path[0] != 0) {
+		if (file_resolve_path(resolved, sizeof(resolved), path)) {
+			use = resolved;
+		} else {
+			use = path;
+		}
+	} else {
+		if (len(buf.file_name) == 0) {
+			return false;
+		}
+		{
+			int n = snprintf(resolved, sizeof(resolved), "%s", buf.file_name);
+			if (n < 0 || (size_t)n >= sizeof(resolved)) {
+				return false;
+			}
+		}
+		use = resolved;
+	}
+	cur = file_mtime_ns(use);
+	return cur != 0 && cur != buf.file_mtime_ns;
+}
+
 // Read entire file into a malloc'd buffer (NUL-terminated). False on I/O error.
 static (char *, size_t, bool) file_read_all(char *path) {
 	char[..] pv = str_from_cstr(path);
@@ -171,6 +240,8 @@ static (Buffer *, bool) file_load_new(char *path) {
 	}
 	file_apply_path_meta(buf, path);
 	buf.is_changed = false;
+	buf.file_mtime_ns = 0;
+	buf.notified_mtime_ns = 0;
 	if (!buffer_list_add(buf)) {
 		buf.free();
 		return (NULL, false);
@@ -210,6 +281,8 @@ static (Buffer *, bool) file_load_new(char *path) {
 	buf.load_bytes(data, n, detect_eol(data, n));
 	free(data);
 	file_apply_path_meta(buf, path);
+	file_sync_mtime(buf);
+	buf.saved_undo_serial = buf.serial;
 	if (!buffer_list_add(buf)) {
 		buf.free();
 		return (NULL, false);
@@ -293,6 +366,7 @@ bool file_save(Buffer *buf, char *path) {
 	}
 	buf.is_changed = false;
 	buf.saved_undo_serial = buf.serial;
+	file_sync_mtime(buf);
 	return true;
 }
 
@@ -386,6 +460,9 @@ bool file_read_into_current(char *path) {
 			buf.load_bytes(NULL, 0, EModeLF);
 			file_apply_path_meta(buf, path);
 			buf.is_changed = false;
+			buf.file_mtime_ns = 0;
+			buf.notified_mtime_ns = 0;
+			buf.saved_undo_serial = buf.serial;
 			display_set_echo("New file");
 			return true;
 		}
@@ -395,6 +472,8 @@ bool file_read_into_current(char *path) {
 	free(data);
 	file_apply_path_meta(buf, path);
 	buf.is_changed = false;
+	file_sync_mtime(buf);
+	buf.saved_undo_serial = buf.serial;
 	display_set_echo("Reading file");
 	return true;
 }
@@ -440,6 +519,64 @@ bool file_reload_current(int line_number) {
 	w.should_redraw = true;
 	w.should_update_mode_line = true;
 	return true;
+}
+
+// file_check_reload_current mirrors jem.go CheckReloadCurrentBuffer.
+// When ask_prompt is false and a dirty buffer needs a decision, sets NotifiedModTime
+// (D on the modeline) and leaves the buffer alone — same as Go with askYesNo == nil.
+// When ask_prompt is true, returns true so the caller can AskYesNo (line in *out_line).
+bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prompt,
+	int *out_line) {
+	Buffer *buf = buffer_current();
+	Window *w = window_current();
+	char fname[FilePathMax] = {0};
+	int64_t cur = 0;
+	int line = 1;
+
+	if (dispatching) {
+		return false;
+	}
+	if (buf == NULL || w == NULL || buf.is_readonly) {
+		return false;
+	}
+	if (len(buf.file_name) == 0 || buf.file_mtime_ns == 0) {
+		return false;
+	}
+	{
+		int n = snprintf(fname, sizeof(fname), "%s", buf.file_name);
+		if (n < 0 || (size_t)n >= sizeof(fname)) {
+			return false;
+		}
+	}
+	cur = file_mtime_ns(fname);
+	if (cur == 0 || cur == buf.file_mtime_ns) {
+		if (buf.notified_mtime_ns != 0) {
+			buf.notified_mtime_ns = 0;
+			w.should_update_mode_line = true;
+		}
+		return false;
+	}
+	line = w.cursor.line;
+	if (buf.is_changed) {
+		if (auto_revert) {
+			(void)file_reload_current(line);
+			return false;
+		}
+		if (cur == buf.notified_mtime_ns) {
+			return false;
+		}
+		buf.notified_mtime_ns = cur;
+		w.should_update_mode_line = true;
+		if (!ask_prompt) {
+			return false;
+		}
+		if (out_line != NULL) {
+			*out_line = line;
+		}
+		return true;
+	}
+	(void)file_reload_current(line);
+	return false;
 }
 
 static void file_path_split(char *path, char *dir, size_t dircap, char *base, size_t basecap) {
