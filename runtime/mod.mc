@@ -2286,6 +2286,10 @@ static bool handle_listener_key(uint32_t key) {
 			return true;
 		}
 		if (key == term_key_value(TermKeyEnter)) {
+			char *needle = search_needle();
+			if (needle != NULL && needle[0] != 0) {
+				minibuffer_history_add(needle);
+			}
 			search_end();
 			pop_listener();
 			display_set_echo("");
@@ -2437,6 +2441,24 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			return true;
 		}
+		if ((L.kind == ListenerAskString ||
+			(L.kind == ListenerReplace && L.ask_phase < 2)) &&
+			(key == term_key_value(TermKeyUp) ||
+				key == (term_key_value(TermCTL) | (uint32_t)'P'))) {
+			if (!minibuffer_step_history(-1)) {
+				term_beep();
+			}
+			return true;
+		}
+		if ((L.kind == ListenerAskString ||
+			(L.kind == ListenerReplace && L.ask_phase < 2)) &&
+			(key == term_key_value(TermKeyDown) ||
+				key == (term_key_value(TermCTL) | (uint32_t)'N'))) {
+			if (!minibuffer_step_history(1)) {
+				term_beep();
+			}
+			return true;
+		}
 		if (L.kind == ListenerAskYesNo) {
 			int phase = L.ask_phase;
 			char linebuf[32] = {0};
@@ -2494,6 +2516,10 @@ static bool handle_listener_key(uint32_t key) {
 				snprintf(text_copy, sizeof(text_copy), "%s", raw);
 			}
 			snprintf(ask_copy, sizeof(ask_copy), "%s", L.ask_buf);
+			if (kind == ListenerAskString ||
+				(kind == ListenerReplace && phase < 2)) {
+				minibuffer_history_add(text_copy);
+			}
 			minibuffer_cancel();
 			pop_listener();
 			if (kind == ListenerAskString) {
