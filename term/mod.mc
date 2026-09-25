@@ -513,7 +513,69 @@ void term_close() {
 		tty_set_cooked(&g_fin);
 		g_tty_raw = false;
 	}
+	term_in_reset();
 	g_open = false;
+}
+
+// term_suspend leaves the TTY cooked for a foreground shell (jem.c term_close).
+void term_suspend() {
+	term_close();
+}
+
+// term_resume re-enters raw mode after a shell without re-probing Kitty.
+bool term_resume() {
+	int rows = 0;
+	int cols = 0;
+	bool fin_ok = false;
+	bool fout_ok = false;
+	term_buf_reset();
+	term_in_reset();
+	{
+		auto (fin, ok) = tty_stdin();
+		g_fin = fin;
+		fin_ok = ok;
+	}
+	{
+		auto (fout, ok) = tty_stdout();
+		g_fout = fout;
+		fout_ok = ok;
+	}
+	g_tty_std_ok = fin_ok && fout_ok;
+	if (!g_tty_std_ok || !tty_isatty(&g_fin)) {
+		g_is_tty = false;
+		g_open = true;
+		return true;
+	}
+	g_is_tty = true;
+	if (term_query_size(&rows, &cols)) {
+		g_rows = rows - 1;
+		g_cols = cols;
+	}
+	if (!tty_set_raw(&g_fin)) {
+		g_is_tty = false;
+		g_open = true;
+		return true;
+	}
+	g_tty_raw = true;
+	if (!g_kitty) {
+		if (!term_probe_kitty()) {
+			tty_set_cooked(&g_fin);
+			g_tty_raw = false;
+			return false;
+		}
+		g_kitty = true;
+	}
+	term_enable_modes();
+	g_open = true;
+	return true;
+}
+
+void term_drain_input() {
+	term_in_reset();
+}
+
+bool term_is_tty() {
+	return g_is_tty;
 }
 
 int term_rows() {

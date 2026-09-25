@@ -69,7 +69,8 @@ enum AskStringKind {
 	AskInsertRegister = 8,
 	AskSetVariableValue = 9,
 	AskSearchForward = 10,
-	AskSearchBackward = 11
+	AskSearchBackward = 11,
+	AskSpawn = 12
 };
 
 enum AskYesNoKind {
@@ -2086,6 +2087,8 @@ static void init_commands() {
 	reg_cmd_doc("search-backward", cmd_search_backward, "Search backward for a string.");
 	reg_cmd_doc("toggle-search-scope", cmd_toggle_search_scope,
 		"Toggle search between one buffer and all buffers.");
+	reg_cmd_doc("spawn", cmd_spawn, "Run a shell command.");
+	reg_cmd_doc("spawn-cli", cmd_spawn_cli, "Open an interactive shell.");
 	reg_cmd("query-replace", cmd_query_replace);
 	reg_cmd("query-re-replace", cmd_query_re_replace);
 	reg_cmd("toggle-theme", cmd_toggle_theme);
@@ -2162,6 +2165,8 @@ static void init_commands() {
 	bind_key(term_key_value(TermMouseWheelDown), cmd_mouse_wheel_down);
 	bind_key(term_key_value(TermCTLX) | (uint32_t)'D', cmd_insert_date);
 	bind_key(term_key_value(TermCTLX) | (uint32_t)'=', cmd_show_position);
+	bind_key(term_key_value(TermCTLX) | (uint32_t)'!', cmd_spawn);
+	bind_key(term_key_value(TermMETA) | (uint32_t)'!', cmd_spawn_cli);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'L', cmd_refresh);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_forward);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_backward);
@@ -2587,6 +2592,9 @@ static bool handle_listener_key(uint32_t key) {
 				if (phase == (int)AskSearchBackward) {
 					return cmd_run_prompted_search(false, text_copy);
 				}
+				if (phase == (int)AskSpawn) {
+					return cmd_spawn_run_prompted(text_copy);
+				}
 				if (phase == (int)AskCopyRegister) {
 					Window *rw = window_current();
 					char *text = NULL;
@@ -2762,6 +2770,9 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (key == (uint32_t)'=') {
 			return execute(cmd_show_position, f, n);
+		}
+		if (key == (uint32_t)'!') {
+			return execute(cmd_spawn, f, n);
 		}
 		if (key == (uint32_t)'b' || key == (uint32_t)'B' || key == (term_key_value(TermCTL) | (uint32_t)'B')) {
 			return execute(cmd_use_buffer, f, n);
