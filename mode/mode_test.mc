@@ -149,6 +149,74 @@ static void test_line_comment_prefix() {
 	check(mode_line_comment(LModeCSS)[0] == 0);
 }
 
+static void test_goto_match() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+	Location match = {0};
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf.load_bytes("{ }", strlen("{ }"), EModeLF));
+	buf.lang_mode = LModeC;
+	win = window_create();
+	window_select(win);
+	loc.line = 1;
+	loc.offset = 0;
+	win.set_cursor(loc);
+	check(mode_find_matching_delimiter(buf, loc, &match));
+	check(match.line == 1 && match.offset == 2);
+	check(mode_goto_match(false, 1));
+	check(win.cursor.offset == 2);
+}
+
+static void test_c_top_end_function() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+	const char *src = "int f(void)\n{\n  return 1;\n}\n";
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf.load_bytes(src, strlen(src), EModeLF));
+	buf.lang_mode = LModeC;
+	win = window_create();
+	check(win != NULL);
+	window_select(win);
+	loc.line = 3;
+	loc.offset = 2;
+	win.set_cursor(loc);
+	check(mode_end_of_function(false, 1));
+	check(win.cursor.line == 4);
+	check(win.cursor.offset == 0);
+	loc.line = 3;
+	loc.offset = 2;
+	win.set_cursor(loc);
+	check(mode_top_of_function(false, 1));
+	check(win.cursor.line == 1);
+}
+
+static void test_py_top_end_function() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+	const char *src = "def f():\n  a = 1\n  b = 2\nx = 3\n";
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf.load_bytes(src, strlen(src), EModeLF));
+	buf.lang_mode = LModePython;
+	win = window_create();
+	window_select(win);
+	loc.line = 2;
+	loc.offset = 0;
+	win.set_cursor(loc);
+	check(mode_top_of_function(false, 1));
+	check(win.cursor.line == 1);
+	check(mode_end_of_function(false, 1));
+	check(win.cursor.line == 3);
+}
+
 int main() {
 	test_line_comment_prefix();
 	test_comment_dwim_line();
@@ -156,5 +224,8 @@ int main() {
 	test_comment_dwim_unsupported();
 	test_comment_dwim_region();
 	test_fill_paragraph();
+	test_goto_match();
+	test_c_top_end_function();
+	test_py_top_end_function();
 	return 0;
 }

@@ -1984,6 +1984,8 @@ static void init_commands() {
 	reg_cmd("previous-line", cmd_prev_line);
 	reg_cmd("forward-word", cmd_forward_word);
 	reg_cmd("backward-word", cmd_backward_word);
+	reg_cmd("forward-sexp", cmd_forward_sexp);
+	reg_cmd("backward-sexp", cmd_backward_sexp);
 	reg_cmd("scroll-up", cmd_forward_page);
 	reg_cmd("scroll-down", cmd_backward_page);
 	reg_cmd("beginning-of-line", cmd_beginning_of_line);
@@ -1995,6 +1997,10 @@ static void init_commands() {
 	reg_cmd("newline-and-indent", cmd_newline_and_indent);
 	reg_cmd("indent-line", cmd_indent_line);
 	reg_cmd("close-brace", cmd_close_brace);
+	reg_cmd("goto-match", cmd_goto_match);
+	reg_cmd("beginning-of-defun", cmd_beginning_of_defun);
+	reg_cmd("end-of-defun", cmd_end_of_defun);
+	reg_cmd("mark-defun", cmd_mark_defun);
 	reg_cmd("open-line", cmd_open_line);
 	reg_cmd("delete-backward-char", cmd_delete_backward);
 	reg_cmd("delete-char", cmd_delete_forward);
@@ -2082,6 +2088,12 @@ static void init_commands() {
 	bind_key(term_key_value(TermSHIFT) | term_key_value(TermKeyUp), cmd_backward_page);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'F', cmd_forward_word);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'B', cmd_backward_word);
+	bind_key(term_key_value(TermCTL) | term_key_value(TermMETA) | (uint32_t)'F', cmd_forward_sexp);
+	bind_key(term_key_value(TermCTL) | term_key_value(TermMETA) | (uint32_t)'B', cmd_backward_sexp);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'\\', cmd_goto_match);
+	bind_key(term_key_value(TermCTL) | term_key_value(TermMETA) | (uint32_t)'A', cmd_beginning_of_defun);
+	bind_key(term_key_value(TermCTL) | term_key_value(TermMETA) | (uint32_t)'E', cmd_end_of_defun);
+	bind_key(term_key_value(TermCTL) | term_key_value(TermMETA) | (uint32_t)'H', cmd_mark_defun);
 	bind_key(term_key_value(TermKeyPageDown), cmd_forward_page);
 	bind_key(term_key_value(TermKeyPageUp), cmd_backward_page);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'V', cmd_forward_page);
