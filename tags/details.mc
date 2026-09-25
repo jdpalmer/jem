@@ -6,8 +6,8 @@
 #include <string.h>
 
 enum {
-	TagDetailCommentLines = 32,
-	TagDetailCommentCap = 4096
+	TagDetailCommentLines = 40,
+	TagDetailCommentCap = 16384
 };
 
 static bool tag_detail_text_line(char *text, size_t text_len, int wanted,
@@ -36,6 +36,34 @@ static bool tag_detail_text_line(char *text, size_t text_len, int wanted,
 	return false;
 }
 
+static bool tag_detail_line_comment(char *line, size_t n, const char *prefix,
+	char **part, size_t *part_len) {
+	size_t start = 0;
+	size_t end = n;
+	size_t plen = 0;
+	if (line == NULL || prefix == NULL || part == NULL || part_len == NULL) {
+		return false;
+	}
+	plen = strlen(prefix);
+	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
+		start++;
+	}
+	while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t')) {
+		end--;
+	}
+	if (plen == 0 || end - start < plen ||
+		strncmp(line + start, prefix, plen) != 0) {
+		return false;
+	}
+	start += plen;
+	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
+		start++;
+	}
+	*part = line + start;
+	*part_len = end - start;
+	return true;
+}
+
 static bool tag_detail_comment_part(char *line, size_t n, LangMode mode,
 	char **part, size_t *part_len) {
 	size_t start = 0;
@@ -43,34 +71,36 @@ static bool tag_detail_comment_part(char *line, size_t n, LangMode mode,
 	if (line == NULL || part == NULL || part_len == NULL) {
 		return false;
 	}
+	if (mode == LModePython || mode == LModeMake || mode == LModeR) {
+		return tag_detail_line_comment(line, n, "#", part, part_len);
+	}
+	if (mode == LModeLua) {
+		return tag_detail_line_comment(line, n, "--", part, part_len);
+	}
+	if (mode == LModeLisp) {
+		return tag_detail_line_comment(line, n, ";", part, part_len);
+	}
 	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
 		start++;
 	}
 	while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t')) {
 		end--;
 	}
-	if (mode == LModePython) {
-		if (start >= end || line[start] != '#') {
-			return false;
-		}
+	if (end - start >= 2 && line[start] == '/' && line[start + 1] == '/') {
+		start += 2;
+	} else if (end - start >= 2 && line[start] == '/' &&
+		line[start + 1] == '*') {
+		start += 2;
+	} else if (start < end && line[start] == '*') {
 		start++;
-	} else {
-		if (end - start >= 2 && line[start] == '/' && line[start + 1] == '/') {
-			start += 2;
-		} else if (end - start >= 2 && line[start] == '/' &&
-			line[start + 1] == '*') {
-			start += 2;
-		} else if (start < end && line[start] == '*') {
+		if (start < end && line[start] == '/') {
 			start++;
-			if (start < end && line[start] == '/') {
-				start++;
-			}
-		} else {
-			return false;
 		}
-		if (end - start >= 2 && line[end - 2] == '*' && line[end - 1] == '/') {
-			end -= 2;
-		}
+	} else {
+		return false;
+	}
+	if (end - start >= 2 && line[end - 2] == '*' && line[end - 1] == '/') {
+		end -= 2;
 	}
 	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
 		start++;
@@ -102,36 +132,90 @@ static bool tag_detail_prepend(char *dst, size_t cap, char *part, size_t n) {
 	return true;
 }
 
+static LangMode tag_detail_lang_for_entry(TagEntry *entry) {
+	Buffer *cur = buffer_current();
+	if (entry == NULL) {
+		return cur != NULL ? cur.lang_mode : LModeNone;
+	}
+	for (auto b : buffer_all) {
+		if (b != NULL && len(b.file_name) > 0 && entry.path != NULL &&
+			tags_paths_equal(b.file_name, str_from_cstr(entry.path))) {
+			return b.lang_mode;
+		}
+	}
+	if (entry.path != NULL && entry.path[0] != 0) {
+		LangMode detected = mode_detect(str_from_cstr(entry.path));
+		if (detected != LModeNone) {
+			return detected;
+		}
+	}
+	return cur != NULL ? cur.lang_mode : LModeNone;
+}
+
+static int tag_detail_entry_line(TagEntry *entry) {
+	if (entry == NULL) {
+		return 0;
+	}
+	for (auto b : buffer_all) {
+		if (b != NULL && len(b.file_name) > 0 && entry.path != NULL &&
+			tags_paths_equal(b.file_name, str_from_cstr(entry.path))) {
+			return tags_resolve_line(b, entry);
+		}
+	}
+	return entry.line;
+}
+
+static (char *, size_t, bool) tag_detail_source_bytes(TagEntry *entry) {
+	if (entry == NULL || entry.path == NULL) {
+		return (NULL, 0, false);
+	}
+	for (auto b : buffer_all) {
+		if (b == NULL || len(b.file_name) == 0 ||
+			!tags_paths_equal(b.file_name, str_from_cstr(entry.path))) {
+			continue;
+		}
+		return b.save_bytes();
+	}
+	return tags_read_file(entry.path);
+}
+
 static void tag_detail_source_comment(TagEntry *entry, char *dst, size_t cap) {
 	LangMode mode = LModeNone;
 	int line = 0;
 	int used_lines = 0;
+	size_t total = 0;
 	if (entry == NULL || entry.path == NULL || dst == NULL || cap == 0) {
 		return;
 	}
 	dst[0] = 0;
-	auto (text, text_len, ok) = tags_read_file(entry.path);
-	if (!ok) {
-		return;
-	}
-	mode = mode_detect(str_from_cstr(entry.path));
-	line = entry.line - 1;
-	while (line >= 1 && used_lines < TagDetailCommentLines) {
-		char *raw = NULL;
-		size_t raw_len = 0;
-		char *part = NULL;
-		size_t part_len = 0;
-		if (!tag_detail_text_line(text, text_len, line, &raw, &raw_len) ||
-			!tag_detail_comment_part(raw, raw_len, mode, &part, &part_len)) {
-			break;
+	{
+		auto (text, text_len, ok) = tag_detail_source_bytes(entry);
+		if (!ok) {
+			return;
 		}
-		if (!tag_detail_prepend(dst, cap, part, part_len)) {
-			break;
+		mode = tag_detail_lang_for_entry(entry);
+		line = tag_detail_entry_line(entry) - 1;
+		while (line >= 1 && used_lines < TagDetailCommentLines) {
+			char *raw = NULL;
+			size_t raw_len = 0;
+			char *part = NULL;
+			size_t part_len = 0;
+			if (!tag_detail_text_line(text, text_len, line, &raw, &raw_len) ||
+				!tag_detail_comment_part(raw, raw_len, mode, &part, &part_len)) {
+				break;
+			}
+			total += part_len;
+			if (total >= (size_t)TagDetailCommentCap) {
+				break;
+			}
+			if (!tag_detail_prepend(dst, cap, part, part_len)) {
+				break;
+			}
+			line--;
+			used_lines++;
 		}
-		line--;
-		used_lines++;
+		free(text);
 	}
-	free(text);
 }
 
 static Buffer *tag_detail_buffer() {
@@ -197,15 +281,75 @@ static bool tag_detail_append_lines(Buffer *buf, char *text) {
 	}
 }
 
+static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) {
+	char trimmed[2048] = {0};
+	size_t n = 0;
+	const char *s = sig;
+	if (dst == NULL || cap == 0) {
+		return;
+	}
+	dst[0] = 0;
+	if (sig == NULL) {
+		return;
+	}
+	while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') {
+		s++;
+	}
+	snprintf(trimmed, sizeof(trimmed), "%s", s);
+	n = strlen(trimmed);
+	while (n > 0 && (trimmed[n - 1] == ' ' || trimmed[n - 1] == '\t' ||
+		trimmed[n - 1] == '\n' || trimmed[n - 1] == '\r')) {
+		trimmed[--n] = 0;
+	}
+	if (strchr(trimmed, '\n') == NULL) {
+		snprintf(dst, cap, "`%s`", trimmed);
+		return;
+	}
+	{
+		char *line = trimmed;
+		char *nl = NULL;
+		size_t used = 0;
+		dst[0] = 0;
+		for (;;) {
+			nl = strchr(line, '\n');
+			if (nl != NULL) {
+				*nl = 0;
+			}
+			while (*line == ' ' || *line == '\t') {
+				line++;
+			}
+			if (*line != 0) {
+				int wrote = 0;
+				if (used == 0) {
+					wrote = snprintf(dst + used, cap - used, "    %s", line);
+				} else {
+					wrote = snprintf(dst + used, cap - used, "\n    %s", line);
+				}
+				if (wrote < 0 || wrote >= (int)(cap - used)) {
+					return;
+				}
+				used += wrote;
+			}
+			if (nl == NULL) {
+				break;
+			}
+			line = nl + 1;
+		}
+	}
+}
+
 bool tags_show_details(TagEntry *entry) {
 	Buffer *buf = NULL;
 	char line[TagPathMax + 1024] = {0};
 	char annotation[TagKindMax + TagNameMax * 2] = {0};
 	char comment[TagDetailCommentCap] = {0};
+	char shown_path[TagPathMax] = {0};
+	char signature[2048] = {0};
 	Line *source_line = NULL;
 	Window *old = window_current();
 	Window *shown = NULL;
 	Location top = {0};
+	int source_line_no = 0;
 	if (entry == NULL || entry.name == NULL || entry.path == NULL) {
 		return false;
 	}
@@ -223,22 +367,19 @@ bool tags_show_details(TagEntry *entry) {
 		return false;
 	}
 	tags_format_annotation(entry, annotation, sizeof(annotation));
-	if (!tag_detail_append(buf, "") ||
-		!tag_detail_append(buf, "## Kind") ||
-		!tag_detail_append(buf, "")) {
-		return false;
-	}
-	if (!tag_detail_append(buf, str_from_cstr(annotation))) {
-		return false;
-	}
-	if (entry.signature != NULL && entry.signature[0] != 0) {
+	if (annotation[0] != 0) {
+		snprintf(line, sizeof(line), "Kind: `%s`", annotation);
 		if (!tag_detail_append(buf, "") ||
-			!tag_detail_append(buf, "## Signature") ||
-			!tag_detail_append(buf, "")) {
+			!tag_detail_append(buf, str_from_cstr(line))) {
 			return false;
 		}
-		snprintf(line, sizeof(line), "`%s%s`", entry.name, entry.signature);
-		if (!tag_detail_append(buf, str_from_cstr(line))) {
+	}
+	if (entry.signature != NULL && entry.signature[0] != 0) {
+		tag_detail_format_signature(signature, sizeof(signature), entry.signature);
+		if (!tag_detail_append(buf, "") ||
+			!tag_detail_append(buf, "## Signature") ||
+			!tag_detail_append(buf, "") ||
+			!tag_detail_append(buf, str_from_cstr(signature))) {
 			return false;
 		}
 	}
@@ -251,22 +392,23 @@ bool tags_show_details(TagEntry *entry) {
 			return false;
 		}
 	}
-	if (!tag_detail_append(buf, "") ||
-		!tag_detail_append(buf, "## Source") ||
-		!tag_detail_append(buf, "")) {
+	source_line_no = tag_detail_entry_line(entry);
+	tags_display_path(entry, shown_path, sizeof(shown_path));
+	if (shown_path[0] == 0) {
+		snprintf(shown_path, sizeof(shown_path), "%s", entry.path);
+	}
+	if (!tag_detail_append(buf, "")) {
 		return false;
 	}
-	snprintf(line, sizeof(line), "%s:%d", entry.path, entry.line);
+	snprintf(line, sizeof(line), "Source: %s:%d", shown_path, source_line_no);
 	source_line = tag_detail_append_n(buf, line, strlen(line));
 	if (source_line == NULL) {
 		return false;
 	}
-	source_line.metadata = tags_loc_alloc(entry.path, entry.line, 1,
+	source_line.metadata = tags_loc_alloc(entry.path, source_line_no, 1,
 		entry.pattern);
 	if (!tag_detail_append(buf, "") ||
-		!tag_detail_append(buf, "## Provider") ||
-		!tag_detail_append(buf, "") ||
-		!tag_detail_append(buf, "project tags")) {
+		!tag_detail_append(buf, "Provider: project tags")) {
 		return false;
 	}
 	buf.is_readonly = true;
@@ -294,6 +436,7 @@ bool tags_show_details(TagEntry *entry) {
 
 bool tags_describe_symbol() {
 	char symbol[TagNameMax] = {0};
+	char echo[TagNameMax + 32] = {0};
 	TagList matches = {0};
 	bool ok = false;
 	if (!tags_symbol_at_point(symbol, sizeof(symbol))) {
@@ -311,5 +454,11 @@ bool tags_describe_symbol() {
 	}
 	ok = tags_show_details(matches.items[0]);
 	tags_list_free(&matches);
+	if (ok) {
+		snprintf(echo, sizeof(echo), "[describe: %s]", symbol);
+		display_set_echo(echo);
+	} else {
+		display_set_echo("[describe failed]");
+	}
 	return ok;
 }

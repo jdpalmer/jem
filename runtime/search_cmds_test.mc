@@ -68,7 +68,20 @@ static void test_prompted_search() {
 }
 
 static void test_search_forward_prompt() {
+	char prompt[64] = {0};
 	(void)setup("hello");
+	search_scope_set(0);
+	search_format_prompt(prompt, sizeof(prompt), "Search");
+	check(strcmp(prompt, "Search: ") == 0);
+	search_scope_set(1);
+	search_format_prompt(prompt, sizeof(prompt), "Search");
+	check(strcmp(prompt, "Search [all]: ") == 0);
+	search_format_prompt(prompt, sizeof(prompt), "Reverse search");
+	check(strcmp(prompt, "Reverse search [all]: ") == 0);
+	search_format_isearch_prompt(prompt, sizeof(prompt), "I-search",
+		buffer_current());
+	check(strstr(prompt, "[all ") != NULL);
+	search_scope_set(0);
 	search_set_last_pattern("ell");
 	check(cmd_search_forward(false, 1));
 	check(minibuffer_active());

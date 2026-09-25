@@ -7,6 +7,7 @@ import "term";
 import "file";
 import "markring";
 import "job";
+import "mode";
 import "fs";
 import "os";
 import "path";
@@ -1004,6 +1005,8 @@ static int tag_rank_cmp(TagEntry *a, TagEntry *b, const char[..] cur_path,
 	int ascore = tag_score(a, cur_path, scope_hint);
 	int bscore = tag_score(b, cur_path, scope_hint);
 	int cmp = 0;
+	char apath[TagPathMax] = {0};
+	char bpath[TagPathMax] = {0};
 	if (ascore != bscore) {
 		return ascore > bscore ? -1 : 1;
 	}
@@ -1011,7 +1014,10 @@ static int tag_rank_cmp(TagEntry *a, TagEntry *b, const char[..] cur_path,
 	if (cmp != 0) {
 		return cmp;
 	}
-	cmp = tag_nullable_cmp(a.path, b.path);
+	/* Prefer display (project-relative) paths like jem.go tagCompareRanked. */
+	tags_display_path(a, apath, sizeof(apath));
+	tags_display_path(b, bpath, sizeof(bpath));
+	cmp = strcmp(apath, bpath);
 	if (cmp != 0) {
 		return cmp;
 	}

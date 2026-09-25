@@ -8,6 +8,7 @@
 // cmd_search_forward prompts then searches forward (jem.go CmdSearchForward).
 bool cmd_search_forward(bool f, int n) {
 	const char *prior = search_last_pattern();
+	char prompt[64] = {0};
 	(void)f;
 	(void)n;
 	push_listener(ListenerAskString);
@@ -17,11 +18,8 @@ bool cmd_search_forward(bool f, int n) {
 			L.ask_phase = AskSearchForward;
 		}
 	}
-	if (search_scope_is_all()) {
-		minibuffer_begin("Search (all buffers): ", 0);
-	} else {
-		minibuffer_begin("Search: ", 0);
-	}
+	search_format_prompt(prompt, sizeof(prompt), "Search");
+	minibuffer_begin(prompt, 0);
 	if (prior != NULL && prior[0] != 0) {
 		minibuffer_set_text(str_from_cstr(prior));
 	}
@@ -31,6 +29,7 @@ bool cmd_search_forward(bool f, int n) {
 // cmd_search_backward prompts then searches backward.
 bool cmd_search_backward(bool f, int n) {
 	const char *prior = search_last_pattern();
+	char prompt[80] = {0};
 	(void)f;
 	(void)n;
 	push_listener(ListenerAskString);
@@ -40,11 +39,8 @@ bool cmd_search_backward(bool f, int n) {
 			L.ask_phase = AskSearchBackward;
 		}
 	}
-	if (search_scope_is_all()) {
-		minibuffer_begin("Reverse search (all buffers): ", 0);
-	} else {
-		minibuffer_begin("Reverse search: ", 0);
-	}
+	search_format_prompt(prompt, sizeof(prompt), "Reverse search");
+	minibuffer_begin(prompt, 0);
 	if (prior != NULL && prior[0] != 0) {
 		minibuffer_set_text(str_from_cstr(prior));
 	}

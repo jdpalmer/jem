@@ -1710,38 +1710,54 @@ bool cmd_other_window(bool f, int n) {
 }
 
 bool cmd_isearch_forward(bool f, int n) {
+	char prompt[192] = {0};
+	Window *w = window_current();
 	(void)f;
 	(void)n;
 	search_begin(true, false);
 	push_listener(ListenerIsearch);
-	display_set_echo("I-search: ");
+	search_format_isearch_prompt(prompt, sizeof(prompt), "I-search",
+		w != NULL ? w.buffer : NULL);
+	display_set_echo(prompt);
 	return true;
 }
 
 bool cmd_isearch_backward(bool f, int n) {
+	char prompt[192] = {0};
+	Window *w = window_current();
 	(void)f;
 	(void)n;
 	search_begin(false, false);
 	push_listener(ListenerIsearch);
-	display_set_echo("I-search backward: ");
+	search_format_isearch_prompt(prompt, sizeof(prompt), "I-search backward",
+		w != NULL ? w.buffer : NULL);
+	display_set_echo(prompt);
 	return true;
 }
 
 bool cmd_isearch_re_forward(bool f, int n) {
+	char prompt[192] = {0};
+	Window *w = window_current();
 	(void)f;
 	(void)n;
 	search_begin(true, true);
 	push_listener(ListenerIsearch);
-	display_set_echo("RE I-search: ");
+	search_format_isearch_prompt(prompt, sizeof(prompt), "RE I-search",
+		w != NULL ? w.buffer : NULL);
+	display_set_echo(prompt);
 	return true;
 }
 
 bool cmd_isearch_re_backward(bool f, int n) {
+	char prompt[192] = {0};
+	Window *w = window_current();
 	(void)f;
 	(void)n;
 	search_begin(false, true);
 	push_listener(ListenerIsearch);
-	display_set_echo("RE I-search backward: ");
+	search_format_isearch_prompt(prompt, sizeof(prompt), "RE I-search backward",
+		w != NULL ? w.buffer : NULL);
+	display_set_echo(prompt);
 	return true;
 }
 
@@ -2257,11 +2273,16 @@ static bool handle_listener_key(uint32_t key) {
 	}
 	if (L.kind == ListenerIsearch) {
 		char isearch_label[32] = {0};
+		char isearch_prefix[192] = {0};
+		Window *isearch_win = window_current();
+		Buffer *isearch_buf = isearch_win != NULL ? isearch_win.buffer : NULL;
 		if (search_regexp()) {
 			snprintf(isearch_label, sizeof(isearch_label), "RE I-search");
 		} else {
 			snprintf(isearch_label, sizeof(isearch_label), "I-search");
 		}
+		search_format_isearch_prompt(isearch_prefix, sizeof(isearch_prefix),
+			isearch_label, isearch_buf);
 		if (key == (term_key_value(TermCTL) | (uint32_t)'G') || key == 27) {
 			search_end();
 			pop_listener();
@@ -2298,7 +2319,7 @@ static bool handle_listener_key(uint32_t key) {
 				display_set_echo(err);
 			} else {
 				char msg[300] = {0};
-				snprintf(msg, sizeof(msg), "%s: %s", isearch_label, search_needle());
+				snprintf(msg, sizeof(msg), "%s%s", isearch_prefix, search_needle());
 				display_set_echo(msg);
 			}
 			return true;
@@ -2322,7 +2343,7 @@ static bool handle_listener_key(uint32_t key) {
 				display_set_echo(err);
 			} else {
 				char msg[300] = {0};
-				snprintf(msg, sizeof(msg), "%s: %s", isearch_label, search_needle());
+				snprintf(msg, sizeof(msg), "%s%s", isearch_prefix, search_needle());
 				display_set_echo(msg);
 			}
 			return true;
@@ -3127,4 +3148,6 @@ void runtime_run(int argc, char **argv) {
 	}
 	term_close();
 	display_shutdown();
+	/* Normal return: modc uniquified colliding local slots so CRT fini no longer
+	 * SIGSEGVs after minibuffer use. Prefer this over _exit/os_exit. */
 }

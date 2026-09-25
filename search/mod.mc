@@ -939,6 +939,45 @@ bool search_scope_is_all() {
 	return g_search_scope == (int)SearchScopeAllBuffers;
 }
 
+// search_format_prompt builds a minibuffer label like Go SearchPromptLabel
+// ("Search [all]: " / "Search: ").
+void search_format_prompt(char *dst, size_t cap, const char *label) {
+	if (dst == NULL || cap == 0) {
+		return;
+	}
+	if (label == NULL) {
+		label = "Search";
+	}
+	if (search_scope_is_all()) {
+		snprintf(dst, cap, "%s [all]: ", label);
+	} else {
+		snprintf(dst, cap, "%s: ", label);
+	}
+}
+
+// search_format_isearch_prompt builds Go/C isearch prefixes
+// ("I-search[all *scratch*]: " / "I-search: ").
+void search_format_isearch_prompt(char *dst, size_t cap, const char *label,
+	Buffer *buf) {
+	char name[128] = {0};
+	if (dst == NULL || cap == 0) {
+		return;
+	}
+	if (label == NULL) {
+		label = "I-search";
+	}
+	if (search_scope_is_all()) {
+		if (buf != NULL && len(buf.name) > 0) {
+			snprintf(name, sizeof(name), "%s", buf.name);
+		} else {
+			snprintf(name, sizeof(name), "?");
+		}
+		snprintf(dst, cap, "%s[all %s]: ", label, name);
+	} else {
+		snprintf(dst, cap, "%s: ", label);
+	}
+}
+
 bool search_toggle_scope() {
 	if (g_search_scope == (int)SearchScopeAllBuffers) {
 		g_search_scope = SearchScopeBuffer;

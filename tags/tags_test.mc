@@ -76,10 +76,24 @@ static void test_path_normalization() {
 	check(!tags_paths_equal(a, c));
 }
 
+static void test_annotate() {
+	TagEntry entry = {0};
+	char ann[128] = {0};
+	entry.kind = (char *)"member";
+	entry.typeref = (char *)"typename:int";
+	entry.scope = (char *)"main.Foo";
+	tags_format_annotation(&entry, ann, sizeof(ann));
+	check(strcmp(ann, "(member/int@main.Foo)") == 0);
+	entry.typeref = NULL;
+	tags_format_annotation(&entry, ann, sizeof(ann));
+	check(strcmp(ann, "(member@main.Foo)") == 0);
+}
+
 int main() {
 	test_json_entry();
 	test_json_skip_and_errors();
 	test_stale_line_recovery();
 	test_path_normalization();
+	test_annotate();
 	return 0;
 }
