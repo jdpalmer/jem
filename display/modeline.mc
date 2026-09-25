@@ -191,6 +191,13 @@ void paint_modeline(Window *win, int row) {
 	put_ascii(row, &col, eol, gut);
 	put_ascii(row, &col, " | ", gut);
 	put_ascii(row, &col, lang, gut);
+	{
+		const char *git = git_modeline_text(win.buffer);
+		if (git != NULL && git[0] != 0) {
+			put_ascii(row, &col, " | ", gut);
+			put_ascii(row, &col, git, name_st);
+		}
+	}
 	put_ascii(row, &col, " | ", gut);
 	put_ascii(row, &col, pos, gut);
 

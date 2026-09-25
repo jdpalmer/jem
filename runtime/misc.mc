@@ -251,6 +251,7 @@ bool editor_kill_buffer(Buffer *b) {
 	}
 	window_replace_buffer(b, replacement);
 	buffer_undo.forget_buffer(b);
+	git_forget_buffer(b);
 	buffer_set_current(replacement);
 	buffer_release(b);
 	return true;

@@ -7,6 +7,8 @@ import "minibuffer";
 import "mode";
 import "markring";
 import "str";
+import "os";
+import "path";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -376,11 +378,14 @@ void emit_sgr(TextStyle style) {
 
 static void paint_gutter(Window *win, int screen_row, int lineno) {
 	TextStyle st = style_gutter();
+	TextStyle mark_st = st;
 	int width = 0;
 	int num_width = 0;
 	int nlen = 0;
 	int i = 0;
+	int marker = GitLineDiffNone;
 	char num[16] = {0};
+	uint32_t mark_ch = ' ';
 	if (win == NULL || screen_row < 0) {
 		return;
 	}
@@ -391,7 +396,20 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 	if (width > term_cols()) {
 		width = term_cols();
 	}
-	put_rune(&g_screen, screen_row, 0, ' ', st);
+	if (lineno > 0 && win.buffer != NULL) {
+		marker = git_line_diff(win.buffer, lineno);
+	}
+	if (marker == (int)GitLineDiffAdded) {
+		mark_ch = '+';
+		mark_st = text_style_make(TermColorGreen, text_style_bg(st), (uint16_t)TextStyleBold);
+	} else if (marker == (int)GitLineDiffModified) {
+		mark_ch = '~';
+		mark_st = text_style_make(TermColorYellow, text_style_bg(st), (uint16_t)TextStyleBold);
+	} else if (marker == (int)GitLineDiffDeleted) {
+		mark_ch = '-';
+		mark_st = text_style_make(TermColorRed, text_style_bg(st), (uint16_t)TextStyleBold);
+	}
+	put_rune(&g_screen, screen_row, 0, mark_ch, mark_st);
 	num_width = width - 2;
 	if (num_width < 0) {
 		num_width = 0;
