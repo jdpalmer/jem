@@ -235,7 +235,7 @@ bool cmd_choose_handle_key(uint32_t key) {
 	return true;
 }
 
-static bool kill_buffer_now(Buffer *b) {
+bool editor_kill_buffer(Buffer *b) {
 	Buffer *replacement = NULL;
 	if (b == NULL || b.is_scratch()) {
 		return false;
@@ -254,6 +254,10 @@ static bool kill_buffer_now(Buffer *b) {
 	buffer_set_current(replacement);
 	buffer_release(b);
 	return true;
+}
+
+static bool kill_buffer_now(Buffer *b) {
+	return editor_kill_buffer(b);
 }
 
 void misc_kill_pending_yes() {
@@ -279,7 +283,7 @@ void misc_kill_pending_no() {
 	display_set_echo("[aborted]");
 }
 
-static void begin_kill_confirm(Buffer *buf) {
+void misc_begin_kill_confirm(Buffer *buf, const char *prompt) {
 	g_kill_pending = buf;
 	push_listener(ListenerAskYesNo);
 	{
@@ -288,7 +292,11 @@ static void begin_kill_confirm(Buffer *buf) {
 			L.ask_phase = AskYesKillBuffer;
 		}
 	}
-	minibuffer_begin("Kill buffer? (y/n) ", 1);
+	minibuffer_begin(str_from_cstr(prompt), 1);
+}
+
+static void begin_kill_confirm(Buffer *buf) {
+	misc_begin_kill_confirm(buf, "Kill buffer? (y/n) ");
 }
 
 // cmd_kill_buffer_fuzzy prompts with a fuzzy list and kills after confirmation.

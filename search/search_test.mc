@@ -174,6 +174,53 @@ static void test_regex_dot_newline() {
 	search_end();
 }
 
+static void test_plain_find_and_scope() {
+	Buffer *buf = NULL;
+	Buffer *other = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf.load_bytes("hello world", strlen("hello world"), EModeLF));
+	win = window_create();
+	check(win != NULL);
+	window_select(win);
+	loc.line = 1;
+	loc.offset = 0;
+	win.set_cursor(loc);
+
+	search_scope_set(0);
+	search_set_last_pattern("world");
+	check(search_plain_find(true));
+	check(win.cursor.offset == 11);
+
+	loc.offset = 0;
+	win.set_cursor(loc);
+	search_set_last_pattern("missing");
+	check(!search_plain_find(true));
+
+	other = buffer_new();
+	check(other != NULL);
+	other.set_name("other");
+	check(other.load_bytes("zzz target zzz", strlen("zzz target zzz"), EModeLF));
+	check(buffer_list_add(other));
+
+	search_scope_set(0);
+	search_set_last_pattern("target");
+	check(!search_plain_find(true));
+
+	search_scope_set(1);
+	check(search_plain_find(true));
+	check(window_current().buffer == other);
+
+	check(search_toggle_scope() == false);
+	check(search_scope_get() == 0);
+	check(search_toggle_scope() == true);
+	check(search_scope_is_all());
+	search_scope_set(0);
+}
+
 int main() {
 	test_literal_replace();
 	test_regex_forward();
@@ -181,5 +228,6 @@ int main() {
 	test_regex_zero_length();
 	test_regex_capture_replace();
 	test_regex_dot_newline();
+	test_plain_find_and_scope();
 	return 0;
 }

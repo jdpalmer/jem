@@ -64,6 +64,13 @@ void vars_init() {
 	v.local = false;
 
 	v = &g_vars[g_var_count++];
+	v.name = "search-scope";
+	v.doc = "Search scope: 0 current buffer, 1 all buffers.";
+	v.min_v = 0;
+	v.max_v = 1;
+	v.local = false;
+
+	v = &g_vars[g_var_count++];
 	v.name = "whitespace-cleanup";
 	v.doc = "Trim trailing whitespace from every line before saving: 0 off, 1 on.";
 	v.min_v = 0;
@@ -154,6 +161,9 @@ static int var_read_global(EditorVar *v) {
 	if (strcmp(v.name, "theme-mode") == 0) {
 		return display_theme_mode();
 	}
+	if (strcmp(v.name, "search-scope") == 0) {
+		return search_scope_get();
+	}
 	if (strcmp(v.name, "whitespace-cleanup") == 0) {
 		return bool_to_int(g_app.whitespace_cleanup);
 	}
@@ -224,6 +234,10 @@ static void var_write_global(EditorVar *v, int value) {
 		display_set_theme_mode(value);
 		return;
 	}
+	if (strcmp(v.name, "search-scope") == 0) {
+		search_scope_set(value);
+		return;
+	}
 	if (strcmp(v.name, "whitespace-cleanup") == 0) {
 		g_app.whitespace_cleanup = value != 0;
 		return;
@@ -261,6 +275,15 @@ static bool var_storage_write(EditorVar *v, Buffer *buf, int value, bool run_on_
 	}
 	if (run_on_change && strcmp(v.name, "theme-mode") == 0) {
 		vars_theme_changed();
+	}
+	if (run_on_change && strcmp(v.name, "search-scope") == 0) {
+		size_t i = 0;
+		for (i = 0; i < window_active.count; i++) {
+			Window *win = window_active.windows[i];
+			if (win != NULL) {
+				win.should_update_mode_line = true;
+			}
+		}
 	}
 	return true;
 }
@@ -376,7 +399,7 @@ bool cmd_var_fuzzy_on_accept() {
 			snprintf(N.ask_buf, sizeof(N.ask_buf), "%s", v.name);
 		}
 		snprintf(prompt, sizeof(prompt), "Set %s (current %d): ", v.name, var_storage_read(v, buf));
-		minibuffer_begin(prompt, 0);
+		minibuffer_begin(str_from_cstr(prompt), 0);
 	}
 	return true;
 }

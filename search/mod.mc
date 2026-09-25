@@ -32,7 +32,14 @@ struct SearchState {
 	char last_error[80];
 };
 
+enum SearchScopeMode {
+	SearchScopeBuffer = 0,
+	SearchScopeAllBuffers = 1
+};
+
 static SearchState g_search;
+static int g_search_scope = SearchScopeBuffer;
+static char g_last_pattern[256];
 
 static void search_clear_re_slice() {
 	free(g_search.re_slice);
@@ -915,3 +922,162 @@ bool search_set_replacement(char *s) {
 char *search_needle() {
 	return g_search.needle;
 }
+
+int search_scope_get() {
+	return g_search_scope;
+}
+
+void search_scope_set(int scope) {
+	if (scope == (int)SearchScopeAllBuffers) {
+		g_search_scope = SearchScopeAllBuffers;
+	} else {
+		g_search_scope = SearchScopeBuffer;
+	}
+}
+
+bool search_scope_is_all() {
+	return g_search_scope == (int)SearchScopeAllBuffers;
+}
+
+bool search_toggle_scope() {
+	if (g_search_scope == (int)SearchScopeAllBuffers) {
+		g_search_scope = SearchScopeBuffer;
+	} else {
+		g_search_scope = SearchScopeAllBuffers;
+	}
+	return search_scope_is_all();
+}
+
+void search_set_last_pattern(const char *s) {
+	if (s == NULL) {
+		g_last_pattern[0] = 0;
+		return;
+	}
+	snprintf(g_last_pattern, sizeof(g_last_pattern), "%s", s);
+}
+
+const char *search_last_pattern() {
+	return g_last_pattern;
+}
+
+static bool search_plain_in_buffer(Window *win, Buffer *buf, bool forward, char *needle, size_t nlen) {
+	Location from = {0};
+	Location begin = {0};
+	Location end = {0};
+	if (win == NULL || buf == NULL || nlen == 0) {
+		return false;
+	}
+	if (forward) {
+		from = win.cursor;
+		if (win.buffer == buf) {
+			/* start at cursor */
+		} else {
+			from.line = 1;
+			from.offset = 0;
+		}
+	} else {
+		if (win.buffer == buf) {
+			from = win.cursor;
+		} else {
+			from.line = buf.eof_line();
+			from.offset = 0;
+			if (buf.line_count_i() >= 1) {
+				Line *last = buf.line(buf.line_count_i());
+				from.line = buf.line_count_i();
+				from.offset = last != NULL ? last.byte_len() : 0;
+			}
+		}
+	}
+	if (!search_from(buf, from, forward, needle, nlen, &begin, &end)) {
+		return false;
+	}
+	if (win.buffer != buf) {
+		window_switch_buffer(buf);
+		win = window_current();
+		if (win == NULL) {
+			return false;
+		}
+	}
+	if (forward) {
+		win.set_cursor(end);
+	} else {
+		win.set_cursor(begin);
+	}
+	win.did_move = true;
+	win.ensure_visible();
+	return true;
+}
+
+// search_plain_find runs a non-incremental plain search using g_last_pattern.
+bool search_plain_find(bool forward) {
+	Window *win = window_current();
+	Buffer *origin = NULL;
+	char needle[256] = {0};
+	size_t nlen = 0;
+	size_t i = 0;
+	size_t nbuf = 0;
+	int origin_idx = 0;
+	if (win == NULL || win.buffer == NULL) {
+		return false;
+	}
+	snprintf(needle, sizeof(needle), "%s", g_last_pattern);
+	nlen = strlen(needle);
+	if (nlen == 0) {
+		return true;
+	}
+	origin = win.buffer;
+	if (search_plain_in_buffer(win, origin, forward, needle, nlen)) {
+		return true;
+	}
+	if (!search_scope_is_all()) {
+		return false;
+	}
+	nbuf = len(buffer_all);
+	for (i = 0; i < nbuf; i++) {
+		if (buffer_all[i] == origin) {
+			origin_idx = (int)i;
+			break;
+		}
+	}
+	for (i = 1; i < nbuf; i++) {
+		Buffer *buf = buffer_all[(origin_idx + (int)i) % (int)nbuf];
+		Location start = {0};
+		if (buf == NULL || buf == origin) {
+			continue;
+		}
+		win = window_current();
+		if (forward) {
+			start.line = 1;
+			start.offset = 0;
+			window_switch_buffer(buf);
+			win = window_current();
+			if (win == NULL) {
+				continue;
+			}
+			win.set_cursor(start);
+		} else {
+			Line *last = NULL;
+			window_switch_buffer(buf);
+			win = window_current();
+			if (win == NULL) {
+				continue;
+			}
+			if (buf.line_count_i() >= 1) {
+				last = buf.line(buf.line_count_i());
+				start.line = buf.line_count_i();
+				start.offset = last != NULL ? last.byte_len() : 0;
+			} else {
+				start.line = 1;
+				start.offset = 0;
+			}
+			win.set_cursor(start);
+		}
+		if (search_plain_in_buffer(win, buf, forward, needle, nlen)) {
+			return true;
+		}
+	}
+	/* restore origin if nothing found */
+	window_switch_buffer(origin);
+	return false;
+}
+

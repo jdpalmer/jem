@@ -2,6 +2,7 @@ import "runtime";
 import "buffer";
 import "window";
 import "display";
+import "search";
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -55,6 +56,11 @@ static void test_vars_theme_and_auto_indent() {
 	check(vars_get_named("theme-mode") == 1);
 	check(vars_set_named("theme-mode", 0));
 	check(display_theme_mode() == 0);
+	check(vars_set_named("search-scope", 1));
+	check(search_scope_get() == 1);
+	check(vars_get_named("search-scope") == 1);
+	check(vars_set_named("search-scope", 0));
+	check(search_scope_get() == 0);
 	check(vars_set_named("auto-indent", 0));
 	check(vars_get_named("auto-indent") == 0);
 	check(vars_set_named("auto-indent", 1));

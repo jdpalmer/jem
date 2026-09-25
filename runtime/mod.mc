@@ -67,13 +67,16 @@ enum AskStringKind {
 	AskGotoTag = 6,
 	AskCopyRegister = 7,
 	AskInsertRegister = 8,
-	AskSetVariableValue = 9
+	AskSetVariableValue = 9,
+	AskSearchForward = 10,
+	AskSearchBackward = 11
 };
 
 enum AskYesNoKind {
 	AskYesQuit = 0,
 	AskYesRevert = 1,
-	AskYesKillBuffer = 2
+	AskYesKillBuffer = 2,
+	AskYesDeleteFile = 3
 };
 
 enum VarFuzzyKind {
@@ -1659,31 +1662,6 @@ bool cmd_use_buffer(bool f, int n) {
 	return true;
 }
 
-bool cmd_kill_buffer(bool f, int n) {
-	Buffer *b = buffer_current();
-	Buffer *replacement = NULL;
-	(void)f;
-	(void)n;
-	if (b == NULL || b.is_scratch()) {
-		display_set_echo("Can't kill *scratch*");
-		return true;
-	}
-	for (auto other : buffer_all) {
-		if (other != b) {
-			replacement = other;
-			break;
-		}
-	}
-	if (replacement == NULL) {
-		return false;
-	}
-	window_replace_buffer(b, replacement);
-	buffer_undo.forget_buffer(b);
-	buffer_set_current(replacement);
-	buffer_release(b);
-	return true;
-}
-
 bool cmd_split_window(bool f, int n) {
 	(void)f;
 	(void)n;
@@ -2088,6 +2066,8 @@ static void init_commands() {
 	reg_cmd("switch-to-buffer", cmd_use_buffer);
 	reg_cmd("kill-buffer", cmd_kill_buffer);
 	reg_cmd("kill-buffer-fuzzy", cmd_kill_buffer_fuzzy);
+	reg_cmd_doc("delete-this-file", cmd_delete_this_file,
+		"Delete the current buffer's file and kill the buffer.");
 	reg_cmd("insert-date", cmd_insert_date);
 	reg_cmd("show-position", cmd_show_position);
 	reg_cmd("set-eol-mode", cmd_set_eol_mode);
@@ -2102,6 +2082,10 @@ static void init_commands() {
 	reg_cmd("isearch-backward", cmd_isearch_backward);
 	reg_cmd("isearch-re-forward", cmd_isearch_re_forward);
 	reg_cmd("isearch-re-backward", cmd_isearch_re_backward);
+	reg_cmd_doc("search-forward", cmd_search_forward, "Search forward for a string.");
+	reg_cmd_doc("search-backward", cmd_search_backward, "Search backward for a string.");
+	reg_cmd_doc("toggle-search-scope", cmd_toggle_search_scope,
+		"Toggle search between one buffer and all buffers.");
 	reg_cmd("query-replace", cmd_query_replace);
 	reg_cmd("query-re-replace", cmd_query_re_replace);
 	reg_cmd("toggle-theme", cmd_toggle_theme);
@@ -2473,6 +2457,10 @@ static bool handle_listener_key(uint32_t key) {
 					misc_kill_pending_yes();
 					return true;
 				}
+				if (phase == (int)AskYesDeleteFile) {
+					misc_delete_file_yes();
+					return true;
+				}
 				return true;
 			}
 			if (key == 'n' || key == 'N') {
@@ -2482,6 +2470,8 @@ static bool handle_listener_key(uint32_t key) {
 					display_set_echo("[not reverted]");
 				} else if (phase == (int)AskYesKillBuffer) {
 					misc_kill_pending_no();
+				} else if (phase == (int)AskYesDeleteFile) {
+					misc_delete_file_no();
 				} else {
 					display_set_echo("");
 				}
@@ -2590,6 +2580,12 @@ static bool handle_listener_key(uint32_t key) {
 				if (phase == (int)AskSetVariableValue) {
 					(void)cmd_set_variable_value_from_text(ask_copy, text_copy);
 					return true;
+				}
+				if (phase == (int)AskSearchForward) {
+					return cmd_run_prompted_search(true, text_copy);
+				}
+				if (phase == (int)AskSearchBackward) {
+					return cmd_run_prompted_search(false, text_copy);
 				}
 				if (phase == (int)AskCopyRegister) {
 					Window *rw = window_current();
