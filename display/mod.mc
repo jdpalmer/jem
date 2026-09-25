@@ -1193,3 +1193,62 @@ void display_update() {
 	term_show_cursor();
 	term_flush();
 }
+
+/* ---- mouse hit testing (jem.go/display/mouse_hit.go) ---- */
+
+// display_win_at returns the window occupying screen row r, or NULL.
+Window *display_win_at(int r) {
+	size_t i = 0;
+	for (i = 0; i < window_active.count; i++) {
+		Window *win = window_active.windows[i];
+		if (win != NULL && r >= win.screen_top_row && r < win.screen_top_row + win.height) {
+			return win;
+		}
+	}
+	return NULL;
+}
+
+// display_mouse_loc_in_window maps term mouse col/row into a buffer location in win.
+Location display_mouse_loc_in_window(Window *win) {
+	Location loc = {0};
+	int row = term_mouse_row();
+	int col = term_mouse_col();
+	int pad = 0;
+	int gutter = 0;
+	int row_in = 0;
+	int bline = 0;
+	int text_col = 0;
+	int nlines = 0;
+	Line *line = NULL;
+	loc.line = 1;
+	loc.offset = 0;
+	if (win == NULL || win.buffer == NULL) {
+		return loc;
+	}
+	pad = window_content_row_offset(win);
+	gutter = window_gutter_width(win);
+	row_in = row - win.screen_top_row - pad;
+	if (row_in < 0) {
+		row_in = 0;
+	}
+	nlines = win.buffer.line_count_i();
+	if (nlines < 1) {
+		nlines = 1;
+	}
+	bline = win.top_line + row_in;
+	if (bline < 1) {
+		bline = 1;
+	}
+	if (bline > nlines) {
+		bline = nlines;
+	}
+	text_col = col - gutter + win.h_scroll;
+	if (text_col < 0) {
+		text_col = 0;
+	}
+	line = win.buffer.line(bline);
+	loc.line = bline;
+	loc.offset = line != NULL ? line.offset_at_display_col(text_col) : 0;
+	return loc;
+}
+

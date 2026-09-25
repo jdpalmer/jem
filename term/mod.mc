@@ -626,6 +626,17 @@ int term_mouse_row() {
 	return g_mouse_row;
 }
 
+void term_set_mouse_pos(int col, int row) {
+	if (col < 0) {
+		col = 0;
+	}
+	if (row < 0) {
+		row = 0;
+	}
+	g_mouse_col = col;
+	g_mouse_row = row;
+}
+
 static bool term_paste_terminator(char *data, size_t n) {
 	char terminator[6] = {0x1B, '[', '2', '0', '1', '~'};
 	return data != NULL && n >= sizeof(terminator) &&

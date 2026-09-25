@@ -79,9 +79,80 @@ static void test_edit_invalidates_following_syntax() {
 	buf.free();
 }
 
+static void test_delete_to_eof() {
+	Buffer *buf = buffer_new();
+	Location begin = {0};
+	Location end = {0};
+	check(buf != NULL);
+	begin.line = 1;
+	check(buf.insert_text(begin, "hello", strlen("hello"), NULL));
+	begin.line = 1;
+	begin.offset = 3;
+	end.line = buf.eof_line();
+	end.offset = 0;
+	check(buf.replace_raw(begin, end, "", 0, NULL));
+	check(buf.line_count_i() == 1);
+	check(buf.line(1).byte_len() == 3);
+	check(memcmp(ptr(buf.line(1).data), "hel", 3) == 0);
+	buf.free();
+}
+
+static void test_delete_blanks_range_to_next() {
+	Buffer *buf = buffer_new();
+	Location begin = {0};
+	Location end = {0};
+	Location g0 = {0};
+	Location ge = {0};
+	const char *src = "a\n\n\nb";
+	check(buf != NULL);
+	begin.line = 1;
+	check(buf.insert_text(begin, src, strlen(src), NULL));
+	check(buf.line_count_i() == 4);
+	begin.line = 2;
+	begin.offset = 0;
+	end.line = 4;
+	end.offset = 0;
+	check(buf.replace_raw(begin, end, "", 0, NULL));
+	check(buf.line_count_i() == 2);
+	g0.line = 1;
+	ge.line = buf.eof_line();
+	{
+		auto (text, n, ok) = buf.get_text(g0, ge);
+		check(ok);
+		check(n == 3);
+		check(memcmp(text, "a\nb", 3) == 0);
+		free(text);
+	}
+	buf.free();
+}
+
+static void test_get_text_eof_no_trailing_nl() {
+	Buffer *buf = buffer_new();
+	Location begin = {0};
+	Location g0 = {0};
+	Location ge = {0};
+	const char *src = "one\ntwo";
+	check(buf != NULL);
+	begin.line = 1;
+	check(buf.insert_text(begin, src, strlen(src), NULL));
+	g0.line = 1;
+	ge.line = buf.eof_line();
+	{
+		auto (text, n, ok) = buf.get_text(g0, ge);
+		check(ok);
+		check(n == strlen(src));
+		check(memcmp(text, src, n) == 0);
+		free(text);
+	}
+	buf.free();
+}
+
 int main() {
 	test_multiline_insert_undo();
 	test_large_undo_group();
 	test_edit_invalidates_following_syntax();
+	test_delete_to_eof();
+	test_delete_blanks_range_to_next();
+	test_get_text_eof_no_trailing_nl();
 	return 0;
 }

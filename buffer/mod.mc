@@ -716,17 +716,25 @@ static bool make_line(Line *out, Buffer *buf, const char[..] data) {
 }
 
 bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_text, size_t new_len, Location *new_end_out) {
-	Line *bline = {0};
-	Line *eline = {0};
-	char[..] rebuilt = {0};
+	/* jem.go Buffer.ReplaceRaw — EOF is virtual line eof_line() (line_count+1). */
+	bool begin_is_eof = false;
+	bool end_is_eof = false;
+	int eof = 0;
+	int nlines = 0;
+	int end_real = 0;
+	size_t keep_before = 0;
+	size_t keep_after = 0;
+	size_t prefix_len = 0;
+	size_t suffix_len = 0;
 	size_t i = 0;
 	size_t part_start = 0;
 	size_t n_parts = 0;
 	size_t new_line_count = 0;
-	size_t keep_before = 0;
-	size_t keep_after = 0;
-	Line *new_lines = {0};
 	size_t out = 0;
+	char[..] rebuilt = {0};
+	Line *bline = {0};
+	Line *eline = {0};
+	Line *new_lines = {0};
 	Location new_end = {0};
 	const char *insert = {0};
 	size_t insert_len = 0;
@@ -735,6 +743,8 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		return false;
 	}
 	buf.ensure_min_lines();
+	nlines = (int)len(buf.lines);
+	eof = buf.eof_line();
 	if (begin.line < 1) {
 		begin.line = 1;
 		begin.offset = 0;
@@ -742,13 +752,24 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	if (end.line < begin.line || (end.line == begin.line && end.offset < begin.offset)) {
 		return false;
 	}
-	if (begin.line > (int)len(buf.lines)) {
-		begin.line = (int)len(buf.lines);
-		begin.offset = buf.lines[len(buf.lines) - 1].byte_len();
+	/* Clamp past-EOF to EOF; do not collapse EOF to last-line end. */
+	if (begin.line > eof) {
+		begin.line = eof;
+		begin.offset = 0;
 	}
-	if (end.line > (int)len(buf.lines)) {
-		end.line = (int)len(buf.lines);
-		end.offset = buf.lines[len(buf.lines) - 1].byte_len();
+	if (end.line > eof) {
+		end.line = eof;
+		end.offset = 0;
+	}
+	begin_is_eof = begin.line == eof;
+	end_is_eof = end.line == eof;
+	end_real = end_is_eof ? nlines : end.line;
+
+	if (begin.line == end.line && begin.offset == end.offset && (new_text == NULL || new_len == 0)) {
+		if (new_end_out != NULL) {
+			*new_end_out = begin;
+		}
+		return true;
 	}
 
 	insert = new_text;
@@ -757,26 +778,45 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	}
 	insert_len = new_len;
 
-	bline = buf.line(begin.line);
-	eline = buf.line(end.line);
-	if (bline == NULL || eline == NULL) {
-		return false;
+	if (!begin_is_eof) {
+		bline = buf.line(begin.line);
+		if (bline == NULL) {
+			return false;
+		}
+		if (begin.offset > bline.byte_len()) {
+			begin.offset = bline.byte_len();
+		}
+		prefix_len = begin.offset;
 	}
-	if (begin.offset > bline.byte_len()) {
-		begin.offset = bline.byte_len();
-	}
-	if (end.offset > eline.byte_len()) {
-		end.offset = eline.byte_len();
+	if (!end_is_eof) {
+		eline = buf.line(end.line);
+		if (eline == NULL) {
+			return false;
+		}
+		if (end.offset > eline.byte_len()) {
+			end.offset = eline.byte_len();
+		}
+		suffix_len = eline.byte_len() - end.offset;
 	}
 
-	if (!str_append(&rebuilt, bline.data[..begin.offset]) ||
-		!str_append(&rebuilt, ranged(insert, insert_len)) ||
-		!str_append(&rebuilt, eline.data[end.offset..])) {
+	/* Build middle text: prefix + insert + suffix (jem.go merge path). */
+	if (!begin_is_eof) {
+		if (!str_append(&rebuilt, bline.data[..prefix_len])) {
+			str_free(&rebuilt);
+			return false;
+		}
+	}
+	if (!str_append(&rebuilt, ranged(insert, insert_len))) {
 		str_free(&rebuilt);
 		return false;
 	}
+	if (!end_is_eof && suffix_len > 0) {
+		if (!str_append(&rebuilt, eline.data[end.offset..])) {
+			str_free(&rebuilt);
+			return false;
+		}
+	}
 
-	/* count newline-separated parts */
 	n_parts = 1;
 	for (auto c : rebuilt) {
 		if (c == '\n') {
@@ -784,8 +824,12 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		}
 	}
 
-	keep_before = begin.line - 1;
-	keep_after = len(buf.lines) - (size_t)end.line;
+	keep_before = begin_is_eof ? (size_t)nlines : (size_t)(begin.line - 1);
+	if (end_is_eof) {
+		keep_after = 0;
+	} else {
+		keep_after = nlines - end.line;
+	}
 	new_line_count = keep_before + n_parts + keep_after;
 	new_lines = calloc(new_line_count, sizeof(Line));
 	if (new_lines == NULL) {
@@ -797,8 +841,7 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	out = keep_before;
 	for (i = 0; i <= len(rebuilt); i++) {
 		if (i == len(rebuilt) || rebuilt[i] == '\n') {
-			if (!make_line(&new_lines[out], buf,
-					rebuilt[part_start..i])) {
+			if (!make_line(&new_lines[out], buf, rebuilt[part_start..i])) {
 				size_t j = 0;
 				for (j = keep_before; j < out; j++) {
 					line_free(&new_lines[j]);
@@ -812,19 +855,17 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		}
 	}
 
-	/* fix new_end for multi-line inserts */
+	/* new_end at end of inserted text (jem.go: prefixLen+len(part0) or len(last part)). */
 	{
-		size_t nl = 0;
 		size_t last_start = 0;
 		for (i = 0; i < insert_len; i++) {
 			if (insert[i] == '\n') {
-				nl++;
 				last_start = i + 1;
 			}
 		}
-		new_end.line = begin.line + (int)nl;
-		if (nl == 0) {
-			new_end.offset = begin.offset + insert_len;
+		new_end.line = (int)keep_before + (int)n_parts;
+		if (n_parts == 1) {
+			new_end.offset = prefix_len + insert_len;
 		} else {
 			new_end.offset = insert_len - last_start;
 		}
@@ -835,29 +876,151 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		memset(&buf.lines[i], 0, sizeof(Line));
 	}
 	out = keep_before + n_parts;
-	for (i = end.line; i < len(buf.lines); i++) {
-		new_lines[out++] = buf.lines[i];
-		memset(&buf.lines[i], 0, sizeof(Line));
+	if (!end_is_eof) {
+		int li = end.line;
+		while (li < nlines) {
+			new_lines[out++] = buf.lines[li];
+			memset(&buf.lines[li], 0, sizeof(Line));
+			li++;
+		}
 	}
 	for (i = keep_before; i < new_line_count; i++) {
 		new_lines[i].invalidate();
 	}
 
-	/* free replaced lines */
-	for (i = keep_before; i < (size_t)end.line && i < len(buf.lines); i++) {
-		line_free(&buf.lines[i]);
+	/* Free replaced real lines [keep_before .. end_real). */
+	{
+		size_t free_end = end_is_eof ? (size_t)nlines : (size_t)end_real;
+		for (i = keep_before; i < free_end && i < len(buf.lines); i++) {
+			line_free(&buf.lines[i]);
+		}
 	}
 	free(ptr(buf.lines));
 	buf.lines = ranged(new_lines, new_line_count, new_line_count);
 	buf.serial++;
 	buf.mark_changed();
-
 	str_free(&rebuilt);
 
 	if (new_end_out != NULL) {
 		*new_end_out = new_end;
 	}
 	return true;
+}
+
+/* get_text returns malloc'd bytes between begin and end (jem.go GetText). EOF ok. */
+(char *, size_t, bool) (Buffer *buf).get_text(Location begin, Location end) {
+	bool end_is_eof = false;
+	int eof = 0;
+	int last_real = 0;
+	int ln = 0;
+	char *data = NULL;
+	size_t n = 0;
+	size_t cap_n = 0;
+
+	eof = buf.eof_line();
+	if (begin.line > end.line || (begin.line == end.line && begin.offset > end.offset)) {
+		Location t = begin;
+		begin = end;
+		end = t;
+	}
+	if (begin.line > eof) {
+		begin.line = eof;
+		begin.offset = 0;
+	}
+	if (end.line > eof) {
+		end.line = eof;
+		end.offset = 0;
+	}
+	end_is_eof = end.line == eof;
+	if (begin.line == end.line) {
+		Line *line = NULL;
+		size_t b = 0;
+		size_t e = 0;
+		if (begin.line == eof) {
+			return (NULL, 0, true);
+		}
+		line = buf.line(begin.line);
+		if (line == NULL) {
+			return (NULL, 0, false);
+		}
+		b = begin.offset;
+		if (b > line.byte_len()) {
+			b = line.byte_len();
+		}
+		e = end.offset;
+		if (e > line.byte_len()) {
+			e = line.byte_len();
+		}
+		if (e > b) {
+			n = e - b;
+			data = malloc(n + 1);
+			if (data == NULL) {
+				return (NULL, 0, false);
+			}
+			memcpy(data, ptr(line.data) + b, n);
+			data[n] = 0;
+			return (data, n, true);
+		}
+		return (NULL, 0, true);
+	}
+
+	if (end_is_eof) {
+		last_real = buf.line_count_i();
+	} else {
+		last_real = end.line;
+	}
+	/* Copy start line tail + interior + final segment (no trailing nl after last when EOF). */
+	for (ln = begin.line; ln <= last_real; ln++) {
+		Line *line = buf.line(ln);
+		size_t from = 0;
+		size_t to = 0;
+		size_t chunk = 0;
+		if (line == NULL) {
+			continue;
+		}
+		if (ln == begin.line) {
+			from = begin.offset;
+			if (from > line.byte_len()) {
+				from = line.byte_len();
+			}
+			to = line.byte_len();
+		} else if (ln == last_real && !end_is_eof) {
+			from = 0;
+			to = end.offset;
+			if (to > line.byte_len()) {
+				to = line.byte_len();
+			}
+		} else {
+			from = 0;
+			to = line.byte_len();
+		}
+		chunk = to > from ? to - from : 0;
+		if (n + chunk + 2 > cap_n) {
+			size_t ncap = cap_n != 0 ? cap_n * 2 : 256;
+			char *p = NULL;
+			while (ncap < n + chunk + 2) {
+				ncap *= 2;
+			}
+			p = realloc(data, ncap);
+			if (p == NULL) {
+				free(data);
+				return (NULL, 0, false);
+			}
+			data = p;
+			cap_n = ncap;
+		}
+		if (ln > begin.line) {
+			data[n++] = '\n';
+		}
+		if (chunk > 0) {
+			memcpy(data + n, ptr(line.data) + from, chunk);
+			n += chunk;
+		}
+	}
+	if (data != NULL) {
+		data[n] = 0;
+	}
+	return (data, n, true);
 }
 
 bool (Buffer *buf).insert_text(Location at, const char *text, size_t n, Location *new_end_out) {

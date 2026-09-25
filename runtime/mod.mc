@@ -48,7 +48,8 @@ enum ListenerKind {
 	ListenerCtlx = 6,
 	ListenerMx = 7, /* fuzzy command palette (M-x) */
 	ListenerUseBuffer = 8,
-	ListenerTagPicker = 9
+	ListenerTagPicker = 9,
+	ListenerQuote = 10 /* C-q: insert next key literally */
 };
 
 enum AskStringKind {
@@ -199,7 +200,7 @@ static CommandFn find_bind(uint32_t key) {
 	return NULL;
 }
 
-static void push_listener(ListenerKind kind) {
+void push_listener(ListenerKind kind) {
 	Listener *L = {0};
 	if (g_app.listener_top >= 8) {
 		return;
@@ -209,13 +210,13 @@ static void push_listener(ListenerKind kind) {
 	L.kind = kind;
 }
 
-static void pop_listener() {
+void pop_listener() {
 	if (g_app.listener_top > 0) {
 		g_app.listener_top--;
 	}
 }
 
-static Listener *top_listener() {
+Listener *top_listener() {
 	if (g_app.listener_top == 0) {
 		return NULL;
 	}
@@ -484,13 +485,12 @@ bool cmd_open_line(bool f, int n) {
 	return cmd_backward_char(false, n);
 }
 
-static char *region_text(Window *w, Location a, Location b, size_t *out_n) {
+char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 	Location begin = a;
 	Location end = b;
-	char *data = {0};
+	char *data = NULL;
 	size_t n = 0;
 	bool ok = false;
-	Buffer *tmp = {0};
 	if (w == NULL || w.buffer == NULL) {
 		return NULL;
 	}
@@ -499,52 +499,24 @@ static char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 		begin = end;
 		end = t;
 	}
-	{
-		int line = begin.line;
-		size_t cap = 0;
-		while (line <= end.line) {
-			Line *ln = w.buffer.line(line);
-			size_t from = line == begin.line ? begin.offset : 0;
-			size_t to = 0;
-			size_t chunk = 0;
-			if (line == end.line) {
-				to = end.offset;
-			} else if (ln != NULL) {
-				to = ln.byte_len();
-			}
-			chunk = to > from ? to - from : 0;
-			if (n + chunk + 2 > cap) {
-				size_t ncap = cap != 0 ? cap * 2 : 256;
-				char *p = {0};
-				while (ncap < n + chunk + 2) {
-					ncap *= 2;
-				}
-				p = realloc(data, ncap);
-				if (p == NULL) {
-					free(data);
-					return NULL;
-				}
-				data = p;
-				cap = ncap;
-			}
-			if (chunk > 0 && ln != NULL) {
-				memcpy(data + n, ptr(ln.data) + from, chunk);
-				n += chunk;
-			}
-			if (line < end.line) {
-				data[n++] = '\n';
-			}
-			line++;
-		}
-		if (data != NULL) {
-			data[n] = 0;
-		}
+	auto (got, got_n, got_ok) = w.buffer.get_text(begin, end);
+	ok = got_ok;
+	data = got;
+	n = got_n;
+	if (!ok) {
+		return NULL;
 	}
 	if (out_n != NULL) {
 		*out_n = n;
 	}
-	(void)tmp;
-	(void)ok;
+	/* Empty range: get_text may return NULL with ok; callers treat as empty. */
+	if (data == NULL && n == 0) {
+		data = malloc(1);
+		if (data == NULL) {
+			return NULL;
+		}
+		data[0] = 0;
+	}
 	return data;
 }
 
@@ -2045,6 +2017,20 @@ static void init_commands() {
 	reg_cmd("trim-whitespace", cmd_trim_whitespace);
 	reg_cmd("comment-dwim", mode_comment_dwim);
 	reg_cmd("fill-paragraph", mode_fill_paragraph);
+	reg_cmd("quoted-insert", cmd_quote);
+	reg_cmd("delete-blank-lines", cmd_delete_blank_lines);
+	reg_cmd("transpose-lines", cmd_transpose_lines);
+	reg_cmd("downcase-region", cmd_lower_region);
+	reg_cmd("upcase-region", cmd_upper_region);
+	reg_cmd("sort-region", cmd_sort_region);
+	reg_cmd("camel-case", cmd_camel_case);
+	reg_cmd("pascal-case", cmd_pascal_case);
+	reg_cmd("snake-case", cmd_snake_case);
+	reg_cmd("constant-case", cmd_constant_case);
+	reg_cmd("mouse-left", cmd_mouse_left);
+	reg_cmd("mouse-drag", cmd_mouse_drag);
+	reg_cmd("mouse-wheel-up", cmd_mouse_wheel_up);
+	reg_cmd("mouse-wheel-down", cmd_mouse_wheel_down);
 	reg_cmd("recenter", cmd_refresh);
 	reg_cmd("save-buffer", cmd_save_buffer);
 	reg_cmd("find-file", cmd_find_file);
@@ -2132,6 +2118,11 @@ static void init_commands() {
 	bind_key(term_key_value(TermMETA) | (uint32_t)'\\', cmd_trim_whitespace);
 	bind_key(term_key_value(TermMETA) | (uint32_t)';', mode_comment_dwim);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'Q', mode_fill_paragraph);
+	bind_key(term_key_value(TermCTL) | (uint32_t)'Q', cmd_quote);
+	bind_key(term_key_value(TermMouseLeft), cmd_mouse_left);
+	bind_key(term_key_value(TermMouseDrag), cmd_mouse_drag);
+	bind_key(term_key_value(TermMouseWheelUp), cmd_mouse_wheel_up);
+	bind_key(term_key_value(TermMouseWheelDown), cmd_mouse_wheel_down);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'L', cmd_refresh);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_forward);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_backward);
@@ -2190,6 +2181,14 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			return true;
 		}
+	}
+	if (L.kind == ListenerQuote) {
+		int n = L.universal_n;
+		pop_listener();
+		if (n < 1) {
+			n = 1;
+		}
+		return cmd_quote_handle_key(key, n);
 	}
 	if (L.kind == ListenerIsearch) {
 		char isearch_label[32] = {0};
@@ -2692,6 +2691,22 @@ static bool handle_listener_key(uint32_t key) {
 		if (key == (uint32_t)'t' || key == (uint32_t)'T') {
 			return execute(cmd_toggle_theme, f, n);
 		}
+		/* C-x C-o — delete blank lines */
+		if (key == (term_key_value(TermCTL) | (uint32_t)'O') || key == (term_key_value(TermCTL) | (uint32_t)'o')) {
+			return execute(cmd_delete_blank_lines, f, n);
+		}
+		/* C-x C-t — transpose lines */
+		if (key == (term_key_value(TermCTL) | (uint32_t)'T') || key == (term_key_value(TermCTL) | (uint32_t)'t')) {
+			return execute(cmd_transpose_lines, f, n);
+		}
+		/* C-x C-u — upcase region */
+		if (key == (term_key_value(TermCTL) | (uint32_t)'U') || key == (term_key_value(TermCTL) | (uint32_t)'u')) {
+			return execute(cmd_upper_region, f, n);
+		}
+		/* C-x C-l — downcase region */
+		if (key == (term_key_value(TermCTL) | (uint32_t)'L') || key == (term_key_value(TermCTL) | (uint32_t)'l')) {
+			return execute(cmd_lower_region, f, n);
+		}
 		/* C-x C-x — exchange point and mark */
 		if (key == (term_key_value(TermCTL) | (uint32_t)'X') || key == (term_key_value(TermCTL) | (uint32_t)'x')) {
 			return execute(cmd_exchange_point_and_mark, f, n);
@@ -2757,53 +2772,6 @@ static bool handle_key(uint32_t key) {
 	if (key >= 32 && (key & term_key_value(TermKeyMask)) == 0 && key < 0x10000000) {
 		g_pending_insert = key;
 		return execute(cmd_insert_pending, false, 1);
-	}
-	if (key == term_key_value(TermMouseWheelUp)) {
-		return execute(cmd_prev_line, false, 3);
-	}
-	if (key == term_key_value(TermMouseWheelDown)) {
-		return execute(cmd_next_line, false, 3);
-	}
-	if (key == term_key_value(TermMouseLeft)) {
-		Window *w = window_current();
-		int row = term_mouse_row();
-		int col = term_mouse_col();
-		if (w != NULL && w.buffer != NULL && row >= w.screen_top_row && row < w.screen_top_row + w.height) {
-			int nlines = w.buffer.line_count_i();
-			int pad = window_content_row_offset(w);
-			int gutter = window_gutter_width(w);
-			int row_in = row - w.screen_top_row - pad;
-			int bline = 0;
-			int text_col = 0;
-			Line *line = {0};
-			Location loc = {0};
-			if (row_in < 0) {
-				row_in = 0;
-			}
-			bline = w.top_line + row_in;
-			if (bline < 1) {
-				bline = 1;
-			}
-			if (nlines < 1) {
-				nlines = 1;
-			}
-			if (bline > nlines) {
-				bline = nlines;
-			}
-			text_col = col - gutter + w.h_scroll;
-			if (text_col < 0) {
-				text_col = 0;
-			}
-			line = w.buffer.line(bline);
-			loc.line = bline;
-			loc.offset = line != NULL ? line.offset_at_display_col(text_col) : 0;
-			w.set_cursor(loc);
-			w.mark.line = 0;
-			w.mark.offset = 0;
-			w.should_redraw = true;
-			w.should_update_mode_line = true;
-		}
-		return true;
 	}
 	return true;
 }
