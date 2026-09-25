@@ -1058,8 +1058,34 @@ void display_set_echo(const char[..] msg) {
 	(void)snprintf(g_echo, sizeof(g_echo), "%s", msg);
 }
 
+const char *display_echo_text() {
+	return g_echo;
+}
+
 uint64_t display_echo_generation() {
 	return g_echo_generation;
+}
+
+// display_window_cursor_screen_col is the display column of the cursor in win (jem.go WindowCursorScreenCol).
+int display_window_cursor_screen_col(Window *win) {
+	Line *line = NULL;
+	if (win == NULL || win.buffer == NULL) {
+		return 0;
+	}
+	line = win.buffer.line(win.cursor.line);
+	if (line == NULL) {
+		return 0;
+	}
+	return (int)line.display_col_at_offset(win.cursor.offset);
+}
+
+// display_cursor_row is the 0-based screen row of the current window's cursor.
+int display_cursor_row() {
+	Window *cur = window_current();
+	if (cur == NULL || cur.buffer == NULL) {
+		return 0;
+	}
+	return cur.screen_top_row + content_row_offset(cur) + (cur.cursor.line - cur.top_line);
 }
 
 void display_invalidate() {

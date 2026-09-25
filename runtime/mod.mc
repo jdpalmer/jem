@@ -49,7 +49,9 @@ enum ListenerKind {
 	ListenerMx = 7, /* fuzzy command palette (M-x) */
 	ListenerUseBuffer = 8,
 	ListenerTagPicker = 9,
-	ListenerQuote = 10 /* C-q: insert next key literally */
+	ListenerQuote = 10, /* C-q: insert next key literally */
+	ListenerAskChoose = 11, /* horizontal LF/CRLF (etc.) choose */
+	ListenerKillBuffer = 12 /* fuzzy kill-buffer */
 };
 
 enum AskStringKind {
@@ -66,7 +68,8 @@ enum AskStringKind {
 
 enum AskYesNoKind {
 	AskYesQuit = 0,
-	AskYesRevert = 1
+	AskYesRevert = 1,
+	AskYesKillBuffer = 2
 };
 
 struct Listener {
@@ -2047,6 +2050,10 @@ static void init_commands() {
 	reg_cmd("describe-symbol", cmd_describe_symbol);
 	reg_cmd("switch-to-buffer", cmd_use_buffer);
 	reg_cmd("kill-buffer", cmd_kill_buffer);
+	reg_cmd("kill-buffer-fuzzy", cmd_kill_buffer_fuzzy);
+	reg_cmd("insert-date", cmd_insert_date);
+	reg_cmd("show-position", cmd_show_position);
+	reg_cmd("set-eol-mode", cmd_set_eol_mode);
 	reg_cmd("split-window", cmd_split_window);
 	reg_cmd("delete-other-windows", cmd_delete_other_windows);
 	reg_cmd("delete-window", cmd_delete_window);
@@ -2123,6 +2130,8 @@ static void init_commands() {
 	bind_key(term_key_value(TermMouseDrag), cmd_mouse_drag);
 	bind_key(term_key_value(TermMouseWheelUp), cmd_mouse_wheel_up);
 	bind_key(term_key_value(TermMouseWheelDown), cmd_mouse_wheel_down);
+	bind_key(term_key_value(TermCTLX) | (uint32_t)'D', cmd_insert_date);
+	bind_key(term_key_value(TermCTLX) | (uint32_t)'=', cmd_show_position);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'L', cmd_refresh);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'S', cmd_isearch_forward);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'R', cmd_isearch_backward);
@@ -2189,6 +2198,9 @@ static bool handle_listener_key(uint32_t key) {
 			n = 1;
 		}
 		return cmd_quote_handle_key(key, n);
+	}
+	if (L.kind == ListenerAskChoose) {
+		return cmd_choose_handle_key(key);
 	}
 	if (L.kind == ListenerIsearch) {
 		char isearch_label[32] = {0};
@@ -2308,6 +2320,16 @@ static bool handle_listener_key(uint32_t key) {
 		display_set_echo("Quit");
 		return true;
 	}
+	if (L.kind == ListenerKillBuffer) {
+		FuzzyKeyResult fr = fuzzy_buffer_handle_key(key);
+		if (fr == FuzzyContinue) {
+			return true;
+		}
+		if (fr == FuzzyAccept) {
+			return cmd_kill_buffer_fuzzy_on_accept();
+		}
+		return cmd_kill_buffer_fuzzy_on_abort();
+	}
 	if (L.kind == ListenerMx) {
 		FuzzyKeyResult fr = fuzzy_command_handle_key(key);
 		char picked[64] = {0};
@@ -2381,6 +2403,10 @@ static bool handle_listener_key(uint32_t key) {
 					}
 					return true;
 				}
+				if (phase == (int)AskYesKillBuffer) {
+					misc_kill_pending_yes();
+					return true;
+				}
 				return true;
 			}
 			if (key == 'n' || key == 'N') {
@@ -2388,6 +2414,8 @@ static bool handle_listener_key(uint32_t key) {
 				pop_listener();
 				if (phase == (int)AskYesRevert) {
 					display_set_echo("[not reverted]");
+				} else if (phase == (int)AskYesKillBuffer) {
+					misc_kill_pending_no();
 				} else {
 					display_set_echo("");
 				}
@@ -2660,6 +2688,12 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (key == (term_key_value(TermCTL) | (uint32_t)'K') || key == (uint32_t)'k') {
 			return execute(cmd_kill_buffer, f, n);
+		}
+		if (key == (uint32_t)'D' || key == (uint32_t)'d') {
+			return execute(cmd_insert_date, f, n);
+		}
+		if (key == (uint32_t)'=') {
+			return execute(cmd_show_position, f, n);
 		}
 		if (key == (uint32_t)'b' || key == (uint32_t)'B' || key == (term_key_value(TermCTL) | (uint32_t)'B')) {
 			return execute(cmd_use_buffer, f, n);

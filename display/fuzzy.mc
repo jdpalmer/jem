@@ -240,7 +240,7 @@ static void fuzzy_clamp_sel() {
 	}
 }
 
-void fuzzy_buffer_open() {
+void fuzzy_buffer_open_with_prompt(const char[..] prompt) {
 	Buffer *list[FuzzyMaxBuffers] = {0};
 	int n = 0;
 	size_t i = 0;
@@ -284,8 +284,12 @@ void fuzzy_buffer_open() {
 		initial_sel = g_fb_match_count - 1;
 	}
 	g_fb_sel = initial_sel;
-	minibuffer_begin("Switch buffer: ", 0);
+	minibuffer_begin(prompt, 0);
 	fuzzy_refresh_match_window();
+}
+
+void fuzzy_buffer_open() {
+	fuzzy_buffer_open_with_prompt("Switch buffer: ");
 }
 
 void fuzzy_buffer_close() {
