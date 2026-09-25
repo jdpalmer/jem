@@ -164,7 +164,8 @@ static int cmdpick_find_name(const char *name) {
 	return 0;
 }
 
-void fuzzy_command_open(const char **names, const char **binds, int count, const char *initial_name) {
+void fuzzy_command_open(const char **names, const char **binds, int count,
+	const char *prompt, const char *initial_name) {
 	int i = 0;
 	int j = 0;
 	int initial = 0;
@@ -227,7 +228,11 @@ void fuzzy_command_open(const char **names, const char **binds, int count, const
 			}
 		}
 	}
-	minibuffer_begin("→ ", 0);
+	if (prompt != NULL && prompt[0] != 0) {
+		minibuffer_begin(str_from_cstr(prompt), 0);
+	} else {
+		minibuffer_begin("→ ", 0);
+	}
 	cmdpick_refresh();
 }
 

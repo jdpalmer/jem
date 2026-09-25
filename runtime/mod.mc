@@ -31,6 +31,7 @@ typedef bool (*CommandFn)(bool f, int n);
 struct Command {
 	const char[..] name;
 	CommandFn fn;
+	const char[..] doc;
 };
 
 struct KeyBind {
@@ -51,7 +52,9 @@ enum ListenerKind {
 	ListenerTagPicker = 9,
 	ListenerQuote = 10, /* C-q: insert next key literally */
 	ListenerAskChoose = 11, /* horizontal LF/CRLF (etc.) choose */
-	ListenerKillBuffer = 12 /* fuzzy kill-buffer */
+	ListenerKillBuffer = 12, /* fuzzy kill-buffer */
+	ListenerDescribeCommand = 13,
+	ListenerVarFuzzy = 14 /* set/describe variable name pick */
 };
 
 enum AskStringKind {
@@ -63,13 +66,19 @@ enum AskStringKind {
 	AskCompile = 5,
 	AskGotoTag = 6,
 	AskCopyRegister = 7,
-	AskInsertRegister = 8
+	AskInsertRegister = 8,
+	AskSetVariableValue = 9
 };
 
 enum AskYesNoKind {
 	AskYesQuit = 0,
 	AskYesRevert = 1,
 	AskYesKillBuffer = 2
+};
+
+enum VarFuzzyKind {
+	VarFuzzySet = 0,
+	VarFuzzyDescribe = 1
 };
 
 struct Listener {
@@ -91,15 +100,18 @@ struct App {
 	Event macro_tape[256];
 	int macro_len;
 	int macro_pos;
-	/* config */
+	/* config / editor variables */
 	bool auto_indent;
+	int fill_col;
+	IndentConfig indent;
+	bool whitespace_cleanup;
 };
 
-static App g_app;
+App g_app;
 static KeyBind g_binds[128];
 static int g_bind_count;
-static Command g_cmds[128];
-static int g_cmd_count;
+Command g_cmds[128];
+int g_cmd_count;
 static bool g_escape_pending;
 
 /* Map raw bytes to editor keys (jem.go/display.DecodeKeyChar). */
@@ -177,20 +189,39 @@ static void reg_cmd(const char[..] name, CommandFn fn) {
 	}
 	g_cmds[g_cmd_count].name = name;
 	g_cmds[g_cmd_count].fn = fn;
+	g_cmds[g_cmd_count].doc = "";
 	g_cmd_count++;
 }
 
-static CommandFn find_cmd(const char *name) {
+static void reg_cmd_doc(const char[..] name, CommandFn fn, const char[..] doc) {
+	if (g_cmd_count >= 128) {
+		return;
+	}
+	g_cmds[g_cmd_count].name = name;
+	g_cmds[g_cmd_count].fn = fn;
+	g_cmds[g_cmd_count].doc = doc;
+	g_cmd_count++;
+}
+
+Command *find_cmd_entry(const char *name) {
 	int i = 0;
 	if (name == NULL) {
 		return NULL;
 	}
 	for (i = 0; i < g_cmd_count; i++) {
 		if (str_eq(g_cmds[i].name, str_from_cstr(name))) {
-			return g_cmds[i].fn;
+			return &g_cmds[i];
 		}
 	}
 	return NULL;
+}
+
+static CommandFn find_cmd(const char *name) {
+	Command *c = find_cmd_entry(name);
+	if (c == NULL) {
+		return NULL;
+	}
+	return c.fn;
 }
 
 static CommandFn find_bind(uint32_t key) {
@@ -1937,7 +1968,7 @@ static bool key_is_mouse(uint32_t code) {
 	return base >= term_key_value(TermMouseLeft) && base <= term_key_value(TermMouseDrag);
 }
 
-static void command_bind_label(CommandFn fn, char *out, size_t cap) {
+void command_bind_label(CommandFn fn, char *out, size_t cap) {
 	int i = 0;
 	out[0] = 0;
 	if (fn == NULL) {
@@ -1973,7 +2004,7 @@ bool cmd_execute_extended(bool f, int n) {
 		binds[i] = binds_store[i];
 	}
 	push_listener(ListenerMx);
-	fuzzy_command_open(names, binds, ncmd, NULL);
+	fuzzy_command_open(names, binds, ncmd, "→ ", NULL);
 	return true;
 }
 
@@ -2060,6 +2091,9 @@ static void init_commands() {
 	reg_cmd("insert-date", cmd_insert_date);
 	reg_cmd("show-position", cmd_show_position);
 	reg_cmd("set-eol-mode", cmd_set_eol_mode);
+	reg_cmd_doc("set-variable", cmd_set_variable, "Set a named editor variable.");
+	reg_cmd_doc("describe-variable", cmd_describe_variable, "Show one variable value and description.");
+	reg_cmd_doc("describe-command", cmd_describe_command, "Show one command name and its description.");
 	reg_cmd("split-window", cmd_split_window);
 	reg_cmd("delete-other-windows", cmd_delete_other_windows);
 	reg_cmd("delete-window", cmd_delete_window);
@@ -2369,6 +2403,26 @@ static bool handle_listener_key(uint32_t key) {
 		display_set_echo("Quit");
 		return true;
 	}
+	if (L.kind == ListenerDescribeCommand) {
+		FuzzyKeyResult fr = fuzzy_command_handle_key(key);
+		if (fr == FuzzyContinue) {
+			return true;
+		}
+		if (fr == FuzzyAccept) {
+			return cmd_describe_command_on_accept();
+		}
+		return cmd_describe_command_on_abort();
+	}
+	if (L.kind == ListenerVarFuzzy) {
+		FuzzyKeyResult fr = fuzzy_command_handle_key(key);
+		if (fr == FuzzyContinue) {
+			return true;
+		}
+		if (fr == FuzzyAccept) {
+			return cmd_var_fuzzy_on_accept();
+		}
+		return cmd_var_fuzzy_on_abort();
+	}
 	if (L.kind == ListenerAskString || L.kind == ListenerAskYesNo || L.kind == ListenerReplace) {
 		if (key == 27 || key == (term_key_value(TermCTL) | (uint32_t)'G')) {
 			minibuffer_cancel();
@@ -2437,12 +2491,14 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (key == term_key_value(TermKeyEnter)) {
 			char text_copy[1024] = {0};
+			char ask_copy[512] = {0};
 			char *raw = minibuffer_text();
 			ListenerKind kind = L.kind;
 			int phase = L.ask_phase;
 			if (raw != NULL) {
 				snprintf(text_copy, sizeof(text_copy), "%s", raw);
 			}
+			snprintf(ask_copy, sizeof(ask_copy), "%s", L.ask_buf);
 			minibuffer_cancel();
 			pop_listener();
 			if (kind == ListenerAskString) {
@@ -2529,6 +2585,10 @@ static bool handle_listener_key(uint32_t key) {
 						return true;
 					}
 					goto_line_number(line);
+					return true;
+				}
+				if (phase == (int)AskSetVariableValue) {
+					(void)cmd_set_variable_value_from_text(ask_copy, text_copy);
 					return true;
 				}
 				if (phase == (int)AskCopyRegister) {
@@ -2892,7 +2952,7 @@ void runtime_run(int argc, char **argv) {
 	int i = 0;
 	memset(&g_app, 0, sizeof(g_app));
 	g_app.running = true;
-	g_app.auto_indent = true;
+	vars_init();
 
 	buffer_list_init();
 	window_init();

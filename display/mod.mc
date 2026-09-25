@@ -1107,6 +1107,21 @@ void display_toggle_theme() {
 	display_invalidate();
 }
 
+// display_theme_mode returns 0 dark, 1 light (jem.go ThemeMode).
+int display_theme_mode() {
+	return g_theme_light ? 1 : 0;
+}
+
+void display_set_theme_mode(int mode) {
+	bool light = mode != 0;
+	if (g_theme_light == light) {
+		return;
+	}
+	g_theme_light = light;
+	g_have_style = false;
+	display_invalidate();
+}
+
 void display_update() {
 	size_t wi = 0;
 	Window *cur = window_current();
