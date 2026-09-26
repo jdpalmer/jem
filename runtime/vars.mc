@@ -466,6 +466,31 @@ bool vars_set_named(const char *name, int value) {
 	return var_storage_write(v, buffer_current(), value, !v.local);
 }
 
+// vars_set_named_text parses a decimal/hex text value into a named variable.
+bool vars_set_named_text(const char *name, const char *text) {
+	EditorVar *v = NULL;
+	int parsed = 0;
+	if (g_var_count == 0) {
+		vars_init();
+	}
+	v = var_find(name);
+	if (v == NULL) {
+		return false;
+	}
+	if (!parse_numeric_text(text, &parsed)) {
+		return false;
+	}
+	return var_storage_write(v, buffer_current(), parsed, !v.local);
+}
+
+// vars_known reports whether name is a registered editor variable.
+bool vars_known(const char *name) {
+	if (g_var_count == 0) {
+		vars_init();
+	}
+	return var_find(name) != NULL;
+}
+
 int vars_get_named(const char *name) {
 	EditorVar *v = NULL;
 	if (g_var_count == 0) {

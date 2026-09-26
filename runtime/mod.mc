@@ -212,11 +212,42 @@ static void reg_cmd_doc(const char[..] name, CommandFn fn, const char[..] doc) {
 
 Command *find_cmd_entry(const char *name) {
 	int i = 0;
+	char want[128] = {0};
+	size_t wi = 0;
+	size_t ni = 0;
 	if (name == NULL) {
 		return NULL;
 	}
+	/* Normalize: lower-case, '_' → '-' so Go-style names also match. */
+	for (ni = 0; name[ni] != 0 && wi + 1 < sizeof(want); ni++) {
+		char c = name[ni];
+		if (c >= 'A' && c <= 'Z') {
+			c = (char)(c + ('a' - 'A'));
+		} else if (c == '_') {
+			c = '-';
+		}
+		want[wi++] = c;
+	}
+	want[wi] = 0;
 	for (i = 0; i < g_cmd_count; i++) {
-		if (str_eq(g_cmds[i].name, str_from_cstr(name))) {
+		char have[128] = {0};
+		size_t j = 0;
+		size_t n = len(g_cmds[i].name);
+		const char *p = ptr(g_cmds[i].name);
+		if (p == NULL) {
+			continue;
+		}
+		for (j = 0; j < n && j + 1 < sizeof(have); j++) {
+			char c = p[j];
+			if (c >= 'A' && c <= 'Z') {
+				c = (char)(c + ('a' - 'A'));
+			} else if (c == '_') {
+				c = '-';
+			}
+			have[j] = c;
+		}
+		have[j] = 0;
+		if (strcmp(have, want) == 0) {
 			return &g_cmds[i];
 		}
 	}
@@ -239,6 +270,37 @@ static CommandFn find_bind(uint32_t key) {
 		}
 	}
 	return NULL;
+}
+
+// runtime_rebind sets or clears a key binding (fn NULL unbinds).
+void runtime_rebind(uint32_t key, CommandFn fn) {
+	int i = 0;
+	for (i = 0; i < g_bind_count; i++) {
+		if (g_binds[i].key != key) {
+			continue;
+		}
+		if (fn == NULL) {
+			int j = 0;
+			for (j = i; j + 1 < g_bind_count; j++) {
+				g_binds[j] = g_binds[j + 1];
+			}
+			g_bind_count--;
+			return;
+		}
+		g_binds[i].fn = fn;
+		return;
+	}
+	if (fn != NULL) {
+		bind_key(key, fn);
+	}
+}
+
+CommandFn runtime_find_cmd(const char *name) {
+	return find_cmd(name);
+}
+
+CommandFn runtime_find_bind(uint32_t key) {
+	return find_bind(key);
 }
 
 void push_listener(ListenerKind kind) {
@@ -2021,7 +2083,7 @@ bool cmd_execute_extended(bool f, int n) {
 	return true;
 }
 
-static void init_commands() {
+void init_commands() {
 	reg_cmd("forward-char", cmd_forward_char);
 	reg_cmd("backward-char", cmd_backward_char);
 	reg_cmd("next-line", cmd_next_line);
@@ -3032,28 +3094,6 @@ static bool handle_event(Event *e) {
 	default:
 		return true;
 	}
-}
-
-static void config_load() {
-	char path[512] = {0};
-	FILE *fp = {0};
-	char *home = getenv("HOME");
-	char line[256] = {0};
-	if (home == NULL) {
-		return;
-	}
-	snprintf(path, sizeof(path), "%s/.jem.json", home);
-	fp = fopen(path, "r");
-	if (fp == NULL) {
-		return;
-	}
-	/* minimal: look for "theme": "light" */
-	while (fgets(line, sizeof(line), fp) != NULL) {
-		if (strstr(line, "\"theme\"") != NULL && strstr(line, "light") != NULL) {
-			display_toggle_theme();
-		}
-	}
-	fclose(fp);
 }
 
 // runtime_run is the process entry after main.
