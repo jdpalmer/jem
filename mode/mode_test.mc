@@ -155,9 +155,37 @@ static void test_modc_mode_tabs() {
 	check(mode_detect("foo.mc") == LModeModC);
 	check(mode_detect("FOO.MC") == LModeModC);
 	check(mode_detect("foo.c") == LModeC);
+	check(mode_detect("foo.cpp") == LModeC);
+	check(mode_detect("foo.hpp") == LModeC);
 	check(strcmp(mode_display_name(LModeModC), "%C") == 0);
 	cfg = mode_indent_default(LModeModC);
 	check(cfg.width == 8);
+	check(cfg.use_tabs != 0);
+}
+
+static void test_c_indent_autodetect() {
+	Buffer *buf = NULL;
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf.load_bytes("int main(void) {\n    return 0;\n}\n",
+		strlen("int main(void) {\n    return 0;\n}\n"), EModeLF));
+	mode_apply_from_path(buf, "main.c");
+	check(buf.lang_mode == LModeC);
+	check(buf.indent.use_tabs == 0);
+	check(buf.indent.width == 4);
+
+	check(buf.load_bytes("int main(void) {\n\treturn 0;\n}\n",
+		strlen("int main(void) {\n\treturn 0;\n}\n"), EModeLF));
+	mode_apply_from_path(buf, "main.cc");
+	check(buf.lang_mode == LModeC);
+	check(buf.indent.use_tabs != 0);
+	check(buf.indent.width == 8);
+
+	check(buf.load_bytes("x\n  y\n    z\n", strlen("x\n  y\n    z\n"), EModeLF));
+	mode_apply_from_path(buf, "x.c");
+	check(buf.indent.use_tabs == 0);
+	check(buf.indent.width == 2);
 }
 
 static void test_goto_match() {
@@ -231,6 +259,7 @@ static void test_py_top_end_function() {
 int main() {
 	test_line_comment_prefix();
 	test_modc_mode_tabs();
+	test_c_indent_autodetect();
 	test_comment_dwim_line();
 	test_comment_dwim_python();
 	test_comment_dwim_unsupported();

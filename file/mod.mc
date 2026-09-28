@@ -418,6 +418,9 @@ bool file_save(Buffer *buf, char *path) {
 	want = str_from_cstr(path);
 	for (auto b : buffer_all) {
 		if (b != NULL && str_eq(want, b.file_name)) {
+			/* Re-apply language/indent defaults (e.g. .mc → tabs) in case the
+			 * buffer was opened under an older mode mapping. */
+			file_apply_path_meta(b, path);
 			buffer_set_current(b);
 			return (b, true);
 		}

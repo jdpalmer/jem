@@ -686,11 +686,16 @@ static int mode_calc_indent(Buffer *buf, int line_number) {
 	}
 	switch (buf.lang_mode) {
 	case LModeGo:
+	case LModeModC:
+		/* Always compute in 8-col tab steps so a stale indent-width of 2
+		 * cannot turn "tab mode" into two spaces. */
 		return calc_indent_go(buf, line_number);
 	case LModePython:
 		return calc_indent_py(buf, line_number);
 	case LModeC:
-	case LModeModC:
+		if (buf.indent.use_tabs != 0) {
+			return calc_indent_go(buf, line_number);
+		}
 		return calc_indent_c(buf, line_number);
 	default:
 		return -1;
@@ -802,15 +807,21 @@ static bool set_line_indent_tabs(Window *win, int col) {
 	return replace_leading(win, prefix, n);
 }
 
-static bool mode_uses_tab_indent(LangMode lang) {
-	return lang == LModeGo || lang == LModeModC;
+static bool mode_uses_tab_indent(Buffer *buf) {
+	if (buf == NULL) {
+		return false;
+	}
+	if (buf.indent.use_tabs != 0) {
+		return true;
+	}
+	return buf.lang_mode == LModeGo || buf.lang_mode == LModeModC;
 }
 
 static bool set_line_indent_for_mode(Window *win, int col) {
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
-	if (mode_uses_tab_indent(win.buffer.lang_mode)) {
+	if (mode_uses_tab_indent(win.buffer)) {
 		return set_line_indent_tabs(win, col);
 	}
 	return set_line_indent_spaces(win, col);
@@ -1031,7 +1042,7 @@ bool mode_close_brace(bool f, int n) {
 		return true;
 	}
 	buffer_undo.begin_command(win.buffer, win.cursor);
-	if (mode_uses_tab_indent(win.buffer.lang_mode)) {
+	if (mode_uses_tab_indent(win.buffer)) {
 		if (!set_line_indent_tabs(win, 0)) {
 			buffer_undo.end_command();
 			return false;
@@ -1046,11 +1057,7 @@ bool mode_close_brace(bool f, int n) {
 			}
 			buffer_undo.record_edit(UndoInsert, at.line, at.offset, &ch, 1);
 		}
-		if (win.buffer.lang_mode == LModeGo) {
-			col = calc_indent_go(win.buffer, win.cursor.line);
-		} else {
-			col = calc_indent_c(win.buffer, win.cursor.line);
-		}
+		col = mode_calc_indent(win.buffer, win.cursor.line);
 		if (!set_line_indent_tabs(win, col)) {
 			buffer_undo.end_command();
 			return false;

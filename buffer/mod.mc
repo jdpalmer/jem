@@ -18,6 +18,7 @@ struct IndentConfig {
 	int brace;
 	int label;
 	int continued;
+	int use_tabs; /* nonzero: emit tabs (8-col steps) instead of spaces */
 };
 
 struct Location {
