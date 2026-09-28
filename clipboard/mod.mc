@@ -4,6 +4,7 @@
 import "fs";
 import "os";
 import "str";
+import "tty";
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,7 +17,8 @@ enum ClipboardProvider {
 	ClipboardMacOS = 1,
 	ClipboardWayland = 2,
 	ClipboardXclip = 3,
-	ClipboardXsel = 4
+	ClipboardXsel = 4,
+	ClipboardWin32 = 5
 };
 
 enum ClipboardLimits {
@@ -49,12 +51,16 @@ static bool clipboard_find_pair(ClipboardProvider provider,
 	return true;
 }
 
-// clipboard_init selects the first native provider available on PATH.
+// clipboard_init selects the first native provider available.
 bool clipboard_init() {
 	if (g_initialized) {
 		return g_provider != ClipboardNone;
 	}
 	g_initialized = true;
+#ifdef _WIN32
+	g_provider = ClipboardWin32;
+	return true;
+#else
 	if (clipboard_find_pair(ClipboardMacOS, "pbcopy", "pbpaste") ||
 		clipboard_find_pair(ClipboardWayland, "wl-copy", "wl-paste") ||
 		clipboard_find_pair(ClipboardXclip, "xclip", "xclip") ||
@@ -62,6 +68,7 @@ bool clipboard_init() {
 		return true;
 	}
 	return false;
+#endif
 }
 
 bool clipboard_native_ready() {
@@ -80,6 +87,8 @@ const char[..] clipboard_provider_name() {
 		return "xclip";
 	case ClipboardXsel:
 		return "xsel";
+	case ClipboardWin32:
+		return "win32";
 	default:
 		return "none";
 	}
@@ -128,6 +137,11 @@ static bool clipboard_write_native(const char[..] text) {
 	if (!clipboard_native_ready()) {
 		return false;
 	}
+#ifdef _WIN32
+	if (g_provider == ClipboardWin32) {
+		return clipboard_win32_write(ptr(text), len(text));
+	}
+#endif
 	nargs = clipboard_args(true, args);
 	cmd.init(str_from_cstr(g_write_path), args, nargs);
 	cmd.stdio(StdOut, IoNull);
@@ -160,6 +174,11 @@ static (char *, size_t, bool) clipboard_read_native() {
 	if (!clipboard_native_ready()) {
 		return (NULL, 0, false);
 	}
+#ifdef _WIN32
+	if (g_provider == ClipboardWin32) {
+		return clipboard_win32_read();
+	}
+#endif
 	nargs = clipboard_args(false, args);
 	cmd.init(str_from_cstr(g_read_path), args, nargs);
 	cmd.stdio(StdIn, IoNull);
@@ -237,10 +256,6 @@ static bool clipboard_write_osc52(const char[..] text) {
 	size_t i = 0;
 	size_t out = 0;
 	bool ok = false;
-#ifdef _WIN32
-	()text;
-	return false;
-#else
 	if (len(text) == 0) {
 		return true;
 	}
@@ -278,7 +293,7 @@ static bool clipboard_write_osc52(const char[..] text) {
 	}
 	encoded[out++] = '\a';
 	{
-		auto (file, wrapped) = file_from_fd_borrow(1);
+		auto (file, wrapped) = tty_stdout();
 		if (!wrapped) {
 			free(encoded);
 			return false;
@@ -289,7 +304,6 @@ static bool clipboard_write_osc52(const char[..] text) {
 	output.close();
 	free(encoded);
 	return ok;
-#endif
 }
 
 // clipboard_write prefers a native provider and falls back to OSC 52.

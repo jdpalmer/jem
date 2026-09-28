@@ -47,7 +47,7 @@ enum TermKeys {
 };
 
 enum TermBufLimits {
-	TermOutCap = 8192,
+	TermOutCap = 65536,
 	TermInCap = 4096
 };
 
@@ -100,6 +100,12 @@ static int term_write_out(const char *buf, size_t n) {
 }
 
 static bool term_wait_readable(int timeout_ms) {
+#ifdef _WIN32
+	if (!g_tty_std_ok) {
+		return false;
+	}
+	return tty_wait_readable(&g_fin, timeout_ms);
+#else
 	Poll pol = {
 		0 };
 	if (!g_tty_std_ok || file_fd(&g_fin) < 0) {
@@ -125,6 +131,7 @@ static bool term_wait_readable(int timeout_ms) {
 		pol.close();
 		return (rev & (PollIn | PollHup | PollErr)) != 0;
 	}
+#endif
 }
 
 static bool term_query_size(int *rows, int *cols) {
@@ -154,6 +161,12 @@ static void term_buf_flush() {
 	}
 	term_write_out(g_obuf, g_olen);
 	g_olen = 0;
+#ifdef _WIN32
+	/* Windows Terminal may reset console mode after ANSI writes. */
+	if (g_is_tty && g_tty_raw) {
+		tty_reapply_editor_mode(&g_fin);
+	}
+#endif
 }
 
 static void term_buf_write(const char *buf, size_t n) {
@@ -235,21 +248,23 @@ void term_emit_u32(uint32_t v) {
 }
 
 static void term_emit_csi(int first, bool has_second, int second, char final_b) {
-	char buf[16] = {0};
+	/* One WriteFile per CSI: Windows Console VT does not reassemble
+	 * escape sequences split across writes (shows garbage like "?2"). */
+	char seq[32] = {0};
 	int n = 0;
-	term_emit_cstr("\x1b[");
-	n = snprintf(buf, sizeof(buf), "%u", (unsigned)first);
-	if (n > 0) {
-		term_emit(buf, n);
-	}
 	if (has_second) {
-		term_emit_cstr(";");
-		n = snprintf(buf, sizeof(buf), "%u", (unsigned)second);
-		if (n > 0) {
-			term_emit(buf, n);
-		}
+		n = snprintf(seq, sizeof(seq), "\x1b[%u;%u%c",
+			(unsigned)first, (unsigned)second, final_b);
+	} else {
+		n = snprintf(seq, sizeof(seq), "\x1b[%u%c",
+			(unsigned)first, final_b);
 	}
-	term_emit(&final_b, 1);
+	if (n > 0) {
+		if (n >= (int)sizeof(seq)) {
+			n = (int)sizeof(seq) - 1;
+		}
+		term_emit(seq, n);
+	}
 }
 
 static bool term_fill_in(int timeout_ms) {
@@ -571,7 +586,22 @@ bool term_resume() {
 }
 
 void term_drain_input() {
+	int rounds = 0;
 	term_in_reset();
+	if (!g_tty_std_ok || !g_is_tty) {
+		return;
+	}
+	/* Bounded drain before handing the TTY to a shell (jem.go DrainInput). */
+	while (rounds < 64) {
+		if (!term_wait_readable(0)) {
+			break;
+		}
+		if (term_in_append_read(TermInCap) <= 0) {
+			break;
+		}
+		term_in_reset();
+		rounds++;
+	}
 }
 
 bool term_is_tty() {

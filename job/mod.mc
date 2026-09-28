@@ -232,6 +232,13 @@ static bool job_parse_colon_hit(char *text, char *path_out, size_t path_cap,
 	if (text == NULL || text[0] == 0 || path_out == NULL || line_out == NULL || col_out == NULL) {
 		return false;
 	}
+#ifdef _WIN32
+	/* Skip drive letter in C:\path:line:… (jem.c compile_parse_colon_diag). */
+	if (((text[0] >= 'A' && text[0] <= 'Z') || (text[0] >= 'a' && text[0] <= 'z')) &&
+		text[1] == ':' && (text[2] == '\\' || text[2] == '/')) {
+		i = 2;
+	}
+#endif
 	while (text[i] != 0 && text[i] != ':') {
 		i++;
 	}
@@ -895,6 +902,25 @@ bool job_start_compile(char *command) {
 		display_set_echo("[compile: no project root]");
 		return false;
 	}
+#ifdef _WIN32
+	{
+		auto (have, comspec) = os_env("COMSPEC");
+		if (have && len(comspec) > 0) {
+			snprintf(sh, sizeof(sh), "%.*s", (int)len(comspec), ptr(comspec));
+		} else {
+			auto (found, ok) = os_look_path(ranged(sh, 0, sizeof(sh)), "cmd.exe");
+			(void)found;
+			if (!ok) {
+				display_set_echo("[compile: COMSPEC/cmd.exe not found]");
+				return false;
+			}
+		}
+		argv[0] = "/C";
+		argv[1] = str_from_cstr(g_job_arg0);
+		return job_start_argv(str_from_cstr(sh), argv, 2, g_job_root,
+			JobCompile);
+	}
+#else
 	{
 		auto (found, ok) = os_look_path(ranged(sh, 0, sizeof(sh)), "/bin/sh");
 		(void)found;
@@ -907,6 +933,7 @@ bool job_start_compile(char *command) {
 		return job_start_argv(str_from_cstr(sh), argv, 2, g_job_root,
 			JobCompile);
 	}
+#endif
 }
 
 /* job_cursor_loc: jump target on the current *grep* or *compile* line. */

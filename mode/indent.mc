@@ -690,6 +690,7 @@ static int mode_calc_indent(Buffer *buf, int line_number) {
 	case LModePython:
 		return calc_indent_py(buf, line_number);
 	case LModeC:
+	case LModeModC:
 		return calc_indent_c(buf, line_number);
 	default:
 		return -1;
@@ -710,7 +711,7 @@ static size_t build_space_indent(int col, char *out, size_t cap) {
 	return col;
 }
 
-static size_t build_go_indent(int col, char *out, size_t cap) {
+static size_t build_tab_indent(int col, char *out, size_t cap) {
 	int tabs = 0;
 	int spaces = 0;
 	int i = 0;
@@ -791,22 +792,26 @@ static bool set_line_indent_spaces(Window *win, int col) {
 	return replace_leading(win, prefix, n);
 }
 
-static bool set_line_indent_go(Window *win, int col) {
+static bool set_line_indent_tabs(Window *win, int col) {
 	char prefix[IndentPrefixCap] = {0};
 	size_t n = 0;
 	if (col < 0) {
 		return false;
 	}
-	n = build_go_indent(col, prefix, sizeof(prefix));
+	n = build_tab_indent(col, prefix, sizeof(prefix));
 	return replace_leading(win, prefix, n);
+}
+
+static bool mode_uses_tab_indent(LangMode lang) {
+	return lang == LModeGo || lang == LModeModC;
 }
 
 static bool set_line_indent_for_mode(Window *win, int col) {
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
-	if (win.buffer.lang_mode == LModeGo) {
-		return set_line_indent_go(win, col);
+	if (mode_uses_tab_indent(win.buffer.lang_mode)) {
+		return set_line_indent_tabs(win, col);
 	}
 	return set_line_indent_spaces(win, col);
 }
@@ -1012,7 +1017,8 @@ bool mode_close_brace(bool f, int n) {
 	if (n <= 0) {
 		n = 1;
 	}
-	if (win.buffer.lang_mode != LModeGo && win.buffer.lang_mode != LModeC) {
+	if (win.buffer.lang_mode != LModeGo && win.buffer.lang_mode != LModeC &&
+		win.buffer.lang_mode != LModeModC) {
 		buffer_undo.begin_command(win.buffer, win.cursor);
 		for (i = 0; i < n; i++) {
 			Location at = win.cursor;
@@ -1025,8 +1031,8 @@ bool mode_close_brace(bool f, int n) {
 		return true;
 	}
 	buffer_undo.begin_command(win.buffer, win.cursor);
-	if (win.buffer.lang_mode == LModeGo) {
-		if (!set_line_indent_go(win, 0)) {
+	if (mode_uses_tab_indent(win.buffer.lang_mode)) {
+		if (!set_line_indent_tabs(win, 0)) {
 			buffer_undo.end_command();
 			return false;
 		}
@@ -1040,8 +1046,12 @@ bool mode_close_brace(bool f, int n) {
 			}
 			buffer_undo.record_edit(UndoInsert, at.line, at.offset, &ch, 1);
 		}
-		col = calc_indent_go(win.buffer, win.cursor.line);
-		if (!set_line_indent_go(win, col)) {
+		if (win.buffer.lang_mode == LModeGo) {
+			col = calc_indent_go(win.buffer, win.cursor.line);
+		} else {
+			col = calc_indent_c(win.buffer, win.cursor.line);
+		}
+		if (!set_line_indent_tabs(win, col)) {
 			buffer_undo.end_command();
 			return false;
 		}

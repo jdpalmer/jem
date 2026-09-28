@@ -44,14 +44,47 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 	}
 	logical = str_from_cstr(path);
 	if (path[0] == '~') {
-		auto (hok, home) = os_env("HOME");
+		char[..] home = str_empty();
+		bool hok = false;
+#ifdef _WIN32
+		char home_buf[FilePathMax] = {
+			0 };
+		{
+			auto (have, hv) = os_env("USERPROFILE");
+			if (have && len(hv) > 0) {
+				home = hv;
+				hok = true;
+			} else {
+				auto (hd, drive) = os_env("HOMEDRIVE");
+				auto (hp, pathv) = os_env("HOMEPATH");
+				if (hd && hp && len(drive) > 0 && len(pathv) > 0) {
+					snprintf(home_buf, sizeof(home_buf), "%.*s%.*s",
+						(int)len(drive), ptr(drive),
+						(int)len(pathv), ptr(pathv));
+					home = str_from_cstr(home_buf);
+					hok = true;
+				}
+			}
+		}
+#else
+		{
+			auto (have, hv) = os_env("HOME");
+			hok = have;
+			home = hv;
+		}
+#endif
 		if (!hok || len(home) == 0) {
 			return false;
 		}
 		if (path[1] == 0) {
 			to_clean = home;
-		} else if (path[1] == '/') {
-			auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), home, str_from_cstr(path + 2));
+		} else if (path[1] == '/'
+#ifdef _WIN32
+			|| path[1] == '\\'
+#endif
+			) {
+			auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), home,
+				str_from_cstr(path + 2));
 			if (!jok) {
 				return false;
 			}

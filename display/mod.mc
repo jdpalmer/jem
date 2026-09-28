@@ -318,41 +318,39 @@ static const char *color_rgb_cstr(TermColor c) {
 	return NULL;
 }
 
-static void emit_color_sgr(TermColor c, int base_sgr) {
-	char buf[48] = {0};
+/* Append color params into SGR seq; returns new length or -1 on overflow. */
+static int append_color_sgr(char *buf, size_t cap, int n, TermColor c, int base_sgr) {
 	const char *rgb = {0};
 	int i = c;
-	int n = 0;
-	if (c == TermColorDefault) {
-		return;
+	int wn = 0;
+	if (c == TermColorDefault || n < 0) {
+		return n;
+	}
+	if ((size_t)n >= cap) {
+		return -1;
 	}
 	if (i >= 8 && i < 16) {
 		/* bright ANSI 90–97 / 100–107 */
-		n = snprintf(buf, sizeof(buf), ";%d", base_sgr + 60 + (i - 8));
-		if (n > 0) {
-			if ((size_t)n >= sizeof(buf)) {
-				n = (int)sizeof(buf) - 1;
-			}
-			term_write(buf, n);
+		wn = snprintf(buf + n, cap - (size_t)n, ";%d", base_sgr + 60 + (i - 8));
+	} else {
+		rgb = color_rgb_cstr(c);
+		if (rgb == NULL) {
+			return n;
 		}
-		return;
+		/* 38;2;r;g;b / 48;2;r;g;b */
+		wn = snprintf(buf + n, cap - (size_t)n, ";%d;2;%s", base_sgr + 8, rgb);
 	}
-	rgb = color_rgb_cstr(c);
-	if (rgb == NULL) {
-		return;
+	if (wn < 0 || (size_t)wn >= cap - (size_t)n) {
+		return -1;
 	}
-	/* 38;2;r;g;b / 48;2;r;g;b — use snprintf length, not char[N]→char[..] capacity. */
-	n = snprintf(buf, sizeof(buf), ";%d;2;%s", base_sgr + 8, rgb);
-	if (n > 0) {
-		if ((size_t)n >= sizeof(buf)) {
-			n = (int)sizeof(buf) - 1;
-		}
-		term_write(buf, n);
-	}
+	return n + wn;
 }
 
 void emit_sgr(TextStyle style) {
-	/* Resolve Default onto theme colors so syntax + padding share one canvas. */
+	/* One contiguous CSI: Windows Console VT does not reassemble SGR split
+	 * across WriteFile calls (fragments like "?2" appear as literal text). */
+	char seq[96] = {0};
+	int n = 0;
 	TextStyle resolved = style_resolve(style);
 	TermColor fg = text_style_fg(resolved);
 	TermColor bg = text_style_bg(resolved);
@@ -361,19 +359,21 @@ void emit_sgr(TextStyle style) {
 		fg = bg;
 		bg = tmp;
 	}
-	term_write_cstr("\x1b[0");
-	if (resolved.bits & (uint16_t)TextStyleBold) {
-		term_write_cstr(";1");
+	n = snprintf(seq, sizeof(seq), "\x1b[0%s%s%s",
+		(resolved.bits & (uint16_t)TextStyleBold) ? ";1" : "",
+		(resolved.bits & (uint16_t)TextStyleUnderline) ? ";4" : "",
+		(resolved.bits & (uint16_t)TextStyleReverse) ? ";7" : "");
+	if (n < 0 || (size_t)n >= sizeof(seq)) {
+		return;
 	}
-	if (resolved.bits & (uint16_t)TextStyleUnderline) {
-		term_write_cstr(";4");
+	n = append_color_sgr(seq, sizeof(seq), n, fg, 30);
+	n = append_color_sgr(seq, sizeof(seq), n, bg, 40);
+	if (n < 0 || (size_t)n + 1 >= sizeof(seq)) {
+		return;
 	}
-	if (resolved.bits & (uint16_t)TextStyleReverse) {
-		term_write_cstr(";7");
-	}
-	emit_color_sgr(fg, 30);
-	emit_color_sgr(bg, 40);
-	term_write_cstr("m");
+	seq[n++] = 'm';
+	seq[n] = 0;
+	term_write(seq, n);
 }
 
 static void paint_gutter(Window *win, int screen_row, int lineno) {

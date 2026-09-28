@@ -45,8 +45,10 @@ LangMode mode_detect(const char[..] path) {
 	if (path_ends_with_ci(path, ".py")) {
 		return LModePython;
 	}
-	if (path_ends_with_ci(path, ".c") || path_ends_with_ci(path, ".h") ||
-		path_ends_with_ci(path, ".mc")) {
+	if (path_ends_with_ci(path, ".mc")) {
+		return LModeModC;
+	}
+	if (path_ends_with_ci(path, ".c") || path_ends_with_ci(path, ".h")) {
 		return LModeC;
 	}
 	if (path_ends_with_ci(path, ".md") || path_ends_with_ci(path, ".markdown")) {
@@ -60,6 +62,8 @@ IndentConfig mode_indent_default(LangMode lang) {
 	IndentConfig cfg = {0};
 	switch (lang) {
 	case LModeGo:
+	case LModeModC:
+		/* One indent step = one tab (8 display columns), matching gofmt / %C. */
 		cfg.width = 8;
 		break;
 	case LModePython:
@@ -77,6 +81,8 @@ const char *mode_display_name(LangMode lang) {
 	switch (lang) {
 	case LModeC:
 		return "C";
+	case LModeModC:
+		return "%C";
 	case LModeJava:
 		return "Java";
 	case LModePython:

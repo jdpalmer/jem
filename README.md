@@ -6,7 +6,7 @@ jem is a terminal text editor in the spirit of MicroEMACS, written in
 
 ## Features
 
-* macOS and Linux support (Windows is deferred)
+* macOS, Linux, and Windows support
 * Easy installation: a single portable executable
 * Emacs-style editing commands and `M-x` command palette
 * Mouse support (click, drag, scroll wheel)

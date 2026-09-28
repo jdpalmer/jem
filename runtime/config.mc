@@ -314,16 +314,40 @@ void config_load() {
 	size_t n = 0;
 	size_t cap = 0;
 	FILE *fp = NULL;
-	auto (have, home) = os_env("HOME");
-	if (!have || len(home) == 0) {
-		return;
-	}
+	int wn = 0;
+#ifdef _WIN32
+	char home_buf[ConfigPathMax] = {0};
 	{
-		int wn = snprintf(path, sizeof(path), "%.*s/.jem.json",
-			(int)len(home), ptr(home));
-		if (wn < 0 || (size_t)wn >= sizeof(path)) {
+		auto (have, home) = os_env("USERPROFILE");
+		if (have && len(home) > 0) {
+			snprintf(home_buf, sizeof(home_buf), "%.*s",
+				(int)len(home), ptr(home));
+		} else {
+			auto (hd, drive) = os_env("HOMEDRIVE");
+			auto (hp, pathv) = os_env("HOMEPATH");
+			if (hd && hp && len(drive) > 0 && len(pathv) > 0) {
+				snprintf(home_buf, sizeof(home_buf), "%.*s%.*s",
+					(int)len(drive), ptr(drive),
+					(int)len(pathv), ptr(pathv));
+			}
+		}
+		if (home_buf[0] == 0) {
 			return;
 		}
+		wn = snprintf(path, sizeof(path), "%s\\.jem.json", home_buf);
+	}
+#else
+	{
+		auto (have, home) = os_env("HOME");
+		if (!have || len(home) == 0) {
+			return;
+		}
+		wn = snprintf(path, sizeof(path), "%.*s/.jem.json",
+			(int)len(home), ptr(home));
+	}
+#endif
+	if (wn < 0 || (size_t)wn >= sizeof(path)) {
+		return;
 	}
 	fp = fopen(path, "r");
 	if (fp == NULL) {

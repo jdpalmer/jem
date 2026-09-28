@@ -16,7 +16,11 @@ bool cmd_spawn(bool f, int n) {
 			L.ask_phase = AskSpawn;
 		}
 	}
+#ifdef _WIN32
+	minibuffer_begin("Command: ", 0);
+#else
 	minibuffer_begin("! ", 0);
+#endif
 	return true;
 }
 

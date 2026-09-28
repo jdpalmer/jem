@@ -98,7 +98,8 @@ enum LangMode {
 	LModeR = 18,
 	LModeKotlin = 19,
 	LModeHTML = 20,
-	LModeCSS = 21
+	LModeCSS = 21,
+	LModeModC = 22
 };
 
 // DFA state indices (jem.go/syntax SynState*).
@@ -176,6 +177,7 @@ Spec syntax_spec_for(LangMode mode) {
 		s.flags = (uint32_t)ModeFlagCommentSlashLine | (uint32_t)ModeFlagCommentSlashBlock;
 		break;
 	case LModeC:
+	case LModeModC:
 		s.kind = ModeSyntaxGeneral;
 		s.flags = (uint32_t)ModeFlagCommentSlashLine | (uint32_t)ModeFlagCommentSlashBlock |
 			(uint32_t)ModeFlagPreprocHashAtBOL;

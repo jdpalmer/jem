@@ -72,6 +72,7 @@ TextStyle ident_style_for(LangMode lang, const char[..] ident) {
 	const char **types = NULL;
 	switch (lang) {
 	case LModeC:
+	case LModeModC:
 		keys = c_keywords;
 		types = c_types;
 		break;

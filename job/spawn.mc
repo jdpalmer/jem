@@ -72,15 +72,61 @@ static void spawn_pause_end() {
 		if (!ok) {
 			break;
 		}
+#ifdef _WIN32
+		/* jem.c/jem.go: Enter only on Windows. */
+		if (key == term_key_value(TermKeyEnter) || key == (uint32_t)'\r' ||
+			key == (uint32_t)'\n') {
+			break;
+		}
+#else
 		if (key == term_key_value(TermKeyEnter) || key == (uint32_t)'\r' ||
 			key == (uint32_t)'\n' || key == (uint32_t)' ') {
 			break;
 		}
+#endif
 	}
 	display_set_echo("");
 }
 
-// spawn_run hands the TTY to a shell. NULL/empty command → interactive $SHELL.
+static bool spawn_resolve_shell(bool oneshot) {
+	g_spawn_prog[0] = 0;
+#ifdef _WIN32
+	(void)oneshot;
+	{
+		auto (have, comspec) = os_env("COMSPEC");
+		if (have && len(comspec) > 0) {
+			snprintf(g_spawn_prog, sizeof(g_spawn_prog), "%.*s",
+				(int)len(comspec), ptr(comspec));
+			return true;
+		}
+		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)),
+			"cmd.exe");
+		(void)found;
+		return ok;
+	}
+#else
+	if (oneshot) {
+		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)),
+			"/bin/sh");
+		(void)found;
+		return ok;
+	}
+	{
+		auto (have, shell_view) = os_env("SHELL");
+		if (have && len(shell_view) > 0) {
+			snprintf(g_spawn_prog, sizeof(g_spawn_prog), "%.*s",
+				(int)len(shell_view), ptr(shell_view));
+			return true;
+		}
+		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)),
+			"/bin/sh");
+		(void)found;
+		return ok;
+	}
+#endif
+}
+
+// spawn_run hands the TTY to a shell. NULL/empty command → interactive shell.
 // Returns process exit code, or -1 on setup failure.
 int spawn_run(const char *command) {
 	Cmd c = {0};
@@ -102,39 +148,41 @@ int spawn_run(const char *command) {
 		g_spawn_line[0] = 0;
 	}
 
-	/* Resolve program */
-	g_spawn_prog[0] = 0;
+	if (!spawn_resolve_shell(oneshot)) {
+#ifdef _WIN32
+		display_set_echo("[spawn: COMSPEC/cmd.exe not found]");
+#else
+		display_set_echo("[spawn: shell not found]");
+#endif
+		return -1;
+	}
+
+#ifdef _WIN32
 	if (oneshot) {
-		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)), "/bin/sh");
-		(void)found;
-		if (!ok) {
-			display_set_echo("[spawn: /bin/sh not found]");
-			return -1;
-		}
+		argv[0] = "/C";
+		argv[1] = str_from_cstr(g_spawn_line);
+		nargs = 2;
+	} else {
+		nargs = 0;
+	}
+#else
+	if (oneshot) {
 		argv[0] = "-c";
 		argv[1] = str_from_cstr(g_spawn_line);
 		nargs = 2;
 	} else {
-		auto (have, shell_view) = os_env("SHELL");
-		if (have && len(shell_view) > 0) {
-			snprintf(g_spawn_prog, sizeof(g_spawn_prog), "%.*s",
-				(int)len(shell_view), ptr(shell_view));
-		} else {
-			auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)), "/bin/sh");
-			(void)found;
-			if (!ok) {
-				display_set_echo("[spawn: shell not found]");
-				return -1;
-			}
-		}
 		nargs = 0;
 	}
+#endif
 
 	term_move(term_rows(), 0);
+#ifndef _WIN32
 	if (oneshot) {
 		term_write("\n", 1);
 	}
+#endif
 	term_flush();
+	term_drain_input();
 	term_suspend();
 
 	if (oneshot) {
@@ -161,7 +209,10 @@ int spawn_run(const char *command) {
 		exit_code = -1;
 	}
 
+#ifndef _WIN32
+	/* jem.go/jem.c: no post-shell sleep on Windows. */
 	os_sleep_ms(2000);
+#endif
 	term_drain_input();
 	if (!term_resume()) {
 		display_set_echo("[spawn: failed to restore terminal]");

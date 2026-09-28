@@ -1379,10 +1379,14 @@ bool cmd_yank(bool f, int n) {
 		return false;
 	}
 	if (!killring_read_clipboard() && !killring_in_sequence()) {
+		display_set_echo("Nothing to yank");
+		term_beep();
 		return false;
 	}
 	yank = killring_yank();
 	if (w == NULL || len(yank) == 0) {
+		display_set_echo("Nothing to yank");
+		term_beep();
 		return false;
 	}
 	buffer_undo.begin_command(w.buffer, w.cursor);
@@ -2280,18 +2284,20 @@ void init_commands() {
 
 static bool execute(CommandFn fn, bool f, int n) {
 	uint64_t echo_before = 0;
-	bool ok = true;
 	if (fn == NULL) {
 		return true;
 	}
 	echo_before = display_echo_generation();
-	ok = fn(f, n);
+	/* Ignore command success/failure for loop control (jem.go invokeCommand).
+	 * Returning false from a command must not quit the editor — that made C-y
+	 * with an empty clipboard look like a silent exit. */
+	(void)fn(f, n);
 	killring_tick();
 	if (g_app.listener_top == 0 && !g_app.macro_recording &&
 		!g_app.macro_playing && display_echo_generation() == echo_before) {
 		tags_maybe_show_call_hint();
 	}
-	return ok;
+	return g_app.running;
 }
 
 static bool handle_listener_key(uint32_t key) {
@@ -3178,11 +3184,18 @@ void runtime_run(int argc, char **argv) {
 			break;
 		}
 		{
+			/* Drain all ready keys so rapid typing/clicks are not deferred
+			 * behind another display_update + 100ms poll. */
 			auto (key, ok) = term_try_read_key(100);
-			uint32_t editor_key = 0;
-			if (ok && key != term_key_value(TermKeyPasteComplete) &&
-				prepare_editor_key(key, &editor_key)) {
-				event_enqueue(event_key(editor_key));
+			while (ok) {
+				uint32_t editor_key = 0;
+				if (key != term_key_value(TermKeyPasteComplete) &&
+					prepare_editor_key(key, &editor_key)) {
+					event_enqueue(event_key(editor_key));
+				}
+				auto (next, more) = term_try_read_key(0);
+				key = next;
+				ok = more;
 			}
 		}
 	}

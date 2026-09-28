@@ -23,6 +23,7 @@ const char *mode_line_comment(LangMode lang) {
 		return "";
 	case LModeNone:
 	case LModeC:
+	case LModeModC:
 	case LModeJava:
 	case LModeVerilog:
 	case LModeSwift:

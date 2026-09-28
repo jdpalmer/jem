@@ -9,6 +9,7 @@
 static bool lang_is_brace_function(LangMode lang) {
 	switch (lang) {
 	case LModeC:
+	case LModeModC:
 	case LModeGo:
 	case LModeJava:
 	case LModeCSharp:

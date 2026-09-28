@@ -146,7 +146,18 @@ static void test_line_comment_prefix() {
 	check(strcmp(mode_line_comment(LModePython), "#") == 0);
 	check(strcmp(mode_line_comment(LModeLisp), ";") == 0);
 	check(strcmp(mode_line_comment(LModeLua), "--") == 0);
+	check(strcmp(mode_line_comment(LModeModC), "//") == 0);
 	check(mode_line_comment(LModeCSS)[0] == 0);
+}
+
+static void test_modc_mode_tabs() {
+	IndentConfig cfg = {0};
+	check(mode_detect("foo.mc") == LModeModC);
+	check(mode_detect("FOO.MC") == LModeModC);
+	check(mode_detect("foo.c") == LModeC);
+	check(strcmp(mode_display_name(LModeModC), "%C") == 0);
+	cfg = mode_indent_default(LModeModC);
+	check(cfg.width == 8);
 }
 
 static void test_goto_match() {
@@ -219,6 +230,7 @@ static void test_py_top_end_function() {
 
 int main() {
 	test_line_comment_prefix();
+	test_modc_mode_tabs();
 	test_comment_dwim_line();
 	test_comment_dwim_python();
 	test_comment_dwim_unsupported();
