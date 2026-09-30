@@ -1,4 +1,8 @@
 // Local project-tag details and source-comment extraction.
+import "buffer";
+import "window";
+import "mode";
+import "str";
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>

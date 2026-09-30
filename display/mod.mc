@@ -1146,7 +1146,6 @@ void display_update() {
 	int cursor_row = 0;
 	int cursor_col = 0;
 	int total_rows = term_rows() + 1;
-	bool any_dirty = false;
 
 	if (term_refresh_size()) {
 		window_retile();
@@ -1214,20 +1213,9 @@ void display_update() {
 	}
 	paint_echo(g_screen.rows - 1);
 
-	if (g_screen_dirty) {
-		any_dirty = true;
-	} else if (g_screen.row_dirty != NULL) {
-		int r = 0;
-		for (r = 0; r < g_screen.rows; r++) {
-			if (g_screen.row_dirty[r]) {
-				any_dirty = true;
-				break;
-			}
-		}
-	}
-	if (any_dirty) {
-		term_hide_cursor();
-	}
+	/* Match jem.c / jem.go: never hide-cursor around ordinary paints.
+	 * jem.mc used to emit \x1b[?25l every dirty frame; a torn write left
+	 * "?25l" as literal text that then needed a forced redraw to clear. */
 	screen_sync();
 
 	if (cur != NULL && cur.buffer != NULL) {
@@ -1246,10 +1234,10 @@ void display_update() {
 			cursor_col = term_cols() - 1;
 		}
 		if (cursor_row >= 0 && cursor_row < term_rows()) {
+			emit_sgr_cached(style_default());
 			term_move(cursor_row, cursor_col);
 		}
 	}
-	term_show_cursor();
 	term_flush();
 }
 

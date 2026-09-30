@@ -3169,8 +3169,9 @@ void runtime_run(int argc, char **argv) {
 			tags_preload();
 		}
 		file_check_reload();
-		display_update();
-		/* drain queued events */
+
+		/* Handle work that arrived since last paint (including input harvested
+		 * during the previous screen_sync). */
 		{
 			Event e = {EventNone};
 			while (event_try_dequeue(&e)) {
@@ -3183,15 +3184,48 @@ void runtime_run(int argc, char **argv) {
 		if (!g_app.running) {
 			break;
 		}
+
+		display_update();
+
+		if (!term_is_tty()) {
+			os_sleep_ms(100);
+			continue;
+		}
+
+		/* Decode any keys that arrived while we painted. */
 		{
-			/* Drain all ready keys so rapid typing/clicks are not deferred
-			 * behind another display_update + 100ms poll. */
+			auto (key, ok) = term_try_read_key(0);
+			while (ok) {
+				uint32_t editor_key = 0;
+				if (key != term_key_value(TermKeyPasteComplete) &&
+					prepare_editor_key(key, &editor_key)) {
+					if (editor_key == term_key_value(TermMouseDrag)) {
+						event_enqueue_key_coalesced(editor_key);
+					} else {
+						event_enqueue(event_key(editor_key));
+					}
+				}
+				auto (next, more) = term_try_read_key(0);
+				key = next;
+				ok = more;
+			}
+		}
+		if (event_queue_len() > 0) {
+			/* Stay responsive under burst typing/drags: skip the idle poll. */
+			continue;
+		}
+
+		{
 			auto (key, ok) = term_try_read_key(100);
 			while (ok) {
 				uint32_t editor_key = 0;
 				if (key != term_key_value(TermKeyPasteComplete) &&
 					prepare_editor_key(key, &editor_key)) {
-					event_enqueue(event_key(editor_key));
+					if (editor_key == term_key_value(TermMouseDrag)) {
+						event_enqueue_key_coalesced(editor_key);
+					} else {
+						event_enqueue(event_key(editor_key));
+					}
 				}
 				auto (next, more) = term_try_read_key(0);
 				key = next;
@@ -3202,5 +3236,5 @@ void runtime_run(int argc, char **argv) {
 	term_close();
 	display_shutdown();
 	/* Normal return: modc uniquified colliding local slots so CRT fini no longer
-	 * SIGSEGVs after minibuffer use. Prefer this over _exit/os_exit. */
+	 * SIGSEGV after minibuffer use. Prefer this over _exit/os_exit. */
 }

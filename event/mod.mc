@@ -64,6 +64,18 @@ bool event_enqueue(Event e) {
 	return true;
 }
 
+/* If the ring tail is already this key, keep a single pending event (mouse drag). */
+bool event_enqueue_key_coalesced(uint32_t code) {
+	if (g_count > 0) {
+		size_t prev = (g_tail + 255) % 256;
+		Event *slot = &g_queue[prev];
+		if (slot.kind == EventKey && slot.key_code == code) {
+			return true;
+		}
+	}
+	return event_enqueue(event_key(code));
+}
+
 // event_try_dequeue pops the next event into *out. Returns false if empty.
 bool event_try_dequeue(Event *out) {
 	Event *slot = {0};

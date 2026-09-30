@@ -5,6 +5,7 @@ import "fs";
 import "os";
 import "str";
 import "tty";
+import "term";
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -248,16 +249,17 @@ static bool clipboard_write_osc52(const char[..] text) {
 	static char alphabet[] =
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	uint8_t *bytes = (uint8_t *)ptr(text);
-	File output = {0};
 	char *encoded = NULL;
 	size_t groups = 0;
 	size_t encoded_len = 0;
 	size_t total = 0;
 	size_t i = 0;
 	size_t out = 0;
-	bool ok = false;
 	if (len(text) == 0) {
 		return true;
+	}
+	if (!term_is_tty()) {
+		return false;
 	}
 	groups = (len(text) + 2) / 3;
 	encoded_len = groups * 4;
@@ -291,19 +293,17 @@ static bool clipboard_write_osc52(const char[..] text) {
 			encoded[out++] = '=';
 		}
 	}
-	encoded[out++] = '\a';
-	{
-		auto (file, wrapped) = tty_stdout();
-		if (!wrapped) {
-			free(encoded);
-			return false;
-		}
-		output = file;
-	}
-	ok = clipboard_write_all(&output, ranged(encoded, out, out));
-	output.close();
+	encoded[out++] = 7; /* BEL terminator; modc char literals don't support \a or \xNN. */
+	/* Route through term's single output buffer (matches jem.c, which emits
+	 * OSC 52 via the same buffered stdout FILE* used for all other terminal
+	 * output). A second, independent write path here (e.g. opening our own
+	 * tty_stdout() fd and writing directly) can interleave with whatever
+	 * escape sequence term/mod.mc currently has buffered but not yet
+	 * flushed, tearing it apart -- the "13;15H"/"29;60H" stray-text bug. */
+	term_write(encoded, out);
+	term_out_flush();
 	free(encoded);
-	return ok;
+	return true;
 }
 
 // clipboard_write prefers a native provider and falls back to OSC 52.

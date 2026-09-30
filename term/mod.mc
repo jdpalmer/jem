@@ -11,6 +11,11 @@ import "str";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#ifndef _WIN32
+#include <unistd.h>
+#include <poll.h>
+#endif
 
 enum TermKeys {
 	TermCTL = 0x01000000,
@@ -48,7 +53,9 @@ enum TermKeys {
 
 enum TermBufLimits {
 	TermOutCap = 65536,
-	TermInCap = 4096
+	/* Mouse SGR bursts are ~12–20 bytes each; keep headroom so the kernel
+	 * TTY buffer is drained before it overflows during a slow redraw. */
+	TermInCap = 16384
 };
 
 uint32_t term_key_value(TermKeys key) {
@@ -78,25 +85,129 @@ static size_t g_olen;
 static char g_ibuf[TermInCap];
 static int g_ilen;
 static int g_ipos;
+/* Per-byte timeout for term_read_key_impl: -1 blocks (spawn), >=0 for try_read. */
+static int g_byte_timeout_ms = -1;
 
-static int term_write_out(const char *buf, size_t n) {
-	size_t left = n;
-	const char *p = buf;
-	if (!g_tty_std_ok || buf == NULL || n == 0) {
-		return n == 0 ? 0 : -1;
-	}
-	while (left > 0) {
-		auto (wn, ok) = g_fout.write(str_from_bytes(p, left));
-		if (!ok) {
-			return -1;
+/* Opt-in byte-level write tracing (JEM_TERM_DEBUG=1) to capture real evidence
+ * of torn/interleaved terminal writes without changing normal behavior. */
+static bool g_term_debug_checked;
+static bool g_term_debug_on;
+static FILE *g_term_debug_fp;
+
+static void term_debug_log(const char *tag, const char *buf, size_t n) {
+	size_t i = 0;
+	if (!g_term_debug_checked) {
+		const char *v = getenv("JEM_TERM_DEBUG");
+		g_term_debug_checked = true;
+		g_term_debug_on = (v != NULL && v[0] != 0 && v[0] != '0');
+		if (g_term_debug_on) {
+			g_term_debug_fp = fopen("/tmp/jem_term_debug.log", "a");
 		}
-		if (wn == 0) {
-			break;
-		}
-		p = p + (size_t)wn;
-		left = left - (size_t)wn;
 	}
-	return (int)(n - left);
+	if (!g_term_debug_on || g_term_debug_fp == NULL) {
+		return;
+	}
+	fprintf(g_term_debug_fp, "[%s n=%zu]", tag, n);
+	for (i = 0; i < n && i < 512; i++) {
+		char c = buf[i];
+		if (c == 0x1b) {
+			fprintf(g_term_debug_fp, "<ESC>");
+		} else if (c >= 0x20 && c < 0x7f) {
+			fputc(c, g_term_debug_fp);
+		} else {
+			fprintf(g_term_debug_fp, "<%02x>", c);
+		}
+	}
+	fprintf(g_term_debug_fp, "\n");
+	fflush(g_term_debug_fp);
+}
+
+/* jem.c buffers then writes; we must not discard a short write — that leaves
+ * the terminal mid-CSI and the next bytes (e.g. "13;15H") print as text. */
+static bool term_write_all(const char *buf, size_t n) {
+	size_t off = 0;
+	if (buf == NULL || n == 0) {
+		return true;
+	}
+	term_debug_log("write_all", buf, n);
+#ifdef _WIN32
+	while (off < n) {
+		auto (wn, ok) = g_fout.write(str_from_bytes(buf + off, n - off));
+		if (!ok || wn == 0) {
+			return false;
+		}
+		off = off + (size_t)wn;
+	}
+	return true;
+#else
+	{
+		int fd = file_fd(&g_fout);
+		if (fd < 0) {
+			/* Fall back to stdout FILE* if borrowed fd unavailable. */
+			while (off < n) {
+				size_t wn = fwrite(buf + off, 1, n - off, stdout);
+				if (wn == 0) {
+					return false;
+				}
+				off = off + wn;
+			}
+			return fflush(stdout) == 0;
+		}
+		while (off < n) {
+			ssize_t wn = 0;
+			do {
+				wn = write(fd, buf + off, n - off);
+			} while (wn < 0 && (errno == EINTR || errno == EAGAIN));
+			if (wn <= 0) {
+				return false;
+			}
+			off = off + (size_t)wn;
+		}
+		return true;
+	}
+#endif
+}
+
+static void term_buf_flush() {
+	if (g_olen == 0) {
+		return;
+	}
+	/* jem.c: fwrite then clear — never keep a half-sent buffer (retry would
+	 * duplicate the prefix already on the wire). */
+	(void)term_write_all(g_obuf, g_olen);
+	g_olen = 0;
+#ifdef _WIN32
+	if (g_is_tty && g_tty_raw) {
+		tty_reapply_editor_mode(&g_fin);
+	}
+#endif
+}
+
+static void term_buf_write(const char *buf, size_t n) {
+	if (buf == NULL || n == 0) {
+		return;
+	}
+	if (g_olen + n > (size_t)TermOutCap) {
+		term_buf_flush();
+	}
+	if (g_olen + n > (size_t)TermOutCap) {
+		(void)term_write_all(g_obuf, g_olen);
+		g_olen = 0;
+	}
+	if (n > (size_t)TermOutCap) {
+		(void)term_write_all(buf, n);
+		return;
+	}
+	memcpy(g_obuf + g_olen, buf, n);
+	g_olen = g_olen + n;
+}
+
+static void term_buf_reset() {
+	g_olen = 0;
+}
+
+static void term_write_out(const char *buf, size_t n) {
+	(void)term_write_all(buf, n);
 }
 
 static bool term_wait_readable(int timeout_ms) {
@@ -106,30 +217,28 @@ static bool term_wait_readable(int timeout_ms) {
 	}
 	return tty_wait_readable(&g_fin, timeout_ms);
 #else
-	Poll pol = {
-		0 };
-	if (!g_tty_std_ok || file_fd(&g_fin) < 0) {
-		return false;
-	}
-	pol.init();
-	if (!pol.add_file(&g_fin, PollIn)) {
-		pol.close();
-		return false;
-	}
+	/* Match jem.c intent: timed wait on stdin. Use poll(2) (modc parses
+	 * sys/select.h poorly across the package graph). */
 	{
-		auto (n, ok) = pol.wait(timeout_ms);
-		if (!ok || n <= 0) {
-			pol.close();
+		int fd = -1;
+		struct pollfd pfd = {
+			0 };
+		int ready = 0;
+		if (!g_tty_std_ok) {
 			return false;
 		}
-		if (pol.ready_count() <= 0) {
-			pol.close();
-			return false;
+		fd = file_fd(&g_fin);
+		if (fd < 0) {
+			fd = STDIN_FILENO;
 		}
-		auto (rf, rev) = pol.ready_file(0);
-		(void)rf;
-		pol.close();
-		return (rev & (PollIn | PollHup | PollErr)) != 0;
+		pfd.fd = fd;
+		pfd.events = POLLIN;
+		if (timeout_ms < 0) {
+			ready = poll(&pfd, 1, -1);
+		} else {
+			ready = poll(&pfd, 1, timeout_ms);
+		}
+		return ready > 0;
 	}
 #endif
 }
@@ -151,60 +260,96 @@ static bool term_query_size(int *rows, int *cols) {
 	return true;
 }
 
-static void term_buf_reset() {
-	g_olen = 0;
-}
-
-static void term_buf_flush() {
-	if (g_olen == 0) {
-		return;
-	}
-	term_write_out(g_obuf, g_olen);
-	g_olen = 0;
-#ifdef _WIN32
-	/* Windows Terminal may reset console mode after ANSI writes. */
-	if (g_is_tty && g_tty_raw) {
-		tty_reapply_editor_mode(&g_fin);
-	}
-#endif
-}
-
-static void term_buf_write(const char *buf, size_t n) {
-	if (buf == NULL || n == 0) {
-		return;
-	}
-	if (g_olen + n >= (size_t)TermOutCap) {
-		term_buf_flush();
-	}
-	if (n >= (size_t)TermOutCap) {
-		term_write_out(buf, n);
-		return;
-	}
-	memcpy(g_obuf + g_olen, buf, n);
-	g_olen = g_olen + n;
-}
-
 static void term_in_reset() {
 	g_ilen = 0;
 	g_ipos = 0;
 }
 
 static int term_in_append_read(int maxn) {
+	int fd = -1;
 	if (maxn > (int)TermInCap) {
 		maxn = TermInCap;
 	}
 	if (!g_tty_std_ok || file_fd(&g_fin) < 0) {
 		return -1;
 	}
-	auto (n, ok) = g_fin.read(ranged(g_ibuf, (size_t)maxn));
-	if (!ok) {
+	fd = file_fd(&g_fin);
+#ifdef _WIN32
+	{
+		auto (n, ok) = g_fin.read(ranged(g_ibuf, (size_t)maxn));
+		if (!ok) {
+			g_ilen = 0;
+			g_ipos = 0;
+			return -1;
+		}
+		g_ilen = (int)n;
+		g_ipos = 0;
+		return (int)n;
+	}
+#else
+	{
+		ssize_t n = 0;
+		do {
+			n = read(fd, g_ibuf, maxn);
+		} while (n < 0 && errno == EINTR);
+		if (n < 0) {
+			g_ilen = 0;
+			g_ipos = 0;
+			return -1;
+		}
+		g_ilen = (int)n;
+		g_ipos = 0;
+		return (int)n;
+	}
+#endif
+}
+
+/* Pull pending TTY bytes into g_ibuf without decoding. Call during long
+ * redraws so the kernel input queue does not overflow (dropped clicks/keys). */
+void term_harvest_input() {
+	int space = 0;
+	int fd = -1;
+	if (!g_tty_std_ok || !g_is_tty) {
+		return;
+	}
+	if (g_ipos > 0 && g_ipos < g_ilen) {
+		int keep = g_ilen - g_ipos;
+		memmove(g_ibuf, g_ibuf + g_ipos, keep);
+		g_ilen = keep;
+		g_ipos = 0;
+	} else if (g_ipos >= g_ilen) {
 		g_ilen = 0;
 		g_ipos = 0;
-		return -1;
 	}
-	g_ilen = (int)n;
-	g_ipos = 0;
-	return (int)n;
+	space = (int)TermInCap - g_ilen;
+	if (space <= 0) {
+		return;
+	}
+	if (!term_wait_readable(0)) {
+		return;
+	}
+	fd = file_fd(&g_fin);
+	if (fd < 0) {
+		return;
+	}
+#ifdef _WIN32
+	{
+		auto (n, ok) = g_fin.read(ranged(g_ibuf + g_ilen, 0, (size_t)space));
+		if (ok && n > 0) {
+			g_ilen = g_ilen + (int)n;
+		}
+	}
+#else
+	{
+		ssize_t n = 0;
+		do {
+			n = read(fd, g_ibuf + g_ilen, space);
+		} while (n < 0 && errno == EINTR);
+		if (n > 0) {
+			g_ilen = g_ilen + (int)n;
+		}
+	}
+#endif
 }
 
 static void term_in_unshift(char b) {
@@ -233,10 +378,16 @@ void term_emit(const char *s, size_t n) {
 }
 
 void term_emit_cstr(const char[..] s) {
-	if (len(s) == 0 || ptr(s) == NULL) {
+	/* Prefer strlen: char[N] / some views report capacity via len(). */
+	size_t n = 0;
+	if (ptr(s) == NULL) {
 		return;
 	}
-	term_emit(ptr(s), len(s));
+	n = strlen(ptr(s));
+	if (n == 0) {
+		return;
+	}
+	term_emit(ptr(s), n);
 }
 
 void term_emit_u32(uint32_t v) {
@@ -247,24 +398,63 @@ void term_emit_u32(uint32_t v) {
 	}
 }
 
+/* Append decimal digits; returns new length. jem.c uses fmt_u32 the same way. */
+static int term_append_u32(char *dst, int cap, int n, uint32_t v) {
+	char tmp[16] = {0};
+	int tn = 0;
+	int i = 0;
+	if (n < 0 || n >= cap) {
+		return -1;
+	}
+	if (v == 0) {
+		if (n + 1 > cap) {
+			return -1;
+		}
+		dst[n] = '0';
+		return n + 1;
+	}
+	while (v > 0 && tn < 16) {
+		tmp[tn++] = (char)('0' + (v % 10));
+		v = v / 10;
+	}
+	if (n + tn > cap) {
+		return -1;
+	}
+	for (i = tn - 1; i >= 0; i--) {
+		dst[n++] = tmp[i];
+	}
+	return n;
+}
+
 static void term_emit_csi(int first, bool has_second, int second, char final_b) {
-	/* One WriteFile per CSI: Windows Console VT does not reassemble
-	 * escape sequences split across writes (shows garbage like "?2"). */
+	/* Match jem.c: build ESC [ params final as raw bytes (no snprintf). */
 	char seq[32] = {0};
 	int n = 0;
+	int cap = 32;
+	if (n + 2 > cap) {
+		return;
+	}
+	seq[n++] = 0x1b;
+	seq[n++] = '[';
+	n = term_append_u32(seq, cap, n, first);
+	if (n < 0) {
+		return;
+	}
 	if (has_second) {
-		n = snprintf(seq, sizeof(seq), "\x1b[%u;%u%c",
-			(unsigned)first, (unsigned)second, final_b);
-	} else {
-		n = snprintf(seq, sizeof(seq), "\x1b[%u%c",
-			(unsigned)first, final_b);
-	}
-	if (n > 0) {
-		if (n >= (int)sizeof(seq)) {
-			n = (int)sizeof(seq) - 1;
+		if (n + 1 > cap) {
+			return;
 		}
-		term_emit(seq, n);
+		seq[n++] = ';';
+		n = term_append_u32(seq, cap, n, second);
+		if (n < 0) {
+			return;
+		}
 	}
+	if (n + 1 > cap) {
+		return;
+	}
+	seq[n++] = final_b;
+	term_emit(seq, n);
 }
 
 static bool term_fill_in(int timeout_ms) {
@@ -422,18 +612,45 @@ static uint32_t csi_u_key_code(int codepoint, int modifier_param, int event_type
 }
 
 static bool term_probe_kitty() {
-	term_write_out("\x1b[?u", 4);
-	auto (b, ok) = term_read_byte(1000);
-	if (!ok || b != 0x1B) {
-		return false;
+	/* Match jem.c: direct write of CSI ? u, then timed reads for CSI ? … u.
+	 * Prefer stdout; if it is not a tty (redirected), query on the input tty. */
+#ifdef _WIN32
+	{
+		auto (wn, ok) = g_fout.write(str_from_bytes("\x1b[?u", 4));
+		(void)wn;
+		if (!ok) {
+			return false;
+		}
 	}
-	auto (b1, ok1) = term_read_byte(100);
-	if (!ok1 || b1 != '[') {
-		return false;
+#else
+	{
+		int outfd = STDOUT_FILENO;
+		int infd = file_fd(&g_fin);
+		if (!isatty(outfd) && infd >= 0 && isatty(infd)) {
+			outfd = infd;
+		}
+		if (write(outfd, "\x1b[?u", 4) != 4) {
+			return false;
+		}
 	}
-	auto (b2, ok2) = term_read_byte(100);
-	if (!ok2 || b2 != '?') {
-		return false;
+#endif
+	{
+		auto (b, ok) = term_read_byte(1000);
+		if (!ok || b != 0x1B) {
+			return false;
+		}
+	}
+	{
+		auto (b1, ok1) = term_read_byte(100);
+		if (!ok1 || b1 != '[') {
+			return false;
+		}
+	}
+	{
+		auto (b2, ok2) = term_read_byte(100);
+		if (!ok2 || b2 != '?') {
+			return false;
+		}
 	}
 	for (;;) {
 		auto (bx, okx) = term_read_byte(100);
@@ -448,11 +665,16 @@ static bool term_probe_kitty() {
 }
 
 static void term_enable_modes() {
-	term_emit_cstr("\x1b[?1049h\x1b[>1u\x1b[?2004h\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[?2048h");
+	/* Match jem.c term_open mode set (no ?2048h / ?2q — those are jem.go extras
+	 * that jem.c never enabled and that inject unsolicited CSI traffic). */
+	term_emit("\x1b[?1049h", sizeof("\x1b[?1049h") - 1);
+	term_emit("\x1b[>1u", sizeof("\x1b[>1u") - 1);
+	term_emit("\x1b[?2004h", sizeof("\x1b[?2004h") - 1);
+	term_emit("\x1b[?1000h", sizeof("\x1b[?1000h") - 1);
+	term_emit("\x1b[?1002h", sizeof("\x1b[?1002h") - 1);
+	term_emit("\x1b[?1006h", sizeof("\x1b[?1006h") - 1);
 	term_out_flush();
 	g_altbuf = true;
-	term_emit_cstr("\x1b[?25h\x1b[?2q");
-	term_out_flush();
 }
 
 // term_open enters raw mode and probes Kitty keyboard support.
@@ -499,6 +721,7 @@ bool term_open() {
 		return true;
 	}
 	g_tty_raw = true;
+	term_in_reset();
 	if (!term_probe_kitty()) {
 		tty_set_cooked(&g_fin);
 		g_tty_raw = false;
@@ -517,10 +740,13 @@ void term_close() {
 	if (!g_open) {
 		return;
 	}
-	term_emit_cstr("\x1b[?25h");
-	term_emit_cstr("\x1b[<u\x1b[?2048l\x1b[?2004l\x1b[?1006l\x1b[?1002l\x1b[?1000l");
+	term_emit("\x1b[<u", sizeof("\x1b[<u") - 1);
+	term_emit("\x1b[?2004l", sizeof("\x1b[?2004l") - 1);
+	term_emit("\x1b[?1006l", sizeof("\x1b[?1006l") - 1);
+	term_emit("\x1b[?1002l", sizeof("\x1b[?1002l") - 1);
+	term_emit("\x1b[?1000l", sizeof("\x1b[?1000l") - 1);
 	if (g_altbuf) {
-		term_emit_cstr("\x1b[?1049l");
+		term_emit("\x1b[?1049l", sizeof("\x1b[?1049l") - 1);
 		g_altbuf = false;
 	}
 	term_out_flush();
@@ -642,24 +868,33 @@ void term_flush() {
 }
 
 void term_hide_cursor() {
-	term_emit_cstr("\x1b[?25l");
+	/* Buffered like jem.go; not used on the ordinary jem.c paint path. */
+	term_emit("\x1b[?25l", sizeof("\x1b[?25l") - 1);
+	term_out_flush();
 }
 
 void term_show_cursor() {
-	term_emit_cstr("\x1b[?25h");
+	term_emit("\x1b[?25h", sizeof("\x1b[?25h") - 1);
+	term_out_flush();
 }
 
 void term_move(int row, int col) {
+	/* jem.c/jem.go always emit unconditionally: this dedup cache does not
+	 * track the real terminal cursor (writes advance it silently), so a
+	 * later term_move to the same (row, col) recorded before an
+	 * intervening term_write/DECSTBM/etc. would be wrongly skipped and
+	 * the next output would land at the wrong screen position -- exactly
+	 * the "torn escape" symptom reported. Match the reference impls. */
 	term_emit_csi(row + 1, true, col + 1, 'H');
 }
 
 void term_erase_eol() {
-	term_emit_cstr("\x1b[K");
+	term_emit("\x1b[K", sizeof("\x1b[K") - 1);
 }
 
 void term_erase_eos() {
 	term_reset_scroll_region();
-	term_emit_cstr("\x1b[J");
+	term_emit("\x1b[J", sizeof("\x1b[J") - 1);
 }
 
 void term_set_scroll_region(int top, int bottom) {
@@ -706,7 +941,7 @@ void term_write_cstr(const char[..] s) {
 }
 
 void term_beep() {
-	term_emit_cstr("\a");
+	term_emit("\x07", 1);
 	term_out_flush();
 }
 
@@ -747,7 +982,7 @@ static void term_read_bracketed_paste() {
 		return;
 	}
 	for (;;) {
-		auto (byte, ok) = term_read_byte(-1);
+		auto (byte, ok) = term_read_byte(g_byte_timeout_ms);
 		if (!ok) {
 			free(data);
 			return;
@@ -782,19 +1017,25 @@ static void term_read_bracketed_paste() {
 	}
 }
 
-static uint32_t term_decode_csi() {
+static uint32_t term_decode_csi(bool *incomplete) {
 	int params[8] = {0};
 	int nparams = 0;
 	int val = 0;
 	bool in_num = false;
 	bool is_u = false;
 	bool is_mouse = false;
-	int i = 0;
 
-	for (i = 0; i < 64; i++) {
-		auto (b, ok) = term_read_byte(50);
+	/* Blocking (-1) for dedicated reads; timed for term_try_read_key only. */
+	for (;;) {
+		auto (b, ok) = term_read_byte(g_byte_timeout_ms);
 		if (!ok) {
+			if (incomplete != NULL) {
+				*incomplete = g_byte_timeout_ms >= 0;
+			}
 			return 0;
+		}
+		if (b == '?' || b == '>' || b == '=' || b == '!') {
+			continue;
 		}
 		if (b >= '0' && b <= '9') {
 			val = val * 10 + (b - '0');
@@ -828,7 +1069,6 @@ static uint32_t term_decode_csi() {
 				int button = params[0];
 				g_mouse_col = params[1] - 1;
 				g_mouse_row = params[2] - 1;
-				event_enqueue(event_mouse(g_mouse_col, g_mouse_row));
 				if (b == 'm') {
 					return 0;
 				}
@@ -911,7 +1151,7 @@ static uint32_t term_decode_utf8(char first) {
 		return first;
 	}
 	for (i = 1; i < need; i++) {
-		auto (bx, okx) = term_read_byte(50);
+		auto (bx, okx) = term_read_byte(g_byte_timeout_ms);
 		if (!okx) {
 			return 0;
 		}
@@ -933,10 +1173,10 @@ static uint32_t term_decode_utf8(char first) {
 	return r;
 }
 
-// term_read_key blocks for one decoded key.
-(uint32_t, bool) term_read_key() {
+static (uint32_t, bool) term_read_key_impl(bool rewind_on_partial) {
 	for (;;) {
-		auto (b, ok) = term_read_byte(-1);
+		int start = g_ipos;
+		auto (b, ok) = term_read_byte(g_byte_timeout_ms);
 		char first = b;
 		if (!ok) {
 			return (0, false);
@@ -946,25 +1186,42 @@ static uint32_t term_decode_utf8(char first) {
 			if (k != 0) {
 				return (k, true);
 			}
+			if (rewind_on_partial) {
+				g_ipos = start;
+				return (0, false);
+			}
 			continue;
 		}
 		if (first != 0x1B) {
 			return (first, true);
 		}
-		auto (b2, ok2) = term_read_byte(50);
+		auto (b2, ok2) = term_read_byte(g_byte_timeout_ms);
 		if (!ok2) {
+			if (rewind_on_partial) {
+				g_ipos = start;
+				return (0, false);
+			}
 			return (0x1B, true);
 		}
 		if (b2 == '[') {
-			uint32_t k = term_decode_csi();
+			bool incomplete = false;
+			uint32_t k = term_decode_csi(&incomplete);
 			if (k != 0) {
 				return (k, true);
+			}
+			if (rewind_on_partial && incomplete) {
+				g_ipos = start;
+				return (0, false);
 			}
 			continue;
 		}
 		if (b2 == 'O') {
-			auto (b3, ok3) = term_read_byte(50);
+			auto (b3, ok3) = term_read_byte(g_byte_timeout_ms);
 			if (!ok3) {
+				if (rewind_on_partial) {
+					g_ipos = start;
+					return (0, false);
+				}
 				return (0, false);
 			}
 			auto (k, kok) = cursor_key_code(b3, 0);
@@ -980,13 +1237,38 @@ static uint32_t term_decode_utf8(char first) {
 	}
 }
 
+// term_read_key blocks for one decoded key.
+(uint32_t, bool) term_read_key() {
+	g_byte_timeout_ms = -1;
+	return term_read_key_impl(false);
+}
+
 // term_try_read_key polls with timeout_ms.
 (uint32_t, bool) term_try_read_key(int timeout_ms) {
+	int per_byte = 100;
+	if (!g_is_tty) {
+		return (0, false);
+	}
 	if (g_ipos >= g_ilen) {
-		if (!term_wait_readable(timeout_ms) && g_ipos >= g_ilen) {
+		if (!term_wait_readable(timeout_ms)) {
 			return (0, false);
 		}
+		/* Avoid spinning when poll said readable but the kernel has no bytes. */
+		if (g_ipos >= g_ilen) {
+			if (g_ipos > 0) {
+				term_in_reset();
+			}
+			if (term_in_append_read(TermInCap) <= 0) {
+				return (0, false);
+			}
+		}
 	}
-	return term_read_key();
+	if (timeout_ms > 0) {
+		per_byte = timeout_ms;
+	} else {
+		per_byte = 0;
+	}
+	g_byte_timeout_ms = per_byte;
+	return term_read_key_impl(true);
 }
 
