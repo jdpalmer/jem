@@ -3144,6 +3144,12 @@ static void file_check_reload() {
 	minibuffer_begin("File changed on disk; revert (y/n) ", 1);
 }
 
+void runtime_after_buffer_edit(Buffer *buf, Location begin, Location end, Location new_end) {
+	window_remap_after_edit(buf, begin, end, new_end);
+	search_after_buffer_edit(buf, begin, end, new_end);
+	mouse_after_buffer_edit(buf);
+}
+
 void runtime_run(int argc, char **argv) {
 	int i = 0;
 	memset(&g_app, 0, sizeof(g_app));
@@ -3151,6 +3157,7 @@ void runtime_run(int argc, char **argv) {
 	vars_init();
 
 	buffer_list_init();
+	buffer_set_after_edit(runtime_after_buffer_edit);
 	window_init();
 	init_commands();
 	job_init();

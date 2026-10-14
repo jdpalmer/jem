@@ -624,6 +624,39 @@ bool window_next() {
 	return false;
 }
 
+/* Remap sticky window positions after buf replace; clear ephemeral search spans. */
+void window_remap_after_edit(Buffer *buf, Location begin, Location end, Location new_end) {
+	size_t i = 0;
+	int nlines = 0;
+	if (buf == NULL) {
+		return;
+	}
+	nlines = buf.line_count_i();
+	if (nlines < 1) {
+		nlines = 1;
+	}
+	for (i = 0; i < window_active.count; i++) {
+		Window *w = window_active.windows[i];
+		if (w == NULL || w.buffer != buf) {
+			continue;
+		}
+		location_remap_replace(&w.cursor, begin, end, new_end);
+		location_remap_replace(&w.mark, begin, end, new_end);
+		buffer_clamp_location(buf, &w.cursor);
+		buffer_clamp_location(buf, &w.mark);
+		if (w.top_line > nlines) {
+			w.top_line = nlines;
+		}
+		if (w.top_line < 1) {
+			w.top_line = 1;
+		}
+		if (w.search_span_count > 0) {
+			w.search_span_count = 0;
+			w.should_redraw = true;
+		}
+	}
+}
+
 void window_init() {
 	Window *win = {0};
 	memset(&window_active, 0, sizeof(window_active));
@@ -632,6 +665,8 @@ void window_init() {
 		window_select(win);
 		window_retile();
 	}
+	/* Default sticky remap; runtime may replace with a wider after-edit hook. */
+	buffer_set_after_edit(window_remap_after_edit);
 }
 
 static int windows_showing(Buffer *buf) {
@@ -701,6 +736,7 @@ bool (Window *win).set_text(Location begin, Location end, const char *text, size
 	if (!ok) {
 		return false;
 	}
+	/* Point follows the edit; sticky remap (nil insertion-type) would leave it. */
 	win.cursor = new_end;
 	win.goal_col = GoalColUnset;
 	note_buffer_edit(win.buffer, structural, was_changed);

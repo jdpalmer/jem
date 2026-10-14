@@ -11,6 +11,16 @@ static Window *g_mouse_anchor_win;
 static int g_mouse_anchor_line;
 static size_t g_mouse_anchor_offset;
 
+/* Drag anchor is ephemeral across edits — clear rather than remap. */
+void mouse_after_buffer_edit(Buffer *buf) {
+	if (g_mouse_anchor_win == NULL || g_mouse_anchor_win.buffer != buf) {
+		return;
+	}
+	g_mouse_anchor_win = NULL;
+	g_mouse_anchor_line = 0;
+	g_mouse_anchor_offset = 0;
+}
+
 static int window_last_visible_line(Window *win) {
 	int last = 0;
 	int nlines = 0;

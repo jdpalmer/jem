@@ -38,6 +38,10 @@ struct Line {
 	void *metadata;
 };
 
+enum {
+	BufferMarkRingMax = 16
+};
+
 struct Buffer {
 	Line[..] lines; /* owned heap */
 	uint32_t serial;
@@ -57,7 +61,18 @@ struct Buffer {
 	int64_t access_time;
 	Location cursor;
 	Location mark;
+	Location mark_ring[BufferMarkRingMax];
+	int mark_ring_count;
 };
+
+/* Called after a successful replace_raw (buf.cursor/mark/mark_ring already remapped). */
+typedef void (*BufferAfterEditFn)(Buffer *buf, Location begin, Location end, Location new_end);
+
+static BufferAfterEditFn g_buffer_after_edit;
+
+void buffer_set_after_edit(BufferAfterEditFn fn) {
+	g_buffer_after_edit = fn;
+}
 
 enum UndoKind {
 	UndoDelete = 0,
@@ -702,6 +717,89 @@ void (UndoHistory *h).forget_buffer(Buffer *buf) {
 	}
 }
 
+/* ---- sticky locations ---------------------------------------------------- */
+
+int location_cmp(Location a, Location b) {
+	if (a.line != b.line) {
+		return a.line < b.line ? -1 : 1;
+	}
+	if (a.offset != b.offset) {
+		return a.offset < b.offset ? -1 : 1;
+	}
+	return 0;
+}
+
+/* Remap a sticky Location across replace [begin, end) → text ending at new_end.
+ * Unset marks (line == 0) are left alone. Insertion-type nil: a mark at the
+ * insertion point stays before the inserted text. */
+void location_remap_replace(Location *loc, Location begin, Location end, Location new_end) {
+	if (loc == NULL || loc.line == 0) {
+		return;
+	}
+	if (location_cmp(*loc, begin) < 0) {
+		return;
+	}
+	if (location_cmp(*loc, end) < 0) {
+		*loc = begin;
+		return;
+	}
+	/* Pure insert at loc: begin == end == loc → stay (nil insertion-type). */
+	if (location_cmp(begin, end) == 0 && location_cmp(*loc, end) == 0) {
+		return;
+	}
+	if (loc.line == end.line) {
+		loc.line = new_end.line;
+		loc.offset = new_end.offset + (loc.offset - end.offset);
+	} else {
+		loc.line = loc.line + (new_end.line - end.line);
+	}
+}
+
+void buffer_clamp_location(Buffer *b, Location *loc) {
+	int nlines = 0;
+	int idx = 0;
+	if (b == NULL || loc == NULL || loc.line == 0) {
+		return;
+	}
+	nlines = b.line_count_i();
+	if (nlines < 1) {
+		loc.line = 1;
+		loc.offset = 0;
+		return;
+	}
+	if (loc.line < 1) {
+		loc.line = 1;
+		loc.offset = 0;
+		return;
+	}
+	if (loc.line > nlines) {
+		loc.line = nlines;
+	}
+	idx = loc.line - 1;
+	{
+		char[..] data = b.lines[idx].data;
+		size_t blen = len(data);
+		if (loc.offset > blen) {
+			loc.offset = blen;
+		}
+	}
+}
+
+static void buffer_remap_sticky(Buffer *buf, Location begin, Location end, Location new_end) {
+	int i = 0;
+	if (buf == NULL) {
+		return;
+	}
+	location_remap_replace(&buf.cursor, begin, end, new_end);
+	location_remap_replace(&buf.mark, begin, end, new_end);
+	buffer_clamp_location(buf, &buf.cursor);
+	buffer_clamp_location(buf, &buf.mark);
+	for (i = 0; i < buf.mark_ring_count; i++) {
+		location_remap_replace(&buf.mark_ring[i], begin, end, new_end);
+		buffer_clamp_location(buf, &buf.mark_ring[i]);
+	}
+}
+
 /* ---- text mutation ------------------------------------------------------- */
 
 static bool make_line(Line *out, Buffer *buf, const char[..] data) {
@@ -904,6 +1002,11 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	buf.mark_changed();
 	str_free(&rebuilt);
 
+	buffer_remap_sticky(buf, begin, end, new_end);
+	if (g_buffer_after_edit != NULL) {
+		g_buffer_after_edit(buf, begin, end, new_end);
+	}
+
 	if (new_end_out != NULL) {
 		*new_end_out = new_end;
 	}
@@ -1048,6 +1151,7 @@ void (Buffer *buf).clear() {
 	buf.cursor.offset = 0;
 	buf.mark.line = 0;
 	buf.mark.offset = 0;
+	buf.mark_ring_count = 0;
 }
 
 // append_line appends a line view and returns it (jem.go AppendLineBytes).
@@ -1125,6 +1229,9 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	buf.serial++;
 	buf.cursor.line = 1;
 	buf.cursor.offset = 0;
+	buf.mark.line = 0;
+	buf.mark.offset = 0;
+	buf.mark_ring_count = 0;
 	return true;
 }
 
@@ -1169,4 +1276,5 @@ void (Buffer *buf).set_name(const char[..] name) {
 void (Buffer *buf).set_file_name(const char[..] path) {
 	(void)str_set(&buf.file_name, path);
 }
+
 

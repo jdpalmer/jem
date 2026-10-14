@@ -66,6 +66,21 @@ void search_reset() {
 	g_search.forward = true;
 }
 
+/* Sticky isearch origin remaps; current match / spans are ephemeral → clear. */
+void search_after_buffer_edit(Buffer *buf, Location begin, Location end, Location new_end) {
+	Window *win = window_current();
+	if (!g_search.active || win == NULL || win.buffer != buf) {
+		return;
+	}
+	location_remap_replace(&g_search.start, begin, end, new_end);
+	buffer_clamp_location(buf, &g_search.start);
+	g_search.have_match = false;
+	g_search.match_begin.line = 0;
+	g_search.match_end.line = 0;
+	search_clear_re_slice();
+	window_clear_search_spans(win);
+}
+
 SearchState *search_state() {
 	return &g_search;
 }
