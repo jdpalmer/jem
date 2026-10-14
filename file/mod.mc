@@ -14,8 +14,6 @@ import "str";
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <unistd.h>
-#include "temp.h"
 
 static EolMode detect_eol(char *data, size_t n) {
 	size_t i = 0;
@@ -326,15 +324,12 @@ static (Buffer *, bool) file_load_new(char *path) {
 }
 
 // file_save writes buf to its file_name (or path if provided).
+// Opens the destination in place (like jem.go): follows symlinks and keeps
+// existing file modes. mkstemp+rename would replace a symlink and force 0600.
 bool file_save(Buffer *buf, char *path) {
 	char[..] usev = str_empty();
-	char[..] pv = str_empty();
 	char resolved[FilePathMax] = {
 		0 };
-	char temp[FilePathMax] = {
-		0 };
-	int fd = -1;
-	int temp_len = 0;
 
 	if (buf == NULL) {
 		return false;
@@ -355,45 +350,28 @@ bool file_save(Buffer *buf, char *path) {
 	if (!ok || data == NULL) {
 		return false;
 	}
-	temp_len = snprintf(temp, sizeof(temp), "%s.jem-save-XXXXXX", usev);
-	if (temp_len < 0 || (size_t)temp_len >= sizeof(temp)) {
-		free(data);
-		return false;
-	}
-	fd = mkstemp(temp);
-	if (fd < 0) {
-		free(data);
-		return false;
-	}
-	close(fd);
-	pv = str_from_cstr(temp);
-	auto (w, wok) = writer_open(pv, OpenWrite | OpenTrunc, 0);
-	if (!wok) {
-		fs_remove(pv);
-		free(data);
-		return false;
-	}
-	if (n != 0) {
-		auto (wn, wrok) = w.write(str_from_bytes(data, n));
-		if (!wrok || (size_t)wn != n) {
-			w.close();
-			fs_remove(pv);
+	{
+		auto (w, wok) = writer_open(usev, OpenWrite | OpenCreate | OpenTrunc, 0);
+		if (!wok) {
 			free(data);
 			return false;
 		}
-	}
-	if (!w.flush()) {
+		if (n != 0) {
+			auto (wn, wrok) = w.write(str_from_bytes(data, n));
+			if (!wrok || (size_t)wn != n) {
+				w.close();
+				free(data);
+				return false;
+			}
+		}
+		if (!w.flush()) {
+			w.close();
+			free(data);
+			return false;
+		}
 		w.close();
-		fs_remove(pv);
-		free(data);
-		return false;
 	}
-	w.close();
 	free(data);
-	if (!fs_rename(pv, usev)) {
-		fs_remove(pv);
-		return false;
-	}
 	if (path != NULL && path[0] != 0) {
 		file_apply_path_meta(buf, path);
 	}

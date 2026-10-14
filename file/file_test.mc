@@ -11,6 +11,8 @@ import "str";
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "temp.h"
 
 static void check(bool ok) {
@@ -204,11 +206,58 @@ static void test_check_reload_auto_revert_dirty() {
 	check(buf.notified_mtime_ns == 0);
 }
 
+static void test_save_preserves_mode_and_symlink() {
+	char dir[512] = {0};
+	char target[512] = {0};
+	char linkpath[512] = {0};
+	char text[64] = {0};
+	Buffer *buf = NULL;
+	struct stat st = {0};
+	File r = {0};
+	size_t got = 0;
+
+	snprintf(dir, sizeof(dir), "/tmp/jem-fsave-XXXXXX");
+	check(mkdtemp(dir) != NULL);
+	snprintf(target, sizeof(target), "%s/script.sh", dir);
+	snprintf(linkpath, sizeof(linkpath), "%s/alias.sh", dir);
+	write_path(target, "old\n");
+	check(chmod(target, 0x1ed) == 0); /* 0755 */
+	check(symlink(target, linkpath) == 0);
+
+	buffer_list_init();
+	buf = buffer_current();
+	check(buf != NULL);
+	check(buf.load_bytes("new\n", 4, EModeLF));
+	buf.set_file_name(str_from_cstr(linkpath));
+	(void)setup_window(buf);
+	check(file_save(buf, NULL));
+
+	check(lstat(linkpath, &st) == 0);
+	check(S_ISLNK(st.st_mode));
+	check(stat(target, &st) == 0);
+	check((st.st_mode & 0x1ff) == 0x1ed); /* 0777 / 0755 */
+
+	{
+		auto (rf, rok) = reader_open(str_from_cstr(target), 0);
+		check(rok);
+		r = rf;
+	}
+	{
+		auto (n, ok) = r.read(ranged(text, sizeof(text) - 1));
+		check(ok && n > 0);
+		got = (size_t)n;
+	}
+	r.close();
+	text[got] = 0;
+	check(strcmp(text, "new\n") == 0);
+}
+
 int main() {
 	test_complete_path();
 	test_check_reload_clean_buffer();
 	test_check_reload_skips_dirty_when_notified();
 	test_check_reload_dirty_sets_notified();
 	test_check_reload_auto_revert_dirty();
+	test_save_preserves_mode_and_symlink();
 	return 0;
 }
