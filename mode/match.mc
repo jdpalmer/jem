@@ -56,88 +56,30 @@ bool mode_delimiter_pair(int ch, int *open_out, int *close_out, bool *forward_ou
 	return false;
 }
 
-/* Approximate code-context check for one line (ignores cross-line block comments). */
-static bool offset_in_code(Line *line, size_t offset) {
-	char[..] v = {0};
-	const char *p = NULL;
-	size_t n = 0;
-	size_t i = 0;
-	bool in_str = false;
-	bool in_chr = false;
-	bool in_line_cmt = false;
-	bool in_block = false;
-	char str_q = 0;
-	if (line == NULL) {
+static bool syn_context_is_code(SynState *st) {
+	if (st == NULL) {
 		return false;
 	}
-	v = line.view();
-	p = ptr(v);
-	n = len(v);
-	if (offset >= n) {
+	switch (st.dfa) {
+	case SynStateStringD:
+	case SynStateStringDEsc:
+	case SynStateStringS:
+	case SynStateStringSEsc:
+	case SynStateCmtLine:
+	case SynStateCmtBlock:
+	case SynStateCmtStar:
+	case SynStateCmtBrace:
+	case SynStateCmtParen:
+	case SynStateCmtParen2:
+	case SynStateLuaBlock:
+	case SynStateLuaBlkEnd:
+	case SynStateHTMLCmt:
+	case SynStateHTMLCmtD1:
+	case SynStateHTMLCmtD2:
 		return false;
+	default:
+		return true;
 	}
-	for (i = 0; i < offset; i++) {
-		char c = p[i];
-		char next = 0;
-		if (i + 1 < n) {
-			next = p[i + 1];
-		}
-		if (in_line_cmt) {
-			continue;
-		}
-		if (in_block) {
-			if (c == '*' && next == '/') {
-				in_block = false;
-				i++;
-			}
-			continue;
-		}
-		if (in_str || in_chr) {
-			if (c == '\\' && i + 1 < n) {
-				i++;
-				continue;
-			}
-			if (c == str_q) {
-				in_str = false;
-				in_chr = false;
-			}
-			continue;
-		}
-		if (c == '/' && next == '/') {
-			in_line_cmt = true;
-			i++;
-			continue;
-		}
-		if (c == '/' && next == '*') {
-			in_block = true;
-			i++;
-			continue;
-		}
-		if (c == '"') {
-			in_str = true;
-			str_q = '"';
-			continue;
-		}
-		if (c == '\'') {
-			in_chr = true;
-			str_q = '\'';
-			continue;
-		}
-	}
-	return !in_str && !in_chr && !in_line_cmt && !in_block;
-}
-
-bool mode_char_is_structural(Buffer *buf, int line_number, size_t offset) {
-	Line *line = NULL;
-	(void)buf;
-	if (buf == NULL || line_number < 1) {
-		return false;
-	}
-	line = buf.line(line_number);
-	if (line == NULL) {
-		return false;
-	}
-	return offset_in_code(line, offset);
 }
 
 static int line_byte_at(Line *line, size_t offset) {
@@ -146,6 +88,142 @@ static int line_byte_at(Line *line, size_t offset) {
 		return -1;
 	}
 	return ptr(v)[offset];
+}
+
+/* Ensure lines [1, line_number) have valid syntax_end (DFA carry). */
+void mode_syntax_ensure_before(Buffer *buf, int line_number) {
+	SynState st = {SynStateNormal};
+	int q = 0;
+	int sync = 1;
+	TextStyle[..] nostyle = ranged((TextStyle *)0, 0);
+	if (buf == NULL || line_number < 2) {
+		return;
+	}
+	for (q = line_number - 1; q >= 1; q--) {
+		Line *line = buf.line(q);
+		if (line != NULL && line.syntax_valid) {
+			st = line.syntax_end;
+			sync = q + 1;
+			break;
+		}
+	}
+	for (q = sync; q < line_number; q++) {
+		Line *line = buf.line(q);
+		char[..] v = {0};
+		SynState end = {SynStateNormal};
+		if (line == NULL) {
+			continue;
+		}
+		v = line.view();
+		end = syntax_highlight_line(buf.lang_mode, &st, v, nostyle, 0);
+		line.syntax_end = end;
+		line.syntax_valid = true;
+		st = end;
+	}
+}
+
+// mode_syntax_state_at writes DFA state after processing line[0..offset).
+bool mode_syntax_state_at(Buffer *buf, int line_number, size_t offset, SynState *out) {
+	Line *line = NULL;
+	SynState st = {SynStateNormal};
+	TextStyle[..] nostyle = ranged((TextStyle *)0, 0);
+	char[..] v = {0};
+	if (out == NULL) {
+		return false;
+	}
+	*out = st;
+	if (buf == NULL || line_number < 1) {
+		return false;
+	}
+	mode_syntax_ensure_before(buf, line_number);
+	if (line_number > 1) {
+		Line *pl = buf.line(line_number - 1);
+		if (pl != NULL && pl.syntax_valid) {
+			st = pl.syntax_end;
+		}
+	}
+	line = buf.line(line_number);
+	if (line == NULL) {
+		*out = st;
+		return false;
+	}
+	v = line.view();
+	if (offset > len(v)) {
+		offset = len(v);
+	}
+	if (offset == 0) {
+		*out = st;
+		return true;
+	}
+	/* Non-zero limit = prefix scan without EOL carry cleanup. */
+	*out = syntax_highlight_line(buf.lang_mode, &st, v, nostyle, offset);
+	return true;
+}
+
+bool mode_char_is_structural(Buffer *buf, int line_number, size_t offset) {
+	SynState before = {SynStateNormal};
+	SynState after = {SynStateNormal};
+	if (buf == NULL || line_number < 1) {
+		return false;
+	}
+	if (!mode_syntax_state_at(buf, line_number, offset, &before) ||
+		!syn_context_is_code(&before)) {
+		return false;
+	}
+	if (!mode_syntax_state_at(buf, line_number, offset + 1, &after) ||
+		!syn_context_is_code(&after)) {
+		return false;
+	}
+	return true;
+}
+
+/* Innermost unmatched open_ch still open at `at` (virtual close before at). */
+bool mode_find_enclosing_open(Buffer *buf, Location at, int open_ch, int close_ch, Location *out) {
+	int line_num = 0;
+	int off = 0;
+	int depth = 1;
+	if (buf == NULL || out == NULL || at.line < 1) {
+		return false;
+	}
+	mode_syntax_ensure_before(buf, at.line + 1);
+	line_num = at.line;
+	off = (int)at.offset - 1;
+	while (line_num >= 1) {
+		Line *line = buf.line(line_num);
+		if (line == NULL) {
+			return false;
+		}
+		if (off >= (int)line.byte_len()) {
+			off = (int)line.byte_len() - 1;
+		}
+		while (off >= 0) {
+			int c = line_byte_at(line, off);
+			if ((c == open_ch || c == close_ch) &&
+				mode_char_is_structural(buf, line_num, off)) {
+				if (c == close_ch) {
+					depth++;
+				} else {
+					depth--;
+					if (depth == 0) {
+						out.line = line_num;
+						out.offset = off;
+						return true;
+					}
+				}
+			}
+			off--;
+		}
+		if (line_num == 1) {
+			break;
+		}
+		line_num--;
+		line = buf.line(line_num);
+		if (line == NULL) {
+			return false;
+		}
+		off = (int)line.byte_len() - 1;
+	}
+	return false;
 }
 
 // mode_find_matching_delimiter finds the partner for start (jem.go FindMatchingDelimiter).
@@ -159,6 +237,7 @@ bool mode_find_matching_delimiter(Buffer *buf, Location start, Location *match_o
 	if (buf == NULL || match_out == NULL) {
 		return false;
 	}
+	/* Structural checks ensure lines on demand; do not warm the whole buffer. */
 	if (start.line < 1 || start.line >= buf.eof_line()) {
 		return false;
 	}

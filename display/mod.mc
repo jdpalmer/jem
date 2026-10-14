@@ -492,8 +492,8 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 	line_len = len(v);
 	sel_line(sel, buf_line, line_len, &sel_start, &sel_end);
 
-	/* highlight if needed */
-	if (!line.syntax_valid && len(v) != 0) {
+	/* highlight if needed (structure-only parse may set syntax_valid without styles) */
+	if ((!line.syntax_valid || line.styles == NULL) && len(v) != 0) {
 		TextStyle *st = calloc(len(v), sizeof(TextStyle));
 		if (st != NULL) {
 			if (buf_line > 1) {
@@ -502,7 +502,7 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 					prev = pl.syntax_end;
 				}
 			}
-			end = syntax_highlight_line(win.buffer.lang_mode, &prev, v, ranged(st, len(v)));
+			end = syntax_highlight_line(win.buffer.lang_mode, &prev, v, ranged(st, len(v)), 0);
 			free(line.styles);
 			line.styles = st;
 			line.styles_len = len(v);

@@ -384,13 +384,15 @@ static void on_exit(int state, char[..] line, size_t i, size_t token_start, Lang
 	}
 }
 
-// syntax_highlight_line paints styles[0..min(len(line),len(styles))) and
-// returns the SynState after the line (for the next line's prev).
-// prev may be NULL (treated as zero SynState).
-SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, TextStyle[..] styles) {
+// syntax_highlight_line paints styles and returns SynState after processing
+// line[0..limit) (limit 0 = full line). prev may be NULL. styles may be empty
+// for structure-only scans. EOL carry cleanup runs only for a full-line scan.
+SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, TextStyle[..] styles,
+	size_t limit) {
 	Spec info = {ModeSyntaxGeneral};
 	SynState syn = {SynStateNormal};
 	size_t n = 0;
+	size_t full_len = 0;
 	size_t i = 0;
 	size_t token_start = 0;
 	uint32_t flags = 0;
@@ -406,14 +408,20 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 		syn = *prev;
 	}
 	info = syntax_spec_for(lang);
-	n = len(line);
-	if (len(styles) < n) {
-		n = len(styles);
+	full_len = len(line);
+	n = full_len;
+	if (limit != 0 && limit < n) {
+		n = limit;
 	}
+	/* Paint only where styles exist; still tokenize through n for SynState. */
 	{
 		TextStyle *sp = ptr(styles);
+		size_t paint_n = len(styles);
+		if (paint_n > n) {
+			paint_n = n;
+		}
 		if (sp != NULL) {
-			for (i = 0; i < n; i++) {
+			for (i = 0; i < paint_n; i++) {
 				sp[i] = a_normal();
 			}
 		}
@@ -707,26 +715,27 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 		}
 	}
 
-	if (syn.dfa == SynStateIdent) {
-		paint_ident_range(line, token_start, n, lang, styles);
-		syn.dfa = SynStateNormal;
-	}
-	if (syn.dfa == SynStateOperator) {
-		syn.dfa = SynStateNormal;
-	}
-
-	switch (syn.dfa) {
-	case SynStateCmtLine:
-	case SynStateNumber:
-	case SynStateStringD:
-	case SynStateStringDEsc:
-	case SynStateStringS:
-	case SynStateStringSEsc:
-	case SynStateLuaDash:
-		syn.dfa = SynStateNormal;
-		break;
-	default:
-		break;
+	if (limit == 0 || limit >= full_len) {
+		if (syn.dfa == SynStateIdent) {
+			paint_ident_range(line, token_start, n, lang, styles);
+			syn.dfa = SynStateNormal;
+		}
+		if (syn.dfa == SynStateOperator) {
+			syn.dfa = SynStateNormal;
+		}
+		switch (syn.dfa) {
+		case SynStateCmtLine:
+		case SynStateNumber:
+		case SynStateStringD:
+		case SynStateStringDEsc:
+		case SynStateStringS:
+		case SynStateStringSEsc:
+		case SynStateLuaDash:
+			syn.dfa = SynStateNormal;
+			break;
+		default:
+			break;
+		}
 	}
 	return syn;
 }

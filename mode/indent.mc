@@ -6,172 +6,9 @@
 #include <string.h>
 
 enum {
-	CodeScanCode = 0,
-	CodeScanString = 1,
-	CodeScanStringEsc = 2,
-	CodeScanChar = 3,
-	CodeScanCharEsc = 4,
-	CodeScanLineCmt = 5,
-	CodeScanBlockCmt = 6,
-	CodeScanBlockCmtStar = 7,
-	IndentStackMax = 512,
 	GoIndentCols = 8,
 	IndentPrefixCap = 512
 };
-
-struct DelimStacks {
-	Location parens[IndentStackMax];
-	Location brackets[IndentStackMax];
-	Location braces[IndentStackMax];
-	int nparens;
-	int nbrackets;
-	int nbraces;
-};
-
-static int code_scan_step(int state, char c, char next, bool *in_code) {
-	*in_code = false;
-	switch (state) {
-	case CodeScanString:
-		if (c == '\\') {
-			return CodeScanStringEsc;
-		}
-		if (c == '"') {
-			return CodeScanCode;
-		}
-		return CodeScanString;
-	case CodeScanStringEsc:
-		return CodeScanString;
-	case CodeScanChar:
-		if (c == '\\') {
-			return CodeScanCharEsc;
-		}
-		if (c == '\'') {
-			return CodeScanCode;
-		}
-		return CodeScanChar;
-	case CodeScanCharEsc:
-		return CodeScanChar;
-	case CodeScanLineCmt:
-		return CodeScanLineCmt;
-	case CodeScanBlockCmt:
-		if (c == '*') {
-			return CodeScanBlockCmtStar;
-		}
-		return CodeScanBlockCmt;
-	case CodeScanBlockCmtStar:
-		if (c == '/') {
-			return CodeScanCode;
-		}
-		if (c == '*') {
-			return CodeScanBlockCmtStar;
-		}
-		return CodeScanBlockCmt;
-	default:
-		if (c == '"') {
-			return CodeScanString;
-		}
-		if (c == '\'') {
-			return CodeScanChar;
-		}
-		if (c == '/') {
-			if (next == '/') {
-				return CodeScanLineCmt;
-			}
-			if (next == '*') {
-				return CodeScanBlockCmt;
-			}
-			*in_code = true;
-			return CodeScanCode;
-		}
-		*in_code = true;
-		return CodeScanCode;
-	}
-}
-
-static void stack_push(Location *stack, int *n, Location loc) {
-	if (*n < IndentStackMax) {
-		stack[*n] = loc;
-		(*n)++;
-	}
-}
-
-static bool stack_pop(Location *stack, int *n, Location *out) {
-	(void)stack;
-	if (*n <= 0) {
-		return false;
-	}
-	(*n)--;
-	if (out != NULL) {
-		*out = stack[*n];
-	}
-	return true;
-}
-
-static void scan_delim_stacks(Buffer *buf, int end_line, size_t end_offset, DelimStacks *out) {
-	int state = CodeScanCode;
-	int ln = 0;
-	memset(out, 0, sizeof(*out));
-	if (buf == NULL || end_line < 1) {
-		return;
-	}
-	for (ln = 1; ln <= end_line; ln++) {
-		Line *line = {0};
-		size_t limit = 0;
-		size_t i = 0;
-		if (state == CodeScanLineCmt) {
-			state = CodeScanCode;
-		}
-		line = buf.line(ln);
-		if (line == NULL) {
-			continue;
-		}
-		limit = line.byte_len();
-		if (ln == end_line) {
-			if (end_offset < limit) {
-				limit = end_offset;
-			}
-		}
-		for (i = 0; i < limit; i++) {
-			char c = line.data[i];
-			char next = 0;
-			bool in_code = false;
-			Location loc = {0};
-			if (i + 1 < line.byte_len()) {
-				next = line.data[i + 1];
-			}
-			state = code_scan_step(state, c, next, &in_code);
-			if (!in_code) {
-				if (c == '/' && (next == '/' || next == '*') &&
-					(state == CodeScanLineCmt || state == CodeScanBlockCmt)) {
-					i++;
-				}
-				continue;
-			}
-			loc.line = ln;
-			loc.offset = i;
-			switch (c) {
-			case '(':
-				stack_push(out.parens, &out.nparens, loc);
-				break;
-			case ')':
-				stack_pop(out.parens, &out.nparens, NULL);
-				break;
-			case '[':
-				stack_push(out.brackets, &out.nbrackets, loc);
-				break;
-			case ']':
-				stack_pop(out.brackets, &out.nbrackets, NULL);
-				break;
-			case '{':
-				stack_push(out.braces, &out.nbraces, loc);
-				break;
-			case '}':
-				stack_pop(out.braces, &out.nbraces, NULL);
-				break;
-			}
-		}
-	}
-}
 
 static int line_col_of_offset(Line *line, size_t offset) {
 	if (line == NULL) {
@@ -364,62 +201,49 @@ static int find_case_indent(Buffer *buf, int line_number) {
 
 static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t offset) {
 	Line *line = buf.line(line_number);
-	DelimStacks stacks = {0};
-	char ch = 0;
+	Location here = {0};
 	Location open = {0};
-	bool ok = false;
+	char ch = 0;
 	if (line == NULL || offset >= line.byte_len()) {
 		return 0;
 	}
 	ch = line.data[offset];
-	scan_delim_stacks(buf, line_number, offset, &stacks);
-	switch (ch) {
-	case '}':
-		ok = stack_pop(stacks.braces, &stacks.nbraces, &open);
-		if (!ok) {
-			return 0;
-		}
-		{
-			Line *ol = buf.line(open.line);
-			if (ol != NULL) {
-				return (int)ol.indent_column();
-			}
-		}
-		return 0;
-	case ')':
-		ok = stack_pop(stacks.parens, &stacks.nparens, &open);
-		break;
-	case ']':
-		ok = stack_pop(stacks.brackets, &stacks.nbrackets, &open);
-		break;
-	default:
+	if (ch != '}' && ch != ')' && ch != ']') {
 		return 0;
 	}
-	if (!ok) {
+	here.line = line_number;
+	here.offset = offset;
+	if (!mode_find_matching_delimiter(buf, here, &open)) {
 		return 0;
 	}
 	{
 		Line *ol = buf.line(open.line);
-		if (ol != NULL) {
-			return line_col_of_offset(ol, open.offset);
+		if (ol == NULL) {
+			return 0;
 		}
+		if (ch == '}') {
+			return (int)ol.indent_column();
+		}
+		return line_col_of_offset(ol, open.offset);
 	}
-	return 0;
 }
 
 static bool find_unmatched_open_delim(Buffer *buf, int line_number, size_t offset, Location *best, char *kind) {
-	DelimStacks stacks = {0};
+	Location at = {0};
+	Location paren = {0};
+	Location bracket = {0};
 	bool found = false;
-	scan_delim_stacks(buf, line_number, offset, &stacks);
-	if (stacks.nparens > 0) {
-		*best = stacks.parens[stacks.nparens - 1];
+	at.line = line_number;
+	at.offset = offset;
+	if (mode_find_enclosing_open(buf, at, '(', ')', &paren)) {
+		*best = paren;
 		*kind = '(';
 		found = true;
 	}
-	if (stacks.nbrackets > 0) {
-		Location loc = stacks.brackets[stacks.nbrackets - 1];
-		if (!found || loc.line > best.line || (loc.line == best.line && loc.offset > best.offset)) {
-			*best = loc;
+	if (mode_find_enclosing_open(buf, at, '[', ']', &bracket)) {
+		if (!found || bracket.line > best.line ||
+			(bracket.line == best.line && bracket.offset > best.offset)) {
+			*best = bracket;
 			*kind = '[';
 			found = true;
 		}
@@ -452,14 +276,14 @@ static int find_delimiter_continuation_indent(Buffer *buf, int line_number, size
 }
 
 static int find_enclosing_block_indent(Buffer *buf, int line_number, size_t offset) {
-	DelimStacks stacks = {0};
+	Location at = {0};
 	Location open = {0};
 	Line *line = {0};
-	scan_delim_stacks(buf, line_number, offset, &stacks);
-	if (stacks.nbraces <= 0) {
+	at.line = line_number;
+	at.offset = offset;
+	if (!mode_find_enclosing_open(buf, at, '{', '}', &open)) {
 		return -1;
 	}
-	open = stacks.braces[stacks.nbraces - 1];
 	line = buf.line(open.line);
 	if (line == NULL) {
 		return -1;
