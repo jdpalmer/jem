@@ -38,11 +38,10 @@ static void test_large_undo_group() {
 	Location cursor = {0};
 	Buffer *undone = NULL;
 	char text[] = "x";
-	int i = 0;
 	check(buf != NULL);
 	at.line = 1;
 	history.begin_command(buf, at);
-	for (i = 0; i < 80; i++) {
+	for (int i = 0; i < 80; i++) {
 		Location next = {0};
 		check(buf.insert_text(at, text, 1, &next));
 		history.record_edit(UndoInsert, at.line, at.offset, text, 1);
@@ -61,18 +60,17 @@ static void test_edit_invalidates_following_syntax() {
 	Location end = {0};
 	char original[] = "one\ntwo\nthree";
 	char edit[] = "x";
-	int i = 0;
 	check(buf != NULL);
 	at.line = 1;
 	check(buf.insert_text(at, original, strlen(original), &end));
-	for (i = 1; i <= 3; i++) {
+	for (int i = 1; i <= 3; i++) {
 		buf.line(i).syntax_valid = true;
 		buf.line(i).cache_valid = true;
 	}
 	end = at;
 	end.offset = 1;
 	check(buf.replace_raw(at, end, edit, 1, NULL));
-	for (i = 1; i <= 3; i++) {
+	for (int i = 1; i <= 3; i++) {
 		check(!buf.line(i).syntax_valid);
 		check(!buf.line(i).cache_valid);
 	}

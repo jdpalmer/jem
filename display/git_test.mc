@@ -117,6 +117,8 @@ static void test_modeline_and_gutter() {
 	check(strstr(git, "[") != NULL); /* dirty status */
 	check(git_line_diff(buf, 2) == (int)GitLineDiffAdded ||
 		git_line_diff(buf, 2) == (int)GitLineDiffModified);
+	/* Second call must reuse cache (no serial/mtime change). */
+	check(git_modeline_text(buf) == git);
 }
 
 int main() {

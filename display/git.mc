@@ -17,7 +17,11 @@ enum {
 	GitPathMax = 512,
 	GitTextMax = 96,
 	GitStatusCap = 16384,
-	GitDiffCapMax = 1048576
+	GitDiffCapMax = 1048576,
+	/* Re-run git after edits only once typing has been idle this long. */
+	GitIdleRefreshSec = 5,
+	/* While the buffer is quiet, re-check the repo at most this often. */
+	GitExternalRefreshSec = 30
 };
 
 enum GitLineDiff {
@@ -32,6 +36,10 @@ struct GitModelineCache {
 	bool valid;
 	bool has_repo;
 	int64_t refreshed_at;
+	int64_t file_mtime_ns;
+	uint32_t buffer_serial;
+	uint32_t last_seen_serial;
+	int64_t serial_idle_since;
 	char file_name[GitPathMax];
 	char text[GitTextMax];
 	uint8_t *line_diffs;
@@ -175,6 +183,10 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	cache.valid = true;
 	cache.has_repo = false;
 	cache.refreshed_at = now;
+	cache.file_mtime_ns = buf.file_mtime_ns;
+	cache.buffer_serial = buf.serial;
+	cache.last_seen_serial = buf.serial;
+	cache.serial_idle_since = now;
 	snprintf(cache.file_name, sizeof(cache.file_name), "%s", fname);
 	cache.text[0] = 0;
 	free(cache.line_diffs);
@@ -382,6 +394,28 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	free(diff_out);
 }
 
+/* Refresh on path/mtime changes immediately; after edits only once idle;
+ * while quiet, periodically re-check for external repo changes. */
+static bool git_cache_needs_refresh(GitModelineCache *cache, Buffer *buf, const char *fname, int64_t now) {
+	if (!cache.valid || strcmp(cache.file_name, fname) != 0) {
+		return true;
+	}
+	if (buf.file_mtime_ns != cache.file_mtime_ns) {
+		return true;
+	}
+	if (now < cache.refreshed_at || now < cache.serial_idle_since) {
+		return true;
+	}
+	if (buf.serial != cache.last_seen_serial) {
+		cache.last_seen_serial = buf.serial;
+		cache.serial_idle_since = now;
+	}
+	if (buf.serial != cache.buffer_serial) {
+		return (now - cache.serial_idle_since) >= (int64_t)GitIdleRefreshSec;
+	}
+	return (now - cache.refreshed_at) >= (int64_t)GitExternalRefreshSec;
+}
+
 static GitModelineCache *git_cache_for_buffer(Buffer *buf) {
 	GitModelineCache *cache = NULL;
 	GitModelineCache *free_slot = NULL;
@@ -418,13 +452,17 @@ static GitModelineCache *git_cache_for_buffer(Buffer *buf) {
 		cache.valid = false;
 		cache.has_repo = false;
 		cache.refreshed_at = 0;
+		cache.file_mtime_ns = 0;
+		cache.buffer_serial = 0;
+		cache.last_seen_serial = 0;
+		cache.serial_idle_since = 0;
 		cache.file_name[0] = 0;
 		cache.text[0] = 0;
 		cache.line_diffs = NULL;
 		cache.diff_count = 0;
 	}
 	now = time(NULL);
-	if (!cache.valid || strcmp(cache.file_name, fname) != 0 || cache.refreshed_at != now) {
+	if (git_cache_needs_refresh(cache, buf, fname, now)) {
 		git_refresh_cache(cache, buf, fname, now);
 	}
 	return cache;
