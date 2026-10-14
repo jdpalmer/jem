@@ -19,6 +19,8 @@ static KillEntry g_ring[KillRingMax];
 static int g_count;
 static int g_yank_index;
 static int g_kill_sequence;
+/* Ring ahead of the system clipboard; flushed when the kill sequence ends. */
+static bool g_clipboard_dirty;
 
 static void killring_store_new(const char[..] data) {
 	int i = 0;
@@ -35,12 +37,24 @@ static void killring_store_new(const char[..] data) {
 	g_yank_index = 0;
 }
 
-// killring_push stores text at the front and writes the system clipboard.
+static void killring_flush_clipboard() {
+	if (!g_clipboard_dirty || g_count == 0) {
+		return;
+	}
+	if (len(g_ring[0].data) == 0) {
+		g_clipboard_dirty = false;
+		return;
+	}
+	/* Keep dirty on failure so yank still prefers the ring over a stale pasteboard. */
+	if (clipboard_write(g_ring[0].data)) {
+		g_clipboard_dirty = false;
+	}
+}
+
+// killring_push stores text at the front; clipboard sync is deferred.
 void killring_push(const char[..] data) {
 	killring_store_new(data);
-	if (len(data) != 0) {
-		(void)clipboard_write(data);
-	}
+	g_clipboard_dirty = true;
 }
 
 // killring_append concatenates onto the most recent kill.
@@ -52,7 +66,7 @@ void killring_append(const char[..] data) {
 	if (!str_append(&g_ring[0].data, data)) {
 		return;
 	}
-	(void)clipboard_write(g_ring[0].data);
+	g_clipboard_dirty = true;
 }
 
 // killring_kill starts or extends a consecutive kill sequence.
@@ -68,13 +82,20 @@ void killring_kill(const char[..] data) {
 	g_kill_sequence = 2;
 }
 
+/* Pull system clipboard into the ring when it differs from the front entry.
+ * Does not touch the ring when the clipboard is unavailable or empty. */
 bool killring_read_clipboard() {
 	auto (data, n, ok) = clipboard_read();
 	if (!ok || data == NULL || n == 0) {
 		free(data);
 		return false;
 	}
+	if (g_count > 0 && str_eq(g_ring[0].data, ranged(data, n))) {
+		free(data);
+		return true;
+	}
 	killring_store_new(ranged(data, n));
+	g_clipboard_dirty = false;
 	free(data);
 	return true;
 }
@@ -83,9 +104,18 @@ bool killring_in_sequence() {
 	return g_kill_sequence != 0;
 }
 
+bool killring_clipboard_dirty() {
+	return g_clipboard_dirty;
+}
+
 void killring_tick() {
 	if (g_kill_sequence > 0) {
 		g_kill_sequence--;
+		/* ponytail: one pbcopy after the whole kill chain; external paste of
+		 * the last kill waits until the next non-kill command (seq 1→0). */
+		if (g_kill_sequence == 0) {
+			killring_flush_clipboard();
+		}
 	}
 }
 

@@ -635,7 +635,7 @@ char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 	return data;
 }
 
-static bool delete_range_undo(Window *w, Location begin, Location end) {
+static bool delete_range_undo(Window *w, Location begin, Location end, bool kill) {
 	char *text = {0};
 	size_t tlen = 0;
 	Location lo = begin;
@@ -651,6 +651,9 @@ static bool delete_range_undo(Window *w, Location begin, Location end) {
 		return false;
 	}
 	text = region_text(w, lo, hi, &tlen);
+	if (kill && text != NULL && tlen > 0) {
+		killring_kill(ranged(text, tlen));
+	}
 	if (!w.set_text(lo, hi, "", 0)) {
 		free(text);
 		return false;
@@ -680,7 +683,7 @@ bool cmd_delete_word_forward(bool f, int n) {
 		if (begin.line == end.line && begin.offset == end.offset) {
 			break;
 		}
-		if (!delete_range_undo(w, begin, end)) {
+		if (!delete_range_undo(w, begin, end, true)) {
 			buffer_undo.end_command();
 			return false;
 		}
@@ -707,7 +710,7 @@ bool cmd_delete_word_backward(bool f, int n) {
 		if (begin.line == end.line && begin.offset == end.offset) {
 			break;
 		}
-		if (!delete_range_undo(w, begin, end)) {
+		if (!delete_range_undo(w, begin, end, true)) {
 			buffer_undo.end_command();
 			return false;
 		}
@@ -843,7 +846,7 @@ bool cmd_trim_whitespace(bool f, int n) {
 	finish.line = w.cursor.line;
 	finish.offset = end;
 	buffer_undo.begin_command(w.buffer, w.cursor);
-	if (!delete_range_undo(w, begin, finish)) {
+	if (!delete_range_undo(w, begin, finish, false)) {
 		buffer_undo.end_command();
 		return false;
 	}
@@ -1145,7 +1148,7 @@ bool cmd_delete_backward(bool f, int n) {
 		} else {
 			break;
 		}
-		if (!delete_range_undo(w, begin, end)) {
+		if (!delete_range_undo(w, begin, end, false)) {
 			break;
 		}
 	}
@@ -1175,7 +1178,7 @@ bool cmd_delete_forward(bool f, int n) {
 		} else {
 			break;
 		}
-		if (!delete_range_undo(w, begin, end)) {
+		if (!delete_range_undo(w, begin, end, false)) {
 			break;
 		}
 	}
@@ -1390,10 +1393,11 @@ bool cmd_yank(bool f, int n) {
 	if (n < 0) {
 		return false;
 	}
-	if (!killring_read_clipboard() && !killring_in_sequence()) {
-		display_set_echo("Nothing to yank");
-		term_beep();
-		return false;
+	/* After a kill, the ring is authoritative until clipboard is flushed.
+	 * Otherwise try the system clipboard, but never discard ring text when
+	 * the clipboard is empty/unavailable (Emacs keeps the kill-ring). */
+	if (!killring_in_sequence() && !killring_clipboard_dirty()) {
+		(void)killring_read_clipboard();
 	}
 	yank = killring_yank();
 	if (w == NULL || len(yank) == 0) {
