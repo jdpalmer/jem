@@ -755,13 +755,13 @@ void location_remap_replace(Location *loc, Location begin, Location end, Locatio
 	}
 }
 
-void buffer_clamp_location(Buffer *b, Location *loc) {
+void buffer_clamp_location(Buffer *buf, Location *loc) {
 	int nlines = 0;
 	int idx = 0;
-	if (b == NULL || loc == NULL || loc.line == 0) {
+	if (buf == NULL || loc == NULL || loc.line == 0) {
 		return;
 	}
-	nlines = b.line_count_i();
+	nlines = buf.line_count_i();
 	if (nlines < 1) {
 		loc.line = 1;
 		loc.offset = 0;
@@ -777,7 +777,7 @@ void buffer_clamp_location(Buffer *b, Location *loc) {
 	}
 	idx = loc.line - 1;
 	{
-		char[..] data = b.lines[idx].data;
+		char[..] data = buf.lines[idx].data;
 		size_t blen = len(data);
 		if (loc.offset > blen) {
 			loc.offset = blen;
