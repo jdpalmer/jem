@@ -19,7 +19,8 @@ import "syntax";
 enum {
 	JobOutCap = 1024 * 1024,
 	JobErrCap = 16 * 1024,
-	JobPathMax = 4096
+	JobPathMax = 4096,
+	JobMaxArgs = 32
 };
 
 enum JobKind {
@@ -694,14 +695,15 @@ static bool job_start_argv(const char[..] program, const char[..] argv[], size_t
 	const char[..] resolved = program;
 	Cmd *c = &g_job_cmd;
 	size_t i = 0;
-	const char[..] stack_args[12] = {
+	const char[..] stack_args[JobMaxArgs] = {
 		0 };
 
 	if (g_job_kind != (int)JobNone) {
 		display_set_echo("[busy: background job running]");
 		return false;
 	}
-	if (nargs > 12) {
+	if (nargs > (size_t)JobMaxArgs) {
+		display_set_echo("[job: too many arguments]");
 		return false;
 	}
 	free(g_job_buf);

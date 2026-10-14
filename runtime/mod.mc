@@ -95,10 +95,16 @@ struct Listener {
 	int ask_phase; /* replace: 0=needle 1=replacement 2=confirm */
 };
 
+enum {
+	MaxKeyBinds = 256,
+	MaxCommands = 256,
+	MaxListeners = 16
+};
+
 struct App {
 	bool running;
 	bool dispatching;
-	Listener listeners[8];
+	Listener listeners[MaxListeners];
 	int listener_top;
 	/* macro */
 	bool macro_recording;
@@ -115,11 +121,6 @@ struct App {
 };
 
 App g_app;
-
-enum {
-	MaxKeyBinds = 256,
-	MaxCommands = 256
-};
 
 static KeyBind g_binds[MaxKeyBinds];
 static int g_bind_count;
@@ -317,7 +318,9 @@ CommandFn runtime_find_bind(uint32_t key) {
 
 void push_listener(ListenerKind kind) {
 	Listener *L = {0};
-	if (g_app.listener_top >= 8) {
+	if (g_app.listener_top >= MaxListeners) {
+		fprintf(stderr, "jem: listener stack full (%d)\n", MaxListeners);
+		display_set_echo("[listener stack full]");
 		return;
 	}
 	L = &g_app.listeners[g_app.listener_top++];

@@ -8,7 +8,7 @@
 
 enum {
 	FuzzyMaxMatches = 256,
-	FuzzyMaxBuffers = 64,
+	FuzzyMaxBuffers = 256,
 	FuzzyNameCap = 256
 };
 
@@ -252,6 +252,7 @@ void fuzzy_buffer_open_with_prompt(const char[..] prompt) {
 	g_fb_active = true;
 	for (auto b : buffer_all) {
 		if (n >= FuzzyMaxBuffers) {
+			display_set_echo("[buffer list truncated]");
 			break;
 		}
 		if (b == NULL || len(b.name) == 0) {

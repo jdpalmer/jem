@@ -16,7 +16,7 @@
 
 enum {
 	ReMaxCaptures = 10,
-	ReMaxTokens = 30
+	ReMaxTokens = 64
 };
 
 // Byte span into the matched text; start/length are -1 when unmatched.
