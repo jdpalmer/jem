@@ -115,9 +115,15 @@ struct App {
 };
 
 App g_app;
-static KeyBind g_binds[128];
+
+enum {
+	MaxKeyBinds = 256,
+	MaxCommands = 256
+};
+
+static KeyBind g_binds[MaxKeyBinds];
 static int g_bind_count;
-Command g_cmds[128];
+Command g_cmds[MaxCommands];
 int g_cmd_count;
 static bool g_escape_pending;
 
@@ -182,7 +188,9 @@ static bool prepare_editor_key(uint32_t raw, uint32_t *out_key) {
 }
 
 static void bind_key(uint32_t key, CommandFn fn) {
-	if (g_bind_count >= 128) {
+	if (g_bind_count >= MaxKeyBinds) {
+		fprintf(stderr, "jem: keybinding table full (%d)\n", MaxKeyBinds);
+		display_set_echo("[keybinding table full]");
 		return;
 	}
 	g_binds[g_bind_count].key = key;
@@ -191,7 +199,9 @@ static void bind_key(uint32_t key, CommandFn fn) {
 }
 
 static void reg_cmd(const char[..] name, CommandFn fn) {
-	if (g_cmd_count >= 128) {
+	if (g_cmd_count >= MaxCommands) {
+		fprintf(stderr, "jem: command table full (%d)\n", MaxCommands);
+		display_set_echo("[command table full]");
 		return;
 	}
 	g_cmds[g_cmd_count].name = name;
@@ -201,7 +211,9 @@ static void reg_cmd(const char[..] name, CommandFn fn) {
 }
 
 static void reg_cmd_doc(const char[..] name, CommandFn fn, const char[..] doc) {
-	if (g_cmd_count >= 128) {
+	if (g_cmd_count >= MaxCommands) {
+		fprintf(stderr, "jem: command table full (%d)\n", MaxCommands);
+		display_set_echo("[command table full]");
 		return;
 	}
 	g_cmds[g_cmd_count].name = name;
@@ -2063,9 +2075,9 @@ void command_bind_label(CommandFn fn, char *out, size_t cap) {
 }
 
 bool cmd_execute_extended(bool f, int n) {
-	const char *names[128] = {0};
-	char binds_store[128][32] = {0};
-	const char *binds[128] = {0};
+	const char *names[MaxCommands] = {0};
+	char binds_store[MaxCommands][32] = {0};
+	const char *binds[MaxCommands] = {0};
 	int i = 0;
 	int ncmd = g_cmd_count;
 	(void)f;
@@ -2074,8 +2086,8 @@ bool cmd_execute_extended(bool f, int n) {
 		display_set_echo("No commands");
 		return false;
 	}
-	if (ncmd > 128) {
-		ncmd = 128;
+	if (ncmd > MaxCommands) {
+		ncmd = MaxCommands;
 	}
 	for (i = 0; i < ncmd; i++) {
 		names[i] = ptr(g_cmds[i].name);

@@ -7,9 +7,9 @@
 
 // cmd_describe_command fuzzy-picks a command and shows its documentation.
 bool cmd_describe_command(bool f, int n) {
-	const char *names[128] = {0};
-	char binds_store[128][32] = {0};
-	const char *binds[128] = {0};
+	const char *names[MaxCommands] = {0};
+	char binds_store[MaxCommands][32] = {0};
+	const char *binds[MaxCommands] = {0};
 	int i = 0;
 	int ncmd = g_cmd_count;
 	(void)f;
@@ -18,8 +18,8 @@ bool cmd_describe_command(bool f, int n) {
 		display_set_echo("[no commands]");
 		return false;
 	}
-	if (ncmd > 128) {
-		ncmd = 128;
+	if (ncmd > MaxCommands) {
+		ncmd = MaxCommands;
 	}
 	for (i = 0; i < ncmd; i++) {
 		names[i] = ptr(g_cmds[i].name);
