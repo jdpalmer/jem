@@ -188,6 +188,52 @@ static void test_c_indent_autodetect() {
 	check(buf.indent.width == 2);
 }
 
+/* Multi-line signature with hanging `{` — body/close align to declarator, not `{` line. */
+static void test_hanging_brace_anchor_indent() {
+	Buffer *buf = NULL;
+	Window *win = NULL;
+	Location loc = {0};
+	Location at = {0};
+	Location open = {0};
+	const char *src =
+		"SynState foo(int a, int b,\n"
+		"\tint c) {\n"
+		"\tif (c == 0) {\n"
+		"\t\treturn 0;\n"
+		"\t}\n"
+		"\treturn 1;\n"
+		"}\n";
+
+	buffer_list_init();
+	window_init();
+	buf = buffer_current();
+	check(buf != NULL);
+	check(buf.load_bytes(src, strlen(src), EModeLF));
+	buf.lang_mode = LModeModC;
+	buf.indent = mode_indent_default(LModeModC);
+	win = window_current();
+	check(win != NULL);
+	window_switch_buffer(buf);
+
+	/* return 1; — enclosing `{` is on line 2; indent anchors to line 1. */
+	at.line = 6;
+	at.offset = 1;
+	check(mode_find_enclosing_open(buf, at, '{', '}', &open));
+	check(open.line == 2);
+	loc.line = 6;
+	loc.offset = 0;
+	win.set_cursor(loc);
+	check(mode_indent_line(false, 1));
+	check(buf.line(6).indent_column() == 8);
+
+	/* closing } of function aligns to declarator column 0 */
+	loc.line = 7;
+	loc.offset = 0;
+	win.set_cursor(loc);
+	check(mode_indent_line(false, 1));
+	check(buf.line(7).indent_column() == 0);
+}
+
 static void test_goto_match() {
 	Buffer *buf = NULL;
 	Window *win = NULL;
@@ -268,5 +314,7 @@ int main() {
 	test_goto_match();
 	test_c_top_end_function();
 	test_py_top_end_function();
+	/* Last: uses a window slot; keep under WindowMax. */
+	test_hanging_brace_anchor_indent();
 	return 0;
 }

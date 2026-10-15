@@ -199,6 +199,32 @@ static int find_case_indent(Buffer *buf, int line_number) {
 	return 0;
 }
 
+/* Line that owns a block-open `{` when the brace hangs on a continued
+ * declarator / condition (e.g. multi-line function signature). */
+static int block_anchor_line(Buffer *buf, int open_line) {
+	int ln = open_line;
+	if (buf == NULL || ln < 1) {
+		return open_line;
+	}
+	for (;;) {
+		int prev = prev_code_line_number(buf, ln);
+		Line *pl = NULL;
+		char last = 0;
+		if (prev == 0) {
+			return ln;
+		}
+		pl = buf.line(prev);
+		if (pl == NULL || pl.byte_len() == 0) {
+			return ln;
+		}
+		last = pl.last_byte();
+		if (last == ';' || last == '{' || last == '}') {
+			return ln;
+		}
+		ln = prev;
+	}
+}
+
 static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t offset) {
 	Line *line = buf.line(line_number);
 	Location here = {0};
@@ -218,11 +244,18 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t of
 	}
 	{
 		Line *ol = buf.line(open.line);
+		int anchor = 0;
+		Line *al = NULL;
 		if (ol == NULL) {
 			return 0;
 		}
 		if (ch == '}') {
-			return (int)ol.indent_column();
+			anchor = block_anchor_line(buf, open.line);
+			al = buf.line(anchor);
+			if (al == NULL) {
+				return (int)ol.indent_column();
+			}
+			return (int)al.indent_column();
 		}
 		return line_col_of_offset(ol, open.offset);
 	}
@@ -279,12 +312,14 @@ static int find_enclosing_block_indent(Buffer *buf, int line_number, size_t offs
 	Location at = {0};
 	Location open = {0};
 	Line *line = {0};
+	int anchor = 0;
 	at.line = line_number;
 	at.offset = offset;
 	if (!mode_find_enclosing_open(buf, at, '{', '}', &open)) {
 		return -1;
 	}
-	line = buf.line(open.line);
+	anchor = block_anchor_line(buf, open.line);
+	line = buf.line(anchor);
 	if (line == NULL) {
 		return -1;
 	}
