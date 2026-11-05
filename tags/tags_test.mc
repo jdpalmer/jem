@@ -59,13 +59,13 @@ static void test_stale_line_recovery() {
 	char pattern[] = "/^void target() {$/";
 	TagEntry entry = {0};
 	check(buf != NULL);
+	defer buf.free();
 	at.line = 1;
 	at.offset = 0;
 	check(buf.replace_raw(at, at, text, strlen(text), &new_end));
 	entry.line = 1;
 	entry.pattern = pattern;
 	check_int(tags_resolve_line(buf, &entry), 3);
-	buf.free();
 }
 
 static void test_path_normalization() {

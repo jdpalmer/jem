@@ -250,8 +250,8 @@ bool config_apply_json(char *text, size_t n) {
 	if (root == NULL) {
 		return false;
 	}
+	defer json_free(root);
 	if (json_type(root) != JSON_OBJECT) {
-		json_free(root);
 		return false;
 	}
 
@@ -292,7 +292,6 @@ bool config_apply_json(char *text, size_t n) {
 		config_apply_var_value(name, value);
 	}
 
-	json_free(root);
 	return true;
 }
 
@@ -338,6 +337,8 @@ void config_load() {
 	if (fp == NULL) {
 		return;
 	}
+	defer fclose(fp);
+	defer free(data);
 	for (;;) {
 		char chunk[4096] = {0};
 		size_t got = fread(chunk, 1, sizeof(chunk), fp);
@@ -345,8 +346,6 @@ void config_load() {
 			break;
 		}
 		if (n + got + 1 > ConfigFileMax) {
-			fclose(fp);
-			free(data);
 			fprintf(stderr, "jem: %s too large\n", path);
 			return;
 		}
@@ -358,8 +357,6 @@ void config_load() {
 			}
 			p = realloc(data, ncap);
 			if (p == NULL) {
-				fclose(fp);
-				free(data);
 				return;
 			}
 			data = p;
@@ -368,7 +365,6 @@ void config_load() {
 		memcpy(data + n, chunk, got);
 		n += got;
 	}
-	fclose(fp);
 	if (data == NULL) {
 		return;
 	}
@@ -376,5 +372,4 @@ void config_load() {
 	if (!config_apply_json(data, n)) {
 		fprintf(stderr, "jem: invalid %s\n", path);
 	}
-	free(data);
 }

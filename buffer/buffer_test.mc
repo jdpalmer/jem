@@ -19,6 +19,7 @@ static void test_multiline_insert_undo() {
 	Buffer *undone = NULL;
 	char text[] = "first\nsecond";
 	check(buf != NULL);
+	defer buf.free();
 	at.line = 1;
 	history.begin_command(buf, at);
 	check(buf.insert_text(at, text, strlen(text), &end));
@@ -28,7 +29,6 @@ static void test_multiline_insert_undo() {
 	check(undone == buf);
 	check(buf.line_count_i() == 1);
 	check(buf.line(1).byte_len() == 0);
-	buf.free();
 }
 
 static void test_large_undo_group() {
@@ -39,6 +39,7 @@ static void test_large_undo_group() {
 	Buffer *undone = NULL;
 	char text[] = "x";
 	check(buf != NULL);
+	defer buf.free();
 	at.line = 1;
 	history.begin_command(buf, at);
 	for (int i = 0; i < 80; i++) {
@@ -51,7 +52,6 @@ static void test_large_undo_group() {
 	check(buf.line(1).byte_len() == 80);
 	check(history.undo_once(&cursor, &undone));
 	check(buf.line(1).byte_len() == 0);
-	buf.free();
 }
 
 static void test_edit_invalidates_following_syntax() {
@@ -61,6 +61,7 @@ static void test_edit_invalidates_following_syntax() {
 	char original[] = "one\ntwo\nthree";
 	char edit[] = "x";
 	check(buf != NULL);
+	defer buf.free();
 	at.line = 1;
 	check(buf.insert_text(at, original, strlen(original), &end));
 	for (int i = 1; i <= 3; i++) {
@@ -74,7 +75,6 @@ static void test_edit_invalidates_following_syntax() {
 		check(!buf.line(i).syntax_valid);
 		check(!buf.line(i).cache_valid);
 	}
-	buf.free();
 }
 
 static void test_delete_to_eof() {
@@ -82,6 +82,7 @@ static void test_delete_to_eof() {
 	Location begin = {0};
 	Location end = {0};
 	check(buf != NULL);
+	defer buf.free();
 	begin.line = 1;
 	check(buf.insert_text(begin, "hello", strlen("hello"), NULL));
 	begin.line = 1;
@@ -92,7 +93,6 @@ static void test_delete_to_eof() {
 	check(buf.line_count_i() == 1);
 	check(buf.line(1).byte_len() == 3);
 	check(memcmp(ptr(buf.line(1).data), "hel", 3) == 0);
-	buf.free();
 }
 
 static void test_delete_blanks_range_to_next() {
@@ -103,6 +103,7 @@ static void test_delete_blanks_range_to_next() {
 	Location ge = {0};
 	const char *src = "a\n\n\nb";
 	check(buf != NULL);
+	defer buf.free();
 	begin.line = 1;
 	check(buf.insert_text(begin, src, strlen(src), NULL));
 	check(buf.line_count_i() == 4);
@@ -121,7 +122,6 @@ static void test_delete_blanks_range_to_next() {
 		check(memcmp(text, "a\nb", 3) == 0);
 		free(text);
 	}
-	buf.free();
 }
 
 static void test_get_text_eof_no_trailing_nl() {
@@ -131,6 +131,7 @@ static void test_get_text_eof_no_trailing_nl() {
 	Location ge = {0};
 	const char *src = "one\ntwo";
 	check(buf != NULL);
+	defer buf.free();
 	begin.line = 1;
 	check(buf.insert_text(begin, src, strlen(src), NULL));
 	g0.line = 1;
@@ -142,7 +143,6 @@ static void test_get_text_eof_no_trailing_nl() {
 		check(memcmp(text, src, n) == 0);
 		free(text);
 	}
-	buf.free();
 }
 
 static void test_location_remap_replace() {
@@ -210,6 +210,7 @@ static void test_buf_mark_remaps_on_edit() {
 	Location at = {0};
 	Location end = {0};
 	check(buf != NULL);
+	defer buf.free();
 	at.line = 1;
 	check(buf.insert_text(at, "one\ntwo\nthree", strlen("one\ntwo\nthree"), &end));
 	buf.mark.line = 3;
@@ -223,7 +224,6 @@ static void test_buf_mark_remaps_on_edit() {
 	check(buf.insert_text(at, "HEAD\n", strlen("HEAD\n"), NULL));
 	check(buf.mark.line == 4 && buf.mark.offset == 1);
 	check(buf.mark_ring[0].line == 4 && buf.mark_ring[0].offset == 2);
-	buf.free();
 }
 
 int main() {

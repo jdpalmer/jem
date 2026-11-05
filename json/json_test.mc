@@ -35,6 +35,7 @@ static void test_roundtrip_object() {
 			err.line, err.column);
 		return;
 	}
+	defer json_free(v);
 	check(json_type(v) == JSON_OBJECT, "roundtrip type object");
 	fc = json_object_get(v, "fill-column");
 	check(fc != NULL, "fill-column present");
@@ -49,7 +50,6 @@ static void test_roundtrip_object() {
 		check(strstr(out, "fill-column") != NULL, "stringify has key");
 		free(out);
 	}
-	json_free(v);
 }
 
 static void test_bad_trailing() {
@@ -69,12 +69,12 @@ static void test_escape_unicode() {
 			err.message != NULL ? err.message : "(null)");
 		return;
 	}
+	defer json_free(v);
 	check(json_type(v) == JSON_STRING, "unicode string type");
 	s = json_string_value(v);
 	check(s != NULL, "unicode string value");
 	check(json_string_length(v) == 2, "unicode length 2");
 	check(memcmp(s, "\xC3\xA9", 2) == 0, "unicode utf8 bytes");
-	json_free(v);
 }
 
 static void test_corpus_bytes(const char *text, size_t n, bool expect_ok,
@@ -86,7 +86,7 @@ static void test_corpus_bytes(const char *text, size_t n, bool expect_ok,
 	if (expect_ok) {
 		check(v != NULL, label);
 		if (v != NULL) {
-			json_free(v);
+			defer json_free(v);
 		}
 	} else {
 		check(v == NULL, label);
