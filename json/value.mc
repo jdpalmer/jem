@@ -110,7 +110,7 @@ JsonValue *json_new_object() {
 	return json_value_alloc(JSON_OBJECT);
 }
 
-void json_free(JsonValue *value) {
+void json_free([[consumes]] JsonValue *value) {
 	size_t i = 0;
 
 	if (value == NULL) {

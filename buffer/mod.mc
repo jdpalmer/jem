@@ -376,7 +376,7 @@ Buffer *buffer_new() {
 	return buf;
 }
 
-void (Buffer *buf).free() {
+void ([[consumes]] Buffer *buf).free() {
 	for (auto *line : buf.lines) {
 		line_free(line);
 	}
