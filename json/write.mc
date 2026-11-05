@@ -128,7 +128,7 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 		if (!json_buffer_append_char(buffer, '[')) {
 			return false;
 		}
-		for (i = 0; i < value.array.count; i++) {
+		for (; i < value.array.count; i++) {
 			if (i != 0 && !json_buffer_append_char(buffer, ',')) {
 				return false;
 			}
@@ -172,23 +172,28 @@ char *json_stringify(const JsonValue *value) {
 		json_buffer_discard(&buffer);
 		return NULL;
 	}
-	return json_buffer_take(&buffer);
+	/* Inline take: avoid return-flow of &stack buffer through json_buffer_take. */
+	char *data = buffer.data;
+	if (data == NULL) {
+		return calloc(1, 1);
+	}
+	buffer.data = NULL;
+	buffer.length = 0;
+	buffer.capacity = 0;
+	return data;
 }
 
 bool json_write(const JsonValue *value, JsonWriteFn writer, void *ctx) {
-	char *text = NULL;
-	size_t len = 0;
-	bool ok = false;
 
 	if (value == NULL || writer == NULL) {
 		return false;
 	}
-	text = json_stringify(value);
+	char *text = json_stringify(value);
 	if (text == NULL) {
 		return false;
 	}
-	len = strlen(text);
-	ok = writer(ctx, text, len);
+	size_t len = strlen(text);
+	bool ok = writer(ctx, text, len);
 	free(text);
 	return ok;
 }

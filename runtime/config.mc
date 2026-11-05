@@ -21,10 +21,7 @@ enum {
 // config_parse_key_sequence parses Emacs-style chords (jem.go parseKeySequence).
 (uint32_t, bool) config_parse_key_sequence(const char *s) {
 	char buf[ConfigKeyMax] = {0};
-	char *space = NULL;
-	char *tok = NULL;
 	uint32_t code = 0;
-	size_t n = 0;
 
 	if (s == NULL) {
 		return (0, false);
@@ -36,11 +33,11 @@ enum {
 		return (0, false);
 	}
 	snprintf(buf, sizeof(buf), "%s", s);
-	n = strlen(buf);
+	size_t n = strlen(buf);
 	while (n > 0 && (buf[n - 1] == ' ' || buf[n - 1] == '\t')) {
 		buf[--n] = 0;
 	}
-	space = strchr(buf, ' ');
+	char *space = strchr(buf, ' ');
 	if (space != NULL) {
 		*space = 0;
 		{
@@ -56,7 +53,7 @@ enum {
 		}
 	}
 
-	tok = buf;
+	char *tok = buf;
 	while (tok[0] != 0) {
 		if ((tok[0] == 'M' || tok[0] == 'm') && tok[1] == '-') {
 			if ((code & term_key_value(TermMETA)) != 0) {
@@ -141,21 +138,17 @@ enum {
 
 static void config_apply_binding(const char *chord, const char *cmd_or_null,
 	bool is_null) {
-	uint32_t code = 0;
-	CommandFn fn = NULL;
-	{
-		auto (k, ok) = config_parse_key_sequence(chord);
-		if (!ok) {
-			display_set_echo("invalid JSON keybinding code");
-			return;
-		}
-		code = k;
+	auto (k, ok) = config_parse_key_sequence(chord);
+	if (!ok) {
+		display_set_echo("invalid JSON keybinding code");
+		return;
 	}
+	uint32_t code = k;
 	if (is_null) {
 		runtime_rebind(code, NULL);
 		return;
 	}
-	fn = runtime_find_cmd(cmd_or_null);
+	CommandFn fn = runtime_find_cmd(cmd_or_null);
 	if (fn == NULL) {
 		display_set_echo("invalid JSON command name");
 		return;
@@ -173,7 +166,6 @@ static void config_apply_var_text(const char *key, const char *text) {
 }
 
 static void config_apply_var_value(const char *key, const JsonValue *value) {
-	const char *string_value = NULL;
 	char numbuf[64] = {0};
 	uint32_t whole = 0;
 
@@ -189,7 +181,7 @@ static void config_apply_var_value(const char *key, const JsonValue *value) {
 		display_set_echo("ignoring invalid config value");
 		return;
 	}
-	string_value = json_string_value(value);
+	const char *string_value = json_string_value(value);
 	if (string_value != NULL) {
 		config_apply_var_text(key, (const char *)string_value);
 	}
@@ -197,7 +189,6 @@ static void config_apply_var_value(const char *key, const JsonValue *value) {
 
 static void config_apply_keybindings_obj(const JsonValue *keybindings) {
 	size_t i = 0;
-	size_t n = 0;
 
 	if (keybindings == NULL) {
 		return;
@@ -206,8 +197,8 @@ static void config_apply_keybindings_obj(const JsonValue *keybindings) {
 		display_set_echo("invalid JSON keybindings object");
 		return;
 	}
-	n = json_object_size(keybindings);
-	for (i = 0; i < n; i++) {
+	size_t n = json_object_size(keybindings);
+	for (; i < n; i++) {
 		const char *obj_key = NULL;
 		size_t key_len = 0;
 		const JsonValue *value = NULL;
@@ -250,14 +241,12 @@ static void config_apply_keybindings_obj(const JsonValue *keybindings) {
 // config_apply_json applies a jem.json document (variables + keybindings).
 bool config_apply_json(char *text, size_t n) {
 	JsonError err = {0};
-	JsonValue *root = NULL;
 	size_t i = 0;
-	size_t count = 0;
 
 	if (text == NULL) {
 		return false;
 	}
-	root = json_parse_n((const char *)text, n, &err);
+	JsonValue *root = json_parse_n((const char *)text, n, &err);
 	if (root == NULL) {
 		return false;
 	}
@@ -266,8 +255,8 @@ bool config_apply_json(char *text, size_t n) {
 		return false;
 	}
 
-	count = json_object_size(root);
-	for (i = 0; i < count; i++) {
+	size_t count = json_object_size(root);
+	for (; i < count; i++) {
 		const char *obj_key = NULL;
 		size_t key_len = 0;
 		const JsonValue *value = NULL;
@@ -313,8 +302,6 @@ void config_load() {
 	char *data = NULL;
 	size_t n = 0;
 	size_t cap = 0;
-	FILE *fp = NULL;
-	int wn = 0;
 #ifdef _WIN32
 	char home_buf[ConfigPathMax] = {0};
 	{
@@ -334,22 +321,20 @@ void config_load() {
 		if (home_buf[0] == 0) {
 			return;
 		}
-		wn = snprintf(path, sizeof(path), "%s\\.jem.json", home_buf);
 	}
+	int wn = snprintf(path, sizeof(path), "%s\\.jem.json", home_buf);
 #else
-	{
-		auto (have, home) = os_env("HOME");
-		if (!have || len(home) == 0) {
-			return;
-		}
-		wn = snprintf(path, sizeof(path), "%.*s/.jem.json",
-			(int)len(home), ptr(home));
+	auto (have, home) = os_env("HOME");
+	if (!have || len(home) == 0) {
+		return;
 	}
+	int wn = snprintf(path, sizeof(path), "%.*s/.jem.json",
+		(int)len(home), ptr(home));
 #endif
 	if (wn < 0 || (size_t)wn >= sizeof(path)) {
 		return;
 	}
-	fp = fopen(path, "r");
+	FILE *fp = fopen(path, "r");
 	if (fp == NULL) {
 		return;
 	}

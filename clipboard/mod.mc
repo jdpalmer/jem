@@ -133,8 +133,6 @@ static bool clipboard_write_all(File *file, const char[..] data) {
 static bool clipboard_write_native(const char[..] text) {
 	Cmd cmd = {0};
 	const char[..] args[4] = {0};
-	size_t nargs = 0;
-	bool wrote = false;
 	if (!clipboard_native_ready()) {
 		return false;
 	}
@@ -143,7 +141,7 @@ static bool clipboard_write_native(const char[..] text) {
 		return clipboard_win32_write(ptr(text), len(text));
 	}
 #endif
-	nargs = clipboard_args(true, args);
+	size_t nargs = clipboard_args(true, args);
 	cmd.init(str_from_cstr(g_write_path), args, nargs);
 	cmd.stdio(StdOut, IoNull);
 	cmd.stdio(StdErr, IoNull);
@@ -157,7 +155,7 @@ static bool clipboard_write_native(const char[..] text) {
 		cmd.close();
 		return false;
 	}
-	wrote = clipboard_write_all(&input, text);
+	bool wrote = clipboard_write_all(&input, text);
 	input.close();
 	auto (exit_code, waited) = cmd.wait();
 	cmd.close();
@@ -171,7 +169,6 @@ static (char *, size_t, bool) clipboard_read_native() {
 	char *data = NULL;
 	size_t used = 0;
 	size_t capacity = 0;
-	size_t nargs = 0;
 	if (!clipboard_native_ready()) {
 		return (NULL, 0, false);
 	}
@@ -180,7 +177,7 @@ static (char *, size_t, bool) clipboard_read_native() {
 		return clipboard_win32_read();
 	}
 #endif
-	nargs = clipboard_args(false, args);
+	size_t nargs = clipboard_args(false, args);
 	cmd.init(str_from_cstr(g_read_path), args, nargs);
 	cmd.stdio(StdIn, IoNull);
 	cmd.stdio(StdErr, IoNull);
@@ -249,28 +246,23 @@ static bool clipboard_write_osc52(const char[..] text) {
 	static char alphabet[] =
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	uint8_t *bytes = (uint8_t *)ptr(text);
-	char *encoded = NULL;
-	size_t groups = 0;
-	size_t encoded_len = 0;
-	size_t total = 0;
 	size_t i = 0;
-	size_t out = 0;
 	if (len(text) == 0) {
 		return true;
 	}
 	if (!term_is_tty()) {
 		return false;
 	}
-	groups = (len(text) + 2) / 3;
-	encoded_len = groups * 4;
-	total = 7 + encoded_len + 1;
-	encoded = malloc(total);
+	size_t groups = (len(text) + 2) / 3;
+	size_t encoded_len = groups * 4;
+	size_t total = 7 + encoded_len + 1;
+	char *encoded = malloc(total);
 	if (encoded == NULL) {
 		return false;
 	}
 	memcpy(encoded, "\x1b]52;c;", 7);
-	out = 7;
-	for (i = 0; i < len(text); i += 3) {
+	size_t out = 7;
+	for (; i < len(text); i += 3) {
 		uint32_t a = bytes[i];
 		uint32_t b = 0;
 		uint32_t c = 0;

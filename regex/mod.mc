@@ -135,7 +135,7 @@ static void re_caps_clear(ReCapture *groups, size_t n) {
 	if (groups == NULL) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		groups[i].start = -1;
 		groups[i].length = -1;
 	}
@@ -146,7 +146,7 @@ static void re_caps_copy(ReCapture *dst, ReCapture *src, size_t n) {
 	if (dst == NULL || src == NULL) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		dst[i] = src[i];
 	}
 }
@@ -273,13 +273,12 @@ static bool re_compile(const char *pattern, size_t pat_len, ReToken *compiled, s
 
 static bool re_match_at(ReToken *pattern, const char *text, const char *text_end,
 	ssize_t *matchlength, ReCapture *groups, size_t group_count) {
-	ssize_t pre = 0;
 	ReCapture saved[ReMaxCaptures] = {0};
 
 	if (matchlength == NULL) {
 		return false;
 	}
-	pre = *matchlength;
+	ssize_t pre = *matchlength;
 	re_caps_copy(saved, groups, group_count);
 	for (;;) {
 		if (pattern[0].type == ReUnused) {
@@ -403,7 +402,6 @@ static (ReStatus, size_t, size_t) re_find_raw(const char *pattern, size_t pat_le
 	const char *text, size_t text_len, ReCapture *groups, size_t group_count) {
 	ReToken compiled[ReMaxTokens] = {0};
 	ssize_t matchlength = 0;
-	ssize_t offset = -1;
 
 	re_caps_clear(groups, group_count);
 	if (pattern == NULL || text == NULL) {
@@ -412,7 +410,7 @@ static (ReStatus, size_t, size_t) re_find_raw(const char *pattern, size_t pat_le
 	if (!re_compile(pattern, pat_len, compiled, ReMaxTokens)) {
 		return (ReInvalid, 0, 0);
 	}
-	offset = re_search_compiled(compiled, text, text + text_len, &matchlength, groups, group_count);
+	ssize_t offset = re_search_compiled(compiled, text, text + text_len, &matchlength, groups, group_count);
 	if (offset < 0) {
 		return (ReNone, 0, 0);
 	}

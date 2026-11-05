@@ -21,14 +21,13 @@ static int line_col_of_offset(Line *line, size_t offset) {
 }
 
 static size_t line_first_nonblank_ch(Line *line, char *fc) {
-	size_t i = 0;
 	if (fc != NULL) {
 		*fc = 0;
 	}
 	if (line == NULL) {
 		return 0;
 	}
-	i = line.first_nonblank();
+	size_t i = line.first_nonblank();
 	if (fc != NULL && i < line.byte_len()) {
 		*fc = line.data[i];
 	}
@@ -36,13 +35,11 @@ static size_t line_first_nonblank_ch(Line *line, char *fc) {
 }
 
 static bool line_starts_with(Line *line, const char *text) {
-	size_t off = 0;
-	size_t tlen = 0;
 	if (line == NULL || text == NULL) {
 		return false;
 	}
-	off = line.first_nonblank();
-	tlen = strlen(text);
+	size_t off = line.first_nonblank();
+	size_t tlen = strlen(text);
 	if (off + tlen > line.byte_len()) {
 		return false;
 	}
@@ -50,15 +47,13 @@ static bool line_starts_with(Line *line, const char *text) {
 }
 
 static bool line_is_comment_or_preproc(Buffer *buf, int line_number) {
-	Line *line = {0};
-	size_t off = 0;
 	char ch = 0;
 	(void)buf;
-	line = buf.line(line_number);
+	Line *line = buf.line(line_number);
 	if (line == NULL || line.is_blank()) {
 		return false;
 	}
-	off = line_first_nonblank_ch(line, &ch);
+	size_t off = line_first_nonblank_ch(line, &ch);
 	if (off >= line.byte_len()) {
 		return false;
 	}
@@ -101,11 +96,10 @@ static int prev_code_line_number(Buffer *buf, int line_number) {
 }
 
 static bool line_is_case_label(Line *line) {
-	size_t off = 0;
 	if (line == NULL) {
 		return false;
 	}
-	off = line.first_nonblank();
+	size_t off = line.first_nonblank();
 	if (off >= line.byte_len()) {
 		return false;
 	}
@@ -125,11 +119,10 @@ static bool line_is_case_label(Line *line) {
 }
 
 static bool line_ends_with_continuation(Line *line) {
-	char last = 0;
 	if (line == NULL || line.byte_len() == 0) {
 		return false;
 	}
-	last = line.last_byte();
+	char last = line.last_byte();
 	switch (last) {
 	case ',':
 	case '\\':
@@ -179,8 +172,8 @@ static int calc_comment_indent(Buffer *buf, int line_number) {
 static int find_case_indent(Buffer *buf, int line_number) {
 	int c_indent = buf.indent.width;
 	int c_colon = buf.indent.label;
-	int ln = 0;
-	for (ln = line_number; ln >= 1; ln--) {
+	int ln = line_number;
+	for (; ln >= 1; ln--) {
 		Line *line = buf.line(ln);
 		size_t i = 0;
 		if (line == NULL) {
@@ -229,11 +222,10 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t of
 	Line *line = buf.line(line_number);
 	Location here = {0};
 	Location open = {0};
-	char ch = 0;
 	if (line == NULL || offset >= line.byte_len()) {
 		return 0;
 	}
-	ch = line.data[offset];
+	char ch = line.data[offset];
 	if (ch != '}' && ch != ')' && ch != ']') {
 		return 0;
 	}
@@ -244,14 +236,12 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t of
 	}
 	{
 		Line *ol = buf.line(open.line);
-		int anchor = 0;
-		Line *al = NULL;
 		if (ol == NULL) {
 			return 0;
 		}
 		if (ch == '}') {
-			anchor = block_anchor_line(buf, open.line);
-			al = buf.line(anchor);
+			int anchor = block_anchor_line(buf, open.line);
+			Line *al = buf.line(anchor);
 			if (al == NULL) {
 				return (int)ol.indent_column();
 			}
@@ -287,17 +277,15 @@ static bool find_unmatched_open_delim(Buffer *buf, int line_number, size_t offse
 static int find_delimiter_continuation_indent(Buffer *buf, int line_number, size_t offset) {
 	Location open = {0};
 	char kind = 0;
-	Line *line = {0};
-	size_t tail = 0;
 	if (!find_unmatched_open_delim(buf, line_number, offset, &open, &kind)) {
 		return -1;
 	}
 	(void)kind;
-	line = buf.line(open.line);
+	Line *line = buf.line(open.line);
 	if (line == NULL) {
 		return -1;
 	}
-	tail = open.offset + 1;
+	size_t tail = open.offset + 1;
 	while (tail < line.byte_len()) {
 		char c = line.data[tail];
 		if (c != ' ' && c != '\t') {
@@ -311,15 +299,13 @@ static int find_delimiter_continuation_indent(Buffer *buf, int line_number, size
 static int find_enclosing_block_indent(Buffer *buf, int line_number, size_t offset) {
 	Location at = {0};
 	Location open = {0};
-	Line *line = {0};
-	int anchor = 0;
 	at.line = line_number;
 	at.offset = offset;
 	if (!mode_find_enclosing_open(buf, at, '{', '}', &open)) {
 		return -1;
 	}
-	anchor = block_anchor_line(buf, open.line);
-	line = buf.line(anchor);
+	int anchor = block_anchor_line(buf, open.line);
+	Line *line = buf.line(anchor);
 	if (line == NULL) {
 		return -1;
 	}
@@ -331,15 +317,10 @@ static int calc_indent_c(Buffer *buf, int line_number) {
 	int c_indent = buf.indent.width;
 	int c_brace = buf.indent.brace;
 	char fc = 0;
-	size_t first = 0;
-	int indent = 0;
-	int ref_line = 0;
-	Line *ref = {0};
-	int ind = 0;
 	if (line == NULL) {
 		return 0;
 	}
-	first = line_first_nonblank_ch(line, &fc);
+	size_t first = line_first_nonblank_ch(line, &fc);
 	if (line_is_preproc(buf, line_number)) {
 		return 0;
 	}
@@ -354,7 +335,7 @@ static int calc_indent_c(Buffer *buf, int line_number) {
 	if (line_is_case_label(line)) {
 		return find_case_indent(buf, line_number);
 	}
-	indent = find_delimiter_continuation_indent(buf, line_number, first);
+	int indent = find_delimiter_continuation_indent(buf, line_number, first);
 	if (indent >= 0) {
 		return indent;
 	}
@@ -362,15 +343,15 @@ static int calc_indent_c(Buffer *buf, int line_number) {
 	if (indent >= 0) {
 		return indent;
 	}
-	ref_line = prev_code_line_number(buf, line_number);
+	int ref_line = prev_code_line_number(buf, line_number);
 	if (ref_line == 0) {
 		return 0;
 	}
-	ref = buf.line(ref_line);
+	Line *ref = buf.line(ref_line);
 	if (ref == NULL) {
 		return 0;
 	}
-	ind = (int)ref.indent_column();
+	int ind = (int)ref.indent_column();
 	if (ref.last_byte() == ':' && line_is_case_label(ref)) {
 		ind += c_indent;
 	} else if (line_ends_with_continuation(ref)) {
@@ -387,32 +368,28 @@ static int calc_indent_c(Buffer *buf, int line_number) {
 
 static int calc_indent_go(Buffer *buf, int line_number) {
 	int saved = buf.indent.width;
-	int ind = 0;
 	buf.indent.width = GoIndentCols;
-	ind = calc_indent_c(buf, line_number);
+	int ind = calc_indent_c(buf, line_number);
 	buf.indent.width = saved;
 	return ind;
 }
 
 static bool lp_keyword(Line *line, size_t i, const char *kw) {
-	size_t klen = 0;
-	size_t after = 0;
-	char nc = 0;
 	if (line == NULL || kw == NULL) {
 		return false;
 	}
-	klen = strlen(kw);
+	size_t klen = strlen(kw);
 	if (i + klen > line.byte_len()) {
 		return false;
 	}
 	if (memcmp(ptr(line.data) + i, kw, klen) != 0) {
 		return false;
 	}
-	after = i + klen;
+	size_t after = i + klen;
 	if (after >= line.byte_len()) {
 		return true;
 	}
-	nc = line.data[after];
+	char nc = line.data[after];
 	return nc == ' ' || nc == '\t' || nc == ':' || nc == '(' || nc == '\r';
 }
 
@@ -449,17 +426,12 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 	Line *line = buf.line(line_number);
 	int py_width = buf.indent.width;
 	int py_cont = buf.indent.continued;
-	int ref_line = 0;
-	int base_line = 0;
-	Line *ref = {0};
-	int ref_ind = 0;
-	char last = 0;
 	if (line != NULL && line_is_deindent_kw(line)) {
-		ref_line = prev_code_line_number_py(buf, line_number);
+		int ref_line = prev_code_line_number_py(buf, line_number);
 		if (ref_line == 0) {
 			return 0;
 		}
-		ref = buf.line(ref_line);
+		Line *ref = buf.line(ref_line);
 		if (ref == NULL) {
 			return 0;
 		}
@@ -471,11 +443,11 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 			return ind;
 		}
 	}
-	ref_line = prev_code_line_number_py(buf, line_number);
+	int ref_line = prev_code_line_number_py(buf, line_number);
 	if (ref_line == 0) {
 		return 0;
 	}
-	base_line = ref_line;
+	int base_line = ref_line;
 	while (base_line > 1) {
 		Line *l = buf.line(base_line);
 		int next_ref = 0;
@@ -491,18 +463,16 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 		}
 		base_line = next_ref;
 	}
-	ref = buf.line(base_line);
+	Line *ref = buf.line(base_line);
 	if (ref == NULL) {
 		return 0;
 	}
-	ref_ind = (int)ref.indent_column();
-	{
-		Line *prev = buf.line(ref_line);
-		if (prev == NULL) {
-			return ref_ind;
-		}
-		last = prev.last_byte();
+	int ref_ind = (int)ref.indent_column();
+	Line *prev = buf.line(ref_line);
+	if (prev == NULL) {
+		return ref_ind;
 	}
+	char last = prev.last_byte();
 	if (last == '\\') {
 		return ref_ind + py_cont;
 	}
@@ -512,29 +482,26 @@ static int calc_indent_py(Buffer *buf, int line_number) {
 	if (last == '(' || last == '[' || last == '{') {
 		return ref_ind + py_width;
 	}
-	{
-		Line *prev = buf.line(ref_line);
-		if (prev != NULL && line_is_dedent_stmt(prev)) {
-			int cur_ind = (int)prev.indent_column();
-			int ln = prev_code_line_number_py(buf, ref_line);
-			while (ln != 0) {
-				Line *p = buf.line(ln);
-				int ind = 0;
-				if (p == NULL) {
-					ln = prev_code_line_number_py(buf, ln);
-					continue;
-				}
-				ind = (int)p.indent_column();
-				if (ind < cur_ind) {
-					if (ind < 0) {
-						return 0;
-					}
-					return ind;
-				}
+	if (line_is_dedent_stmt(prev)) {
+		int cur_ind = (int)prev.indent_column();
+		int ln = prev_code_line_number_py(buf, ref_line);
+		while (ln != 0) {
+			Line *p = buf.line(ln);
+			int ind = 0;
+			if (p == NULL) {
 				ln = prev_code_line_number_py(buf, ln);
+				continue;
 			}
-			return 0;
+			ind = (int)p.indent_column();
+			if (ind < cur_ind) {
+				if (ind < 0) {
+					return 0;
+				}
+				return ind;
+			}
+			ln = prev_code_line_number_py(buf, ln);
 		}
+		return 0;
 	}
 	return ref_ind;
 }
@@ -569,23 +536,21 @@ static size_t build_space_indent(int col, char *out, size_t cap) {
 	if ((size_t)col > cap) {
 		col = (int)cap;
 	}
-	for (i = 0; i < col; i++) {
+	for (; i < col; i++) {
 		out[i] = ' ';
 	}
 	return col;
 }
 
 static size_t build_tab_indent(int col, char *out, size_t cap) {
-	int tabs = 0;
-	int spaces = 0;
 	int i = 0;
 	size_t n = 0;
 	if (col <= 0) {
 		return 0;
 	}
-	tabs = col / 8;
-	spaces = col % 8;
-	for (i = 0; i < tabs && n < cap; i++) {
+	int tabs = col / 8;
+	int spaces = col % 8;
+	for (; i < tabs && n < cap; i++) {
 		out[n++] = '\t';
 	}
 	for (i = 0; i < spaces && n < cap; i++) {
@@ -596,21 +561,18 @@ static size_t build_tab_indent(int col, char *out, size_t cap) {
 
 /* Replace leading whitespace; records undo edits (caller owns begin/end_command). */
 static bool replace_leading(Window *win, char *prefix, size_t plen) {
-	Line *line = {0};
-	size_t first = 0;
-	size_t old_off = 0;
 	Location begin = {0};
 	Location end = {0};
 	char *old = NULL;
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		return false;
 	}
-	first = line.first_nonblank();
-	old_off = win.cursor.offset;
+	size_t first = line.first_nonblank();
+	size_t old_off = win.cursor.offset;
 	begin.line = win.cursor.line;
 	begin.offset = 0;
 	end.line = win.cursor.line;
@@ -648,21 +610,19 @@ static bool replace_leading(Window *win, char *prefix, size_t plen) {
 
 static bool set_line_indent_spaces(Window *win, int col) {
 	char prefix[IndentPrefixCap] = {0};
-	size_t n = 0;
 	if (col < 0) {
 		return false;
 	}
-	n = build_space_indent(col, prefix, sizeof(prefix));
+	size_t n = build_space_indent(col, prefix, sizeof(prefix));
 	return replace_leading(win, prefix, n);
 }
 
 static bool set_line_indent_tabs(Window *win, int col) {
 	char prefix[IndentPrefixCap] = {0};
-	size_t n = 0;
 	if (col < 0) {
 		return false;
 	}
-	n = build_tab_indent(col, prefix, sizeof(prefix));
+	size_t n = build_tab_indent(col, prefix, sizeof(prefix));
 	return replace_leading(win, prefix, n);
 }
 
@@ -704,8 +664,6 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 	char[..] p = {0};
 	size_t n = 0;
 	size_t i = 0;
-	size_t save = 0;
-	int num = 0;
 	if (line == NULL || cap == 0) {
 		return 0;
 	}
@@ -733,8 +691,8 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 				return n;
 			}
 		}
-		save = i;
-		num = 0;
+		size_t save = i;
+		int num = 0;
 		while (i < len(p) && pp[i] >= '0' && pp[i] <= '9') {
 			num = num * 10 + (pp[i] - '0');
 			i++;
@@ -754,7 +712,7 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 						digits[dlen++] = (char)('0' + (t % 10));
 						t /= 10;
 					}
-					for (j = 0; j < dlen / 2; j++) {
+					for (; j < dlen / 2; j++) {
 						char tmp = digits[j];
 						digits[j] = digits[dlen - 1 - j];
 						digits[dlen - 1 - j] = tmp;
@@ -774,20 +732,17 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 }
 
 static bool insert_md_prefix_after_newline(Window *win) {
-	Buffer *buf = {0};
-	Line *prev = {0};
 	char prefix[IndentPrefixCap] = {0};
-	size_t n = 0;
 	Location at = {0};
 	if (win == NULL || win.buffer == NULL || win.cursor.line <= 1) {
 		return true;
 	}
-	buf = win.buffer;
-	prev = buf.line(win.cursor.line - 1);
+	Buffer *buf = win.buffer;
+	Line *prev = buf.line(win.cursor.line - 1);
 	if (prev == NULL) {
 		return true;
 	}
-	n = md_build_prefix(prev, prefix, sizeof(prefix));
+	size_t n = md_build_prefix(prev, prefix, sizeof(prefix));
 	if (n == 0) {
 		return true;
 	}
@@ -815,7 +770,6 @@ bool mode_newline_and_indent(bool f, int n) {
 	buffer_undo.begin_command(win.buffer, win.cursor);
 	while (n-- > 0) {
 		Location at = win.cursor;
-		int col = 0;
 		if (!win.set_text(win.cursor, win.cursor, &nl, 1)) {
 			break;
 		}
@@ -829,7 +783,7 @@ bool mode_newline_and_indent(bool f, int n) {
 		if (win.buffer.lang_mode == LModeNone) {
 			continue;
 		}
-		col = mode_calc_indent(win.buffer, win.cursor.line);
+		int col = mode_calc_indent(win.buffer, win.cursor.line);
 		if (col < 0) {
 			continue;
 		}
@@ -843,7 +797,6 @@ bool mode_newline_and_indent(bool f, int n) {
 
 bool mode_indent_line(bool f, int n) {
 	Window *win = window_current();
-	int col = 0;
 	(void)f;
 	(void)n;
 	if (win == NULL || win.buffer == NULL) {
@@ -855,17 +808,16 @@ bool mode_indent_line(bool f, int n) {
 	if (win.buffer.lang_mode == LModeMarkdown) {
 		int ref = prev_nonblank_line(win.buffer, win.cursor.line);
 		char prefix[IndentPrefixCap] = {0};
-		size_t plen = 0;
 		if (ref == 0) {
 			return true;
 		}
-		plen = md_build_prefix(win.buffer.line(ref), prefix, sizeof(prefix));
+		size_t plen = md_build_prefix(win.buffer.line(ref), prefix, sizeof(prefix));
 		buffer_undo.begin_command(win.buffer, win.cursor);
 		replace_leading(win, prefix, plen);
 		buffer_undo.end_command();
 		return true;
 	}
-	col = mode_calc_indent(win.buffer, win.cursor.line);
+	int col = mode_calc_indent(win.buffer, win.cursor.line);
 	if (col < 0) {
 		return true;
 	}
@@ -879,7 +831,6 @@ bool mode_close_brace(bool f, int n) {
 	Window *win = window_current();
 	char ch = '}';
 	int i = 0;
-	int col = 0;
 	(void)f;
 	if (win == NULL || win.buffer == NULL) {
 		return true;
@@ -890,7 +841,7 @@ bool mode_close_brace(bool f, int n) {
 	if (win.buffer.lang_mode != LModeGo && win.buffer.lang_mode != LModeC &&
 		win.buffer.lang_mode != LModeModC) {
 		buffer_undo.begin_command(win.buffer, win.cursor);
-		for (i = 0; i < n; i++) {
+		for (; i < n; i++) {
 			Location at = win.cursor;
 			if (!win.set_text(win.cursor, win.cursor, &ch, 1)) {
 				break;
@@ -916,7 +867,7 @@ bool mode_close_brace(bool f, int n) {
 			}
 			buffer_undo.record_edit(UndoInsert, at.line, at.offset, &ch, 1);
 		}
-		col = mode_calc_indent(win.buffer, win.cursor.line);
+		int col = mode_calc_indent(win.buffer, win.cursor.line);
 		if (!set_line_indent_tabs(win, col)) {
 			buffer_undo.end_command();
 			return false;
@@ -929,7 +880,7 @@ bool mode_close_brace(bool f, int n) {
 			}
 		}
 	} else {
-		col = calc_indent_c(win.buffer, win.cursor.line);
+		int col = calc_indent_c(win.buffer, win.cursor.line);
 		if (!set_line_indent_spaces(win, col)) {
 			buffer_undo.end_command();
 			return false;

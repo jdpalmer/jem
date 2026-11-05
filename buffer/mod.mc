@@ -137,11 +137,10 @@ size_t utf8_next_offset(const char[..] data, size_t offset) {
 
 // utf8_prev_offset returns the start of the rune before offset.
 size_t utf8_prev_offset(const char[..] data, size_t offset) {
-	size_t i = 0;
 	if (offset == 0 || len(data) == 0) {
 		return 0;
 	}
-	i = offset - 1;
+	size_t i = offset - 1;
 	if (i >= len(data)) {
 		i = len(data) - 1;
 	}
@@ -158,23 +157,22 @@ size_t utf8_prev_offset(const char[..] data, size_t offset) {
 		return (0, 0);
 	}
 	char c = data[offset];
-	uint32_t r = 0;
 	if (c < 0x80) {
 		return (c, 1);
 	}
 	if ((c & 0xE0) == 0xC0 && offset + 1 < n) {
-		r = (uint32_t)(c & 0x1F) << 6;
+		uint32_t r = (uint32_t)(c & 0x1F) << 6;
 		r |= data[offset + 1] & 0x3F;
 		return (r, 2);
 	}
 	if ((c & 0xF0) == 0xE0 && offset + 2 < n) {
-		r = (uint32_t)(c & 0x0F) << 12;
+		uint32_t r = (uint32_t)(c & 0x0F) << 12;
 		r |= (uint32_t)(data[offset + 1] & 0x3F) << 6;
 		r |= data[offset + 2] & 0x3F;
 		return (r, 3);
 	}
 	if ((c & 0xF8) == 0xF0 && offset + 3 < n) {
-		r = (uint32_t)(c & 0x07) << 18;
+		uint32_t r = (uint32_t)(c & 0x07) << 18;
 		r |= (uint32_t)(data[offset + 1] & 0x3F) << 12;
 		r |= (uint32_t)(data[offset + 2] & 0x3F) << 6;
 		r |= data[offset + 3] & 0x3F;
@@ -286,7 +284,6 @@ size_t (Line *line).offset_at_display_col(size_t goal) {
 	char[..] v = line.view();
 	size_t i = 0;
 	size_t col = 0;
-	size_t w = 0;
 	if (goal == 0) {
 		return 0;
 	}
@@ -295,13 +292,9 @@ size_t (Line *line).offset_at_display_col(size_t goal) {
 		if (sz == 0) {
 			break;
 		}
-		if (r == (uint32_t)'\t') {
-			w = 8 - (col % 8);
-		} else {
-			w = rune_display_width(r);
-			if (w == 0) {
-				w = 1;
-			}
+		size_t w = (r == (uint32_t)'\t') ? 8 - (col % 8) : (size_t)rune_display_width(r);
+		if (w == 0) {
+			w = 1;
 		}
 		if (col + w > goal) {
 			return i;
@@ -338,16 +331,14 @@ void (Buffer *buf).mark_changed() {
 }
 
 static bool buffer_reserve_lines(Buffer *buf, size_t need) {
-	Line *p = {0};
-	size_t ncap = {0};
 	if (need <= cap(buf.lines)) {
 		return true;
 	}
-	ncap = cap(buf.lines) != 0 ? cap(buf.lines) : 8;
+	size_t ncap = cap(buf.lines) != 0 ? cap(buf.lines) : 8;
 	while (ncap < need) {
 		ncap = ncap * 2;
 	}
-	p = realloc(ptr(buf.lines), ncap * sizeof(Line));
+	Line *p = realloc(ptr(buf.lines), ncap * sizeof(Line));
 	if (p == NULL) {
 		return false;
 	}
@@ -411,16 +402,14 @@ int (Buffer *buf).eof_line() {
 }
 
 static bool buffers_reserve(size_t need) {
-	Buffer **p = {0};
-	size_t ncap = {0};
 	if (need <= cap(buffer_all)) {
 		return true;
 	}
-	ncap = cap(buffer_all) != 0 ? cap(buffer_all) : 4;
+	size_t ncap = cap(buffer_all) != 0 ? cap(buffer_all) : 4;
 	while (ncap < need) {
 		ncap = ncap * 2;
 	}
-	p = realloc(ptr(buffer_all), ncap * sizeof(Buffer *));
+	Buffer * *p = realloc(ptr(buffer_all), ncap * sizeof(Buffer *));
 	if (p == NULL) {
 		return false;
 	}
@@ -429,11 +418,10 @@ static bool buffers_reserve(size_t need) {
 }
 
 void buffer_list_init() {
-	Buffer *scratch = {0};
 	buffer_all = ranged((Buffer **)0, 0);
 	g_buffer_cur = NULL;
 	memset(&buffer_undo, 0, sizeof(buffer_undo));
-	scratch = buffer_new();
+	Buffer *scratch = buffer_new();
 	if (scratch == NULL) {
 		return;
 	}
@@ -594,7 +582,7 @@ void (UndoHistory *h).begin_command(Buffer *buf, Location before) {
 }
 
 void (UndoHistory *h).end_command() {
-	int i = 0;
+	int i = h.count;
 	if (h.is_replaying) {
 		return;
 	}
@@ -606,7 +594,7 @@ void (UndoHistory *h).end_command() {
 		undo_group_reset(&h.groups[(int)UndoHistoryMax - 1]);
 		h.count--;
 	}
-	for (i = h.count; i > 0; i--) {
+	for (; i > 0; i--) {
 		h.groups[i] = h.groups[i - 1];
 	}
 	h.pending.group_serial = h.next_group_serial;
@@ -756,12 +744,10 @@ void location_remap_replace(Location *loc, Location begin, Location end, Locatio
 }
 
 void buffer_clamp_location(Buffer *buf, Location *loc) {
-	int nlines = 0;
-	int idx = 0;
 	if (buf == NULL || loc == NULL || loc.line == 0) {
 		return;
 	}
-	nlines = buf.line_count_i();
+	int nlines = buf.line_count_i();
 	if (nlines < 1) {
 		loc.line = 1;
 		loc.offset = 0;
@@ -775,7 +761,7 @@ void buffer_clamp_location(Buffer *buf, Location *loc) {
 	if (loc.line > nlines) {
 		loc.line = nlines;
 	}
-	idx = loc.line - 1;
+	int idx = loc.line - 1;
 	{
 		char[..] data = buf.lines[idx].data;
 		size_t blen = len(data);
@@ -794,7 +780,7 @@ static void buffer_remap_sticky(Buffer *buf, Location begin, Location end, Locat
 	location_remap_replace(&buf.mark, begin, end, new_end);
 	buffer_clamp_location(buf, &buf.cursor);
 	buffer_clamp_location(buf, &buf.mark);
-	for (i = 0; i < buf.mark_ring_count; i++) {
+	for (; i < buf.mark_ring_count; i++) {
 		location_remap_replace(&buf.mark_ring[i], begin, end, new_end);
 		buffer_clamp_location(buf, &buf.mark_ring[i]);
 	}
@@ -818,34 +804,20 @@ static bool make_line(Line *out, Buffer *buf, const char[..] data) {
 
 bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_text, size_t new_len, Location *new_end_out) {
 	/* jem.go Buffer.ReplaceRaw — EOF is virtual line eof_line() (line_count+1). */
-	bool begin_is_eof = false;
-	bool end_is_eof = false;
-	int eof = 0;
-	int nlines = 0;
-	int end_real = 0;
-	size_t keep_before = 0;
-	size_t keep_after = 0;
 	size_t prefix_len = 0;
 	size_t suffix_len = 0;
 	size_t i = 0;
-	size_t part_start = 0;
-	size_t n_parts = 0;
-	size_t new_line_count = 0;
-	size_t out = 0;
 	char[..] rebuilt = {0};
 	Line *bline = {0};
 	Line *eline = {0};
-	Line *new_lines = {0};
 	Location new_end = {0};
-	const char *insert = {0};
-	size_t insert_len = 0;
 
 	if (buf.is_readonly) {
 		return false;
 	}
 	buf.ensure_min_lines();
-	nlines = (int)len(buf.lines);
-	eof = buf.eof_line();
+	int nlines = (int)len(buf.lines);
+	int eof = buf.eof_line();
 	if (begin.line < 1) {
 		begin.line = 1;
 		begin.offset = 0;
@@ -862,9 +834,9 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		end.line = eof;
 		end.offset = 0;
 	}
-	begin_is_eof = begin.line == eof;
-	end_is_eof = end.line == eof;
-	end_real = end_is_eof ? nlines : end.line;
+	bool begin_is_eof = begin.line == eof;
+	bool end_is_eof = end.line == eof;
+	int end_real = end_is_eof ? nlines : end.line;
 
 	if (begin.line == end.line && begin.offset == end.offset && (new_text == NULL || new_len == 0)) {
 		if (new_end_out != NULL) {
@@ -873,11 +845,11 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		return true;
 	}
 
-	insert = new_text;
+	const char *insert = new_text;
 	if (insert == NULL) {
 		insert = "";
 	}
-	insert_len = new_len;
+	size_t insert_len = new_len;
 
 	if (!begin_is_eof) {
 		bline = buf.line(begin.line);
@@ -918,29 +890,25 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		}
 	}
 
-	n_parts = 1;
+	size_t n_parts = 1;
 	for (auto c : rebuilt) {
 		if (c == '\n') {
 			n_parts++;
 		}
 	}
 
-	keep_before = begin_is_eof ? (size_t)nlines : (size_t)(begin.line - 1);
-	if (end_is_eof) {
-		keep_after = 0;
-	} else {
-		keep_after = nlines - end.line;
-	}
-	new_line_count = keep_before + n_parts + keep_after;
-	new_lines = calloc(new_line_count, sizeof(Line));
+	size_t keep_before = begin_is_eof ? (size_t)nlines : (size_t)(begin.line - 1);
+	size_t keep_after = end_is_eof ? 0 : (size_t)(nlines - end.line);
+	size_t new_line_count = keep_before + n_parts + keep_after;
+	Line *new_lines = calloc(new_line_count, sizeof(Line));
 	if (new_lines == NULL) {
 		str_free(&rebuilt);
 		return false;
 	}
 
-	part_start = 0;
-	out = keep_before;
-	for (i = 0; i <= len(rebuilt); i++) {
+	size_t part_start = 0;
+	size_t out = keep_before;
+	for (; i <= len(rebuilt); i++) {
 		if (i == len(rebuilt) || rebuilt[i] == '\n') {
 			if (!make_line(&new_lines[out], buf, rebuilt[part_start..i])) {
 				size_t j = 0;
@@ -1015,15 +983,12 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 
 /* get_text returns malloc'd bytes between begin and end (jem.go GetText). EOF ok. */
 (char *, size_t, bool) (Buffer *buf).get_text(Location begin, Location end) {
-	bool end_is_eof = false;
-	int eof = 0;
-	int last_real = 0;
-	int ln = 0;
+	int ln = begin.line;
 	char *data = NULL;
 	size_t n = 0;
 	size_t cap_n = 0;
 
-	eof = buf.eof_line();
+	int eof = buf.eof_line();
 	if (begin.line > end.line || (begin.line == end.line && begin.offset > end.offset)) {
 		Location t = begin;
 		begin = end;
@@ -1037,23 +1002,20 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		end.line = eof;
 		end.offset = 0;
 	}
-	end_is_eof = end.line == eof;
+	bool end_is_eof = end.line == eof;
 	if (begin.line == end.line) {
-		Line *line = NULL;
-		size_t b = 0;
-		size_t e = 0;
 		if (begin.line == eof) {
 			return (NULL, 0, true);
 		}
-		line = buf.line(begin.line);
+		Line *line = buf.line(begin.line);
 		if (line == NULL) {
 			return (NULL, 0, false);
 		}
-		b = begin.offset;
+		size_t b = begin.offset;
 		if (b > line.byte_len()) {
 			b = line.byte_len();
 		}
-		e = end.offset;
+		size_t e = end.offset;
 		if (e > line.byte_len()) {
 			e = line.byte_len();
 		}
@@ -1070,13 +1032,9 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		return (NULL, 0, true);
 	}
 
-	if (end_is_eof) {
-		last_real = buf.line_count_i();
-	} else {
-		last_real = end.line;
-	}
+	int last_real = end_is_eof ? buf.line_count_i() : end.line;
 	/* Copy start line tail + interior + final segment (no trailing nl after last when EOF). */
-	for (ln = begin.line; ln <= last_real; ln++) {
+	for (; ln <= last_real; ln++) {
 		Line *line = buf.line(ln);
 		size_t from = 0;
 		size_t to = 0;
@@ -1172,11 +1130,7 @@ Line *(Buffer *buf).append_line(const char[..] text) {
 
 bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	size_t i = 0;
-	size_t start = 0;
-	size_t line_i = 0;
 	size_t count = 1;
-	const char *p = {0};
-	size_t ln = 0;
 
 	for (auto *line : buf.lines) {
 		line_free(line);
@@ -1187,7 +1141,7 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	if (data == NULL) {
 		n = 0;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		if (data[i] == '\n') {
 			count++;
 		}
@@ -1197,12 +1151,12 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 		return false;
 	}
 
-	start = 0;
-	line_i = 0;
+	size_t start = 0;
+	size_t line_i = 0;
 	for (i = 0; i <= n; i++) {
 		if (i == n || data[i] == '\n') {
-			p = data + start;
-			ln = i - start;
+			const char *p = data + start;
+			size_t ln = i - start;
 			if (eol == EModeCRLF && ln != 0 && p[ln - 1] == '\r') {
 				ln--;
 			}
@@ -1238,20 +1192,17 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 (char *, size_t, bool) (Buffer *buf).save_bytes() {
 	size_t i = 0;
 	size_t total = 0;
-	char *out = {0};
 	size_t off = 0;
-	char *nl = {0};
-	size_t nllen = 0;
 
-	nl = (char *)(void *)(buf.eol_mode == EModeCRLF ? "\r\n" : "\n");
-	nllen = buf.eol_mode == EModeCRLF ? 2 : 1;
-	for (i = 0; i < len(buf.lines); i++) {
+	char *nl = (char *)(void *)(buf.eol_mode == EModeCRLF ? "\r\n" : "\n");
+	size_t nllen = buf.eol_mode == EModeCRLF ? 2 : 1;
+	for (; i < len(buf.lines); i++) {
 		total = total + len(buf.lines[i].data);
 		if (i + 1 < len(buf.lines)) {
 			total = total + nllen;
 		}
 	}
-	out = malloc(total + 1);
+	char *out = malloc(total + 1);
 	if (out == NULL) {
 		return (NULL, 0, false);
 	}

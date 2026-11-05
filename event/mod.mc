@@ -49,14 +49,13 @@ static void event_clear(Event *e) {
 
 // event_enqueue copies e onto the ring (owns paste_data if set).
 bool event_enqueue(Event e) {
-	Event *slot = {0};
 	if (g_count >= (size_t)256) {
 		if (e.paste_data != NULL) {
 			free(e.paste_data);
 		}
 		return false;
 	}
-	slot = &g_queue[g_tail];
+	Event *slot = &g_queue[g_tail];
 	event_clear(slot);
 	*slot = e;
 	g_tail = (g_tail + 1) % 256;
@@ -78,11 +77,10 @@ bool event_enqueue_key_coalesced(uint32_t code) {
 
 // event_try_dequeue pops the next event into *out. Returns false if empty.
 bool event_try_dequeue(Event *out) {
-	Event *slot = {0};
 	if (g_count == 0 || out == NULL) {
 		return false;
 	}
-	slot = &g_queue[g_head];
+	Event *slot = &g_queue[g_head];
 	*out = *slot;
 	memset(slot, 0, sizeof(*slot));
 	g_head = (g_head + 1) % 256;

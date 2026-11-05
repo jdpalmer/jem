@@ -41,12 +41,11 @@ const char *mode_line_comment(LangMode lang) {
 }
 
 static bool line_has_comment_prefix(Line *line, const char *prefix, size_t plen) {
-	size_t pos = 0;
 	char[..] v = {0};
 	if (line == NULL || prefix == NULL || plen == 0) {
 		return false;
 	}
-	pos = line.first_nonblank();
+	size_t pos = line.first_nonblank();
 	v = line.view();
 	if (pos + plen > len(v)) {
 		return false;
@@ -90,12 +89,12 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 	int start_line, int end_line) {
 	Location saved_cursor = {0};
 	Location saved_mark = {0};
-	int line_num = 0;
+	int line_num = start_line;
 
 	saved_cursor = win.cursor;
 	saved_mark = win.mark;
 	buffer_undo.begin_command(buf, win.cursor);
-	for (line_num = start_line; line_num <= end_line; line_num++) {
+	for (; line_num <= end_line; line_num++) {
 		Line *line = buf.line(line_num);
 		size_t pos = 0;
 		size_t end = 0;
@@ -143,16 +142,15 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
 	int start_line, int end_line) {
 	char ins[16] = {0};
-	size_t ins_len = 0;
 	Location saved_cursor = {0};
 	Location saved_mark = {0};
-	int line_num = 0;
+	int line_num = start_line;
 
 	if (plen == 0 || plen + 2 >= sizeof(ins)) {
 		return false;
 	}
 	memcpy(ins, prefix, plen);
-	ins_len = plen;
+	size_t ins_len = plen;
 	if (prefix[plen - 1] != ' ') {
 		ins[ins_len] = ' ';
 		ins_len++;
@@ -161,7 +159,7 @@ static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, siz
 	saved_cursor = win.cursor;
 	saved_mark = win.mark;
 	buffer_undo.begin_command(buf, win.cursor);
-	for (line_num = start_line; line_num <= end_line; line_num++) {
+	for (; line_num <= end_line; line_num++) {
 		Line *line = buf.line(line_num);
 		size_t pos = 0;
 		Location at = {0};
@@ -191,8 +189,8 @@ static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, siz
 static bool mode_toggle_comment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
 	int start_line, int end_line) {
 	bool all_commented = true;
-	int line_num = 0;
-	for (line_num = start_line; line_num <= end_line; line_num++) {
+	int line_num = start_line;
+	for (; line_num <= end_line; line_num++) {
 		if (!line_has_comment_prefix(buf.line(line_num), prefix, plen)) {
 			all_commented = false;
 			break;
@@ -207,27 +205,22 @@ static bool mode_toggle_comment_lines(Window *win, Buffer *buf, const char *pref
 // mode_comment_dwim comments or uncomments the current line / region.
 bool mode_comment_dwim(bool f, int n) {
 	Window *win = window_current();
-	Buffer *buf = NULL;
-	const char *prefix = NULL;
-	size_t plen = 0;
-	int start_line = 0;
-	int end_line = 0;
 	(void)f;
 	(void)n;
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
-	buf = win.buffer;
+	Buffer *buf = win.buffer;
 	if (buf.is_readonly) {
 		return false;
 	}
-	prefix = mode_line_comment(buf.lang_mode);
+	const char *prefix = mode_line_comment(buf.lang_mode);
 	if (prefix == NULL || prefix[0] == 0) {
 		return false;
 	}
-	plen = strlen(prefix);
-	start_line = win.cursor.line;
-	end_line = win.cursor.line;
+	size_t plen = strlen(prefix);
+	int start_line = win.cursor.line;
+	int end_line = win.cursor.line;
 	if (win.mark.line != 0 && win.mark.line != win.cursor.line) {
 		start_line = win.mark.line;
 		end_line = win.cursor.line;

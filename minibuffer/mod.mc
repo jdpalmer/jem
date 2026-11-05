@@ -31,7 +31,7 @@ static int g_history_count;
 
 // minibuffer_history_add appends text to the global prompt history.
 void minibuffer_history_add(const char *text) {
-	int i = 0;
+	int i = 1;
 	if (text == NULL || text[0] == 0) {
 		return;
 	}
@@ -40,7 +40,7 @@ void minibuffer_history_add(const char *text) {
 		return;
 	}
 	if (g_history_count >= (int)MinibufHistorySlots) {
-		for (i = 1; i < (int)MinibufHistorySlots; i++) {
+		for (; i < (int)MinibufHistorySlots; i++) {
 			memcpy(g_history[i - 1], g_history[i], MinibufCap);
 		}
 		g_history_count = (int)MinibufHistorySlots - 1;
@@ -55,11 +55,10 @@ int minibuffer_history_count() {
 
 const char *minibuffer_history_at(int newest_index) {
 	/* newest_index 0 = most recent */
-	int idx = 0;
 	if (newest_index < 0 || newest_index >= g_history_count) {
 		return NULL;
 	}
-	idx = g_history_count - 1 - newest_index;
+	int idx = g_history_count - 1 - newest_index;
 	return g_history[idx];
 }
 
@@ -98,7 +97,6 @@ void minibuffer_cancel() {
 }
 
 void minibuffer_set_text(const char[..] s) {
-	size_t n = 0;
 	if (!g_mb.active) {
 		return;
 	}
@@ -108,7 +106,7 @@ void minibuffer_set_text(const char[..] s) {
 		g_mb.text[0] = 0;
 		return;
 	}
-	n = len(s);
+	size_t n = len(s);
 	if (n >= (size_t)MinibufCap) {
 		n = (size_t)MinibufCap - 1;
 	}
@@ -177,16 +175,15 @@ bool minibuffer_step_history(int dir) {
 
 bool minibuffer_insert(uint32_t ch) {
 	char utf[8] = {0};
-	int n = 0;
 	if (!g_mb.active) {
 		return false;
 	}
 	if (ch < 32 || ch == 127) {
 		return false;
 	}
+	int n = 1;
 	if (ch < 128) {
 		utf[0] = (char)ch;
-		n = 1;
 	} else if (ch < 0x800) {
 		utf[0] = (char)(0xC0 | (ch >> 6));
 		utf[1] = (char)(0x80 | (ch & 0x3F));
@@ -215,12 +212,11 @@ bool minibuffer_insert(uint32_t ch) {
 }
 
 bool minibuffer_insert_paste(const char[..] text) {
-	size_t insert_len = 0;
 	size_t i = 0;
 	if (!g_mb.active || len(text) == 0) {
 		return false;
 	}
-	insert_len = len(text);
+	size_t insert_len = len(text);
 	if (g_mb.len + insert_len >= (size_t)MinibufCap) {
 		insert_len = (size_t)MinibufCap - g_mb.len - 1;
 	}
@@ -229,7 +225,7 @@ bool minibuffer_insert_paste(const char[..] text) {
 	}
 	memmove(g_mb.text + g_mb.cursor + insert_len,
 		g_mb.text + g_mb.cursor, g_mb.len - g_mb.cursor);
-	for (i = 0; i < insert_len; i++) {
+	for (; i < insert_len; i++) {
 		char ch = ptr(text)[i];
 		if (ch == '\r') {
 			ch = '\n';

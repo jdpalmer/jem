@@ -64,8 +64,6 @@ static void buffer_char_stats(Buffer *buf, Window *win, int *char_at, int *befor
 bool cmd_insert_date(bool f, int n) {
 	Window *win = window_current();
 	char date[64] = {0};
-	int64_t now = 0;
-	struct JemTm *lt = NULL;
 	Location at = {0};
 	(void)f;
 	(void)n;
@@ -76,8 +74,8 @@ bool cmd_insert_date(bool f, int n) {
 		display_set_echo("[read-only buffer]");
 		return false;
 	}
-	now = time(NULL);
-	lt = localtime(&now);
+	int64_t now = time(NULL);
+	struct JemTm *lt = localtime(&now);
 	if (lt == NULL) {
 		return false;
 	}
@@ -100,9 +98,7 @@ bool cmd_show_position(bool f, int n) {
 	int char_at = 0;
 	int before = 0;
 	int total = 0;
-	int col = 0;
 	int ratio = 0;
-	int row = 0;
 	char msg[128] = {0};
 	(void)f;
 	(void)n;
@@ -110,11 +106,11 @@ bool cmd_show_position(bool f, int n) {
 		return false;
 	}
 	buffer_char_stats(buf, win, &char_at, &before, &total);
-	col = display_window_cursor_screen_col(win);
+	int col = display_window_cursor_screen_col(win);
 	if (total > 0) {
 		ratio = (100 * before) / total;
 	}
-	row = display_cursor_row() + 1;
+	int row = display_cursor_row() + 1;
 	snprintf(msg, sizeof(msg), "X=%d Y=%d CH=0x%x .=%d (%d%% of %d)",
 		col + 1, row, char_at, before, ratio, total);
 	display_set_echo(msg);
@@ -140,7 +136,7 @@ static void apply_eol_mode(Buffer *buf, EolMode mode) {
 	if (buf.eol_mode != mode) {
 		buf.eol_mode = mode;
 		buf.mark_changed();
-		for (i = 0; i < window_active.count; i++) {
+		for (; i < window_active.count; i++) {
 			Window *win = window_active.windows[i];
 			if (win != NULL && win.buffer == buf) {
 				win.should_update_mode_line = true;
@@ -188,11 +184,10 @@ bool cmd_set_eol_mode(bool f, int n) {
 bool cmd_choose_handle_key(uint32_t key) {
 	Listener *L = top_listener();
 	Buffer *buf = buffer_current();
-	int sel = 0;
 	if (L == NULL || L.kind != ListenerAskChoose) {
 		return false;
 	}
-	sel = L.ask_phase;
+	int sel = L.ask_phase;
 	if (key == 27 || key == (term_key_value(TermCTL) | (uint32_t)'G') || key == 0x07) {
 		pop_listener();
 		display_set_echo("Quit");

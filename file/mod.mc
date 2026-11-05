@@ -17,7 +17,7 @@ import "str";
 
 static EolMode detect_eol(char *data, size_t n) {
 	size_t i = 0;
-	for (i = 0; i + 1 < n; i++) {
+	for (; i + 1 < n; i++) {
 		if (data[i] == '\r' && data[i + 1] == '\n') {
 			return EModeCRLF;
 		}
@@ -42,9 +42,9 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 	}
 	logical = str_from_cstr(path);
 	if (path[0] == '~') {
+#ifdef _WIN32
 		char[..] home = str_empty();
 		bool hok = false;
-#ifdef _WIN32
 		char home_buf[FilePathMax] = {
 			0 };
 		{
@@ -65,11 +65,7 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 			}
 		}
 #else
-		{
-			auto (have, hv) = os_env("HOME");
-			hok = have;
-			home = hv;
-		}
+		auto (hok, home) = os_env("HOME");
 #endif
 		if (!hok || len(home) == 0) {
 			return false;
@@ -172,31 +168,25 @@ void file_sync_mtime(Buffer *buf) {
 // file_needs_overwrite_confirm is true when path's mtime differs from the buffer's.
 bool file_needs_overwrite_confirm(Buffer *buf, char *path) {
 	char resolved[FilePathMax] = {0};
-	char *use = NULL;
-	int64_t cur = 0;
 
 	if (buf == NULL || buf.file_mtime_ns == 0) {
 		return false;
 	}
 	if (path != NULL && path[0] != 0) {
-		if (file_resolve_path(resolved, sizeof(resolved), path)) {
-			use = resolved;
-		} else {
-			use = path;
-		}
-	} else {
-		if (len(buf.file_name) == 0) {
+		char *use = file_resolve_path(resolved, sizeof(resolved), path) ? resolved : path;
+		int64_t cur = file_mtime_ns(use);
+		return cur != 0 && cur != buf.file_mtime_ns;
+	}
+	if (len(buf.file_name) == 0) {
+		return false;
+	}
+	{
+		int n = snprintf(resolved, sizeof(resolved), "%s", buf.file_name);
+		if (n < 0 || (size_t)n >= sizeof(resolved)) {
 			return false;
 		}
-		{
-			int n = snprintf(resolved, sizeof(resolved), "%s", buf.file_name);
-			if (n < 0 || (size_t)n >= sizeof(resolved)) {
-				return false;
-			}
-		}
-		use = resolved;
 	}
-	cur = file_mtime_ns(use);
+	int64_t cur = file_mtime_ns(resolved);
 	return cur != 0 && cur != buf.file_mtime_ns;
 }
 
@@ -285,7 +275,6 @@ static (Buffer *, bool) file_load_new(char *path) {
 // file_load reads path into a new buffer and adds it to the list.
 // Missing paths become an empty "[New file]" buffer (jem.go LoadCurrentBuffer).
 (Buffer *, bool) file_load(char *path) {
-	Buffer *buf = {0};
 	char resolved[FilePathMax] = {
 		0 };
 
@@ -304,7 +293,7 @@ static (Buffer *, bool) file_load_new(char *path) {
 		return (NULL, false);
 	}
 
-	buf = buffer_new();
+	Buffer *buf = buffer_new();
 	if (buf == NULL) {
 		free(data);
 		return (NULL, false);
@@ -408,17 +397,14 @@ bool file_save(Buffer *buf, char *path) {
 
 // file_visit_location opens path and moves the cursor to 1-based line/column.
 bool file_visit_location(char *path, int line, int column) {
-	Window *w = {0};
-	Line *bline = {0};
 	Location loc = {0};
-	size_t off = 0;
 	auto (buf, ok) = file_visit(path);
 
 	if (!ok || buf == NULL || line < 1) {
 		return false;
 	}
 	window_switch_buffer(buf);
-	w = window_current();
+	Window *w = window_current();
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
@@ -426,12 +412,8 @@ bool file_visit_location(char *path, int line, int column) {
 		display_set_echo("File line out of range");
 		return false;
 	}
-	bline = w.buffer.line(line);
-	if (column > 0) {
-		off = column - 1;
-	} else {
-		off = 0;
-	}
+	Line *bline = w.buffer.line(line);
+	size_t off = column > 0 ? (size_t)(column - 1) : 0;
 	if (bline != NULL && off > bline.byte_len()) {
 		off = bline.byte_len();
 	}
@@ -498,7 +480,6 @@ bool file_reload_current(int line_number) {
 	Window *w = window_current();
 	char path[FilePathMax] = {0};
 	Location loc = {0};
-	Line *bline = NULL;
 
 	if (buf == NULL || len(buf.file_name) == 0) {
 		return false;
@@ -524,7 +505,7 @@ bool file_reload_current(int line_number) {
 	if (line_number < 1) {
 		line_number = 1;
 	}
-	bline = w.buffer.line(line_number);
+	Line *bline = w.buffer.line(line_number);
 	loc.line = line_number;
 	loc.offset = 0;
 	(void)bline;
@@ -544,8 +525,6 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 	Buffer *buf = buffer_current();
 	Window *w = window_current();
 	char fname[FilePathMax] = {0};
-	int64_t cur = 0;
-	int line = 1;
 
 	if (dispatching) {
 		return false;
@@ -562,7 +541,7 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 			return false;
 		}
 	}
-	cur = file_mtime_ns(fname);
+	int64_t cur = file_mtime_ns(fname);
 	if (cur == 0 || cur == buf.file_mtime_ns) {
 		if (buf.notified_mtime_ns != 0) {
 			buf.notified_mtime_ns = 0;
@@ -570,7 +549,7 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 		}
 		return false;
 	}
-	line = w.cursor.line;
+	int line = w.cursor.line;
 	if (buf.is_changed) {
 		if (auto_revert) {
 			(void)file_reload_current(line);
@@ -594,7 +573,6 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 }
 
 static void file_path_split(char *path, char *dir, size_t dircap, char *base, size_t basecap) {
-	size_t n = 0;
 	size_t i = 0;
 	size_t last = 0;
 	bool have_sep = false;
@@ -608,8 +586,8 @@ static void file_path_split(char *path, char *dir, size_t dircap, char *base, si
 	if (path == NULL) {
 		return;
 	}
-	n = strlen(path);
-	for (i = 0; i < n; i++) {
+	size_t n = strlen(path);
+	for (; i < n; i++) {
 		if (path[i] == '/') {
 			last = i;
 			have_sep = true;
@@ -674,9 +652,7 @@ bool file_complete_path(char *buf, size_t cap) {
 	char dir_for_open[FilePathMax] = {0};
 	int match_count = 0;
 	bool match_is_dir = false;
-	size_t prefix_len = 0;
 	Dir d = {0};
-	bool dok = false;
 
 	if (buf == NULL || cap < 2) {
 		return false;
@@ -700,12 +676,9 @@ bool file_complete_path(char *buf, size_t cap) {
 	}
 	snprintf(edir, sizeof(edir), "%s", dir_for_open);
 	snprintf(eprefix, sizeof(eprefix), "%s", tprefix);
-	prefix_len = strlen(eprefix);
-	{
-		auto (opened, ok) = dir_open(str_from_cstr(edir));
-		d = opened;
-		dok = ok;
-	}
+	size_t prefix_len = strlen(eprefix);
+	auto (opened, dok) = dir_open(str_from_cstr(edir));
+	d = opened;
 	if (!dok) {
 		return false;
 	}

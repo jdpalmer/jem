@@ -232,7 +232,7 @@ Command *find_cmd_entry(const char *name) {
 		return NULL;
 	}
 	/* Normalize: lower-case, '_' → '-' so Go-style names also match. */
-	for (ni = 0; name[ni] != 0 && wi + 1 < sizeof(want); ni++) {
+	for (; name[ni] != 0 && wi + 1 < sizeof(want); ni++) {
 		char c = name[ni];
 		if (c >= 'A' && c <= 'Z') {
 			c = (char)(c + ('a' - 'A'));
@@ -242,7 +242,7 @@ Command *find_cmd_entry(const char *name) {
 		want[wi++] = c;
 	}
 	want[wi] = 0;
-	for (i = 0; i < g_cmd_count; i++) {
+	for (; i < g_cmd_count; i++) {
 		char have[128] = {0};
 		size_t j = 0;
 		size_t n = len(g_cmds[i].name);
@@ -277,7 +277,7 @@ static CommandFn find_cmd(const char *name) {
 
 static CommandFn find_bind(uint32_t key) {
 	int i = 0;
-	for (i = 0; i < g_bind_count; i++) {
+	for (; i < g_bind_count; i++) {
 		if (g_binds[i].key == key) {
 			return g_binds[i].fn;
 		}
@@ -288,7 +288,7 @@ static CommandFn find_bind(uint32_t key) {
 // runtime_rebind sets or clears a key binding (fn NULL unbinds).
 void runtime_rebind(uint32_t key, CommandFn fn) {
 	int i = 0;
-	for (i = 0; i < g_bind_count; i++) {
+	for (; i < g_bind_count; i++) {
 		if (g_binds[i].key != key) {
 			continue;
 		}
@@ -317,13 +317,12 @@ CommandFn runtime_find_bind(uint32_t key) {
 }
 
 void push_listener(ListenerKind kind) {
-	Listener *L = {0};
 	if (g_app.listener_top >= MaxListeners) {
 		fprintf(stderr, "jem: listener stack full (%d)\n", MaxListeners);
 		display_set_echo("[listener stack full]");
 		return;
 	}
-	L = &g_app.listeners[g_app.listener_top++];
+	Listener *L = &g_app.listeners[g_app.listener_top++];
 	memset(L, 0, sizeof(*L));
 	L.kind = kind;
 }
@@ -426,7 +425,6 @@ bool cmd_backward_word(bool f, int n) {
 
 bool cmd_forward_page(bool f, int n) {
 	Window *w = window_current();
-	int page = 1;
 	(void)f;
 	if (n < 1) {
 		n = 1;
@@ -434,7 +432,7 @@ bool cmd_forward_page(bool f, int n) {
 	if (w == NULL) {
 		return true;
 	}
-	page = w.height;
+	int page = w.height;
 	if (page > 2) {
 		page = w.height - 2;
 	} else {
@@ -445,7 +443,6 @@ bool cmd_forward_page(bool f, int n) {
 
 bool cmd_backward_page(bool f, int n) {
 	Window *w = window_current();
-	int page = 1;
 	(void)f;
 	if (n < 1) {
 		n = 1;
@@ -453,7 +450,7 @@ bool cmd_backward_page(bool f, int n) {
 	if (w == NULL) {
 		return true;
 	}
-	page = w.height;
+	int page = w.height;
 	if (page > 2) {
 		page = w.height - 2;
 	} else {
@@ -494,7 +491,6 @@ static uint32_t g_pending_insert;
 bool cmd_insert_pending(bool f, int n) {
 	Window *w = window_current();
 	char utf[8] = {0};
-	int len = 0;
 	uint32_t ch = g_pending_insert;
 	Location at = {0};
 	(void)f;
@@ -504,9 +500,9 @@ bool cmd_insert_pending(bool f, int n) {
 	if (n < 1) {
 		n = 1;
 	}
+	int len = 1;
 	if (ch < 128) {
 		utf[0] = (char)ch;
-		len = 1;
 	} else if (ch < 0x800) {
 		utf[0] = (char)(0xC0 | (ch >> 6));
 		utf[1] = (char)(0x80 | (ch & 0x3F));
@@ -606,9 +602,6 @@ bool cmd_open_line(bool f, int n) {
 char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 	Location begin = a;
 	Location end = b;
-	char *data = NULL;
-	size_t n = 0;
-	bool ok = false;
 	if (w == NULL || w.buffer == NULL) {
 		return NULL;
 	}
@@ -618,9 +611,9 @@ char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 		end = t;
 	}
 	auto (got, got_n, got_ok) = w.buffer.get_text(begin, end);
-	ok = got_ok;
-	data = got;
-	n = got_n;
+	bool ok = got_ok;
+	char *data = got;
+	size_t n = got_n;
 	if (!ok) {
 		return NULL;
 	}
@@ -639,7 +632,6 @@ char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 }
 
 static bool delete_range_undo(Window *w, Location begin, Location end, bool kill) {
-	char *text = {0};
 	size_t tlen = 0;
 	Location lo = begin;
 	Location hi = end;
@@ -653,7 +645,7 @@ static bool delete_range_undo(Window *w, Location begin, Location end, bool kill
 	if (lo.line == hi.line && lo.offset == hi.offset) {
 		return false;
 	}
-	text = region_text(w, lo, hi, &tlen);
+	char *text = region_text(w, lo, hi, &tlen);
 	if (kill && text != NULL && tlen > 0) {
 		killring_kill(ranged(text, tlen));
 	}
@@ -738,7 +730,6 @@ bool cmd_goto_bof(bool f, int n) {
 
 bool cmd_goto_eof(bool f, int n) {
 	Window *w = window_current();
-	Line *line = {0};
 	Location loc = {0};
 	(void)f;
 	(void)n;
@@ -749,7 +740,7 @@ bool cmd_goto_eof(bool f, int n) {
 	if (loc.line < 1) {
 		loc.line = 1;
 	}
-	line = w.buffer.line(loc.line);
+	Line *line = w.buffer.line(loc.line);
 	if (line != NULL) {
 		loc.offset = line.byte_len();
 	}
@@ -759,7 +750,6 @@ bool cmd_goto_eof(bool f, int n) {
 
 bool cmd_back_to_indentation(bool f, int n) {
 	Window *w = window_current();
-	Line *line = {0};
 	Location loc = {0};
 	(void)f;
 	(void)n;
@@ -767,7 +757,7 @@ bool cmd_back_to_indentation(bool f, int n) {
 		return true;
 	}
 	loc.line = w.cursor.line;
-	line = w.buffer.line(loc.line);
+	Line *line = w.buffer.line(loc.line);
 	if (line != NULL) {
 		loc.offset = line.first_nonblank();
 	}
@@ -804,11 +794,7 @@ bool cmd_refresh(bool f, int n) {
 
 bool cmd_trim_whitespace(bool f, int n) {
 	Window *w = window_current();
-	Line *line = {0};
 	char[..] v = {0};
-	size_t pos = 0;
-	size_t start = 0;
-	size_t end = 0;
 	Location begin = {0};
 	Location finish = {0};
 	(void)f;
@@ -816,33 +802,31 @@ bool cmd_trim_whitespace(bool f, int n) {
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
-	line = w.buffer.line(w.cursor.line);
+	Line *line = w.buffer.line(w.cursor.line);
 	if (line == NULL) {
 		return false;
 	}
 	v = line.view();
-	{
-		char *vp = ptr(v);
-		pos = w.cursor.offset;
-		start = pos;
-		while (start > 0) {
-			char c = vp[start - 1];
-			if (c != ' ' && c != '\t') {
-				break;
-			}
-			start--;
+	char *vp = ptr(v);
+	size_t pos = w.cursor.offset;
+	size_t start = pos;
+	while (start > 0) {
+		char c = vp[start - 1];
+		if (c != ' ' && c != '\t') {
+			break;
 		}
-		end = pos;
-		while (end < len(v)) {
-			char c = vp[end];
-			if (c != ' ' && c != '\t') {
-				break;
-			}
-			end++;
+		start--;
+	}
+	size_t end = pos;
+	while (end < len(v)) {
+		char c = vp[end];
+		if (c != ' ' && c != '\t') {
+			break;
 		}
-		if (start == end) {
-			return true;
-		}
+		end++;
+	}
+	if (start == end) {
+		return true;
 	}
 	begin.line = w.cursor.line;
 	begin.offset = start;
@@ -859,16 +843,7 @@ bool cmd_trim_whitespace(bool f, int n) {
 
 bool cmd_transpose_chars(bool f, int n) {
 	Window *w = window_current();
-	Line *line = {0};
 	char[..] v = {0};
-	size_t offset = 0;
-	size_t right_start = 0;
-	size_t right_end = 0;
-	size_t left_start = 0;
-	size_t left_end = 0;
-	char *swapped = {0};
-	size_t left_len = 0;
-	size_t right_len = 0;
 	Location begin = {0};
 	Location end = {0};
 	(void)f;
@@ -876,30 +851,28 @@ bool cmd_transpose_chars(bool f, int n) {
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
-	line = w.buffer.line(w.cursor.line);
+	Line *line = w.buffer.line(w.cursor.line);
 	if (line == NULL) {
 		return false;
 	}
 	v = line.view();
-	offset = w.cursor.offset;
+	size_t offset = w.cursor.offset;
+	size_t right_start = offset;
+	size_t right_end = offset == len(v) ? offset : utf8_next_offset(v, right_start);
 	if (offset == len(v)) {
-		right_end = offset;
 		right_start = utf8_prev_offset(v, right_end);
-	} else {
-		right_start = offset;
-		right_end = utf8_next_offset(v, right_start);
 	}
 	if (right_start == right_end) {
 		return false;
 	}
-	left_end = right_start;
-	left_start = utf8_prev_offset(v, left_end);
+	size_t left_end = right_start;
+	size_t left_start = utf8_prev_offset(v, left_end);
 	if (left_start == left_end) {
 		return false;
 	}
-	left_len = left_end - left_start;
-	right_len = right_end - right_start;
-	swapped = malloc(left_len + right_len);
+	size_t left_len = left_end - left_start;
+	size_t right_len = right_end - right_start;
+	char *swapped = malloc(left_len + right_len);
 	if (swapped == NULL) {
 		return false;
 	}
@@ -952,7 +925,6 @@ static bool transform_word_case(int mode) {
 	Window *w = window_current();
 	Location start = {0};
 	Location end = {0};
-	char *text = {0};
 	size_t tlen = 0;
 	size_t i = 0;
 	bool first = true;
@@ -964,13 +936,13 @@ static bool transform_word_case(int mode) {
 	start = w.cursor;
 	w.move_forward_word(1);
 	end = w.cursor;
-	text = region_text(w, start, end, &tlen);
+	char *text = region_text(w, start, end, &tlen);
 	if (text == NULL || tlen == 0) {
 		free(text);
 		w.set_cursor(start);
 		return false;
 	}
-	for (i = 0; i < tlen; i++) {
+	for (; i < tlen; i++) {
 		if (mode == 0) {
 			text[i] = ascii_tolower(text[i]);
 		} else if (mode == 1) {
@@ -1028,20 +1000,17 @@ static bool is_word_byte(char b) {
 }
 
 static Location next_word_start(Buffer *buf, Location loc) {
-	Line *line = {0};
 	char[..] v = {0};
-	size_t off = 0;
-	int nlines = 0;
 	if (buf == NULL) {
 		return loc;
 	}
-	nlines = buf.line_count_i();
-	line = buf.line(loc.line);
+	int nlines = buf.line_count_i();
+	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return loc;
 	}
 	v = line.view();
-	off = loc.offset;
+	size_t off = loc.offset;
 	while (loc.line <= nlines) {
 		line = buf.line(loc.line);
 		if (line == NULL) {
@@ -1076,8 +1045,6 @@ bool cmd_transpose_words(bool f, int n) {
 	Location left_end = {0};
 	Location right_start = {0};
 	Location right_end = {0};
-	char *left_text = {0};
-	char *right_text = {0};
 	size_t left_len = 0;
 	size_t right_len = 0;
 	(void)f;
@@ -1097,8 +1064,8 @@ bool cmd_transpose_words(bool f, int n) {
 	w.set_cursor(right_start);
 	w.move_forward_word(1);
 	right_end = w.cursor;
-	left_text = region_text(w, left_start, left_end, &left_len);
-	right_text = region_text(w, right_start, right_end, &right_len);
+	char *left_text = region_text(w, left_start, left_end, &left_len);
+	char *right_text = region_text(w, right_start, right_end, &right_len);
 	if (left_text == NULL || right_text == NULL) {
 		free(left_text);
 		free(right_text);
@@ -1217,14 +1184,13 @@ bool cmd_mark_push(bool f, int n) {
 bool cmd_mark_pop(bool f, int n) {
 	Window *w = window_current();
 	Location loc = {0};
-	bool ok = false;
 	(void)f;
 	(void)n;
 	if (w == NULL) {
 		return false;
 	}
 	auto (popped, pop_ok) = markring_pop();
-	ok = pop_ok;
+	bool ok = pop_ok;
 	loc = popped;
 	if (!ok) {
 		display_set_echo("[no saved mark]");
@@ -1291,7 +1257,6 @@ bool cmd_insert_register(bool f, int n) {
 
 bool cmd_kill_region(bool f, int n) {
 	Window *w = window_current();
-	char *text = {0};
 	size_t tlen = 0;
 	Location begin = {0};
 	Location end = {0};
@@ -1303,7 +1268,7 @@ bool cmd_kill_region(bool f, int n) {
 	}
 	begin = w.mark;
 	end = w.cursor;
-	text = region_text(w, begin, end, &tlen);
+	char *text = region_text(w, begin, end, &tlen);
 	if (text != NULL) {
 		killring_kill(ranged(text, tlen));
 	}
@@ -1330,7 +1295,6 @@ bool cmd_kill_region(bool f, int n) {
 
 bool cmd_copy_region(bool f, int n) {
 	Window *w = window_current();
-	char *text = {0};
 	size_t tlen = 0;
 	(void)f;
 	(void)n;
@@ -1338,7 +1302,7 @@ bool cmd_copy_region(bool f, int n) {
 		display_set_echo("No mark set");
 		return true;
 	}
-	text = region_text(w, w.mark, w.cursor, &tlen);
+	char *text = region_text(w, w.mark, w.cursor, &tlen);
 	if (text == NULL) {
 		display_set_echo("Out of memory");
 		return true;
@@ -1356,8 +1320,6 @@ bool cmd_kill_line(bool f, int n) {
 	Window *w = window_current();
 	Location begin = {0};
 	Location end = {0};
-	Line *line = {0};
-	char *text = {0};
 	size_t tlen = 0;
 	(void)f;
 	(void)n;
@@ -1365,7 +1327,7 @@ bool cmd_kill_line(bool f, int n) {
 		return true;
 	}
 	begin = w.cursor;
-	line = w.buffer.line(begin.line);
+	Line *line = w.buffer.line(begin.line);
 	end = begin;
 	if (line != NULL && begin.offset < line.byte_len()) {
 		end.offset = line.byte_len();
@@ -1375,7 +1337,7 @@ bool cmd_kill_line(bool f, int n) {
 	} else {
 		return true;
 	}
-	text = region_text(w, begin, end, &tlen);
+	char *text = region_text(w, begin, end, &tlen);
 	if (text != NULL) {
 		killring_kill(ranged(text, tlen));
 	}
@@ -1530,12 +1492,11 @@ bool cmd_read_file(bool f, int n) {
 
 static bool goto_line_number(int target) {
 	Window *w = window_current();
-	Buffer *buf = {0};
 	Location loc = {0};
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
-	buf = w.buffer;
+	Buffer *buf = w.buffer;
 	if (target < 1 || target > buf.line_count_i()) {
 		display_set_echo("Line number out of range");
 		return false;
@@ -1555,7 +1516,7 @@ static bool parse_positive_line(char *s, int *out) {
 	if (s == NULL || s[0] == 0 || out == NULL) {
 		return false;
 	}
-	for (i = 0; s[i] != 0; i++) {
+	for (; s[i] != 0; i++) {
 		char c = s[i];
 		if (c < '0' || c > '9') {
 			return false;
@@ -1624,11 +1585,10 @@ bool cmd_compile(bool f, int n) {
 
 bool cmd_goto_tag(bool f, int n) {
 	char sym[256] = {0};
-	bool ok = false;
 	(void)f;
 	(void)n;
 	if (tags_symbol_at_point(sym, sizeof(sym))) {
-		ok = tags_goto_name(sym);
+		bool ok = tags_goto_name(sym);
 		if (ok && tags_picker_active()) {
 			push_listener(ListenerTagPicker);
 		}
@@ -1646,10 +1606,9 @@ bool cmd_goto_tag(bool f, int n) {
 }
 
 bool cmd_goto_buffer_tag(bool f, int n) {
-	bool ok = false;
 	(void)f;
 	(void)n;
-	ok = tags_goto_buffer();
+	bool ok = tags_goto_buffer();
 	if (ok && tags_picker_active()) {
 		push_listener(ListenerTagPicker);
 	}
@@ -1671,8 +1630,6 @@ bool cmd_describe_symbol(bool f, int n) {
 static bool insert_tag_completion(TagEntry *entry) {
 	Window *w = window_current();
 	char prefix[TagNameMax] = {0};
-	size_t plen = 0;
-	size_t n = 0;
 	Location at = {0};
 	if (w == NULL || w.buffer == NULL || entry == NULL || entry.name == NULL) {
 		return false;
@@ -1685,11 +1642,11 @@ static bool insert_tag_completion(TagEntry *entry) {
 		display_set_echo("[completion: no prefix at point]");
 		return false;
 	}
-	plen = strlen(prefix);
+	size_t plen = strlen(prefix);
 	if (strncmp(entry.name, prefix, plen) != 0) {
 		return false;
 	}
-	n = strlen(entry.name + plen);
+	size_t n = strlen(entry.name + plen);
 	if (n == 0) {
 		return true;
 	}
@@ -1710,7 +1667,6 @@ static bool insert_tag_completion(TagEntry *entry) {
 bool cmd_complete_symbol(bool f, int n) {
 	TagList matches = {0};
 	char prefix[TagNameMax] = {0};
-	bool ok = false;
 	(void)f;
 	(void)n;
 	if (!tags_prefix_at_point(prefix, sizeof(prefix))) {
@@ -1730,7 +1686,7 @@ bool cmd_complete_symbol(bool f, int n) {
 		return false;
 	}
 	if (len(matches.items) == 1) {
-		ok = insert_tag_completion(matches.items[0]);
+		bool ok = insert_tag_completion(matches.items[0]);
 		tags_list_free(&matches);
 		return ok;
 	}
@@ -1914,7 +1870,7 @@ bool cmd_call_macro(bool f, int n) {
 	}
 	g_app.macro_playing = true;
 	while (n-- > 0) {
-		for (i = 0; i < g_app.macro_len; i++) {
+		for (; i < g_app.macro_len; i++) {
 			event_enqueue(g_app.macro_tape[i]);
 		}
 	}
@@ -1988,13 +1944,11 @@ bool cmd_revert_file(bool f, int n) {
 }
 
 static void append_key_text(char *out, size_t cap, const char *s) {
-	size_t n = 0;
-	size_t sl = 0;
 	if (out == NULL || s == NULL || cap == 0) {
 		return;
 	}
-	n = strlen(out);
-	sl = strlen(s);
+	size_t n = strlen(out);
+	size_t sl = strlen(s);
 	if (n + sl >= cap) {
 		return;
 	}
@@ -2003,7 +1957,6 @@ static void append_key_text(char *out, size_t cap, const char *s) {
 }
 
 static void format_key_chord(uint32_t code, char *out, size_t cap) {
-	uint32_t base = 0;
 	char ch[2] = {0};
 	out[0] = 0;
 	if ((code & term_key_value(TermMETA)) != 0) {
@@ -2015,7 +1968,7 @@ static void format_key_chord(uint32_t code, char *out, size_t cap) {
 	if ((code & term_key_value(TermSHIFT)) != 0) {
 		append_key_text(out, cap, "S-");
 	}
-	base = code & ~term_key_value(TermKeyMask);
+	uint32_t base = code & ~term_key_value(TermKeyMask);
 	if (base == term_key_value(TermKeyTab)) {
 		append_key_text(out, cap, "TAB");
 	} else if (base == term_key_value(TermKeyEnter)) {
@@ -2072,7 +2025,7 @@ void command_bind_label(CommandFn fn, char *out, size_t cap) {
 	if (fn == NULL) {
 		return;
 	}
-	for (i = 0; i < g_bind_count; i++) {
+	for (; i < g_bind_count; i++) {
 		if (g_binds[i].fn != fn || key_is_mouse(g_binds[i].key)) {
 			continue;
 		}
@@ -2096,7 +2049,7 @@ bool cmd_execute_extended(bool f, int n) {
 	if (ncmd > MaxCommands) {
 		ncmd = MaxCommands;
 	}
-	for (i = 0; i < ncmd; i++) {
+	for (; i < ncmd; i++) {
 		names[i] = ptr(g_cmds[i].name);
 		command_bind_label(g_cmds[i].fn, binds_store[i], sizeof(binds_store[i]));
 		binds[i] = binds_store[i];
@@ -2302,11 +2255,10 @@ void init_commands() {
 }
 
 static bool execute(CommandFn fn, bool f, int n) {
-	uint64_t echo_before = 0;
 	if (fn == NULL) {
 		return true;
 	}
-	echo_before = display_echo_generation();
+	uint64_t echo_before = display_echo_generation();
 	/* Ignore command success/failure for loop control (jem.go invokeCommand).
 	 * Returning false from a command must not quit the editor — that made C-y
 	 * with an empty clipboard look like a silent exit. */
@@ -2334,9 +2286,8 @@ static bool handle_listener_key(uint32_t key) {
 		{
 			bool f = L.universal_f;
 			int n = L.universal_n;
-			CommandFn fn = {0};
 			pop_listener();
-			fn = find_bind(key);
+			CommandFn fn = find_bind(key);
 			if (fn != NULL) {
 				return execute(fn, f, n);
 			}
@@ -2503,14 +2454,13 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (fr == FuzzyAccept) {
 			char *sel = fuzzy_command_selected();
-			CommandFn fn = {0};
 			if (sel != NULL) {
 				snprintf(picked, sizeof(picked), "%s", sel);
 			}
 			fuzzy_command_remember(picked);
 			fuzzy_command_close();
 			pop_listener();
-			fn = find_cmd(picked);
+			CommandFn fn = find_cmd(picked);
 			if (fn == NULL) {
 				display_set_echo("Unknown command");
 				return true;
@@ -2786,21 +2736,19 @@ static bool handle_listener_key(uint32_t key) {
 				}
 				if (phase == (int)AskCopyRegister) {
 					Window *rw = window_current();
-					char *text = NULL;
 					size_t tlen = 0;
-					char name = 0;
 					char msg[64] = {0};
 					char[..] view = {0};
 					if (rw == NULL || rw.mark.line == 0) {
 						display_set_echo("No mark set");
 						return true;
 					}
-					name = text_copy[0];
+					char name = text_copy[0];
 					if (name == 0) {
 						display_set_echo("[register name required]");
 						return true;
 					}
-					text = region_text(rw, rw.mark, rw.cursor, &tlen);
+					char *text = region_text(rw, rw.mark, rw.cursor, &tlen);
 					if (text == NULL && tlen > 0) {
 						display_set_echo("[out of memory]");
 						return true;
@@ -2825,11 +2773,10 @@ static bool handle_listener_key(uint32_t key) {
 				}
 				if (phase == (int)AskInsertRegister) {
 					Window *rw = window_current();
-					char name = 0;
 					char[..] data = {0};
 					char msg[64] = {0};
 					Location at = {0};
-					name = text_copy[0];
+					char name = text_copy[0];
 					if (name == 0) {
 						display_set_echo("[register name required]");
 						return true;
@@ -3046,7 +2993,6 @@ void g_search_force_backward() {
 }
 
 static bool handle_key(uint32_t key) {
-	CommandFn fn = {0};
 	/* A live listener always consumes the key (jem.go). Do not fall through to
 	 * self-insert after prompts/C-x — that corrupted quit-with-unsaved (y). */
 	if (top_listener() != NULL) {
@@ -3066,7 +3012,7 @@ static bool handle_key(uint32_t key) {
 		display_set_echo("Quit");
 		return true;
 	}
-	fn = find_bind(key);
+	CommandFn fn = find_bind(key);
 	if (fn != NULL) {
 		return execute(fn, false, 1);
 	}
@@ -3151,7 +3097,7 @@ void runtime_after_buffer_edit(Buffer *buf, Location begin, Location end, Locati
 }
 
 void runtime_run(int argc, char **argv) {
-	int i = 0;
+	int i = 1;
 	memset(&g_app, 0, sizeof(g_app));
 	g_app.running = true;
 	vars_init();
@@ -3171,7 +3117,7 @@ void runtime_run(int argc, char **argv) {
 	/* Load argv files; leave *scratch* alone; show the first path (jem.go). */
 	{
 		Buffer *first = NULL;
-		for (i = 1; i < argc; i++) {
+		for (; i < argc; i++) {
 			auto (buf, ok) = file_visit(argv[i]);
 			if (!ok || buf == NULL) {
 				continue;

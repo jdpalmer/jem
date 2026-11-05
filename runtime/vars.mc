@@ -28,7 +28,7 @@ static int bool_to_int(bool b) {
 static void vars_theme_changed() {
 	size_t i = 0;
 	display_invalidate();
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win != NULL) {
 			win.should_redraw = true;
@@ -38,7 +38,6 @@ static void vars_theme_changed() {
 }
 
 void vars_init() {
-	EditorVar *v = NULL;
 	memset(g_vars, 0, sizeof(g_vars));
 	g_var_count = 0;
 	g_app.fill_col = 80;
@@ -50,75 +49,75 @@ void vars_init() {
 	g_app.auto_indent = true;
 	g_app.auto_revert_mode = false;
 
-	v = &g_vars[g_var_count++];
-	v.name = "fill-column";
-	v.doc = "Wrap/fill column used by paragraph filling.";
-	v.min_v = 0;
-	v.max_v = 1000;
-	v.local = true;
+	g_vars[g_var_count].name = "fill-column";
+	g_vars[g_var_count].doc = "Wrap/fill column used by paragraph filling.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 1000;
+	g_vars[g_var_count].local = true;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "theme-mode";
-	v.doc = "Editor palette mode: 0 dark, 1 light.";
-	v.min_v = 0;
-	v.max_v = 1;
-	v.local = false;
+	g_vars[g_var_count].name = "theme-mode";
+	g_vars[g_var_count].doc = "Editor palette mode: 0 dark, 1 light.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 1;
+	g_vars[g_var_count].local = false;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "search-scope";
-	v.doc = "Search scope: 0 current buffer, 1 all buffers.";
-	v.min_v = 0;
-	v.max_v = 1;
-	v.local = false;
+	g_vars[g_var_count].name = "search-scope";
+	g_vars[g_var_count].doc = "Search scope: 0 current buffer, 1 all buffers.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 1;
+	g_vars[g_var_count].local = false;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "whitespace-cleanup";
-	v.doc = "Trim trailing whitespace from every line before saving: 0 off, 1 on.";
-	v.min_v = 0;
-	v.max_v = 1;
-	v.local = true;
+	g_vars[g_var_count].name = "whitespace-cleanup";
+	g_vars[g_var_count].doc = "Trim trailing whitespace from every line before saving: 0 off, 1 on.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 1;
+	g_vars[g_var_count].local = true;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "auto-indent";
-	v.doc = "Insert mode-aware indent after newline: 0 off, 1 on.";
-	v.min_v = 0;
-	v.max_v = 1;
-	v.local = false;
+	g_vars[g_var_count].name = "auto-indent";
+	g_vars[g_var_count].doc = "Insert mode-aware indent after newline: 0 off, 1 on.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 1;
+	g_vars[g_var_count].local = false;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "auto-revert-mode";
-	v.doc = "Reload buffers from disk when the file changes externally: 0 prompt if modified, 1 always reload.";
-	v.min_v = 0;
-	v.max_v = 1;
-	v.local = false;
+	g_vars[g_var_count].name = "auto-revert-mode";
+	g_vars[g_var_count].doc = "Reload buffers from disk when the file changes externally: 0 prompt if modified, 1 always reload.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 1;
+	g_vars[g_var_count].local = false;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "indent-width";
-	v.doc = "Primary indent step in columns/spaces.";
-	v.min_v = 0;
-	v.max_v = 32;
-	v.local = true;
+	g_vars[g_var_count].name = "indent-width";
+	g_vars[g_var_count].doc = "Primary indent step in columns/spaces.";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 32;
+	g_vars[g_var_count].local = true;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "indent-brace";
-	v.doc = "Extra indent for a standalone opening brace line (C-like modes).";
-	v.min_v = 0;
-	v.max_v = 32;
-	v.local = true;
+	g_vars[g_var_count].name = "indent-brace";
+	g_vars[g_var_count].doc = "Extra indent for a standalone opening brace line (C-like modes).";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 32;
+	g_vars[g_var_count].local = true;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "indent-label";
-	v.doc = "Extra offset applied to case/default labels (C-like modes).";
-	v.min_v = 0;
-	v.max_v = 32;
-	v.local = true;
+	g_vars[g_var_count].name = "indent-label";
+	g_vars[g_var_count].doc = "Extra offset applied to case/default labels (C-like modes).";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 32;
+	g_vars[g_var_count].local = true;
+	g_var_count++;
 
-	v = &g_vars[g_var_count++];
-	v.name = "indent-continued";
-	v.doc = "Extra indent for continuation lines (Python-like modes).";
-	v.min_v = 0;
-	v.max_v = 32;
-	v.local = true;
+	g_vars[g_var_count].name = "indent-continued";
+	g_vars[g_var_count].doc = "Extra indent for continuation lines (Python-like modes).";
+	g_vars[g_var_count].min_v = 0;
+	g_vars[g_var_count].max_v = 32;
+	g_vars[g_var_count].local = true;
+	g_var_count++;
 }
 
 static EditorVar *var_find(const char *name) {
@@ -126,7 +125,7 @@ static EditorVar *var_find(const char *name) {
 	if (name == NULL) {
 		return NULL;
 	}
-	for (i = 0; i < g_var_count; i++) {
+	for (; i < g_var_count; i++) {
 		if (strcmp(g_vars[i].name, name) == 0) {
 			return &g_vars[i];
 		}
@@ -293,7 +292,7 @@ static bool var_storage_write(EditorVar *v, Buffer *buf, int value, bool run_on_
 	}
 	if (run_on_change && strcmp(v.name, "search-scope") == 0) {
 		size_t i = 0;
-		for (i = 0; i < window_active.count; i++) {
+		for (; i < window_active.count; i++) {
 			Window *win = window_active.windows[i];
 			if (win != NULL) {
 				win.should_update_mode_line = true;
@@ -305,7 +304,6 @@ static bool var_storage_write(EditorVar *v, Buffer *buf, int value, bool run_on_
 
 static bool parse_numeric_text(const char *text, int *out) {
 	char *end = NULL;
-	int64_t n = 0;
 	if (text == NULL || out == NULL) {
 		return false;
 	}
@@ -315,11 +313,9 @@ static bool parse_numeric_text(const char *text, int *out) {
 	if (*text == 0) {
 		return false;
 	}
-	if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
-		n = strtoll(text + 2, &end, 16);
-	} else {
-		n = strtoll(text, &end, 10);
-	}
+	int64_t n = (text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+		? strtoll(text + 2, &end, 16)
+		: strtoll(text, &end, 10);
 	if (end == text || n < 0 || n > 2147483647) {
 		return false;
 	}
@@ -336,7 +332,7 @@ static bool parse_numeric_text(const char *text, int *out) {
 static void var_fuzzy_open(const char *prompt) {
 	const char *names[VarMax] = {0};
 	int i = 0;
-	for (i = 0; i < g_var_count; i++) {
+	for (; i < g_var_count; i++) {
 		names[i] = g_vars[i].name;
 	}
 	fuzzy_command_open(names, NULL, g_var_count, prompt, NULL);
@@ -383,7 +379,6 @@ bool cmd_var_fuzzy_on_accept() {
 	char name[64] = {0};
 	int phase = VarFuzzySet;
 	Listener *L = top_listener();
-	EditorVar *v = NULL;
 	Buffer *buf = buffer_current();
 	char msg[256] = {0};
 	if (L != NULL) {
@@ -394,7 +389,7 @@ bool cmd_var_fuzzy_on_accept() {
 	}
 	fuzzy_command_close();
 	pop_listener();
-	v = var_find(name);
+	EditorVar *v = var_find(name);
 	if (v == NULL) {
 		display_set_echo("[unknown variable]");
 		return true;
@@ -455,11 +450,10 @@ int vars_count() {
 }
 
 bool vars_set_named(const char *name, int value) {
-	EditorVar *v = NULL;
 	if (g_var_count == 0) {
 		vars_init();
 	}
-	v = var_find(name);
+	EditorVar *v = var_find(name);
 	if (v == NULL) {
 		return false;
 	}
@@ -468,12 +462,11 @@ bool vars_set_named(const char *name, int value) {
 
 // vars_set_named_text parses a decimal/hex text value into a named variable.
 bool vars_set_named_text(const char *name, const char *text) {
-	EditorVar *v = NULL;
 	int parsed = 0;
 	if (g_var_count == 0) {
 		vars_init();
 	}
-	v = var_find(name);
+	EditorVar *v = var_find(name);
 	if (v == NULL) {
 		return false;
 	}
@@ -492,11 +485,10 @@ bool vars_known(const char *name) {
 }
 
 int vars_get_named(const char *name) {
-	EditorVar *v = NULL;
 	if (g_var_count == 0) {
 		vars_init();
 	}
-	v = var_find(name);
+	EditorVar *v = var_find(name);
 	if (v == NULL) {
 		return 0;
 	}

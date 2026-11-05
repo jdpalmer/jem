@@ -119,10 +119,6 @@ struct SelState {
 };
 
 static void sel_init(SelState *ss, Window *win) {
-	int mark_line = 0;
-	int dot_line = 0;
-	size_t marko = 0;
-	size_t doto = 0;
 	if (ss == NULL) {
 		return;
 	}
@@ -131,10 +127,10 @@ static void sel_init(SelState *ss, Window *win) {
 	if (win == NULL || win.mark.line == 0) {
 		return;
 	}
-	mark_line = win.mark.line;
-	dot_line = win.cursor.line;
-	marko = win.mark.offset;
-	doto = win.cursor.offset;
+	int mark_line = win.mark.line;
+	int dot_line = win.cursor.line;
+	size_t marko = win.mark.offset;
+	size_t doto = win.cursor.offset;
 	if (mark_line == dot_line) {
 		if (marko == doto) {
 			return;
@@ -210,7 +206,7 @@ static bool in_search_span(Window *win, int line_number, size_t byte_off) {
 	if (win == NULL) {
 		return false;
 	}
-	for (i = 0; i < win.search_span_count; i++) {
+	for (; i < win.search_span_count; i++) {
 		SearchSpan sp = win.search_spans[i];
 		if (sp.line == line_number && byte_off >= sp.start && byte_off < sp.end) {
 			return true;
@@ -229,9 +225,6 @@ static void screen_free(Screen *s) {
 }
 
 static bool screen_resize(Screen *s, int rows, int cols) {
-	DispCell *p = {0};
-	bool *dirty = {0};
-	int n = 0;
 	int i = 0;
 	TextStyle def = style_default();
 	if (rows < 1) {
@@ -243,15 +236,15 @@ static bool screen_resize(Screen *s, int rows, int cols) {
 	if (s.rows == rows && s.cols == cols && s.cells != NULL && s.row_dirty != NULL) {
 		return true;
 	}
-	n = rows * cols;
-	p = calloc(n, sizeof(DispCell));
-	dirty = calloc(rows, sizeof(bool));
+	int n = rows * cols;
+	DispCell *p = calloc(n, sizeof(DispCell));
+	bool *dirty = calloc(rows, sizeof(bool));
 	if (p == NULL || dirty == NULL) {
 		free(p);
 		free(dirty);
 		return false;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		p[i].ch = ' ';
 		p[i].style = def;
 	}
@@ -320,9 +313,7 @@ static const char *color_rgb_cstr(TermColor c) {
 
 /* Append color params into SGR seq; returns new length or -1 on overflow. */
 static int append_color_sgr(char *buf, size_t cap, int n, TermColor c, int base_sgr) {
-	const char *rgb = {0};
 	int i = c;
-	int wn = 0;
 	if (c == TermColorDefault || n < 0) {
 		return n;
 	}
@@ -331,15 +322,18 @@ static int append_color_sgr(char *buf, size_t cap, int n, TermColor c, int base_
 	}
 	if (i >= 8 && i < 16) {
 		/* bright ANSI 90–97 / 100–107 */
-		wn = snprintf(buf + n, cap - (size_t)n, ";%d", base_sgr + 60 + (i - 8));
-	} else {
-		rgb = color_rgb_cstr(c);
-		if (rgb == NULL) {
-			return n;
+		int wn = snprintf(buf + n, cap - (size_t)n, ";%d", base_sgr + 60 + (i - 8));
+		if (wn < 0 || (size_t)wn >= cap - (size_t)n) {
+			return -1;
 		}
-		/* 38;2;r;g;b / 48;2;r;g;b */
-		wn = snprintf(buf + n, cap - (size_t)n, ";%d;2;%s", base_sgr + 8, rgb);
+		return n + wn;
 	}
+	const char *rgb = color_rgb_cstr(c);
+	if (rgb == NULL) {
+		return n;
+	}
+	/* 38;2;r;g;b / 48;2;r;g;b */
+	int wn = snprintf(buf + n, cap - (size_t)n, ";%d;2;%s", base_sgr + 8, rgb);
 	if (wn < 0 || (size_t)wn >= cap - (size_t)n) {
 		return -1;
 	}
@@ -350,7 +344,6 @@ void emit_sgr(TextStyle style) {
 	/* One contiguous CSI: Windows Console VT does not reassemble SGR split
 	 * across WriteFile calls (fragments like "?2" appear as literal text). */
 	char seq[96] = {0};
-	int n = 0;
 	TextStyle resolved = style_resolve(style);
 	TermColor fg = text_style_fg(resolved);
 	TermColor bg = text_style_bg(resolved);
@@ -359,7 +352,7 @@ void emit_sgr(TextStyle style) {
 		fg = bg;
 		bg = tmp;
 	}
-	n = snprintf(seq, sizeof(seq), "\x1b[0%s%s%s",
+	int n = snprintf(seq, sizeof(seq), "\x1b[0%s%s%s",
 		(resolved.bits & (uint16_t)TextStyleBold) ? ";1" : "",
 		(resolved.bits & (uint16_t)TextStyleUnderline) ? ";4" : "",
 		(resolved.bits & (uint16_t)TextStyleReverse) ? ";7" : "");
@@ -379,8 +372,6 @@ void emit_sgr(TextStyle style) {
 static void paint_gutter(Window *win, int screen_row, int lineno) {
 	TextStyle st = style_gutter();
 	TextStyle mark_st = st;
-	int width = 0;
-	int num_width = 0;
 	int nlen = 0;
 	int i = 0;
 	int marker = GitLineDiffNone;
@@ -389,7 +380,7 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 	if (win == NULL || screen_row < 0) {
 		return;
 	}
-	width = window_gutter_width(win);
+	int width = window_gutter_width(win);
 	if (width < 1) {
 		return;
 	}
@@ -410,7 +401,7 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 		mark_st = text_style_make(TermColorRed, text_style_bg(st), (uint16_t)TextStyleBold);
 	}
 	put_rune(&g_screen, screen_row, 0, mark_ch, mark_st);
-	num_width = width - 2;
+	int num_width = width - 2;
 	if (num_width < 0) {
 		num_width = 0;
 	}
@@ -420,7 +411,7 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 			nlen = 0;
 		}
 	}
-	for (i = 0; i < num_width; i++) {
+	for (; i < num_width; i++) {
 		char ch = ' ';
 		int src = i - (num_width - nlen);
 		if (src >= 0 && src < nlen) {
@@ -438,12 +429,11 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 }
 
 static void paint_content_cell(int screen_row, int dcol, int h_scroll, int gutter, uint32_t ch, TextStyle st) {
-	int scol = 0;
 	int cols = term_cols();
 	if (dcol < h_scroll) {
 		return;
 	}
-	scol = gutter + (dcol - h_scroll);
+	int scol = gutter + (dcol - h_scroll);
 	if (scol < gutter || scol >= cols) {
 		return;
 	}
@@ -454,42 +444,35 @@ void paint_blank_row(Window *win, int screen_row) {
 	TextStyle def = style_default();
 	int col = 0;
 	int cols = term_cols();
-	for (col = 0; col < cols; col++) {
+	for (; col < cols; col++) {
 		put_rune(&g_screen, screen_row, col, ' ', def);
 	}
 	paint_gutter(win, screen_row, 0);
 }
 
 void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
-	Line *line = {0};
 	char[..] v = {0};
-	TextStyle *styles = {0};
-	size_t styles_len = 0;
 	int dcol = 0;
 	size_t i = 0;
-	int gutter = 0;
-	int h_scroll = 0;
-	int cols = 0;
 	ssize_t sel_start = -1;
 	size_t sel_end = 0;
-	size_t line_len = 0;
 	TextStyle def = style_default();
 	SynState prev = {SynStateNormal};
 	SynState end = {SynStateNormal};
 
-	line = win.buffer.line(buf_line);
+	Line *line = win.buffer.line(buf_line);
 	if (line == NULL) {
 		paint_blank_row(win, screen_row);
 		return;
 	}
-	gutter = window_gutter_width(win);
-	h_scroll = win.h_scroll;
+	int gutter = window_gutter_width(win);
+	int h_scroll = win.h_scroll;
 	if (h_scroll < 0) {
 		h_scroll = 0;
 	}
-	cols = term_cols();
+	int cols = term_cols();
 	v = line.view();
-	line_len = len(v);
+	size_t line_len = len(v);
 	sel_line(sel, buf_line, line_len, &sel_start, &sel_end);
 
 	/* highlight if needed (structure-only parse may set syntax_valid without styles) */
@@ -510,8 +493,8 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 			line.syntax_valid = true;
 		}
 	}
-	styles = line.styles;
-	styles_len = line.styles_len;
+	TextStyle *styles = line.styles;
+	size_t styles_len = line.styles_len;
 
 	if (line_len == 0) {
 		int fill = gutter;
@@ -604,7 +587,7 @@ void paint_echo(int row) {
 	TextStyle st = style_default();
 	int i = 0;
 	size_t n = strlen(g_echo);
-	for (i = 0; i < term_cols(); i++) {
+	for (; i < term_cols(); i++) {
 		uint32_t ch = ' ';
 		if ((size_t)i < n) {
 			ch = g_echo[i];
@@ -626,8 +609,8 @@ static void emit_sgr_cached(TextStyle style) {
 static void screen_write_span(int row, int from, int to) {
 	char out[4096] = {0};
 	int out_len = 0;
-	int i = 0;
-	for (i = from; i < to; i++) {
+	int i = from;
+	for (; i < to; i++) {
 		DispCell *c = cell_at(&g_screen, row, i);
 		uint32_t ch = 0;
 		char tmp[4] = {0};
@@ -740,8 +723,6 @@ static void row_emit_diffs(int row, int from, int to) {
 static void row_sync(int row) {
 	int cols = g_screen.cols;
 	int first = 0;
-	int last = 0;
-	int lastsp = 0;
 	TextStyle normal = style_default();
 	if (row < 0 || row >= g_screen.rows || cols <= 0) {
 		return;
@@ -757,7 +738,7 @@ static void row_sync(int row) {
 	if (first == cols) {
 		return;
 	}
-	last = cols - 1;
+	int last = cols - 1;
 	while (last > first) {
 		DispCell *a = cell_at(&g_screen, row, last);
 		DispCell *b = cell_at(&g_prev, row, last);
@@ -766,7 +747,7 @@ static void row_sync(int row) {
 		}
 		last--;
 	}
-	lastsp = cols;
+	int lastsp = cols;
 	while (lastsp > first) {
 		DispCell *a = cell_at(&g_screen, row, lastsp - 1);
 		if (a == NULL || a.ch != (uint32_t)' ' || !text_style_eq(a.style, normal)) {
@@ -775,12 +756,12 @@ static void row_sync(int row) {
 		lastsp--;
 	}
 	if (lastsp <= last) {
-		int i = 0;
+		int i = lastsp;
 		row_emit_diffs(row, first, lastsp);
 		term_move(row, lastsp);
 		emit_sgr_cached(normal);
 		term_erase_eol();
-		for (i = lastsp; i < cols; i++) {
+		for (; i < cols; i++) {
 			DispCell *b = cell_at(&g_prev, row, i);
 			if (b != NULL) {
 				b.ch = ' ';
@@ -797,20 +778,19 @@ static void mark_all_dirty() {
 	if (g_screen.row_dirty == NULL) {
 		return;
 	}
-	for (i = 0; i < g_screen.rows; i++) {
+	for (; i < g_screen.rows; i++) {
 		g_screen.row_dirty[i] = true;
 	}
 }
 
 static void reset_front_to_spaces() {
 	int i = 0;
-	int n = 0;
 	TextStyle normal = style_default();
 	if (g_prev.cells == NULL) {
 		return;
 	}
-	n = g_prev.rows * g_prev.cols;
-	for (i = 0; i < n; i++) {
+	int n = g_prev.rows * g_prev.cols;
+	for (; i < n; i++) {
 		g_prev.cells[i].ch = ' ';
 		g_prev.cells[i].style = normal;
 	}
@@ -835,7 +815,7 @@ static void screen_sync() {
 			sync_rows = term_rows() + 1;
 		}
 	}
-	for (i = 0; i < sync_rows && i < g_screen.rows; i++) {
+	for (; i < sync_rows && i < g_screen.rows; i++) {
 		if (g_screen.row_dirty != NULL && g_screen.row_dirty[i]) {
 			g_screen.row_dirty[i] = false;
 			row_sync(i);
@@ -844,17 +824,14 @@ static void screen_sync() {
 }
 
 static void screen_rows_scroll_up(Screen *s, int start, int length, int n) {
-	DispCell *tmp = {0};
-	bool *dtmp = {0};
-	int cols = 0;
 	if (s == NULL || s.cells == NULL || n <= 0 || n >= length) {
 		return;
 	}
 	if (start < 0 || start + length > s.rows) {
 		return;
 	}
-	cols = s.cols;
-	tmp = malloc((size_t)n * (size_t)cols * sizeof(DispCell));
+	int cols = s.cols;
+	DispCell *tmp = malloc((size_t)n * (size_t)cols * sizeof(DispCell));
 	if (tmp == NULL) {
 		return;
 	}
@@ -864,7 +841,7 @@ static void screen_rows_scroll_up(Screen *s, int start, int length, int n) {
 	memcpy(s.cells + (start + length - n) * cols, tmp, (size_t)n * (size_t)cols * sizeof(DispCell));
 	free(tmp);
 	if (s.row_dirty != NULL) {
-		dtmp = malloc((size_t)n * sizeof(bool));
+		bool *dtmp = malloc((size_t)n * sizeof(bool));
 		if (dtmp != NULL) {
 			memcpy(dtmp, s.row_dirty + start, (size_t)n * sizeof(bool));
 			memmove(s.row_dirty + start, s.row_dirty + start + n, (size_t)(length - n) * sizeof(bool));
@@ -879,14 +856,14 @@ static void screen_rows_scroll_down(Screen *s, int start, int length, int n) {
 }
 
 static void clear_front_rows(int from, int to) {
-	int r = 0;
-	int c = 0;
+	int r = from;
 	TextStyle normal = style_default();
-	for (r = from; r < to; r++) {
+	for (; r < to; r++) {
+		int c = 0;
 		if (r < 0 || r >= g_prev.rows) {
 			continue;
 		}
-		for (c = 0; c < g_prev.cols; c++) {
+		for (; c < g_prev.cols; c++) {
 			DispCell *b = cell_at(&g_prev, r, c);
 			if (b != NULL) {
 				b.ch = ' ';
@@ -897,19 +874,12 @@ static void clear_front_rows(int from, int to) {
 }
 
 static void apply_hardware_scroll(Window *win, int old_top) {
-	int scroll_n = 0;
-	int height = 0;
-	int top = 0;
-	int abs_n = 0;
-	int clear_from = 0;
-	int clear_to = 0;
-	int r = 0;
 	TextStyle normal = style_default();
 	if (win == NULL) {
 		return;
 	}
-	height = win.height;
-	top = win.screen_top_row;
+	int height = win.height;
+	int top = win.screen_top_row;
 	if (height <= 0) {
 		return;
 	}
@@ -927,35 +897,33 @@ static void apply_hardware_scroll(Window *win, int old_top) {
 		if (delta >= height) {
 			return;
 		}
-		scroll_n = win.top_line - old_top;
 	}
+	int scroll_n = win.top_line - old_top;
 	if (scroll_n == 0 || scroll_n <= -height || scroll_n >= height) {
 		return;
 	}
-	abs_n = scroll_n < 0 ? -scroll_n : scroll_n;
+	int abs_n = scroll_n < 0 ? -scroll_n : scroll_n;
 	if (abs_n <= 0 || abs_n >= height) {
 		return;
 	}
+	int clear_from = scroll_n > 0 ? top + height - abs_n : top;
+	int clear_to = scroll_n > 0 ? top + height : top + abs_n;
 	if (scroll_n > 0) {
-		clear_from = top + height - abs_n;
-		clear_to = top + height;
 		screen_rows_scroll_up(&g_screen, top, height, abs_n);
 		screen_rows_scroll_up(&g_prev, top, height, abs_n);
 	} else {
-		clear_from = top;
-		clear_to = top + abs_n;
 		screen_rows_scroll_down(&g_screen, top, height, abs_n);
 		screen_rows_scroll_down(&g_prev, top, height, abs_n);
 	}
 	clear_front_rows(clear_from, clear_to);
-	for (r = clear_from; r < clear_to; r++) {
+	for (int r = clear_from; r < clear_to; r++) {
 		if (g_screen.row_dirty != NULL && r >= 0 && r < g_screen.rows) {
 			g_screen.row_dirty[r] = true;
 		}
 	}
 	emit_sgr_cached(normal);
 	term_scroll_rows(top, top + height - 1, scroll_n);
-	for (r = clear_from; r < clear_to; r++) {
+	for (int r = clear_from; r < clear_to; r++) {
 		term_move(r, 0);
 		term_erase_eol();
 	}
@@ -968,27 +936,21 @@ static int content_row_offset(Window *win) {
 }
 
 static void adjust_hscroll(Window *win) {
-	int gutter_w = 0;
-	int cc = 0;
-	int visible = 0;
-	int margin = 0;
-	int new_h = 0;
-	Line *line = {0};
 	if (win == NULL || win.buffer == NULL || win != window_current()) {
 		return;
 	}
-	gutter_w = window_gutter_width(win);
-	line = win.buffer.line(win.cursor.line);
+	int gutter_w = window_gutter_width(win);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		return;
 	}
-	cc = (int)line.display_col_at_offset(win.cursor.offset);
-	visible = term_cols() - gutter_w;
+	int cc = (int)line.display_col_at_offset(win.cursor.offset);
+	int visible = term_cols() - gutter_w;
 	if (visible < 1) {
 		visible = 1;
 	}
-	margin = visible / 4;
-	new_h = win.h_scroll;
+	int margin = visible / 4;
+	int new_h = win.h_scroll;
 	if (cc < new_h) {
 		if (cc > margin) {
 			new_h = cc - margin;
@@ -1008,17 +970,15 @@ static void adjust_hscroll(Window *win) {
 }
 
 static void paint_window_body(Window *win) {
-	int pad = 0;
 	int r = 0;
-	int line_number = 0;
 	SelState sel = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
 	sel_init(&sel, win);
-	pad = content_row_offset(win);
-	line_number = win.top_line;
-	for (r = 0; r < win.height; r++) {
+	int pad = content_row_offset(win);
+	int line_number = win.top_line;
+	for (; r < win.height; r++) {
 		int row = win.screen_top_row + r;
 		if (row >= term_rows()) {
 			break;
@@ -1037,15 +997,13 @@ static void paint_window_body(Window *win) {
 }
 
 static void paint_cursor_line(Window *win) {
-	int pad = 0;
-	int row = 0;
 	SelState sel = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
 	sel_init(&sel, win);
-	pad = content_row_offset(win);
-	row = win.screen_top_row + pad + (win.cursor.line - win.top_line);
+	int pad = content_row_offset(win);
+	int row = win.screen_top_row + pad + (win.cursor.line - win.top_line);
 	if (row < win.screen_top_row || row >= win.screen_top_row + win.height || row >= term_rows()) {
 		return;
 	}
@@ -1086,11 +1044,10 @@ uint64_t display_echo_generation() {
 
 // display_window_cursor_screen_col is the display column of the cursor in win (jem.go WindowCursorScreenCol).
 int display_window_cursor_screen_col(Window *win) {
-	Line *line = NULL;
 	if (win == NULL || win.buffer == NULL) {
 		return 0;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		return 0;
 	}
@@ -1109,7 +1066,7 @@ int display_cursor_row() {
 void display_invalidate() {
 	size_t i = 0;
 	g_screen_dirty = true;
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *w = window_active.windows[i];
 		if (w == NULL) {
 			continue;
@@ -1143,8 +1100,6 @@ void display_set_theme_mode(int mode) {
 void display_update() {
 	size_t wi = 0;
 	Window *cur = window_current();
-	int cursor_row = 0;
-	int cursor_col = 0;
 	int total_rows = term_rows() + 1;
 
 	if (term_refresh_size()) {
@@ -1159,7 +1114,7 @@ void display_update() {
 
 	if (g_screen_dirty) {
 		size_t i = 0;
-		for (i = 0; i < window_active.count; i++) {
+		for (; i < window_active.count; i++) {
 			Window *w = window_active.windows[i];
 			if (w == NULL) {
 				continue;
@@ -1173,7 +1128,7 @@ void display_update() {
 		cur.should_update_mode_line = true;
 	}
 
-	for (wi = 0; wi < window_active.count; wi++) {
+	for (; wi < window_active.count; wi++) {
 		Window *win = window_active.windows[wi];
 		int old_top = 0;
 		if (win == NULL || win.buffer == NULL) {
@@ -1220,15 +1175,14 @@ void display_update() {
 
 	if (cur != NULL && cur.buffer != NULL) {
 		Line *line = cur.buffer.line(cur.cursor.line);
-		cursor_row = cur.screen_top_row + content_row_offset(cur) + (cur.cursor.line - cur.top_line);
+		int cursor_row = cur.screen_top_row + content_row_offset(cur) + (cur.cursor.line - cur.top_line);
+		int cursor_col = window_gutter_width(cur);
 		if (line != NULL) {
-			int gutter_w = window_gutter_width(cur);
+			int gutter_w = cursor_col;
 			cursor_col = gutter_w + (int)line.display_col_at_offset(cur.cursor.offset) - cur.h_scroll;
 			if (cursor_col < gutter_w) {
 				cursor_col = gutter_w;
 			}
-		} else {
-			cursor_col = window_gutter_width(cur);
 		}
 		if (cursor_col >= term_cols()) {
 			cursor_col = term_cols() - 1;
@@ -1246,7 +1200,7 @@ void display_update() {
 // display_win_at returns the window occupying screen row r, or NULL.
 Window *display_win_at(int r) {
 	size_t i = 0;
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win != NULL && r >= win.screen_top_row && r < win.screen_top_row + win.height) {
 			return win;
@@ -1260,40 +1214,33 @@ Location display_mouse_loc_in_window(Window *win) {
 	Location loc = {0};
 	int row = term_mouse_row();
 	int col = term_mouse_col();
-	int pad = 0;
-	int gutter = 0;
-	int row_in = 0;
-	int bline = 0;
-	int text_col = 0;
-	int nlines = 0;
-	Line *line = NULL;
 	loc.line = 1;
 	loc.offset = 0;
 	if (win == NULL || win.buffer == NULL) {
 		return loc;
 	}
-	pad = window_content_row_offset(win);
-	gutter = window_gutter_width(win);
-	row_in = row - win.screen_top_row - pad;
+	int pad = window_content_row_offset(win);
+	int gutter = window_gutter_width(win);
+	int row_in = row - win.screen_top_row - pad;
 	if (row_in < 0) {
 		row_in = 0;
 	}
-	nlines = win.buffer.line_count_i();
+	int nlines = win.buffer.line_count_i();
 	if (nlines < 1) {
 		nlines = 1;
 	}
-	bline = win.top_line + row_in;
+	int bline = win.top_line + row_in;
 	if (bline < 1) {
 		bline = 1;
 	}
 	if (bline > nlines) {
 		bline = nlines;
 	}
-	text_col = col - gutter + win.h_scroll;
+	int text_col = col - gutter + win.h_scroll;
 	if (text_col < 0) {
 		text_col = 0;
 	}
-	line = win.buffer.line(bline);
+	Line *line = win.buffer.line(bline);
 	loc.line = bline;
 	loc.offset = line != NULL ? line.offset_at_display_col(text_col) : 0;
 	return loc;

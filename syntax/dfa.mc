@@ -39,7 +39,7 @@ static void put_paint(TextStyle[..] styles, size_t i, TextStyle val) {
 }
 
 static void fill_paint(TextStyle[..] styles, size_t a, size_t b, TextStyle val) {
-	size_t j = 0;
+	size_t j = a;
 	size_t n = len(styles);
 	if (b > n) {
 		b = n;
@@ -49,7 +49,7 @@ static void fill_paint(TextStyle[..] styles, size_t a, size_t b, TextStyle val) 
 		if (sp == NULL) {
 			return;
 		}
-		for (j = a; j < b; j++) {
+		for (; j < b; j++) {
 			sp[j] = val;
 		}
 	}
@@ -164,9 +164,6 @@ static void paint_delimiter(SynState* syn, int ch, size_t idx, TextStyle[..] sty
 	int di = -1;
 	TermColor color = TermColorMagenta;
 	uint8_t* dptr = 0;
-	uint8_t old = 0;
-	uint8_t meta = 0;
-	int depth = 0;
 	int open = 0;
 	int close = 0;
 
@@ -192,14 +189,13 @@ static void paint_delimiter(SynState* syn, int ch, size_t idx, TextStyle[..] sty
 	if (di < 0 || dptr == 0) {
 		return;
 	}
-	old = *dptr;
-	meta = (uint8_t)(old & 0x80);
+	uint8_t old = *dptr;
+	uint8_t meta = (uint8_t)(old & 0x80);
+	int depth = old & 0x7F;
 	if (ch == open) {
-		depth = old & 0x7F;
 		put_paint(styles, idx, paren_style(color, depth));
 		*dptr = (uint8_t)(((depth + 1) & 0x7F) | meta);
 	} else {
-		depth = old & 0x7F;
 		if (depth > 0) {
 			depth = depth - 1;
 		}
@@ -226,17 +222,11 @@ static void paint_ident_range(char[..] line, size_t start, size_t end, LangMode 
 static void highlight_markdown(char[..] line, TextStyle[..] styles) {
 	size_t n = len(styles);
 	size_t i = 0;
-	bool in_bold = false;
-	bool in_code = false;
-	size_t bold_start = 0;
-	size_t code_start = 0;
-	int c = 0;
-	int nc = 0;
 
 	if (n == 0 || len(line) == 0) {
 		return;
 	}
-	for (i = 0; i < n && (line_byte(line, i) == ' ' || line_byte(line, i) == '\t'); i++) {
+	for (; i < n && (line_byte(line, i) == ' ' || line_byte(line, i) == '\t'); i++) {
 	}
 	if (i >= n) {
 		return;
@@ -245,13 +235,13 @@ static void highlight_markdown(char[..] line, TextStyle[..] styles) {
 		fill_paint(styles, 0, n, a_heading());
 		return;
 	}
-	in_bold = false;
-	in_code = false;
-	bold_start = 0;
-	code_start = 0;
+	bool in_bold = false;
+	bool in_code = false;
+	size_t bold_start = 0;
+	size_t code_start = 0;
 	while (i < n) {
-		c = line_byte(line, i);
-		nc = line_byte(line, i + 1);
+		int c = line_byte(line, i);
+		int nc = line_byte(line, i + 1);
 		if (!in_code && c == '*' && nc == '*') {
 			if (!in_bold) {
 				in_bold = true;
@@ -286,12 +276,10 @@ static void highlight_markdown(char[..] line, TextStyle[..] styles) {
 static void highlight_html(char[..] line, TextStyle[..] styles, SynState* syn) {
 	size_t n = len(styles);
 	size_t i = 0;
-	int c = 0;
-	int dfa = 0;
 
-	for (i = 0; i < n; i++) {
-		c = line_byte(line, i);
-		dfa = syn.dfa;
+	for (; i < n; i++) {
+		int c = line_byte(line, i);
+		int dfa = syn.dfa;
 		if (dfa == (int)SynStateHTMLCmt || dfa == (int)SynStateHTMLCmtD1 || dfa == (int)SynStateHTMLCmtD2) {
 			put_paint(styles, i, a_comment());
 			if (c == '-') {
@@ -320,13 +308,13 @@ static void highlight_html(char[..] line, TextStyle[..] styles, SynState* syn) {
 }
 
 static void on_enter(int state, char[..] line, size_t i, size_t token_start, TextStyle[..] styles) {
-	int c = 0;
 	switch (state) {
-	case SynStateNormal:
-		c = line_byte(line, i);
+	case SynStateNormal: {
+		int c = line_byte(line, i);
 		put_paint(styles, i, a_normal());
 		(void)c;
 		break;
+	}
 	case SynStateNumber:
 		put_paint(styles, i, a_number());
 		break;
@@ -344,8 +332,8 @@ static void on_enter(int state, char[..] line, size_t i, size_t token_start, Tex
 	case SynStateCmtParen2:
 		put_paint(styles, i, a_comment());
 		break;
-	case SynStateLuaDash:
-		c = line_byte(line, i);
+	case SynStateLuaDash: {
+		int c = line_byte(line, i);
 		if (c == '-') {
 			put_paint(styles, token_start, a_comment());
 			put_paint(styles, i, a_comment());
@@ -353,6 +341,7 @@ static void on_enter(int state, char[..] line, size_t i, size_t token_start, Tex
 			put_paint(styles, token_start, a_normal());
 		}
 		break;
+	}
 	case SynStateLuaBlock:
 	case SynStateLuaBlkEnd:
 	case SynStateHTMLCmt:
@@ -391,25 +380,15 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 	size_t limit) {
 	Spec info = {ModeSyntaxGeneral};
 	SynState syn = {SynStateNormal};
-	size_t n = 0;
-	size_t full_len = 0;
 	size_t i = 0;
-	size_t token_start = 0;
-	uint32_t flags = 0;
-	int cur = 0;
-	int c = 0;
-	int lookahead = 0;
-	int new_state = 0;
-	bool reprocess = false;
-	bool any_before = false;
 	size_t k = 0;
 
 	if (prev != 0) {
 		syn = *prev;
 	}
 	info = syntax_spec_for(lang);
-	full_len = len(line);
-	n = full_len;
+	size_t full_len = len(line);
+	size_t n = full_len;
 	if (limit != 0 && limit < n) {
 		n = limit;
 	}
@@ -421,7 +400,7 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 			paint_n = n;
 		}
 		if (sp != NULL) {
-			for (i = 0; i < paint_n; i++) {
+			for (; i < paint_n; i++) {
 				sp[i] = a_normal();
 			}
 		}
@@ -468,19 +447,19 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 		return syn;
 	}
 
-	flags = info.flags;
-	token_start = 0;
+	uint32_t flags = info.flags;
+	size_t token_start = 0;
 	i = 0;
 	while (i < n) {
-		cur = syn.dfa;
+		int cur = syn.dfa;
 		if (cur < 0 || cur >= (int)SynStateCount) {
 			syn.dfa = SynStateNormal;
 			cur = SynStateNormal;
 		}
-		lookahead = line_byte(line, i + 1);
+		int lookahead = line_byte(line, i + 1);
 		on_enter(cur, line, i, token_start, styles);
-		reprocess = false;
-		c = line_byte(line, i);
+		bool reprocess = false;
+		int c = line_byte(line, i);
 
 		switch (cur) {
 		case SynStateNormal:
@@ -498,8 +477,8 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 				break;
 			}
 			if ((flags & (uint32_t)ModeFlagPreprocHashAtBOL) != 0 && c == '#') {
-				any_before = false;
-				for (k = 0; k < i; k++) {
+				bool any_before = false;
+				for (; k < i; k++) {
 					if (line_byte(line, k) != ' ' && line_byte(line, k) != '\t') {
 						any_before = true;
 						break;
@@ -699,7 +678,7 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 			break;
 		}
 
-		new_state = syn.dfa;
+		int new_state = syn.dfa;
 		if (new_state < 0 || new_state >= (int)SynStateCount) {
 			syn.dfa = SynStateNormal;
 			new_state = SynStateNormal;

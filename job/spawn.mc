@@ -23,19 +23,16 @@ static char g_spawn_line[SpawnCmdMax];
 
 static void spawn_print_notice(const char *label, const char *command) {
 	char buf[640] = {0};
-	int n = 0;
 	if (label == NULL) {
 		label = "Shell";
 	}
-	if (command != NULL && command[0] != 0) {
-		n = snprintf(buf, sizeof(buf),
+	int n = (command != NULL && command[0] != 0)
+		? snprintf(buf, sizeof(buf),
 			"\n[jem] %s: %s\n[jem] Terminal handed to shell. Exit shell to return to jem.\n\n",
-			label, command);
-	} else {
-		n = snprintf(buf, sizeof(buf),
+			label, command)
+		: snprintf(buf, sizeof(buf),
 			"\n[jem] %s\n[jem] Terminal handed to shell. Exit shell to return to jem.\n\n",
 			label);
-	}
 	if (n < 0) {
 		return;
 	}
@@ -50,7 +47,7 @@ static void spawn_print_notice(const char *label, const char *command) {
 static void spawn_mark_dirty() {
 	size_t i = 0;
 	display_invalidate();
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win != NULL) {
 			win.should_redraw = true;
@@ -131,17 +128,13 @@ static bool spawn_resolve_shell(bool oneshot) {
 int spawn_run(const char *command) {
 	Cmd c = {0};
 	const char[..] argv[2] = {0};
-	size_t nargs = 0;
-	bool oneshot = false;
-	int exit_code = 0;
-	bool wait_ok = false;
 
 	if (job_running()) {
 		display_set_echo("[busy: background job running]");
 		return -1;
 	}
 
-	oneshot = (command != NULL && command[0] != 0);
+	bool oneshot = (command != NULL && command[0] != 0);
 	if (oneshot) {
 		snprintf(g_spawn_line, sizeof(g_spawn_line), "%s", command);
 	} else {
@@ -157,21 +150,18 @@ int spawn_run(const char *command) {
 		return -1;
 	}
 
+	size_t nargs = 0;
 #ifdef _WIN32
 	if (oneshot) {
 		argv[0] = "/C";
 		argv[1] = str_from_cstr(g_spawn_line);
 		nargs = 2;
-	} else {
-		nargs = 0;
 	}
 #else
 	if (oneshot) {
 		argv[0] = "-c";
 		argv[1] = str_from_cstr(g_spawn_line);
 		nargs = 2;
-	} else {
-		nargs = 0;
 	}
 #endif
 
@@ -199,11 +189,8 @@ int spawn_run(const char *command) {
 		spawn_mark_dirty();
 		return -1;
 	}
-	{
-		auto (code, ok) = c.wait();
-		exit_code = code;
-		wait_ok = ok;
-	}
+	auto (code, wait_ok) = c.wait();
+	int exit_code = code;
 	c.close();
 	if (!wait_ok) {
 		exit_code = -1;

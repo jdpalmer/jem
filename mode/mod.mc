@@ -20,15 +20,14 @@ static bool path_ends_with_ci(const char[..] path, const char[..] ext) {
 	size_t plen = len(path);
 	size_t elen = len(ext);
 	size_t i = 0;
-	size_t off = 0;
 	if (plen < elen) {
 		return false;
 	}
-	off = plen - elen;
+	size_t off = plen - elen;
 	{
 		const char *pp = ptr(path);
 		const char *ep = ptr(ext);
-		for (i = 0; i < elen; i++) {
+		for (; i < elen; i++) {
 			if (ascii_lower(pp[off + i]) != ep[i]) {
 				return false;
 			}
@@ -138,12 +137,11 @@ const char *mode_display_name(LangMode lang) {
 static int leading_spaces_only(Line *line) {
 	char[..] v = {0};
 	size_t i = 0;
-	const char *p = NULL;
 	if (line == NULL) {
 		return 0;
 	}
 	v = line.view();
-	p = ptr(v);
+	const char *p = ptr(v);
 	while (i < len(v) && p[i] == ' ') {
 		i++;
 	}
@@ -185,13 +183,12 @@ void mode_guess_indent(Buffer *buf) {
 	int space_lines = 0;
 	int mixed_lines = 0;
 	int space_gcd = 0;
-	int i = 0;
-	int nlines = 0;
+	int i = 1;
 	if (buf == NULL) {
 		return;
 	}
-	nlines = buf.line_count_i();
-	for (i = 1; i <= nlines; i++) {
+	int nlines = buf.line_count_i();
+	for (; i <= nlines; i++) {
 		Line *line = buf.line(i);
 		int spaces = 0;
 		if (line == NULL || line.is_blank()) {
@@ -242,11 +239,10 @@ void mode_guess_indent(Buffer *buf) {
 
 void mode_apply_from_path(Buffer *buf, const char *path) {
 	char[..] v = {0};
-	size_t plen = 0;
 	if (buf == NULL) {
 		return;
 	}
-	plen = path != NULL ? strlen(path) : 0;
+	size_t plen = path != NULL ? strlen(path) : 0;
 	v = ranged(path, plen);
 	buf.lang_mode = mode_detect(v);
 	buf.indent = mode_indent_default(buf.lang_mode);

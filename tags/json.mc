@@ -91,7 +91,7 @@ static bool tag_json_u16(TagJsonCursor *c, uint32_t *out) {
 	if (c == NULL || out == NULL) {
 		return false;
 	}
-	for (i = 0; i < 4; i++) {
+	for (; i < 4; i++) {
 		int h = tag_json_hex(c.p[i]);
 		if (h < 0) {
 			return false;
@@ -204,13 +204,12 @@ static bool tag_json_string(TagJsonCursor *c, char **out) {
 }
 
 static bool tag_json_literal(TagJsonCursor *c, const char[..] word) {
-	size_t n = 0;
 	size_t i = 0;
 	if (c == NULL) {
 		return false;
 	}
-	n = len(word);
-	for (i = 0; i < n; i++) {
+	size_t n = len(word);
+	for (; i < n; i++) {
 		if (c.p[i] == 0 || c.p[i] != ptr(word)[i]) {
 			return false;
 		}
@@ -220,7 +219,6 @@ static bool tag_json_literal(TagJsonCursor *c, const char[..] word) {
 }
 
 static bool tag_json_number(TagJsonCursor *c, int *integer, bool *is_integer) {
-	char *start = NULL;
 	int64_t value = 0;
 	bool negative = false;
 	bool integral = true;
@@ -228,7 +226,7 @@ static bool tag_json_number(TagJsonCursor *c, int *integer, bool *is_integer) {
 	if (c == NULL) {
 		return false;
 	}
-	start = c.p;
+	char *start = c.p;
 	if (*c.p == '-') {
 		negative = true;
 		c.p++;

@@ -23,12 +23,12 @@ static int g_kill_sequence;
 static bool g_clipboard_dirty;
 
 static void killring_store_new(const char[..] data) {
-	int i = 0;
+	int i = g_count;
 	if (g_count == (int)KillRingMax) {
 		str_free(&g_ring[(int)KillRingMax - 1].data);
 		g_count--;
 	}
-	for (i = g_count; i > 0; i--) {
+	for (; i > 0; i--) {
 		g_ring[i] = g_ring[i - 1];
 	}
 	g_ring[0].data = str_empty();

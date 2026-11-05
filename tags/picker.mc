@@ -55,7 +55,7 @@ static bool tag_picker_score_before(TagPickScore a, TagPickScore b) {
 static void tag_picker_rebuild(const char *query) {
 	size_t i = 0;
 	g_tp_match_count = 0;
-	for (i = 0; i < len(g_tp_entries.items); i++) {
+	for (; i < len(g_tp_entries.items); i++) {
 		TagEntry *entry = g_tp_entries.items[i];
 		TagPickScore candidate = {0};
 		int pos = 0;
@@ -88,21 +88,19 @@ static void tag_picker_rebuild(const char *query) {
 }
 
 static void tag_picker_refresh() {
-	char *out = NULL;
-	size_t cap = 0;
 	size_t used = 0;
 	int i = 0;
 	if (g_tp_match_count == 0) {
 		window_set_match_buffer_text(NULL, 0, 0);
 		return;
 	}
-	cap = (size_t)g_tp_match_count * (TagPathMax + TagNameMax + 768);
-	out = malloc(cap);
+	size_t cap = (size_t)g_tp_match_count * (TagPathMax + TagNameMax + 768);
+	char *out = malloc(cap);
 	if (out == NULL) {
 		return;
 	}
 	out[0] = 0;
-	for (i = 0; i < g_tp_match_count; i++) {
+	for (; i < g_tp_match_count; i++) {
 		TagEntry *entry = g_tp_entries.items[g_tp_matches[i].index];
 		char annotation[TagKindMax + TagNameMax * 2] = {0};
 		char shown_path[TagPathMax] = {0};

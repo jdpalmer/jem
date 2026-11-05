@@ -24,12 +24,11 @@ static char ident_upper(char c) {
 }
 
 static bool replace_range_undo(Window *w, Location begin, Location end, const char *text, size_t n) {
-	char *old = NULL;
 	size_t old_len = 0;
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
-	old = region_text(w, begin, end, &old_len);
+	char *old = region_text(w, begin, end, &old_len);
 	if (!w.set_text(begin, end, text != NULL ? text : "", n)) {
 		free(old);
 		return false;
@@ -45,9 +44,8 @@ static bool replace_range_undo(Window *w, Location begin, Location end, const ch
 }
 
 static bool replace_range_command(Window *w, Location begin, Location end, const char *text, size_t n) {
-	bool ok = false;
 	buffer_undo.begin_command(w.buffer, w.cursor);
-	ok = replace_range_undo(w, begin, end, text, n);
+	bool ok = replace_range_undo(w, begin, end, text, n);
 	buffer_undo.end_command();
 	return ok;
 }
@@ -144,8 +142,6 @@ bool cmd_quote_handle_key(uint32_t key, int n) {
 // cmd_delete_blank_lines collapses blank-line runs around point (C-x C-o).
 bool cmd_delete_blank_lines(bool f, int n) {
 	Window *w = window_current();
-	Buffer *buf = NULL;
-	int cur = 0;
 	Location begin = {0};
 	Location end = {0};
 	(void)f;
@@ -153,25 +149,24 @@ bool cmd_delete_blank_lines(bool f, int n) {
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
-	buf = w.buffer;
+	Buffer *buf = w.buffer;
 	if (buf.is_readonly) {
 		return false;
 	}
-	cur = w.cursor.line;
+	int cur = w.cursor.line;
 	if (cur > buf.line_count_i()) {
 		return true;
 	}
 	if (line_is_empty(buf.line(cur))) {
 		int start = cur;
 		int end_line = cur;
-		int run = 0;
 		while (start > 1 && line_is_empty(buf.line(start - 1))) {
 			start--;
 		}
 		while (end_line < buf.line_count_i() && line_is_empty(buf.line(end_line + 1))) {
 			end_line++;
 		}
-		run = end_line - start + 1;
+		int run = end_line - start + 1;
 		if (run <= 1) {
 			return true;
 		}
@@ -203,30 +198,24 @@ bool cmd_delete_blank_lines(bool f, int n) {
 // cmd_transpose_lines swaps the current line with the one above (C-x C-t).
 bool cmd_transpose_lines(bool f, int n) {
 	Window *w = window_current();
-	Buffer *buf = NULL;
-	int curr = 0;
 	Location p0 = {0};
 	Location p2 = {0};
-	Line *prev = NULL;
-	char *original = NULL;
 	size_t total = 0;
-	size_t len1 = 0;
-	char *swapped = NULL;
 	Location saved = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
-	buf = w.buffer;
+	Buffer *buf = w.buffer;
 	if (buf.is_readonly) {
 		return false;
 	}
-	curr = w.cursor.line;
+	int curr = w.cursor.line;
 	if (curr <= 1 || curr >= buf.eof_line()) {
 		return false;
 	}
-	prev = buf.line(curr - 1);
+	Line *prev = buf.line(curr - 1);
 	if (prev == NULL || buf.line(curr) == NULL) {
 		return false;
 	}
@@ -234,16 +223,16 @@ bool cmd_transpose_lines(bool f, int n) {
 	p0.offset = 0;
 	p2.line = curr + 1;
 	p2.offset = 0; /* may be EOF when curr is last line */
-	original = region_text(w, p0, p2, &total);
+	char *original = region_text(w, p0, p2, &total);
 	if (original == NULL) {
 		return false;
 	}
-	len1 = prev.byte_len() + 1;
+	size_t len1 = prev.byte_len() + 1;
 	if (total < len1) {
 		free(original);
 		return false;
 	}
-	swapped = malloc(total + 2);
+	char *swapped = malloc(total + 2);
 	if (swapped == NULL) {
 		free(original);
 		return false;
@@ -298,7 +287,6 @@ static bool transform_region_case(bool upper) {
 	Window *w = window_current();
 	Location start = {0};
 	Location end = {0};
-	char *text = NULL;
 	size_t tlen = 0;
 	size_t i = 0;
 	bool changed = false;
@@ -308,11 +296,11 @@ static bool transform_region_case(bool upper) {
 	if (!get_region(w, &start, &end)) {
 		return false;
 	}
-	text = region_text(w, start, end, &tlen);
+	char *text = region_text(w, start, end, &tlen);
 	if (text == NULL) {
 		return false;
 	}
-	for (i = 0; i < tlen; i++) {
+	for (; i < tlen; i++) {
 		char t = 0;
 		if (upper) {
 			t = ident_upper(text[i]);
@@ -357,21 +345,16 @@ int cmp_cstr_ptr(void *a, void *b) {
 // cmd_sort_region sorts complete lines in the active region alphabetically.
 bool cmd_sort_region(bool f, int n) {
 	Window *w = window_current();
-	Buffer *buf = NULL;
 	Location rstart = {0};
 	Location rend = {0};
 	Location start = {0};
 	Location end = {0};
-	char *text = NULL;
 	size_t tlen = 0;
 	char **lines = NULL;
 	int nlines = 0;
 	int cap = 0;
 	size_t i = 0;
-	size_t line_start = 0;
-	char *sorted = NULL;
 	size_t sorted_len = 0;
-	size_t sorted_cap = 0;
 	int li = 0;
 	Location saved = {0};
 	(void)f;
@@ -379,7 +362,7 @@ bool cmd_sort_region(bool f, int n) {
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
-	buf = w.buffer;
+	Buffer *buf = w.buffer;
 	if (buf.is_readonly) {
 		return false;
 	}
@@ -394,13 +377,13 @@ bool cmd_sort_region(bool f, int n) {
 	start.offset = 0;
 	end.line = rend.line + 1;
 	end.offset = 0; /* may be EOF */
-	text = region_text(w, start, end, &tlen);
+	char *text = region_text(w, start, end, &tlen);
 	if (text == NULL) {
 		return false;
 	}
 	/* Split on newlines into lines[]. */
-	line_start = 0;
-	for (i = 0; i <= tlen; i++) {
+	size_t line_start = 0;
+	for (; i <= tlen; i++) {
 		if (i == tlen || text[i] == '\n') {
 			size_t llen = i - line_start;
 			char *one = NULL;
@@ -413,7 +396,7 @@ bool cmd_sort_region(bool f, int n) {
 				char **p = realloc(lines, (size_t)ncap * sizeof(char *));
 				if (p == NULL) {
 					free(text);
-					for (li = 0; li < nlines; li++) {
+					for (; li < nlines; li++) {
 						free(lines[li]);
 					}
 					free(lines);
@@ -449,8 +432,8 @@ bool cmd_sort_region(bool f, int n) {
 		return false;
 	}
 	qsort(lines, nlines, sizeof(char *), cmp_cstr_ptr);
-	sorted_cap = tlen + (size_t)nlines + 8;
-	sorted = malloc(sorted_cap);
+	size_t sorted_cap = tlen + (size_t)nlines + 8;
+	char *sorted = malloc(sorted_cap);
 	if (sorted == NULL) {
 		for (li = 0; li < nlines; li++) {
 			free(lines[li]);
@@ -509,19 +492,14 @@ static bool ident_word_byte(char b) {
 }
 
 static bool ident_bounds(Buffer *buf, Location loc, Location *start_out, Location *end_out) {
-	Line *line = NULL;
 	char[..] v = {0};
-	char *vp = NULL;
-	size_t off = 0;
-	size_t start_off = 0;
-	size_t end_off = 0;
-	line = buf.line(loc.line);
+	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return false;
 	}
 	v = line.view();
-	vp = ptr(v);
-	off = loc.offset;
+	char *vp = ptr(v);
+	size_t off = loc.offset;
 	if (off > len(v)) {
 		off = len(v);
 	}
@@ -531,11 +509,11 @@ static bool ident_bounds(Buffer *buf, Location loc, Location *start_out, Locatio
 	if (off >= len(v) || !ident_word_byte(vp[off])) {
 		return false;
 	}
-	start_off = off;
+	size_t start_off = off;
 	while (start_off > 0 && ident_word_byte(vp[start_off - 1])) {
 		start_off--;
 	}
-	end_off = off + 1;
+	size_t end_off = off + 1;
 	while (end_off < len(v) && ident_word_byte(vp[end_off])) {
 		end_off++;
 	}
@@ -568,7 +546,7 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 	size_t used = 0;
 	*blob_used = 0;
 
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		char r = s[i];
 		if (r == '_' || r == '-') {
 			if (cur_len > 0) {
@@ -615,7 +593,7 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 		if (count >= max_outs || used + cur_len + 1 > blob_cap) {
 			return -1;
 		}
-		for (j = 0; j < cur_len; j++) {
+		for (; j < cur_len; j++) {
 			blob[used + j] = ident_lower(cur[j]);
 		}
 		blob[used + cur_len] = 0;
@@ -627,14 +605,14 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 }
 
 static void title_part(char *dst, const char *src) {
-	size_t i = 0;
+	size_t i = 1;
 	size_t n = strlen(src);
 	if (n == 0) {
 		dst[0] = 0;
 		return;
 	}
 	dst[0] = ident_upper(src[0]);
-	for (i = 1; i < n; i++) {
+	for (; i < n; i++) {
 		dst[i] = ident_lower(src[i]);
 	}
 	dst[n] = 0;
@@ -649,7 +627,7 @@ static bool join_ident_parts(char **parts, int nparts, IdentCaseStyle style, cha
 		return true;
 	}
 	if (style == IdentCamel || style == IdentPascal) {
-		for (i = 0; i < nparts; i++) {
+		for (; i < nparts; i++) {
 			if (style == IdentCamel && i == 0) {
 				size_t plen = strlen(parts[i]);
 				size_t j = 0;
@@ -704,29 +682,26 @@ static bool join_ident_parts(char **parts, int nparts, IdentCaseStyle style, cha
 
 static bool convert_ident_at_point(IdentCaseStyle style) {
 	Window *w = window_current();
-	Buffer *buf = NULL;
 	Location start = {0};
 	Location end = {0};
-	char *text = NULL;
 	size_t tlen = 0;
 	char blob[1024] = {0};
 	char *parts[64] = {0};
 	size_t blob_used = 0;
-	int nparts = 0;
 	char out[1024] = {0};
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
-	buf = w.buffer;
+	Buffer *buf = w.buffer;
 	if (!ident_bounds(buf, w.cursor, &start, &end)) {
 		return false;
 	}
-	text = region_text(w, start, end, &tlen);
+	char *text = region_text(w, start, end, &tlen);
 	if (text == NULL || tlen == 0) {
 		free(text);
 		return false;
 	}
-	nparts = split_ident_parts(text, tlen, blob, sizeof(blob), parts, 64, &blob_used);
+	int nparts = split_ident_parts(text, tlen, blob, sizeof(blob), parts, 64, &blob_used);
 	if (nparts < 0) {
 		free(text);
 		return false;

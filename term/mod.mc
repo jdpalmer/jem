@@ -108,7 +108,7 @@ static void term_debug_log(const char *tag, const char *buf, size_t n) {
 		return;
 	}
 	fprintf(g_term_debug_fp, "[%s n=%zu]", tag, n);
-	for (i = 0; i < n && i < 512; i++) {
+	for (; i < n && i < 512; i++) {
 		char c = buf[i];
 		if (c == 0x1b) {
 			fprintf(g_term_debug_fp, "<ESC>");
@@ -220,24 +220,18 @@ static bool term_wait_readable(int timeout_ms) {
 	/* Match jem.c intent: timed wait on stdin. Use poll(2) (modc parses
 	 * sys/select.h poorly across the package graph). */
 	{
-		int fd = -1;
 		struct pollfd pfd = {
 			0 };
-		int ready = 0;
 		if (!g_tty_std_ok) {
 			return false;
 		}
-		fd = file_fd(&g_fin);
+		int fd = file_fd(&g_fin);
 		if (fd < 0) {
 			fd = STDIN_FILENO;
 		}
 		pfd.fd = fd;
 		pfd.events = POLLIN;
-		if (timeout_ms < 0) {
-			ready = poll(&pfd, 1, -1);
-		} else {
-			ready = poll(&pfd, 1, timeout_ms);
-		}
+		int ready = poll(&pfd, 1, timeout_ms < 0 ? -1 : timeout_ms);
 		return ready > 0;
 	}
 #endif
@@ -266,14 +260,13 @@ static void term_in_reset() {
 }
 
 static int term_in_append_read(int maxn) {
-	int fd = -1;
 	if (maxn > (int)TermInCap) {
 		maxn = TermInCap;
 	}
 	if (!g_tty_std_ok || file_fd(&g_fin) < 0) {
 		return -1;
 	}
-	fd = file_fd(&g_fin);
+	int fd = file_fd(&g_fin);
 #ifdef _WIN32
 	{
 		auto (n, ok) = g_fin.read(ranged(g_ibuf, (size_t)maxn));
@@ -288,10 +281,10 @@ static int term_in_append_read(int maxn) {
 	}
 #else
 	{
-		ssize_t n = 0;
-		do {
+		ssize_t n = read(fd, g_ibuf, maxn);
+		while (n < 0 && errno == EINTR) {
 			n = read(fd, g_ibuf, maxn);
-		} while (n < 0 && errno == EINTR);
+		}
 		if (n < 0) {
 			g_ilen = 0;
 			g_ipos = 0;
@@ -307,8 +300,6 @@ static int term_in_append_read(int maxn) {
 /* Pull pending TTY bytes into g_ibuf without decoding. Call during long
  * redraws so the kernel input queue does not overflow (dropped clicks/keys). */
 void term_harvest_input() {
-	int space = 0;
-	int fd = -1;
 	if (!g_tty_std_ok || !g_is_tty) {
 		return;
 	}
@@ -321,14 +312,14 @@ void term_harvest_input() {
 		g_ilen = 0;
 		g_ipos = 0;
 	}
-	space = (int)TermInCap - g_ilen;
+	int space = (int)TermInCap - g_ilen;
 	if (space <= 0) {
 		return;
 	}
 	if (!term_wait_readable(0)) {
 		return;
 	}
-	fd = file_fd(&g_fin);
+	int fd = file_fd(&g_fin);
 	if (fd < 0) {
 		return;
 	}
@@ -341,10 +332,10 @@ void term_harvest_input() {
 	}
 #else
 	{
-		ssize_t n = 0;
-		do {
+		ssize_t n = read(fd, g_ibuf + g_ilen, space);
+		while (n < 0 && errno == EINTR) {
 			n = read(fd, g_ibuf + g_ilen, space);
-		} while (n < 0 && errno == EINTR);
+		}
 		if (n > 0) {
 			g_ilen = g_ilen + (int)n;
 		}
@@ -379,11 +370,10 @@ void term_emit(const char *s, size_t n) {
 
 void term_emit_cstr(const char[..] s) {
 	/* Prefer strlen: char[N] / some views report capacity via len(). */
-	size_t n = 0;
 	if (ptr(s) == NULL) {
 		return;
 	}
-	n = strlen(ptr(s));
+	size_t n = strlen(ptr(s));
 	if (n == 0) {
 		return;
 	}
@@ -402,7 +392,6 @@ void term_emit_u32(uint32_t v) {
 static int term_append_u32(char *dst, int cap, int n, uint32_t v) {
 	char tmp[16] = {0};
 	int tn = 0;
-	int i = 0;
 	if (n < 0 || n >= cap) {
 		return -1;
 	}
@@ -420,7 +409,8 @@ static int term_append_u32(char *dst, int cap, int n, uint32_t v) {
 	if (n + tn > cap) {
 		return -1;
 	}
-	for (i = tn - 1; i >= 0; i--) {
+	int i = tn - 1;
+	for (; i >= 0; i--) {
 		dst[n++] = tmp[i];
 	}
 	return n;
@@ -458,7 +448,6 @@ static void term_emit_csi(int first, bool has_second, int second, char final_b) 
 }
 
 static bool term_fill_in(int timeout_ms) {
-	int n = 0;
 	if (g_ipos < g_ilen) {
 		return true;
 	}
@@ -468,7 +457,7 @@ static bool term_fill_in(int timeout_ms) {
 			return false;
 		}
 	}
-	n = term_in_append_read(TermInCap);
+	int n = term_in_append_read(TermInCap);
 	if (n <= 0) {
 		return false;
 	}
@@ -476,13 +465,12 @@ static bool term_fill_in(int timeout_ms) {
 }
 
 (char, bool) term_read_byte(int timeout_ms) {
-	char b = 0;
 	if (g_ipos >= g_ilen) {
 		if (!term_fill_in(timeout_ms)) {
 			return (0, false);
 		}
 	}
-	b = g_ibuf[g_ipos];
+	char b = g_ibuf[g_ipos];
 	g_ipos++;
 	return (b, true);
 }
@@ -681,22 +669,14 @@ static void term_enable_modes() {
 bool term_open() {
 	int rows = 0;
 	int cols = 0;
-	bool fin_ok = false;
-	bool fout_ok = false;
 	g_tty_raw = false;
 	g_tty_std_ok = false;
 	term_buf_reset();
 	term_in_reset();
-	{
-		auto (fin, ok) = tty_stdin();
-		g_fin = fin;
-		fin_ok = ok;
-	}
-	{
-		auto (fout, ok) = tty_stdout();
-		g_fout = fout;
-		fout_ok = ok;
-	}
+	auto (fin, fin_ok) = tty_stdin();
+	g_fin = fin;
+	auto (fout, fout_ok) = tty_stdout();
+	g_fout = fout;
 	g_tty_std_ok = fin_ok && fout_ok;
 	if (!g_tty_std_ok || !tty_isatty(&g_fin)) {
 		fprintf(stderr, "jem: not a TTY; continuing with default size 24x80\n");
@@ -767,20 +747,12 @@ void term_suspend() {
 bool term_resume() {
 	int rows = 0;
 	int cols = 0;
-	bool fin_ok = false;
-	bool fout_ok = false;
 	term_buf_reset();
 	term_in_reset();
-	{
-		auto (fin, ok) = tty_stdin();
-		g_fin = fin;
-		fin_ok = ok;
-	}
-	{
-		auto (fout, ok) = tty_stdout();
-		g_fout = fout;
-		fout_ok = ok;
-	}
+	auto (fin, fin_ok) = tty_stdin();
+	g_fin = fin;
+	auto (fout, fout_ok) = tty_stdout();
+	g_fout = fout;
 	g_tty_std_ok = fin_ok && fout_ok;
 	if (!g_tty_std_ok || !tty_isatty(&g_fin)) {
 		g_is_tty = false;
@@ -845,14 +817,13 @@ int term_cols() {
 bool term_refresh_size() {
 	int rows = 0;
 	int cols = 0;
-	int new_rows = 0;
 	if (!g_is_tty) {
 		return false;
 	}
 	if (!term_query_size(&rows, &cols)) {
 		return false;
 	}
-	new_rows = rows - 1;
+	int new_rows = rows - 1;
 	if (new_rows == g_rows && cols == g_cols) {
 		return false;
 	}
@@ -1139,7 +1110,6 @@ static uint32_t term_decode_utf8(char first) {
 	char buf[4] = {0};
 	int need = 1;
 	int i = 1;
-	uint32_t r = 0;
 	buf[0] = first;
 	if ((first & 0xE0) == 0xC0) {
 		need = 2;
@@ -1150,7 +1120,7 @@ static uint32_t term_decode_utf8(char first) {
 	} else {
 		return first;
 	}
-	for (i = 1; i < need; i++) {
+	for (; i < need; i++) {
 		auto (bx, okx) = term_read_byte(g_byte_timeout_ms);
 		if (!okx) {
 			return 0;
@@ -1158,18 +1128,20 @@ static uint32_t term_decode_utf8(char first) {
 		buf[i] = bx;
 	}
 	if (need == 2) {
-		r = (uint32_t)(first & 0x1F) << 6;
+		uint32_t r = (uint32_t)(first & 0x1F) << 6;
 		r |= buf[1] & 0x3F;
-	} else if (need == 3) {
-		r = (uint32_t)(first & 0x0F) << 12;
+		return r;
+	}
+	if (need == 3) {
+		uint32_t r = (uint32_t)(first & 0x0F) << 12;
 		r |= (uint32_t)(buf[1] & 0x3F) << 6;
 		r |= buf[2] & 0x3F;
-	} else {
-		r = (uint32_t)(first & 0x07) << 18;
-		r |= (uint32_t)(buf[1] & 0x3F) << 12;
-		r |= (uint32_t)(buf[2] & 0x3F) << 6;
-		r |= buf[3] & 0x3F;
+		return r;
 	}
+	uint32_t r = (uint32_t)(first & 0x07) << 18;
+	r |= (uint32_t)(buf[1] & 0x3F) << 12;
+	r |= (uint32_t)(buf[2] & 0x3F) << 6;
+	r |= buf[3] & 0x3F;
 	return r;
 }
 
@@ -1245,7 +1217,6 @@ static (uint32_t, bool) term_read_key_impl(bool rewind_on_partial) {
 
 // term_try_read_key polls with timeout_ms.
 (uint32_t, bool) term_try_read_key(int timeout_ms) {
-	int per_byte = 100;
 	if (!g_is_tty) {
 		return (0, false);
 	}
@@ -1263,11 +1234,7 @@ static (uint32_t, bool) term_read_key_impl(bool rewind_on_partial) {
 			}
 		}
 	}
-	if (timeout_ms > 0) {
-		per_byte = timeout_ms;
-	} else {
-		per_byte = 0;
-	}
+	int per_byte = timeout_ms > 0 ? timeout_ms : 0;
 	g_byte_timeout_ms = per_byte;
 	return term_read_key_impl(true);
 }

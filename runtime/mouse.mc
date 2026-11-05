@@ -22,13 +22,11 @@ void mouse_after_buffer_edit(Buffer *buf) {
 }
 
 static int window_last_visible_line(Window *win) {
-	int last = 0;
-	int nlines = 0;
 	if (win == NULL || win.buffer == NULL) {
 		return 1;
 	}
-	nlines = win.buffer.line_count_i();
-	last = win.top_line + win.height - 1;
+	int nlines = win.buffer.line_count_i();
+	int last = win.top_line + win.height - 1;
 	if (last > nlines) {
 		last = nlines;
 	}
@@ -39,11 +37,10 @@ static int window_last_visible_line(Window *win) {
 }
 
 static void window_set_top_line(Window *win, int line) {
-	int nlines = 0;
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
-	nlines = win.buffer.line_count_i();
+	int nlines = win.buffer.line_count_i();
 	if (line < 1) {
 		line = 1;
 	}
@@ -59,13 +56,11 @@ static void window_set_top_line(Window *win, int line) {
 
 /* Scroll viewport by n lines (positive = down). Keeps cursor visible. */
 static void window_scroll(Window *win, int n) {
-	int line_number = 0;
-	int nlines = 0;
 	if (win == NULL || win.buffer == NULL || n == 0) {
 		return;
 	}
-	nlines = win.buffer.line_count_i();
-	line_number = win.top_line + n;
+	int nlines = win.buffer.line_count_i();
+	int line_number = win.top_line + n;
 	if (line_number < 1) {
 		line_number = 1;
 	}
@@ -90,11 +85,10 @@ static void window_scroll(Window *win, int n) {
 }
 
 static void apply_wheel_ticks(int net) {
-	Window *win = NULL;
 	if (net == 0) {
 		return;
 	}
-	win = display_win_at(term_mouse_row());
+	Window *win = display_win_at(term_mouse_row());
 	if (win == NULL) {
 		win = window_current();
 	}
@@ -103,19 +97,17 @@ static void apply_wheel_ticks(int net) {
 
 // cmd_mouse_left moves point to the click; switches window if needed.
 bool cmd_mouse_left(bool f, int n) {
-	Window *win = NULL;
-	Window *cur = NULL;
 	Location loc = {0};
 	(void)f;
 	(void)n;
-	win = display_win_at(term_mouse_row());
+	Window *win = display_win_at(term_mouse_row());
 	if (win == NULL) {
 		return true;
 	}
 	if (win != window_current()) {
 		window_select(win);
 	}
-	cur = window_current();
+	Window *cur = window_current();
 	if (cur == NULL) {
 		return true;
 	}
@@ -133,13 +125,11 @@ bool cmd_mouse_left(bool f, int n) {
 
 // cmd_mouse_drag extends the selection from the click anchor to the pointer.
 bool cmd_mouse_drag(bool f, int n) {
-	Window *win = NULL;
-	Window *cur = NULL;
 	Location loc = {0};
 	(void)f;
 	(void)n;
-	win = display_win_at(term_mouse_row());
-	cur = window_current();
+	Window *win = display_win_at(term_mouse_row());
+	Window *cur = window_current();
 	if (win == NULL || cur == NULL || win != cur || g_mouse_anchor_win != cur) {
 		return false;
 	}

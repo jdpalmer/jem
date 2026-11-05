@@ -56,7 +56,7 @@ static bool word_in_list(const char[..] word, const char **list) {
 	if (list == NULL || n == 0) {
 		return false;
 	}
-	for (i = 0; list[i] != NULL; i++) {
+	for (; list[i] != NULL; i++) {
 		const char *z = list[i];
 		size_t zn = strlen(z);
 		if (zn == n && memcmp(ptr(word), z, n) == 0) {

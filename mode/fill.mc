@@ -17,38 +17,28 @@ static bool fill_is_space(char c) {
 // mode_fill_paragraph reflows the paragraph around point to buf.fill_col.
 bool mode_fill_paragraph(bool f, int n) {
 	Window *win = window_current();
-	Buffer *buf = NULL;
-	int line_num = 0;
 	int start = 0;
-	int end = 0;
-	int ln = 0;
+	int ln = start;
 	int fill_col = FillDefaultCol;
 	char *blob = NULL;
 	size_t blob_cap = 0;
 	size_t blob_len = 0;
 	char *words[FillWordMax] = {0};
 	int word_count = 0;
-	char *out = NULL;
-	size_t out_cap = 0;
-	size_t out_len = 0;
-	size_t cur_len = 0;
 	int wi = 0;
 	Location begin = {0};
 	Location end_loc = {0};
-	Line *end_line = NULL;
-	char *old = NULL;
-	size_t old_len = 0;
 	(void)f;
 	(void)n;
 
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
-	buf = win.buffer;
+	Buffer *buf = win.buffer;
 	if (buf.is_readonly) {
 		return false;
 	}
-	line_num = win.cursor.line;
+	int line_num = win.cursor.line;
 	start = line_num;
 	while (start > 1) {
 		Line *prev = buf.line(start - 1);
@@ -57,7 +47,7 @@ bool mode_fill_paragraph(bool f, int n) {
 		}
 		start--;
 	}
-	end = line_num;
+	int end = line_num;
 	while (end < buf.line_count_i()) {
 		Line *next = buf.line(end + 1);
 		if (next == NULL || next.is_blank()) {
@@ -69,7 +59,7 @@ bool mode_fill_paragraph(bool f, int n) {
 		fill_col = buf.fill_col;
 	}
 
-	for (ln = start; ln <= end; ln++) {
+	for (; ln <= end; ln++) {
 		Line *line = buf.line(ln);
 		char[..] v = {0};
 		size_t i = 0;
@@ -130,15 +120,15 @@ bool mode_fill_paragraph(bool f, int n) {
 		return true;
 	}
 
-	out_cap = blob_len + (size_t)word_count + 16;
-	out = malloc(out_cap);
+	size_t out_cap = blob_len + (size_t)word_count + 16;
+	char *out = malloc(out_cap);
 	if (out == NULL) {
 		free(blob);
 		return false;
 	}
-	out_len = 0;
-	cur_len = 0;
-	for (wi = 0; wi < word_count; wi++) {
+	size_t out_len = 0;
+	size_t cur_len = 0;
+	for (; wi < word_count; wi++) {
 		size_t wlen = strlen(words[wi]);
 		if (cur_len == 0) {
 			if (out_len + wlen + 2 > out_cap) {
@@ -195,39 +185,38 @@ bool mode_fill_paragraph(bool f, int n) {
 
 	begin.line = start;
 	begin.offset = 0;
-	end_line = buf.line(end);
+	Line *end_line = buf.line(end);
 	end_loc.line = end;
 	end_loc.offset = end_line != NULL ? end_line.byte_len() : 0;
 
 	/* Capture old paragraph text for undo. */
-	{
-		size_t need = 0;
-		size_t off = 0;
+	size_t need = 0;
+	size_t off = 0;
+	for (ln = start; ln <= end; ln++) {
+		Line *line = buf.line(ln);
+		if (line != NULL) {
+			need = need + line.byte_len();
+		}
+		if (ln < end) {
+			need++;
+		}
+	}
+	char *old = malloc(need + 1);
+	size_t old_len = 0;
+	if (old != NULL) {
 		for (ln = start; ln <= end; ln++) {
 			Line *line = buf.line(ln);
-			if (line != NULL) {
-				need = need + line.byte_len();
+			if (line != NULL && line.byte_len() > 0) {
+				memcpy(old + off, ptr(line.data), line.byte_len());
+				off = off + line.byte_len();
 			}
 			if (ln < end) {
-				need++;
+				old[off] = '\n';
+				off++;
 			}
 		}
-		old = malloc(need + 1);
-		if (old != NULL) {
-			for (ln = start; ln <= end; ln++) {
-				Line *line = buf.line(ln);
-				if (line != NULL && line.byte_len() > 0) {
-					memcpy(old + off, ptr(line.data), line.byte_len());
-					off = off + line.byte_len();
-				}
-				if (ln < end) {
-					old[off] = '\n';
-					off++;
-				}
-			}
-			old[off] = 0;
-			old_len = off;
-		}
+		old[off] = 0;
+		old_len = off;
 	}
 
 	buffer_undo.begin_command(buf, win.cursor);

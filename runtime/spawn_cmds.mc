@@ -25,21 +25,19 @@ bool cmd_spawn(bool f, int n) {
 }
 
 bool cmd_spawn_run_prompted(const char *command) {
-	int rc = 0;
 	if (command == NULL || command[0] == 0) {
 		display_set_echo("[empty command]");
 		return false;
 	}
-	rc = spawn_run(command);
+	int rc = spawn_run(command);
 	return rc != -1;
 }
 
 // cmd_spawn_cli hands the terminal to an interactive shell (jem.go RunSpawnCLI).
 bool cmd_spawn_cli(bool f, int n) {
-	int rc = 0;
 	(void)f;
 	(void)n;
-	rc = spawn_run(NULL);
+	int rc = spawn_run(NULL);
 	if (rc == 0) {
 		display_set_echo("[shell exited]");
 	} else if (rc != -1) {

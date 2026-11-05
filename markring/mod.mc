@@ -6,14 +6,14 @@ import "buffer";
 
 void markring_push(Location loc) {
 	Buffer *buf = buffer_current();
-	int i = 0;
+	int i = buf.mark_ring_count;
 	if (buf == NULL || loc.line == 0) {
 		return;
 	}
 	if (buf.mark_ring_count == BufferMarkRingMax) {
 		buf.mark_ring_count--;
 	}
-	for (i = buf.mark_ring_count; i > 0; i--) {
+	for (; i > 0; i--) {
 		buf.mark_ring[i] = buf.mark_ring[i - 1];
 	}
 	buf.mark_ring[0] = loc;
@@ -28,7 +28,7 @@ void markring_push(Location loc) {
 		return (loc, false);
 	}
 	loc = buf.mark_ring[0];
-	for (i = 0; i + 1 < buf.mark_ring_count; i++) {
+	for (; i + 1 < buf.mark_ring_count; i++) {
 		buf.mark_ring[i] = buf.mark_ring[i + 1];
 	}
 	buf.mark_ring_count--;

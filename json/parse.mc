@@ -47,7 +47,6 @@ static char json_peek(const JsonParser *parser) {
 }
 
 static bool json_take(JsonParser *parser, char *out) {
-	char c = 0;
 
 	if (parser == NULL) {
 		return false;
@@ -56,7 +55,7 @@ static bool json_take(JsonParser *parser, char *out) {
 		json_set_error(parser, "Unexpected end of input");
 		return false;
 	}
-	c = *parser.cursor;
+	char c = *parser.cursor;
 	parser.cursor++;
 	if (out != NULL) {
 		*out = c;
@@ -71,13 +70,12 @@ static bool json_take(JsonParser *parser, char *out) {
 }
 
 static void json_skip_ws(JsonParser *parser) {
-	char c = 0;
 
 	if (parser == NULL) {
 		return;
 	}
 	for (;;) {
-		c = json_peek(parser);
+		char c = json_peek(parser);
 		if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
 			return;
 		}
@@ -123,7 +121,7 @@ static bool json_parse_hex4(JsonParser *parser, uint16_t *value) {
 	if (parser == NULL || value == NULL) {
 		return false;
 	}
-	for (i = 0; i < 4; i++) {
+	for (; i < 4; i++) {
 		char c = 0;
 		unsigned int nibble = 0;
 		if (!json_take(parser, &c)) {
@@ -286,13 +284,12 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 
 static JsonValue *json_parse_string_value(JsonParser *parser) {
 	JsonBuffer buffer = {0};
-	JsonValue *value = NULL;
 
 	if (!json_parse_string_into(parser, &buffer)) {
 		json_buffer_discard(&buffer);
 		return NULL;
 	}
-	value = json_value_alloc(JSON_STRING);
+	JsonValue *value = json_value_alloc(JSON_STRING);
 	if (value == NULL) {
 		json_buffer_discard(&buffer);
 		json_set_error(parser, "Out of memory");
@@ -309,8 +306,6 @@ static JsonValue *json_parse_string_value(JsonParser *parser) {
 static JsonValue *json_parse_number_value(JsonParser *parser) {
 	JsonScanner s = {0};
 	double number = 0.0;
-	size_t len = 0;
-	JsonValue *value = NULL;
 
 	if (parser == NULL) {
 		return NULL;
@@ -324,10 +319,10 @@ static JsonValue *json_parse_number_value(JsonParser *parser) {
 		json_set_error(parser, "Invalid number format");
 		return NULL;
 	}
-	len = s.p - parser.cursor;
+	size_t len = s.p - parser.cursor;
 	parser.cursor = s.p;
 	parser.column = parser.column + len;
-	value = json_new_number(number);
+	JsonValue *value = json_new_number(number);
 	if (value == NULL) {
 		json_set_error(parser, "Out of memory");
 	}
@@ -335,9 +330,8 @@ static JsonValue *json_parse_number_value(JsonParser *parser) {
 }
 
 static JsonValue *json_parse_object(JsonParser *parser) {
-	JsonValue *object = NULL;
 
-	object = json_new_object();
+	JsonValue *object = json_new_object();
 	if (object == NULL) {
 		json_set_error(parser, "Out of memory");
 		return NULL;
@@ -415,9 +409,8 @@ static JsonValue *json_parse_object(JsonParser *parser) {
 }
 
 static JsonValue *json_parse_array(JsonParser *parser) {
-	JsonValue *array = NULL;
 
-	array = json_new_array();
+	JsonValue *array = json_new_array();
 	if (array == NULL) {
 		json_set_error(parser, "Out of memory");
 		return NULL;
@@ -469,10 +462,9 @@ static JsonValue *json_parse_array(JsonParser *parser) {
 }
 
 static JsonValue *json_parse_value(JsonParser *parser) {
-	char c = 0;
 
 	json_skip_ws(parser);
-	c = json_peek(parser);
+	char c = json_peek(parser);
 	switch (c) {
 	case '{':
 		return json_parse_object(parser);
@@ -528,7 +520,6 @@ static JsonValue *json_parse_value(JsonParser *parser) {
 
 JsonValue *json_parse_n(const char *text, size_t len, JsonError *error) {
 	JsonParser parser = {0};
-	JsonValue *value = NULL;
 
 	if (text == NULL) {
 		return NULL;
@@ -541,7 +532,7 @@ JsonValue *json_parse_n(const char *text, size_t len, JsonError *error) {
 	parser.line = 1;
 	parser.column = 1;
 	parser.depth = 0;
-	value = json_parse_value(&parser);
+	JsonValue *value = json_parse_value(&parser);
 	if (value == NULL) {
 		json_copy_error(error, &parser.error);
 		return NULL;

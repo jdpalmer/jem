@@ -12,7 +12,7 @@ Window *window_match() {
 	if (mb == NULL) {
 		return NULL;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win != NULL && win.buffer == mb) {
 			return win;
@@ -26,7 +26,7 @@ static Window *window_showing_buffer(Buffer *buf) {
 	if (buf == NULL) {
 		return NULL;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win != NULL && win.buffer == buf) {
 			return win;
@@ -37,12 +37,11 @@ static Window *window_showing_buffer(Buffer *buf) {
 
 /* Ensure a window shows buf without selecting it (jem.go EnsureBufferWindow). */
 static Window *window_ensure_buffer(Buffer *buf) {
-	Window *win = {0};
 	Window *cur = window_current();
 	if (buf == NULL) {
 		return NULL;
 	}
-	win = window_showing_buffer(buf);
+	Window *win = window_showing_buffer(buf);
 	if (win != NULL) {
 		return win;
 	}
@@ -68,7 +67,7 @@ static Window *window_ensure_buffer(Buffer *buf) {
 static void window_hide_match() {
 	Window *mw = window_match();
 	size_t i = 0;
-	size_t j = 0;
+	size_t j = i;
 	if (mw == NULL || window_active.count <= (size_t)1) {
 		return;
 	}
@@ -84,7 +83,7 @@ static void window_hide_match() {
 			window_select(sel);
 		}
 		free(mw);
-		for (j = i; j + 1 < window_active.count; j++) {
+		for (; j + 1 < window_active.count; j++) {
 			window_active.windows[j] = window_active.windows[j + 1];
 		}
 		window_active.count--;
@@ -95,9 +94,8 @@ static void window_hide_match() {
 }
 
 void window_discard_match_buffer() {
-	Buffer *mb = {0};
 	window_hide_match();
-	mb = buffer_find_by_name(MatchBufferName);
+	Buffer *mb = buffer_find_by_name(MatchBufferName);
 	if (mb != NULL) {
 		buffer_release(mb);
 	}
@@ -105,14 +103,13 @@ void window_discard_match_buffer() {
 
 static void window_scroll_match_to_selection(int selected) {
 	Window *mw = window_match();
-	int line = 0;
 	if (mw == NULL) {
 		return;
 	}
 	if (selected < 0) {
 		selected = 0;
 	}
-	line = selected + 1;
+	int line = selected + 1;
 	if (mw.buffer != NULL) {
 		int n = mw.buffer.line_count_i();
 		if (n > 0 && line > n) {
@@ -159,11 +156,10 @@ static Buffer *ensure_match_buffer() {
 
 static void show_match_window() {
 	Buffer *mb = buffer_find_by_name(MatchBufferName);
-	Window *win = {0};
 	if (mb == NULL) {
 		return;
 	}
-	win = window_ensure_buffer(mb);
+	Window *win = window_ensure_buffer(mb);
 	if (win == NULL) {
 		return;
 	}
@@ -174,20 +170,18 @@ static void show_match_window() {
 
 /* Replace *match* contents and show/scroll. Empty text hides the window. */
 void window_set_match_buffer_text(char *text, size_t n, int selected) {
-	Buffer *mb = {0};
 	Location begin = {0};
 	Location end = {0};
 	Location new_end = {0};
-	bool ro = false;
 	if (text == NULL || n == 0) {
 		window_discard_match_buffer();
 		return;
 	}
-	mb = ensure_match_buffer();
+	Buffer *mb = ensure_match_buffer();
 	if (mb == NULL) {
 		return;
 	}
-	ro = mb.is_readonly;
+	bool ro = mb.is_readonly;
 	mb.is_readonly = false;
 	begin.line = 1;
 	begin.offset = 0;

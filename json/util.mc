@@ -58,16 +58,12 @@ static bool json_utf8_cont(int c) {
 
 static size_t json_utf8_decode_strict(const char *text, size_t len, uint32_t *codepoint) {
 	const char *bytes = text;
-	uint32_t value = 0;
-	uint32_t min_value = 0;
-	size_t need = 0;
-	size_t i = 0;
-	uint32_t b0 = 0;
+	size_t i = 1;
 
 	if (len == 0 || codepoint == NULL) {
 		return 0;
 	}
-	b0 = bytes[0];
+	uint32_t b0 = bytes[0];
 	if (b0 < 0x80) {
 		*codepoint = b0;
 		return 1;
@@ -75,15 +71,14 @@ static size_t json_utf8_decode_strict(const char *text, size_t len, uint32_t *co
 	if (b0 < 0xC2 || b0 > 0xF4) {
 		return 0;
 	}
-	if (b0 < 0xE0) {
-		value = b0 & 0x1F;
-		min_value = 0x80;
-		need = 2;
-	} else if (b0 < 0xF0) {
+	uint32_t value = b0 & 0x1F;
+	uint32_t min_value = 0x80;
+	size_t need = 2;
+	if (b0 >= 0xE0 && b0 < 0xF0) {
 		value = b0 & 0x0F;
 		min_value = 0x800;
 		need = 3;
-	} else {
+	} else if (b0 >= 0xF0) {
 		value = b0 & 0x07;
 		min_value = 0x10000;
 		need = 4;
@@ -91,7 +86,7 @@ static size_t json_utf8_decode_strict(const char *text, size_t len, uint32_t *co
 	if (len < need) {
 		return 0;
 	}
-	for (i = 1; i < need; i++) {
+	for (; i < need; i++) {
 		uint32_t bi = bytes[i];
 		if (!json_utf8_cont(bi)) {
 			return 0;
@@ -124,7 +119,6 @@ static bool json_utf8_validate(const char *text, size_t len) {
 
 /* JSON-style double scan (jem.c util_scan scan_double); no __builtin overflow. */
 static bool json_scan_double(JsonScanner *s, double *out) {
-	const char *p = NULL;
 	double sign = 1.0;
 	uint64_t significand = 0;
 	int32_t exponent_offset = 0;
@@ -134,7 +128,7 @@ static bool json_scan_double(JsonScanner *s, double *out) {
 	if (s == NULL || s.p == NULL || out == NULL) {
 		return false;
 	}
-	p = s.p;
+	const char *p = s.p;
 	if (*p == '-') {
 		sign = -1.0;
 		p++;
@@ -207,25 +201,22 @@ static bool json_scan_double(JsonScanner *s, double *out) {
 }
 
 static bool json_buffer_reserve(JsonBuffer *buffer, size_t needed) {
-	size_t target = 0;
-	size_t new_capacity = 0;
-	char *grown = NULL;
 
 	if (buffer == NULL) {
 		return false;
 	}
-	target = needed + 1;
+	size_t target = needed + 1;
 	if (buffer.capacity >= target) {
 		return true;
 	}
-	new_capacity = buffer.capacity == 0 ? 32 : buffer.capacity;
+	size_t new_capacity = buffer.capacity == 0 ? 32 : buffer.capacity;
 	while (new_capacity < target) {
 		if (new_capacity > (((size_t)0 - 1) / 2)) {
 			return false;
 		}
 		new_capacity = new_capacity * 2;
 	}
-	grown = realloc(buffer.data, new_capacity);
+	char *grown = realloc(buffer.data, new_capacity);
 	if (grown == NULL) {
 		return false;
 	}
@@ -268,13 +259,11 @@ static bool json_buffer_append_bytes(JsonBuffer *buffer, const char *bytes, size
 static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
 	char stack_buf[64] = {0};
 	char *text = stack_buf;
-	int written = 0;
-	bool ok = false;
 
 	if (buffer == NULL) {
 		return false;
 	}
-	written = snprintf(stack_buf, sizeof(stack_buf), "%.17g", number);
+	int written = snprintf(stack_buf, sizeof(stack_buf), "%.17g", number);
 	if (written < 0) {
 		return false;
 	}
@@ -289,7 +278,7 @@ static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
 			return false;
 		}
 	}
-	ok = json_buffer_append_bytes(buffer, text, written);
+	bool ok = json_buffer_append_bytes(buffer, text, written);
 	if (text != stack_buf) {
 		free(text);
 	}
@@ -297,16 +286,13 @@ static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
 }
 
 static char *json_buffer_take(JsonBuffer *buffer) {
-	char *data = NULL;
-
 	if (buffer == NULL) {
 		return NULL;
 	}
 	if (buffer.data == NULL) {
-		data = calloc(1, 1);
-		return data;
+		return calloc(1, 1);
 	}
-	data = buffer.data;
+	char *data = buffer.data;
 	buffer.data = NULL;
 	buffer.length = 0;
 	buffer.capacity = 0;
@@ -324,12 +310,11 @@ static void json_buffer_discard(JsonBuffer *buffer) {
 }
 
 static char *json_dup_bytes(const char *src, size_t len) {
-	char *dst = NULL;
 
 	if (src == NULL && len != 0) {
 		return NULL;
 	}
-	dst = calloc(len + 1, 1);
+	char *dst = calloc(len + 1, 1);
 	if (dst == NULL) {
 		return NULL;
 	}
@@ -341,8 +326,6 @@ static char *json_dup_bytes(const char *src, size_t len) {
 
 static bool json_grow_ptr_array(void **items, size_t *capacity, size_t item_size,
 	size_t needed) {
-	void *grown = NULL;
-	size_t new_capacity = 0;
 
 	if (items == NULL || capacity == NULL || item_size == 0) {
 		return false;
@@ -350,7 +333,7 @@ static bool json_grow_ptr_array(void **items, size_t *capacity, size_t item_size
 	if (*capacity >= needed) {
 		return true;
 	}
-	new_capacity = *capacity == 0 ? 4 : *capacity;
+	size_t new_capacity = *capacity == 0 ? 4 : *capacity;
 	while (new_capacity < needed) {
 		if (new_capacity > (((size_t)0 - 1) / 2)) {
 			return false;
@@ -360,7 +343,7 @@ static bool json_grow_ptr_array(void **items, size_t *capacity, size_t item_size
 	if (new_capacity > (((size_t)0 - 1) / item_size)) {
 		return false;
 	}
-	grown = realloc(*items, new_capacity * item_size);
+	void *grown = realloc(*items, new_capacity * item_size);
 	if (grown == NULL) {
 		return false;
 	}

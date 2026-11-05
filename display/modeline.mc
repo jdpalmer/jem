@@ -15,8 +15,6 @@ void display_set_macro_state(bool recording, bool present) {
 
 static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
 	size_t n = len(name);
-	int width = 0;
-	size_t end = 0;
 	int max_cols = 16;
 	if (out == NULL || cap == 0) {
 		return;
@@ -25,24 +23,22 @@ static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
 	if (n == 0 || ptr(name) == NULL) {
 		return;
 	}
-	{
-		int col = 0;
-		size_t at = 0;
-		while (at < n) {
-			auto (r, sz) = utf8_decode_rune(name, at);
-			int w = 0;
-			if (sz == 0) {
-				break;
-			}
-			w = rune_display_width(r);
-			if (w <= 0) {
-				w = 1;
-			}
-			col += w;
-			at += sz;
+	int col = 0;
+	size_t at = 0;
+	while (at < n) {
+		auto (r, sz) = utf8_decode_rune(name, at);
+		int w = 0;
+		if (sz == 0) {
+			break;
 		}
-		width = col;
+		w = rune_display_width(r);
+		if (w <= 0) {
+			w = 1;
+		}
+		col += w;
+		at += sz;
 	}
+	int width = col;
 	if (width <= max_cols) {
 		if (n >= cap) {
 			n = cap - 1;
@@ -51,11 +47,11 @@ static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
 		out[n] = 0;
 		return;
 	}
+	size_t end = 0;
 	{
 		int budget = max_cols - 1;
-		int col = 0;
-		size_t at = 0;
-		end = 0;
+		col = 0;
+		at = 0;
 		while (at < n) {
 			auto (r, sz) = utf8_decode_rune(name, at);
 			int w = 0;
@@ -108,33 +104,21 @@ void paint_modeline(Window *win, int row) {
 	TextStyle dirty_st = style_modeline_dirty();
 	char fitted[32] = {0};
 	char pos[64] = {0};
-	const char *lang = {0};
-	const char *eol = {0};
 	int col = 0;
-	int cols = 0;
-	int gutter_w = 0;
-	int marker_col = 0;
-	int hint_col = 0;
 	int pct = 0;
-	int lineno = 1;
-	int tot = 1;
 	int colno = 1;
-	Line *cline = {0};
 	static char hint[] = "Esc+x = Commands";
-	int hint_len = 0;
-	bool show_hint = false;
-	int pad_end = 0;
 	if (win == NULL || win.buffer == NULL || row < 0) {
 		return;
 	}
 	if (row >= term_rows()) {
 		row = term_rows() - 1;
 	}
-	cols = term_cols();
-	hint_len = (int)strlen(hint);
-	gutter_w = window_gutter_width(win);
-	lineno = win.cursor.line;
-	tot = win.buffer.line_count_i();
+	int cols = term_cols();
+	int hint_len = (int)strlen(hint);
+	int gutter_w = window_gutter_width(win);
+	int lineno = win.cursor.line;
+	int tot = win.buffer.line_count_i();
 	if (tot < 1) {
 		tot = 1;
 	}
@@ -143,13 +127,13 @@ void paint_modeline(Window *win, int row) {
 	} else if (tot > 0) {
 		pct = (lineno * 100) / tot;
 	}
-	cline = win.buffer.line(lineno);
+	Line *cline = win.buffer.line(lineno);
 	if (cline != NULL) {
 		colno = (int)cline.display_col_at_offset(win.cursor.offset) + 1;
 	}
 	snprintf(pos, sizeof(pos), "%3d%% L%d C%d", pct, lineno, colno);
-	lang = mode_display_name(win.buffer.lang_mode);
-	eol = "LF";
+	const char *lang = mode_display_name(win.buffer.lang_mode);
+	const char *eol = "LF";
 	if (win.buffer.eol_mode == EModeCRLF) {
 		eol = "CRLF";
 	}
@@ -158,8 +142,8 @@ void paint_modeline(Window *win, int row) {
 	} else {
 		snprintf(fitted, sizeof(fitted), "[No File]");
 	}
-	marker_col = gutter_w + 79 - win.h_scroll;
-	hint_col = cols - hint_len;
+	int marker_col = gutter_w + 79 - win.h_scroll;
+	int hint_col = cols - hint_len;
 
 	if (win.buffer.is_changed) {
 		put_rune(&g_screen, row, col, '*', dirty_st);
@@ -205,8 +189,8 @@ void paint_modeline(Window *win, int row) {
 	put_ascii(row, &col, " | ", gut);
 	put_ascii(row, &col, pos, gut);
 
-	show_hint = col < hint_col;
-	pad_end = cols;
+	bool show_hint = col < hint_col;
+	int pad_end = cols;
 	if (show_hint) {
 		pad_end = hint_col;
 	}

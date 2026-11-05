@@ -21,7 +21,7 @@ bool cmd_describe_command(bool f, int n) {
 	if (ncmd > MaxCommands) {
 		ncmd = MaxCommands;
 	}
-	for (i = 0; i < ncmd; i++) {
+	for (; i < ncmd; i++) {
 		names[i] = ptr(g_cmds[i].name);
 		command_bind_label(g_cmds[i].fn, binds_store[i], sizeof(binds_store[i]));
 		binds[i] = binds_store[i];
@@ -34,7 +34,6 @@ bool cmd_describe_command(bool f, int n) {
 bool cmd_describe_command_on_accept() {
 	char *sel = fuzzy_command_selected();
 	char picked[64] = {0};
-	Command *cmd = NULL;
 	char msg[256] = {0};
 	char bind[32] = {0};
 	if (sel != NULL) {
@@ -42,7 +41,7 @@ bool cmd_describe_command_on_accept() {
 	}
 	fuzzy_command_close();
 	pop_listener();
-	cmd = find_cmd_entry(picked);
+	Command *cmd = find_cmd_entry(picked);
 	if (cmd == NULL) {
 		display_set_echo("[unknown command]");
 		return true;

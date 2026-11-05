@@ -40,26 +40,22 @@ static char fuzzy_lower(char c) {
 }
 
 static bool fuzzy_is_word_start(const char *name, int nlen, int i) {
-	char c = 0;
-	char p = 0;
 	if (i <= 0) {
 		return true;
 	}
 	if (i >= nlen) {
 		return false;
 	}
-	c = name[i];
+	char c = name[i];
 	if (c >= 'A' && c <= 'Z') {
 		return true;
 	}
-	p = name[i - 1];
+	char p = name[i - 1];
 	return !((p >= 'a' && p <= 'z') || (p >= 'A' && p <= 'Z') || (p >= '0' && p <= '9'));
 }
 
 /* Returns (matched, score). Empty query matches everything with score 1. */
 (bool, int) fuzzy_score(const char *name, const char *query) {
-	int nlen = 0;
-	int qlen = 0;
 	int ni = 0;
 	int prev = -1;
 	int first = -1;
@@ -68,12 +64,12 @@ static bool fuzzy_is_word_start(const char *name, int nlen, int i) {
 	if (name == NULL) {
 		return (false, 0);
 	}
-	nlen = (int)strlen(name);
+	int nlen = (int)strlen(name);
 	if (query == NULL || query[0] == 0) {
 		return (true, 1);
 	}
-	qlen = (int)strlen(query);
-	for (qi = 0; qi < qlen; qi++) {
+	int qlen = (int)strlen(query);
+	for (; qi < qlen; qi++) {
 		char qc = fuzzy_lower(query[qi]);
 		int found = -1;
 		while (ni < nlen) {
@@ -116,13 +112,11 @@ static bool fuzzy_is_word_start(const char *name, int nlen, int i) {
 static int cmp_access_desc(void *a, void *b) {
 	Buffer *ba = *(Buffer **)a;
 	Buffer *bb = *(Buffer **)b;
-	int64_t ta = 0;
-	int64_t tb = 0;
 	if (ba == NULL || bb == NULL) {
 		return 0;
 	}
-	ta = ba.access_time;
-	tb = bb.access_time;
+	int64_t ta = ba.access_time;
+	int64_t tb = bb.access_time;
 	if (ta != tb) {
 		return ta > tb ? -1 : 1;
 	}
@@ -130,11 +124,10 @@ static int cmp_access_desc(void *a, void *b) {
 }
 
 static void sort_buffers_by_access(Buffer **list, int n) {
-	int i = 0;
-	int j = 0;
-	for (i = 1; i < n; i++) {
+	int i = 1;
+	for (; i < n; i++) {
 		Buffer *key = list[i];
-		j = i;
+		int j = i;
 		while (j > 0 && cmp_access_desc(&list[j - 1], &key) > 0) {
 			list[j] = list[j - 1];
 			j--;
@@ -150,9 +143,8 @@ static void fuzzy_rebuild_matches(const char *query) {
 	} scored[FuzzyMaxBuffers] = {0};
 	int nscored = 0;
 	int i = 0;
-	int j = 0;
 	g_fb_match_count = 0;
-	for (i = 0; i < g_fb_count; i++) {
+	for (; i < g_fb_count; i++) {
 		auto (ok, sc) = fuzzy_score(g_fb_entries[i].name, query);
 		if (!ok) {
 			continue;
@@ -167,7 +159,7 @@ static void fuzzy_rebuild_matches(const char *query) {
 	for (i = 1; i < nscored; i++) {
 		int idx = scored[i].idx;
 		int sc = scored[i].score;
-		j = i;
+		int j = i;
 		while (j > 0 && (scored[j - 1].score < sc ||
 			(scored[j - 1].score == sc && scored[j - 1].idx > idx))) {
 			scored[j] = scored[j - 1];
@@ -183,8 +175,6 @@ static void fuzzy_rebuild_matches(const char *query) {
 }
 
 static void fuzzy_refresh_match_window() {
-	char *out = NULL;
-	size_t cap = 0;
 	size_t len = 0;
 	int i = 0;
 	int count = g_fb_match_count;
@@ -195,13 +185,13 @@ static void fuzzy_refresh_match_window() {
 		window_set_match_buffer_text(NULL, 0, 0);
 		return;
 	}
-	cap = (size_t)count * 320 + 1;
-	out = malloc(cap);
+	size_t cap = (size_t)count * 320 + 1;
+	char *out = malloc(cap);
 	if (out == NULL) {
 		return;
 	}
 	out[0] = 0;
-	for (i = 0; i < count; i++) {
+	for (; i < count; i++) {
 		FuzzyBufEntry *e = &g_fb_entries[g_fb_matches[i]];
 		char line[320] = {0};
 		int n = 0;
@@ -264,7 +254,7 @@ void fuzzy_buffer_open_with_prompt(const char[..] prompt) {
 		list[n++] = b;
 	}
 	sort_buffers_by_access(list, n);
-	for (i = 0; i < (size_t)n; i++) {
+	for (; i < (size_t)n; i++) {
 		Buffer *b = list[i];
 		FuzzyBufEntry *e = &g_fb_entries[g_fb_count];
 		size_t namelen = len(b.name);

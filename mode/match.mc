@@ -93,13 +93,13 @@ static int line_byte_at(Line *line, size_t offset) {
 /* Ensure lines [1, line_number) have valid syntax_end (DFA carry). */
 void mode_syntax_ensure_before(Buffer *buf, int line_number) {
 	SynState st = {SynStateNormal};
-	int q = 0;
+	int q = line_number - 1;
 	int sync = 1;
 	TextStyle[..] nostyle = ranged((TextStyle *)0, 0);
 	if (buf == NULL || line_number < 2) {
 		return;
 	}
-	for (q = line_number - 1; q >= 1; q--) {
+	for (; q >= 1; q--) {
 		Line *line = buf.line(q);
 		if (line != NULL && line.syntax_valid) {
 			st = line.syntax_end;
@@ -124,7 +124,6 @@ void mode_syntax_ensure_before(Buffer *buf, int line_number) {
 
 // mode_syntax_state_at writes DFA state after processing line[0..offset).
 bool mode_syntax_state_at(Buffer *buf, int line_number, size_t offset, SynState *out) {
-	Line *line = NULL;
 	SynState st = {SynStateNormal};
 	TextStyle[..] nostyle = ranged((TextStyle *)0, 0);
 	char[..] v = {0};
@@ -142,7 +141,7 @@ bool mode_syntax_state_at(Buffer *buf, int line_number, size_t offset, SynState 
 			st = pl.syntax_end;
 		}
 	}
-	line = buf.line(line_number);
+	Line *line = buf.line(line_number);
 	if (line == NULL) {
 		*out = st;
 		return false;
@@ -179,15 +178,13 @@ bool mode_char_is_structural(Buffer *buf, int line_number, size_t offset) {
 
 /* Innermost unmatched open_ch still open at `at` (virtual close before at). */
 bool mode_find_enclosing_open(Buffer *buf, Location at, int open_ch, int close_ch, Location *out) {
-	int line_num = 0;
-	int off = 0;
 	int depth = 1;
 	if (buf == NULL || out == NULL || at.line < 1) {
 		return false;
 	}
 	mode_syntax_ensure_before(buf, at.line + 1);
-	line_num = at.line;
-	off = (int)at.offset - 1;
+	int line_num = at.line;
+	int off = (int)at.offset - 1;
 	while (line_num >= 1) {
 		Line *line = buf.line(line_num);
 		if (line == NULL) {
@@ -228,8 +225,6 @@ bool mode_find_enclosing_open(Buffer *buf, Location at, int open_ch, int close_c
 
 // mode_find_matching_delimiter finds the partner for start (jem.go FindMatchingDelimiter).
 bool mode_find_matching_delimiter(Buffer *buf, Location start, Location *match_out) {
-	Line *line = NULL;
-	int ch = 0;
 	int open_ch = 0;
 	int close_ch = 0;
 	bool forward = false;
@@ -241,11 +236,11 @@ bool mode_find_matching_delimiter(Buffer *buf, Location start, Location *match_o
 	if (start.line < 1 || start.line >= buf.eof_line()) {
 		return false;
 	}
-	line = buf.line(start.line);
+	Line *line = buf.line(start.line);
 	if (line == NULL || start.offset >= line.byte_len()) {
 		return false;
 	}
-	ch = line_byte_at(line, start.offset);
+	int ch = line_byte_at(line, start.offset);
 	if (!mode_delimiter_pair(ch, &open_ch, &close_ch, &forward)) {
 		return false;
 	}
@@ -321,19 +316,17 @@ bool mode_find_matching_delimiter(Buffer *buf, Location start, Location *match_o
 }
 
 static bool location_has_delimiter(Buffer *buf, Location loc) {
-	Line *line = NULL;
-	int ch = 0;
 	int open_ch = 0;
 	int close_ch = 0;
 	bool forward = false;
 	if (loc.line < 1 || loc.line >= buf.eof_line()) {
 		return false;
 	}
-	line = buf.line(loc.line);
+	Line *line = buf.line(loc.line);
 	if (line == NULL || loc.offset >= line.byte_len()) {
 		return false;
 	}
-	ch = line_byte_at(line, loc.offset);
+	int ch = line_byte_at(line, loc.offset);
 	if (!mode_delimiter_pair(ch, &open_ch, &close_ch, &forward)) {
 		return false;
 	}
@@ -344,13 +337,12 @@ static bool location_has_delimiter(Buffer *buf, Location loc) {
 }
 
 static MatchResult match_target(Window *win, Location *match_out) {
-	Buffer *buf = NULL;
 	Location cursor = {0};
 	Location prior = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return MatchNone;
 	}
-	buf = win.buffer;
+	Buffer *buf = win.buffer;
 	cursor.line = win.cursor.line;
 	cursor.offset = win.cursor.offset;
 	if (cursor.line < 1 || cursor.line >= buf.eof_line()) {

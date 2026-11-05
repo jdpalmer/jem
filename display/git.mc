@@ -74,7 +74,6 @@ static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_c
 	const char *prog = git_prog();
 	size_t got = 0;
 	File pf = {0};
-	bool pipe_ok = false;
 	if (prog == NULL || out == NULL || out_cap < 2 || exit_out == NULL) {
 		return false;
 	}
@@ -88,14 +87,13 @@ static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_c
 			return false;
 		}
 		pf = f;
-		pipe_ok = true;
 	}
 	(void)c.stdio(StdErr, IoNull);
 	if (!c.start()) {
 		c.close();
 		return false;
 	}
-	while (pipe_ok && got + 1 < out_cap) {
+	while (got + 1 < out_cap) {
 		auto (n, ok) = pf.read(ranged(out + got, out_cap - 1 - got));
 		if (!ok || n == 0) {
 			break;
@@ -113,24 +111,27 @@ static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_c
 	return true;
 }
 
-static const char *git_next_line(const char *next, const char *end, const char **line_end_out) {
-	const char *line_end = next;
-	while (line_end < end && *line_end != '\n' && *line_end != '\r') {
+/* Advance pos through one line of base[0..end). Writes line-end offset (before
+ * newline) and updates pos to the start of the next line. */
+static void git_next_line(const char *base, size_t end, size_t *pos_inout,
+	size_t *line_end_out) {
+	size_t pos = *pos_inout;
+	size_t line_end = pos;
+	while (line_end < end && base[line_end] != '\n' && base[line_end] != '\r') {
 		line_end++;
 	}
 	*line_end_out = line_end;
-	while (line_end < end && (*line_end == '\n' || *line_end == '\r')) {
+	while (line_end < end && (base[line_end] == '\n' || base[line_end] == '\r')) {
 		line_end++;
 	}
-	return line_end;
+	*pos_inout = line_end;
 }
 
 static void git_set_line_diff(GitModelineCache *cache, size_t line_number, int marker) {
-	uint8_t *slot = NULL;
 	if (cache == NULL || line_number == 0 || line_number > cache.diff_count) {
 		return;
 	}
-	slot = &cache.line_diffs[line_number - 1];
+	uint8_t *slot = &cache.line_diffs[line_number - 1];
 	if ((uint8_t)marker > *slot) {
 		*slot = (uint8_t)marker;
 	}
@@ -166,8 +167,6 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	char dir[GitPathMax] = {0};
 	char basename[256] = {0};
 	char status_out[GitStatusCap] = {0};
-	char *diff_out = NULL;
-	size_t diff_cap = 0;
 	int status_exit = -1;
 	int diff_exit = -1;
 	char branch[64] = {0};
@@ -229,14 +228,14 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	}
 
 	{
-		const char *next = status_out;
-		const char *end = status_out + strlen(status_out);
-		while (next < end) {
-			const char *line_end = NULL;
-			const char *line_start = next;
+		size_t pos = 0;
+		size_t end = strlen(status_out);
+		while (pos < end) {
+			size_t line_start = pos;
+			size_t line_end = 0;
 			char line[256] = {0};
 			size_t line_len = 0;
-			next = git_next_line(next, end, &line_end);
+			git_next_line(status_out, end, &pos, &line_end);
 			line_len = line_end - line_start;
 			if (line_len == 0) {
 				continue;
@@ -244,7 +243,7 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 			if (line_len >= sizeof(line)) {
 				line_len = sizeof(line) - 1;
 			}
-			memcpy(line, line_start, line_len);
+			memcpy(line, status_out + line_start, line_len);
 			line[line_len] = 0;
 			if (strncmp(line, "# branch.head ", 14) == 0) {
 				snprintf(branch, sizeof(branch), "%s", line + 14);
@@ -280,7 +279,7 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 		}
 		if (file_untracked) {
 			snprintf(dirty, sizeof(dirty), "[?]");
-			for (i = 0; i < cache.diff_count; i++) {
+			for (; i < cache.diff_count; i++) {
 				cache.line_diffs[i] = (uint8_t)GitLineDiffAdded;
 			}
 		} else if (file_index_status != '.' || file_worktree_status != '.') {
@@ -299,13 +298,13 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 		return;
 	}
 
-	diff_cap = cache.diff_count * 48 + 4096;
+	size_t diff_cap = cache.diff_count * 48 + 4096;
 	if (diff_cap < 16384) {
 		diff_cap = 16384;
 	} else if (diff_cap > (size_t)GitDiffCapMax) {
 		diff_cap = GitDiffCapMax;
 	}
-	diff_out = (char *)malloc(diff_cap);
+	char *diff_out = (char *)malloc(diff_cap);
 	if (diff_out == NULL) {
 		return;
 	}
@@ -328,26 +327,27 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	}
 
 	{
-		const char *next = diff_out;
-		const char *end = diff_out + strlen(diff_out);
-		while (next < end) {
-			const char *line_end = NULL;
-			const char *line_start = next;
+		size_t pos = 0;
+		size_t end = strlen(diff_out);
+		while (pos < end) {
+			size_t line_start = pos;
+			size_t line_end = 0;
 			char line[256] = {0};
 			size_t line_len = 0;
 			int old_start = 0;
 			int old_count = 1;
 			int new_start = 0;
 			int new_count = 1;
-			next = git_next_line(next, end, &line_end);
+			git_next_line(diff_out, end, &pos, &line_end);
 			line_len = line_end - line_start;
-			if (line_len < 3 || line_start[0] != '@' || line_start[1] != '@') {
+			if (line_len < 3 || diff_out[line_start] != '@' ||
+				diff_out[line_start + 1] != '@') {
 				continue;
 			}
 			if (line_len >= sizeof(line)) {
 				line_len = sizeof(line) - 1;
 			}
-			memcpy(line, line_start, line_len);
+			memcpy(line, diff_out + line_start, line_len);
 			line[line_len] = 0;
 			if (!git_parse_hunk_header(line, &old_start, &old_count, &new_start, &new_count)) {
 				continue;
@@ -420,7 +420,6 @@ static GitModelineCache *git_cache_for_buffer(Buffer *buf) {
 	GitModelineCache *cache = NULL;
 	GitModelineCache *free_slot = NULL;
 	size_t i = 0;
-	int64_t now = 0;
 	char fname[GitPathMax] = {0};
 	if (buf == NULL || len(buf.file_name) == 0) {
 		return NULL;
@@ -429,7 +428,7 @@ static GitModelineCache *git_cache_for_buffer(Buffer *buf) {
 	if (fname[0] == 0) {
 		return NULL;
 	}
-	for (i = 0; i < (size_t)GitCacheMax; i++) {
+	for (; i < (size_t)GitCacheMax; i++) {
 		if (g_git_caches[i].buffer == buf) {
 			cache = &g_git_caches[i];
 			break;
@@ -461,7 +460,7 @@ static GitModelineCache *git_cache_for_buffer(Buffer *buf) {
 		cache.line_diffs = NULL;
 		cache.diff_count = 0;
 	}
-	now = time(NULL);
+	int64_t now = time(NULL);
 	if (git_cache_needs_refresh(cache, buf, fname, now)) {
 		git_refresh_cache(cache, buf, fname, now);
 	}
@@ -492,7 +491,7 @@ void git_forget_buffer(Buffer *buf) {
 	if (buf == NULL) {
 		return;
 	}
-	for (i = 0; i < (size_t)GitCacheMax; i++) {
+	for (; i < (size_t)GitCacheMax; i++) {
 		if (g_git_caches[i].buffer == buf) {
 			free(g_git_caches[i].line_diffs);
 			memset(&g_git_caches[i], 0, sizeof(g_git_caches[i]));

@@ -12,12 +12,11 @@ static bool cursor_at_eob(Window *win) {
 
 static int cursor_char(Window *win, Buffer *buf) {
 	Location loc = {0};
-	Line *line = NULL;
 	if (cursor_at_eob(win)) {
 		return -1;
 	}
 	loc = win.cursor;
-	line = buf.line(loc.line);
+	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return -1;
 	}
@@ -33,13 +32,12 @@ static int cursor_char(Window *win, Buffer *buf) {
 static bool forward_sexp_once(Window *win, Buffer *buf) {
 	Location loc = {0};
 	Location match = {0};
-	int ch = 0;
 	for (;;) {
-		ch = cursor_char(win, buf);
-		if (ch < 0) {
+		int skip = cursor_char(win, buf);
+		if (skip < 0) {
 			return false;
 		}
-		if (ch != ' ' && ch != '\t' && ch != '\n') {
+		if (skip != ' ' && skip != '\t' && skip != '\n') {
 			break;
 		}
 		if (!cmd_forward_char(false, 1)) {
@@ -47,16 +45,14 @@ static bool forward_sexp_once(Window *win, Buffer *buf) {
 		}
 	}
 	loc = win.cursor;
-	ch = cursor_char(win, buf);
+	int ch = cursor_char(win, buf);
 	if (ch == '(' || ch == '[' || ch == '{') {
-		Line *mlp = NULL;
-		size_t after = 0;
 		if (!mode_find_matching_delimiter(buf, loc, &match)) {
 			display_set_echo("[no matching delimiter]");
 			return false;
 		}
-		mlp = buf.line(match.line);
-		after = match.offset + 1;
+		Line *mlp = buf.line(match.line);
+		size_t after = match.offset + 1;
 		if (mlp == NULL || after > mlp.byte_len()) {
 			Location next = {0};
 			next.line = match.line + 1;
@@ -78,14 +74,13 @@ static bool backward_sexp_once(Window *win, Buffer *buf) {
 	Location orig = {0};
 	Location loc = {0};
 	Location match = {0};
-	int ch = 0;
 	orig = win.cursor;
 	if (!cmd_backward_char(false, 1)) {
 		return false;
 	}
 	for (;;) {
-		ch = cursor_char(win, buf);
-		if (ch < 0 || (ch != ' ' && ch != '\t' && ch != '\n')) {
+		int skip = cursor_char(win, buf);
+		if (skip < 0 || (skip != ' ' && skip != '\t' && skip != '\n')) {
 			break;
 		}
 		if (!cmd_backward_char(false, 1)) {
@@ -93,7 +88,7 @@ static bool backward_sexp_once(Window *win, Buffer *buf) {
 		}
 	}
 	loc = win.cursor;
-	ch = cursor_char(win, buf);
+	int ch = cursor_char(win, buf);
 	if (ch == ')' || ch == ']' || ch == '}') {
 		if (!mode_find_matching_delimiter(buf, loc, &match)) {
 			display_set_echo("[no matching delimiter]");
@@ -119,7 +114,7 @@ static bool move_sexp(bool forward, int n) {
 	if (win == NULL || buf == NULL || n == 0) {
 		return true;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		if (forward) {
 			if (!forward_sexp_once(win, buf)) {
 				return false;

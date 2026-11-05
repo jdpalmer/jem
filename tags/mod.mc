@@ -67,13 +67,11 @@ static char g_tags_name[TagNameMax] = {0};
 static char g_tags_error[256] = {0};
 
 static char *tag_strdup(char *s) {
-	size_t n = 0;
-	char *p = NULL;
 	if (s == NULL) {
 		return NULL;
 	}
-	n = strlen(s);
-	p = malloc(n + 1);
+	size_t n = strlen(s);
+	char *p = malloc(n + 1);
 	if (p == NULL) {
 		return NULL;
 	}
@@ -82,11 +80,10 @@ static char *tag_strdup(char *s) {
 }
 
 static char *tag_strdup_n(char *s, size_t n) {
-	char *p = NULL;
 	if (s == NULL) {
 		return NULL;
 	}
-	p = malloc(n + 1);
+	char *p = malloc(n + 1);
 	if (p == NULL) {
 		return NULL;
 	}
@@ -133,16 +130,14 @@ void tags_invalidate() {
 }
 
 static bool tag_db_reserve(size_t need) {
-	TagEntry *grown = {0};
-	size_t ncap = 0;
 	if (need <= cap(g_tags.entries)) {
 		return true;
 	}
-	ncap = cap(g_tags.entries) != 0 ? cap(g_tags.entries) : 256;
+	size_t ncap = cap(g_tags.entries) != 0 ? cap(g_tags.entries) : 256;
 	while (ncap < need) {
 		ncap = ncap * 2;
 	}
-	grown = realloc(ptr(g_tags.entries), ncap * sizeof(TagEntry));
+	TagEntry *grown = realloc(ptr(g_tags.entries), ncap * sizeof(TagEntry));
 	if (grown == NULL) {
 		return false;
 	}
@@ -151,11 +146,10 @@ static bool tag_db_reserve(size_t need) {
 }
 
 static bool tag_db_append(TagEntry *e) {
-	size_t n = 0;
 	if (e == NULL) {
 		return false;
 	}
-	n = len(g_tags.entries);
+	size_t n = len(g_tags.entries);
 	if (!tag_db_reserve(n + 1)) {
 		return false;
 	}
@@ -187,19 +181,17 @@ void tags_list_free(TagList *list) {
 }
 
 static bool tag_list_reserve(TagList *list, size_t need) {
-	TagEntry **grown = {0};
-	size_t ncap = 0;
 	if (list == NULL) {
 		return false;
 	}
 	if (need <= cap(list.items)) {
 		return true;
 	}
-	ncap = cap(list.items) != 0 ? cap(list.items) : 32;
+	size_t ncap = cap(list.items) != 0 ? cap(list.items) : 32;
 	while (ncap < need) {
 		ncap = ncap * 2;
 	}
-	grown = realloc(ptr(list.items), ncap * sizeof(TagEntry *));
+	TagEntry * *grown = realloc(ptr(list.items), ncap * sizeof(TagEntry *));
 	if (grown == NULL) {
 		return false;
 	}
@@ -208,16 +200,14 @@ static bool tag_list_reserve(TagList *list, size_t need) {
 }
 
 static bool tag_list_append(TagList *list, TagEntry *entry) {
-	TagEntry *copy = {0};
-	size_t n = 0;
 	if (list == NULL || entry == NULL) {
 		return false;
 	}
-	n = len(list.items);
+	size_t n = len(list.items);
 	if (!tag_list_reserve(list, n + 1)) {
 		return false;
 	}
-	copy = calloc(1, sizeof(TagEntry));
+	TagEntry *copy = calloc(1, sizeof(TagEntry));
 	if (copy == NULL) {
 		return false;
 	}
@@ -246,14 +236,13 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 }
 
 static int tag_entry_name_cmp(TagEntry *a, TagEntry *b) {
-	int cmp = 0;
 	if (a == NULL || a.name == NULL) {
 		return b == NULL || b.name == NULL ? 0 : -1;
 	}
 	if (b == NULL || b.name == NULL) {
 		return 1;
 	}
-	cmp = strcmp(a.name, b.name);
+	int cmp = strcmp(a.name, b.name);
 	if (cmp != 0) {
 		return cmp;
 	}
@@ -273,8 +262,6 @@ static int tag_entry_name_cmp(TagEntry *a, TagEntry *b) {
 }
 
 static bool tag_db_rebuild_index() {
-	TagEntry **tmp = NULL;
-	TagEntry **indexed = NULL;
 	size_t width = 1;
 	size_t i = 0;
 	size_t n = len(g_tags.entries);
@@ -283,15 +270,15 @@ static bool tag_db_rebuild_index() {
 	if (n == 0) {
 		return true;
 	}
-	indexed = malloc(n * sizeof(TagEntry *));
-	tmp = malloc(n * sizeof(TagEntry *));
+	TagEntry * *indexed = malloc(n * sizeof(TagEntry *));
+	TagEntry * *tmp = malloc(n * sizeof(TagEntry *));
 	if (indexed == NULL || tmp == NULL) {
 		free(indexed);
 		free(tmp);
 		return false;
 	}
 	g_tags.by_name = ranged(indexed, n, n);
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		g_tags.by_name[i] = &g_tags.entries[i];
 	}
 	while (width < n) {
@@ -351,17 +338,15 @@ static size_t tag_index_lower_bound(char *name) {
 }
 
 void *tags_loc_alloc(char *path, int line, int column, char *pattern) {
-	size_t plen = 0;
 	size_t patlen = 0;
-	TagLocHead *h = NULL;
 	if (path == NULL) {
 		return NULL;
 	}
-	plen = strlen(path);
+	size_t plen = strlen(path);
 	if (pattern != NULL) {
 		patlen = strlen(pattern);
 	}
-	h = malloc(sizeof(TagLocHead) + plen + 1 + patlen + 1);
+	TagLocHead *h = malloc(sizeof(TagLocHead) + plen + 1 + patlen + 1);
 	if (h == NULL) {
 		return NULL;
 	}
@@ -395,11 +380,10 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 	TagJsonFields f = {0};
 	char resolved[TagPathMax] = {0};
 	TagEntry e = {0};
-	int parsed = TagJsonMalformed;
 	if (line == NULL || out == NULL) {
 		return TagJsonMalformed;
 	}
-	parsed = tag_json_parse_line(line, &f);
+	int parsed = tag_json_parse_line(line, &f);
 	if (parsed != (int)TagJsonEntry) {
 		return parsed;
 	}
@@ -493,7 +477,6 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 static bool tag_db_load(char *path) {
 	TagDb previous = g_tags;
 	char tags_dir[TagPathMax] = {0};
-	size_t i = 0;
 	int source_line = 0;
 	g_tags_error[0] = 0;
 	memset(&g_tags, 0, sizeof(g_tags));
@@ -505,17 +488,16 @@ static bool tag_db_load(char *path) {
 	{
 		char[..] pv = str_from_cstr(path);
 		char[..] d = path_dir(pv);
-		int n = 0;
 		if (len(d) == 0 || ptr(d) == NULL) {
 			/* keep empty tags_dir */
 		} else {
-			n = snprintf(tags_dir, sizeof(tags_dir), "%s", d);
+			int n = snprintf(tags_dir, sizeof(tags_dir), "%s", d);
 			if (n < 0 || (size_t)n >= sizeof(tags_dir)) {
 				tags_dir[0] = 0;
 			}
 		}
 	}
-	i = 0;
+	size_t i = 0;
 	while (i < text_len) {
 		size_t start = i;
 		size_t nline = 0;
@@ -605,9 +587,8 @@ static bool tag_start_dir(char *dst, size_t cap) {
 	char tmp[TagPathMax] = {0};
 	if (cur != NULL && len(cur.file_name) > 0) {
 		char[..] d = path_dir(cur.file_name);
-		int n = 0;
 		if (len(d) > 0 && ptr(d) != NULL) {
-			n = snprintf(dst, cap, "%s", d);
+			int n = snprintf(dst, cap, "%s", d);
 			if (n >= 0 && (size_t)n < cap) {
 				return true;
 			}
@@ -615,11 +596,10 @@ static bool tag_start_dir(char *dst, size_t cap) {
 	}
 	{
 		auto (cw, ok) = os_cwd(ranged(tmp, 0, sizeof(tmp)));
-		int n = 0;
 		if (!ok || len(cw) == 0) {
 			return false;
 		}
-		n = snprintf(dst, cap, "%s", cw);
+		int n = snprintf(dst, cap, "%s", cw);
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
@@ -736,31 +716,26 @@ static bool tag_is_symbol_char(char c) {
 
 bool tags_symbol_at_point(char *dst, size_t cap) {
 	Window *win = window_current();
-	Line *line = NULL;
 	char[..] v = {0};
-	size_t offset = 0;
-	size_t start = 0;
 	size_t end = 0;
-	size_t llen = 0;
-	char *vp = NULL;
 	if (dst == NULL || cap < 2 || win == NULL || win.buffer == NULL) {
 		return false;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		return false;
 	}
 	v = line.view();
-	llen = len(v);
+	size_t llen = len(v);
 	if (llen == 0 || ptr(v) == NULL) {
 		return false;
 	}
-	vp = ptr(v);
-	offset = win.cursor.offset;
+	char *vp = ptr(v);
+	size_t offset = win.cursor.offset;
 	if (offset > llen) {
 		offset = llen;
 	}
-	start = offset;
+	size_t start = offset;
 	if (start < llen && tag_is_symbol_char(vp[start])) {
 		end = start;
 	} else if (start > 0 && tag_is_symbol_char(vp[start - 1])) {
@@ -785,29 +760,25 @@ bool tags_symbol_at_point(char *dst, size_t cap) {
 
 bool tags_prefix_at_point(char *dst, size_t cap) {
 	Window *win = window_current();
-	Line *line = NULL;
 	char[..] view = {0};
-	char *p = NULL;
-	size_t end = 0;
-	size_t start = 0;
 	if (dst == NULL || cap < 2 || win == NULL || win.buffer == NULL) {
 		return false;
 	}
 	dst[0] = 0;
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		return false;
 	}
 	view = line.view();
-	p = ptr(view);
-	end = win.cursor.offset;
+	char *p = ptr(view);
+	size_t end = win.cursor.offset;
 	if (p == NULL || end == 0) {
 		return false;
 	}
 	if (end > len(view)) {
 		end = len(view);
 	}
-	start = end;
+	size_t start = end;
 	while (start > 0 && tag_is_symbol_char(p[start - 1])) {
 		start--;
 	}
@@ -847,12 +818,7 @@ bool tags_paths_equal(const char[..] a, const char[..] b) {
 
 static void tag_scope_hint(char *dst, size_t cap) {
 	Window *win = window_current();
-	Line *line = NULL;
 	char[..] view = {0};
-	char *p = NULL;
-	size_t offset = 0;
-	size_t start = 0;
-	size_t end = 0;
 	if (dst == NULL || cap < 2) {
 		return;
 	}
@@ -860,20 +826,20 @@ static void tag_scope_hint(char *dst, size_t cap) {
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		return;
 	}
 	view = line.view();
-	p = ptr(view);
-	offset = win.cursor.offset;
+	char *p = ptr(view);
+	size_t offset = win.cursor.offset;
 	if (p == NULL || len(view) == 0) {
 		return;
 	}
 	if (offset > len(view)) {
 		offset = len(view);
 	}
-	start = offset;
+	size_t start = offset;
 	if (start < len(view) && tag_is_symbol_char(p[start])) {
 		/* Cursor is on the member name. */
 	} else if (start > 0 && tag_is_symbol_char(p[start - 1])) {
@@ -887,7 +853,7 @@ static void tag_scope_hint(char *dst, size_t cap) {
 	if (start == 0 || p[start - 1] != '.') {
 		return;
 	}
-	end = start - 1;
+	size_t end = start - 1;
 	start = end;
 	while (start > 0 && tag_is_symbol_char(p[start - 1])) {
 		start--;
@@ -901,15 +867,14 @@ static void tag_scope_hint(char *dst, size_t cap) {
 
 static bool tag_ascii_eq(const char *a, const char[..] b) {
 	size_t i = 0;
-	size_t n = 0;
 	if (a == NULL) {
 		return false;
 	}
-	n = len(b);
+	size_t n = len(b);
 	if (strlen(a) != n) {
 		return false;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		char ca = a[i];
 		char cb = ptr(b)[i];
 		if (ca >= 'A' && ca <= 'Z') {
@@ -926,16 +891,14 @@ static bool tag_ascii_eq(const char *a, const char[..] b) {
 }
 
 static bool tag_scope_matches(char *scope, char *hint) {
-	size_t slen = 0;
-	size_t hlen = 0;
 	if (scope == NULL || hint == NULL || scope[0] == 0 || hint[0] == 0) {
 		return false;
 	}
 	if (strcmp(scope, hint) == 0) {
 		return true;
 	}
-	slen = strlen(scope);
-	hlen = strlen(hint);
+	size_t slen = strlen(scope);
+	size_t hlen = strlen(hint);
 	return slen > hlen && scope[slen - hlen - 1] == '.' &&
 		strcmp(scope + slen - hlen, hint) == 0;
 }
@@ -974,12 +937,11 @@ static int tag_kind_score(char *kind, bool want_member) {
 }
 
 static int tag_score(TagEntry *e, const char[..] cur_path, char *scope_hint) {
-	int score = 0;
 	bool want_member = scope_hint != NULL && scope_hint[0] != 0;
 	if (e == NULL) {
 		return 0;
 	}
-	score = tag_kind_score(e.kind, want_member);
+	int score = tag_kind_score(e.kind, want_member);
 	if (len(cur_path) > 0 && e.path != NULL &&
 		tags_paths_equal(cur_path, str_from_cstr(e.path))) {
 		score += 100;
@@ -1004,13 +966,12 @@ static int tag_rank_cmp(TagEntry *a, TagEntry *b, const char[..] cur_path,
 	char *scope_hint) {
 	int ascore = tag_score(a, cur_path, scope_hint);
 	int bscore = tag_score(b, cur_path, scope_hint);
-	int cmp = 0;
 	char apath[TagPathMax] = {0};
 	char bpath[TagPathMax] = {0};
 	if (ascore != bscore) {
 		return ascore > bscore ? -1 : 1;
 	}
-	cmp = tag_nullable_cmp(a.name, b.name);
+	int cmp = tag_nullable_cmp(a.name, b.name);
 	if (cmp != 0) {
 		return cmp;
 	}
@@ -1034,9 +995,9 @@ static void tag_list_sort_ranked(TagList *list) {
 	Buffer *cur = buffer_current();
 	char[..] cur_path = cur != NULL ? cur.file_name : str_empty();
 	char scope_hint[TagNameMax] = {0};
-	size_t i = 0;
+	size_t i = 1;
 	tag_scope_hint(scope_hint, sizeof(scope_hint));
-	for (i = 1; i < len(list.items); i++) {
+	for (; i < len(list.items); i++) {
 		TagEntry *key = list.items[i];
 		size_t j = i;
 		while (j > 0 && tag_rank_cmp(list.items[j - 1], key,
@@ -1049,12 +1010,11 @@ static void tag_list_sort_ranked(TagList *list) {
 }
 
 bool tags_collect_matches(char *name, TagList *out) {
-	size_t i = 0;
 	if (name == NULL || name[0] == 0 || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
-	i = tag_index_lower_bound(name);
+	size_t i = tag_index_lower_bound(name);
 	while (i < len(g_tags.by_name) && strcmp(g_tags.by_name[i].name, name) == 0) {
 		if (!tag_list_append(out, g_tags.by_name[i])) {
 			tags_list_free(out);
@@ -1070,15 +1030,13 @@ bool tags_collect_completions(char *prefix, TagList *out) {
 	Buffer *cur = buffer_current();
 	char[..] cur_path = cur != NULL ? cur.file_name : str_empty();
 	char scope_hint[TagNameMax] = {0};
-	size_t plen = 0;
-	size_t i = 0;
 	if (prefix == NULL || prefix[0] == 0 || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
-	plen = strlen(prefix);
+	size_t plen = strlen(prefix);
 	tag_scope_hint(scope_hint, sizeof(scope_hint));
-	i = tag_index_lower_bound(prefix);
+	size_t i = tag_index_lower_bound(prefix);
 	while (i < len(g_tags.by_name)) {
 		TagEntry *best = NULL;
 		char *name = g_tags.by_name[i].name;
@@ -1109,15 +1067,12 @@ static int tag_collect_call_context(Window *win, char *out, size_t cap) {
 	char reversed[512] = {0};
 	size_t used = 0;
 	int lines = 1;
-	int line_number = 0;
-	size_t offset = 0;
-	Line *line = NULL;
 	if (win == NULL || win.buffer == NULL || out == NULL || cap < 2) {
 		return 0;
 	}
-	line_number = win.cursor.line;
-	offset = win.cursor.offset;
-	line = win.buffer.line(line_number);
+	int line_number = win.cursor.line;
+	size_t offset = win.cursor.offset;
+	Line *line = win.buffer.line(line_number);
 	if (line != NULL && offset > line.byte_len()) {
 		offset = line.byte_len();
 	}
@@ -1147,7 +1102,7 @@ static int tag_collect_call_context(Window *win, char *out, size_t cap) {
 	}
 	{
 		size_t i = 0;
-		for (i = 0; i < used; i++) {
+		for (; i < used; i++) {
 			out[i] = reversed[used - i - 1];
 		}
 	}
@@ -1162,16 +1117,14 @@ static bool tag_find_call_hint(Window *win, char *name, size_t name_cap,
 	int open = 0;
 	int depth = 0;
 	bool found = false;
-	int i = 0;
-	int end = 0;
-	int start = 0;
+	int i = length;
 	if (name == NULL || name_cap < 2 || scope == NULL || scope_cap < 2) {
 		return false;
 	}
 	name[0] = 0;
 	scope[0] = 0;
 	length = tag_collect_call_context(win, context, sizeof(context));
-	for (i = length; i > 0;) {
+	for (; i > 0;) {
 		char ch = context[--i];
 		if (ch == ')' || ch == ']' || ch == '}') {
 			depth++;
@@ -1188,11 +1141,11 @@ static bool tag_find_call_hint(Window *win, char *name, size_t name_cap,
 	if (!found) {
 		return false;
 	}
-	end = open;
+	int end = open;
 	while (end > 0 && isspace(context[end - 1])) {
 		end--;
 	}
-	start = end;
+	int start = end;
 	while (start > 0 &&
 		tag_is_symbol_char(context[start - 1])) {
 		start--;
@@ -1226,13 +1179,12 @@ void tags_maybe_show_call_hint() {
 	char scope[TagNameMax] = {0};
 	TagEntry *best = NULL;
 	char[..] cur_path = buf != NULL ? buf.file_name : str_empty();
-	size_t i = 0;
 	int best_score = -1;
 	if (!tags_ready() || win == NULL ||
 		!tag_find_call_hint(win, name, sizeof(name), scope, sizeof(scope))) {
 		return;
 	}
-	i = tag_index_lower_bound(name);
+	size_t i = tag_index_lower_bound(name);
 	while (i < len(g_tags.by_name) && strcmp(g_tags.by_name[i].name, name) == 0) {
 		TagEntry *entry = g_tags.by_name[i++];
 		int score = 0;
@@ -1255,7 +1207,6 @@ void tags_maybe_show_call_hint() {
 void tags_format_annotation(TagEntry *entry, char *dst, size_t cap) {
 	char kind_default[4] = {0};
 	char *kind = kind_default;
-	char *typeref = NULL;
 	if (dst == NULL || cap == 0) {
 		return;
 	}
@@ -1267,7 +1218,7 @@ void tags_format_annotation(TagEntry *entry, char *dst, size_t cap) {
 	if (entry.kind != NULL && entry.kind[0] != 0) {
 		kind = entry.kind;
 	}
-	typeref = entry.typeref;
+	char *typeref = entry.typeref;
 	if (typeref != NULL && strncmp(typeref, "typename:", 9) == 0) {
 		typeref = typeref + 9;
 	}
@@ -1286,7 +1237,6 @@ void tags_format_annotation(TagEntry *entry, char *dst, size_t cap) {
 void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 	char root[TagPathMax] = {0};
 	char[..] dir = {0};
-	size_t rlen = 0;
 	if (dst == NULL || cap == 0) {
 		return;
 	}
@@ -1301,7 +1251,7 @@ void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 			root[0] = 0;
 		}
 	}
-	rlen = strlen(root);
+	size_t rlen = strlen(root);
 	if (rlen > 0 && strncmp(entry.path, root, rlen) == 0 &&
 		entry.path[rlen] == '/') {
 		snprintf(dst, cap, "%s", entry.path + rlen + 1);
@@ -1339,7 +1289,7 @@ bool tags_collect_in_file(const char[..] file_path, TagList *out) {
 			}
 		}
 	}
-	for (i = 0; i < len(out.items);) {
+	for (; i < len(out.items);) {
 		if (tag_qualified_duplicate(out, out.items[i])) {
 			size_t j = i;
 			size_t n = len(out.items);
@@ -1367,23 +1317,20 @@ bool tags_collect_in_file(const char[..] file_path, TagList *out) {
 
 static bool tag_pattern_needle(char *pattern, char *dst, size_t cap,
 	bool *anchored) {
-	size_t n = 0;
 	size_t start = 1;
-	size_t end = 0;
 	size_t out = 0;
-	char delim = 0;
 	if (pattern == NULL || dst == NULL || cap < 2 || anchored == NULL) {
 		return false;
 	}
-	n = strlen(pattern);
+	size_t n = strlen(pattern);
 	if (n < 3) {
 		return false;
 	}
-	delim = pattern[0];
+	char delim = pattern[0];
 	if ((delim != '/' && delim != '?') || pattern[n - 1] != delim) {
 		return false;
 	}
-	end = n - 1;
+	size_t end = n - 1;
 	*anchored = start < end && pattern[start] == '^' &&
 		pattern[end - 1] == '$';
 	if (pattern[start] == '^') {
@@ -1408,12 +1355,11 @@ static bool tag_pattern_needle(char *pattern, char *dst, size_t cap,
 
 static bool tag_line_matches(Line *line, char *needle, bool anchored) {
 	char[..] view = {0};
-	size_t nlen = 0;
 	if (line == NULL || needle == NULL) {
 		return false;
 	}
 	view = line.view();
-	nlen = strlen(needle);
+	size_t nlen = strlen(needle);
 	if (anchored) {
 		return len(view) == nlen && (nlen == 0 ||
 			memcmp(ptr(view), needle, nlen) == 0);
@@ -1423,7 +1369,7 @@ static bool tag_line_matches(Line *line, char *needle, bool anchored) {
 	}
 	{
 		size_t i = 0;
-		for (i = 0; i + nlen <= len(view); i++) {
+		for (; i + nlen <= len(view); i++) {
 			if (memcmp(ptr(view) + i, needle, nlen) == 0) {
 				return true;
 			}
@@ -1435,25 +1381,23 @@ static bool tag_line_matches(Line *line, char *needle, bool anchored) {
 int tags_resolve_line(Buffer *buf, TagEntry *entry) {
 	char needle[TagPatMax] = {0};
 	bool anchored = false;
-	int hint = 0;
-	int count = 0;
-	int distance = 0;
+	int distance = 1;
 	if (entry == NULL || entry.line < 1 || buf == NULL ||
 		!tag_pattern_needle(entry.pattern, needle, sizeof(needle), &anchored)) {
 		return entry != NULL ? entry.line : 0;
 	}
-	count = buf.line_count_i();
+	int count = buf.line_count_i();
 	if (count < 1) {
 		return entry.line;
 	}
-	hint = entry.line;
+	int hint = entry.line;
 	if (hint > count) {
 		hint = count;
 	}
 	if (tag_line_matches(buf.line(hint), needle, anchored)) {
 		return hint;
 	}
-	for (distance = 1; distance < count; distance++) {
+	for (; distance < count; distance++) {
 		int down = hint + distance;
 		int up = hint - distance;
 		if (down <= count && tag_line_matches(buf.line(down), needle, anchored)) {
@@ -1468,7 +1412,6 @@ int tags_resolve_line(Buffer *buf, TagEntry *entry) {
 
 bool tags_visit_entry(TagEntry *e) {
 	Window *w = window_current();
-	int line = 0;
 	if (e == NULL || e.path == NULL || e.line < 1) {
 		return false;
 	}
@@ -1479,7 +1422,7 @@ bool tags_visit_entry(TagEntry *e) {
 	if (!ok || buf == NULL) {
 		return false;
 	}
-	line = tags_resolve_line(buf, e);
+	int line = tags_resolve_line(buf, e);
 	return file_visit_location(e.path, line, 1);
 }
 
@@ -1501,7 +1444,6 @@ static Buffer *tags_ensure_list_buf() {
 }
 
 static void tags_present_list(Buffer *buf) {
-	Window *w = NULL;
 	Location loc = {0};
 	if (buf == NULL) {
 		return;
@@ -1514,7 +1456,7 @@ static void tags_present_list(Buffer *buf) {
 	}
 	buffer_set_current(buf);
 	window_switch_buffer(buf);
-	w = window_current();
+	Window *w = window_current();
 	if (w == NULL) {
 		return;
 	}
@@ -1526,17 +1468,15 @@ static void tags_present_list(Buffer *buf) {
 }
 
 static bool tags_show_match_list(TagList *matches, char *title) {
-	Buffer *buf = NULL;
-	bool was_ro = false;
 	char header[256] = {0};
 	if (matches == NULL || len(matches.items) == 0) {
 		return false;
 	}
-	buf = tags_ensure_list_buf();
+	Buffer *buf = tags_ensure_list_buf();
 	if (buf == NULL) {
 		return false;
 	}
-	was_ro = buf.is_readonly;
+	bool was_ro = buf.is_readonly;
 	buf.is_readonly = false;
 	buf.clear();
 	buf.set_file_name(str_empty());
@@ -1634,25 +1574,21 @@ bool tags_goto_buffer() {
 
 bool tags_visit_at_point() {
 	Window *w = window_current();
-	Buffer *buf = NULL;
-	Line *line = NULL;
-	TagLocHead *h = NULL;
-	char *p = NULL;
 	TagEntry entry = {0};
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
-	buf = w.buffer;
+	Buffer *buf = w.buffer;
 	if (len(buf.name) == 0 || (!str_eq(buf.name, "*tags*") &&
 		!str_eq(buf.name, "*describe*"))) {
 		return false;
 	}
-	line = buf.line(w.cursor.line);
+	Line *line = buf.line(w.cursor.line);
 	if (line == NULL || line.metadata == NULL) {
 		return false;
 	}
-	h = (TagLocHead *)line.metadata;
-	p = tag_loc_path(h);
+	TagLocHead *h = (TagLocHead *)line.metadata;
+	char *p = tag_loc_path(h);
 	if (p == NULL || p[0] == 0) {
 		return false;
 	}
@@ -1686,11 +1622,10 @@ static bool tags_project_root(char *dst, size_t cap) {
 		snprintf(prev, sizeof(prev), "%s", dir);
 		{
 			char[..] parent = path_dir(str_from_cstr(dir));
-			int n = 0;
 			if (len(parent) == 0 || ptr(parent) == NULL) {
 				break;
 			}
-			n = snprintf(dir, sizeof(dir), "%s", parent);
+			int n = snprintf(dir, sizeof(dir), "%s", parent);
 			if (n < 0 || (size_t)n >= sizeof(dir)) {
 				return false;
 			}
@@ -1704,8 +1639,6 @@ static bool tags_project_root(char *dst, size_t cap) {
 
 static bool tags_make_temp(char *dst, size_t cap, char *target) {
 	char[..] parent = str_empty();
-	int n = 0;
-	int fd = -1;
 	if (dst == NULL || cap < 2 || target == NULL || target[0] == 0) {
 		return false;
 	}
@@ -1713,11 +1646,11 @@ static bool tags_make_temp(char *dst, size_t cap, char *target) {
 	if (len(parent) == 0 || ptr(parent) == NULL) {
 		return false;
 	}
-	n = snprintf(dst, cap, "%s/.jem-tags-XXXXXX", parent);
+	int n = snprintf(dst, cap, "%s/.jem-tags-XXXXXX", parent);
 	if (n < 0 || (size_t)n >= cap) {
 		return false;
 	}
-	fd = mkstemp(dst);
+	int fd = mkstemp(dst);
 	if (fd < 0) {
 		dst[0] = 0;
 		return false;
@@ -1811,13 +1744,12 @@ bool tags_build() {
 	}
 	{
 		char[..] base = path_base(str_from_cstr(target));
-		int n = 0;
 		if (len(base) == 0 || ptr(base) == NULL) {
 			fs_remove(str_from_cstr(temp));
 			display_set_echo("[invalid tags output path]");
 			return false;
 		}
-		n = snprintf(exclude_name, sizeof(exclude_name), "%s", base);
+		int n = snprintf(exclude_name, sizeof(exclude_name), "%s", base);
 		if (n < 0 || (size_t)n >= sizeof(exclude_name)) {
 			fs_remove(str_from_cstr(temp));
 			display_set_echo("[invalid tags output path]");

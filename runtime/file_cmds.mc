@@ -10,11 +10,10 @@ static char g_delete_path[512];
 
 // cmd_kill_buffer asks before killing (jem.go CmdKillBuffer).
 bool cmd_kill_buffer(bool f, int n) {
-	Buffer *b = NULL;
 	(void)f;
 	if (n > 0) {
 		if (n <= (int)len(buffer_all) && buffer_all[n - 1] != NULL) {
-			b = buffer_all[n - 1];
+			Buffer *b = buffer_all[n - 1];
 			if (b.is_scratch()) {
 				display_set_echo("[cannot kill *scratch*]");
 				return false;
@@ -25,7 +24,7 @@ bool cmd_kill_buffer(bool f, int n) {
 		display_set_echo("[no such buffer]");
 		return false;
 	}
-	b = buffer_current();
+	Buffer *b = buffer_current();
 	if (b == NULL || b.is_scratch()) {
 		display_set_echo("[cannot kill *scratch*]");
 		return false;

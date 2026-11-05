@@ -77,7 +77,6 @@ JsonValue *json_new_number(double number) {
 }
 
 JsonValue *json_new_string_n(const char *string, size_t len) {
-	JsonValue *value = NULL;
 
 	if (string == NULL && len != 0) {
 		return NULL;
@@ -85,7 +84,7 @@ JsonValue *json_new_string_n(const char *string, size_t len) {
 	if (!json_utf8_validate(string, len)) {
 		return NULL;
 	}
-	value = json_value_alloc(JSON_STRING);
+	JsonValue *value = json_value_alloc(JSON_STRING);
 	if (value == NULL) {
 		return NULL;
 	}
@@ -128,7 +127,7 @@ void json_free(JsonValue *value) {
 		free(value.string.data);
 		break;
 	case JSON_ARRAY:
-		for (i = 0; i < value.array.count; i++) {
+		for (; i < value.array.count; i++) {
 			json_free(value.array.items[i]);
 		}
 		free(value.array.items);
@@ -187,7 +186,7 @@ bool json_uint32_value(const JsonValue *value, uint32_t *out) {
 	if (buf[0] == 0) {
 		return false;
 	}
-	for (i = 0; buf[i] != 0; i++) {
+	for (; buf[i] != 0; i++) {
 		char c = buf[i];
 		uint32_t digit = 0;
 		if (c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
@@ -265,7 +264,7 @@ static JsonObjectEntry *json_object_find_entry(JsonValue *object, const char *ke
 	if (object == NULL || object.type != JSON_OBJECT) {
 		return NULL;
 	}
-	for (i = 0; i < object.object.count; i++) {
+	for (; i < object.object.count; i++) {
 		if (json_string_equals(&object.object.entries[i].key, key, key_len)) {
 			return &object.object.entries[i];
 		}
@@ -280,7 +279,7 @@ static const JsonObjectEntry *json_object_find_entry_const(const JsonValue *obje
 	if (object == NULL || object.type != JSON_OBJECT) {
 		return NULL;
 	}
-	for (i = 0; i < object.object.count; i++) {
+	for (; i < object.object.count; i++) {
 		if (json_string_equals(&object.object.entries[i].key, key, key_len)) {
 			return &object.object.entries[i];
 		}
@@ -289,12 +288,11 @@ static const JsonObjectEntry *json_object_find_entry_const(const JsonValue *obje
 }
 
 static bool json_object_put_owned(JsonValue *object, JsonString key, JsonValue *value) {
-	JsonObjectEntry *entry = NULL;
 
 	if (object == NULL || value == NULL) {
 		return false;
 	}
-	entry = json_object_find_entry(object, key.data, key.length);
+	JsonObjectEntry *entry = json_object_find_entry(object, key.data, key.length);
 	if (entry != NULL) {
 		free(key.data);
 		json_free(entry.value);
@@ -372,9 +370,8 @@ const JsonValue *json_object_value_at(const JsonValue *object, size_t index) {
 
 const JsonValue *json_object_get_n(const JsonValue *object, const char *key,
 	size_t key_len) {
-	const JsonObjectEntry *entry = NULL;
 
-	entry = json_object_find_entry_const(object, key, key_len);
+	const JsonObjectEntry *entry = json_object_find_entry_const(object, key, key_len);
 	if (entry == NULL) {
 		return NULL;
 	}
@@ -390,9 +387,8 @@ const JsonValue *json_object_get(const JsonValue *object, const char *key) {
 
 JsonValue *json_object_get_mutable_n(JsonValue *object, const char *key,
 	size_t key_len) {
-	JsonObjectEntry *entry = NULL;
 
-	entry = json_object_find_entry(object, key, key_len);
+	JsonObjectEntry *entry = json_object_find_entry(object, key, key_len);
 	if (entry == NULL) {
 		return NULL;
 	}

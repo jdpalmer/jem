@@ -72,7 +72,7 @@ bool cmd_toggle_search_scope(bool f, int n) {
 	}
 	{
 		size_t i = 0;
-		for (i = 0; i < window_active.count; i++) {
+		for (; i < window_active.count; i++) {
 			Window *win = window_active.windows[i];
 			if (win != NULL) {
 				win.should_update_mode_line = true;

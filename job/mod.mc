@@ -62,8 +62,6 @@ static char g_job_tags_temp[JobPathMax] = {
 static bool g_job_tags_changed;
 
 static bool job_accum_append(char *src, size_t n) {
-	size_t need = 0;
-	char *p = NULL;
 	if (n == 0 || src == NULL) {
 		return true;
 	}
@@ -73,11 +71,11 @@ static bool job_accum_append(char *src, size_t n) {
 			return true;
 		}
 	}
-	need = g_job_len + n + 1;
+	size_t need = g_job_len + n + 1;
 	if (need > JobOutCap + 1) {
 		need = JobOutCap + 1;
 	}
-	p = realloc(g_job_buf, need);
+	char *p = realloc(g_job_buf, need);
 	if (p == NULL) {
 		return false;
 	}
@@ -89,8 +87,6 @@ static bool job_accum_append(char *src, size_t n) {
 }
 
 static bool job_err_append(char *src, size_t n) {
-	size_t need = 0;
-	char *p = NULL;
 	if (n == 0 || src == NULL) {
 		return true;
 	}
@@ -100,8 +96,8 @@ static bool job_err_append(char *src, size_t n) {
 			return true;
 		}
 	}
-	need = g_job_err_len + n + 1;
-	p = realloc(g_job_err_buf, need);
+	size_t need = g_job_err_len + n + 1;
+	char *p = realloc(g_job_err_buf, need);
 	if (p == NULL) {
 		return false;
 	}
@@ -145,11 +141,10 @@ static bool job_project_root(char *dst, size_t cap) {
 	}
 	{
 		auto (cw, ok) = os_cwd(ranged(dir, 0, sizeof(dir)));
-		int n = 0;
 		if (!ok || len(cw) == 0) {
 			return false;
 		}
-		n = snprintf(dst, cap, "%s", cw);
+		int n = snprintf(dst, cap, "%s", cw);
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
@@ -158,13 +153,11 @@ static bool job_project_root(char *dst, size_t cap) {
 }
 
 static void *job_loc_alloc(char *path, int line, int column) {
-	size_t plen = 0;
-	JobLocHead *h = NULL;
 	if (path == NULL) {
 		return NULL;
 	}
-	plen = strlen(path);
-	h = malloc(sizeof(JobLocHead) + plen + 1);
+	size_t plen = strlen(path);
+	JobLocHead *h = malloc(sizeof(JobLocHead) + plen + 1);
 	if (h == NULL) {
 		return NULL;
 	}
@@ -207,11 +200,10 @@ static bool job_abs_path(char *dst, size_t cap, char *rel) {
 	{
 		auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)),
 			str_from_cstr(g_job_root), str_from_cstr(rel));
-		int n = 0;
 		if (!jok || len(jv) == 0) {
 			return false;
 		}
-		n = snprintf(dst, cap, "%s", jv);
+		int n = snprintf(dst, cap, "%s", jv);
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
@@ -219,16 +211,13 @@ static bool job_abs_path(char *dst, size_t cap, char *rel) {
 	return true;
 }
 
-/* Parse tool line: path:line:text or path:line:col:text. */
+/* Parse tool line: path:line:text or path:line:col:text.
+ * msg_off_out (optional) is a byte offset into text for the message. */
 static bool job_parse_colon_hit(char *text, char *path_out, size_t path_cap,
-	int *line_out, int *col_out, char **msg_out) {
+	int *line_out, int *col_out, size_t *msg_off_out) {
 	size_t i = 0;
-	size_t path_end = 0;
 	int line = 0;
 	int col = 1;
-	size_t j = 0;
-	bool has_col = false;
-	int parsed_col = 0;
 
 	if (text == NULL || text[0] == 0 || path_out == NULL || line_out == NULL || col_out == NULL) {
 		return false;
@@ -246,14 +235,14 @@ static bool job_parse_colon_hit(char *text, char *path_out, size_t path_cap,
 	if (i == 0 || text[i] != ':') {
 		return false;
 	}
-	path_end = i;
+	size_t path_end = i;
 	if (path_end >= path_cap) {
 		return false;
 	}
 	memcpy(path_out, text, path_end);
 	path_out[path_end] = 0;
 	i++;
-	j = i;
+	size_t j = i;
 	while (text[j] >= '0' && text[j] <= '9') {
 		line = line * 10 + (text[j] - '0');
 		j++;
@@ -262,8 +251,8 @@ static bool job_parse_colon_hit(char *text, char *path_out, size_t path_cap,
 		return false;
 	}
 	j++;
-	parsed_col = 0;
-	has_col = false;
+	int parsed_col = 0;
+	bool has_col = false;
 	i = j;
 	while (text[i] >= '0' && text[i] <= '9') {
 		parsed_col = parsed_col * 10 + (text[i] - '0');
@@ -274,13 +263,12 @@ static bool job_parse_colon_hit(char *text, char *path_out, size_t path_cap,
 		col = parsed_col;
 		i++;
 	} else {
-		col = 1;
 		i = j;
 	}
 	*line_out = line;
 	*col_out = col;
-	if (msg_out != NULL) {
-		*msg_out = text + i;
+	if (msg_off_out != NULL) {
+		*msg_off_out = i;
 	}
 	return true;
 }
@@ -303,13 +291,12 @@ static Buffer *job_ensure_named(const char[..] name) {
 }
 
 static bool job_set_line1(Buffer *buf, char *text) {
-	Line *line = {0};
 	Location begin = {0};
 	Location end = {0};
 	if (buf == NULL || text == NULL) {
 		return false;
 	}
-	line = buf.line(1);
+	Line *line = buf.line(1);
 	if (line == NULL) {
 		return false;
 	}
@@ -321,7 +308,6 @@ static bool job_set_line1(Buffer *buf, char *text) {
 }
 
 static void job_present_buffer(Buffer *buf) {
-	Window *w = {0};
 	Location loc = {0};
 	if (buf == NULL) {
 		return;
@@ -334,7 +320,7 @@ static void job_present_buffer(Buffer *buf) {
 	}
 	buffer_set_current(buf);
 	window_switch_buffer(buf);
-	w = window_current();
+	Window *w = window_current();
 	if (w == NULL) {
 		return;
 	}
@@ -366,7 +352,7 @@ static int job_fill_grep(Buffer *buf, char *raw, size_t n, char *pattern, bool t
 	int file_count = 0;
 	int last_line = 0;
 	bool have_last = false;
-	char *msg = NULL;
+	size_t msg_off = 0;
 	int hit_line = 0;
 	int hit_col = 0;
 
@@ -403,10 +389,11 @@ static int job_fill_grep(Buffer *buf, char *raw, size_t n, char *pattern, bool t
 			linebuf[len_line - 1] = 0;
 		}
 		raw_line = linebuf;
-		if (!job_parse_colon_hit(raw_line, path, sizeof(path), &hit_line, &hit_col, &msg)) {
+		if (!job_parse_colon_hit(raw_line, path, sizeof(path), &hit_line, &hit_col, &msg_off)) {
 			continue;
 		}
-		if (msg == NULL) {
+		char *msg = raw_line + msg_off;
+		if (msg[0] == 0) {
 			msg = empty_msg;
 		}
 		if (strcmp(path, current_file) != 0) {
@@ -501,7 +488,6 @@ static int job_fill_compile(Buffer *buf, char *raw, size_t n, char *command, int
 	int diag = 0;
 	int errors = 0;
 	int warnings = 0;
-	char *msg = NULL;
 	int hit_line = 0;
 	int hit_col = 0;
 
@@ -559,7 +545,7 @@ static int job_fill_compile(Buffer *buf, char *raw, size_t n, char *command, int
 			return -1;
 		}
 		if (linebuf[0] != 0 &&
-			job_parse_colon_hit(linebuf, path, sizeof(path), &hit_line, &hit_col, &msg)) {
+			job_parse_colon_hit(linebuf, path, sizeof(path), &hit_line, &hit_col, NULL)) {
 			diag++;
 			{
 				char *lower = linebuf;
@@ -600,24 +586,19 @@ static int job_fill_compile(Buffer *buf, char *raw, size_t n, char *command, int
 }
 
 static void job_finish(int exit_code) {
-	Buffer *buf = NULL;
-	bool was_ro = false;
-	bool truncated = false;
 	char echo[256] = {
 		0 };
 	int kind = g_job_kind;
-	int matches = 0;
-	int diags = 0;
 
-	truncated = g_job_len >= JobOutCap;
+	bool truncated = g_job_len >= JobOutCap;
 	if (kind == (int)JobGrep) {
-		buf = job_ensure_named("*grep*");
+		Buffer *buf = job_ensure_named("*grep*");
 		if (buf == NULL) {
 			display_set_echo("[grep failed]");
 		} else {
-			was_ro = buf.is_readonly;
+			bool was_ro = buf.is_readonly;
 			buf.is_readonly = false;
-			matches = job_fill_grep(buf, g_job_buf, g_job_len, g_job_arg0, truncated);
+			int matches = job_fill_grep(buf, g_job_buf, g_job_len, g_job_arg0, truncated);
 			if (matches < 0) {
 				buf.is_readonly = was_ro;
 				display_set_echo("[grep failed]");
@@ -633,13 +614,13 @@ static void job_finish(int exit_code) {
 			}
 		}
 	} else if (kind == (int)JobCompile) {
-		buf = job_ensure_named("*compile*");
+		Buffer *buf = job_ensure_named("*compile*");
 		if (buf == NULL) {
 			display_set_echo("[compile failed]");
 		} else {
-			was_ro = buf.is_readonly;
+			bool was_ro = buf.is_readonly;
 			buf.is_readonly = false;
-			diags = job_fill_compile(buf, g_job_buf, g_job_len, g_job_arg0, exit_code, truncated);
+			int diags = job_fill_compile(buf, g_job_buf, g_job_len, g_job_arg0, exit_code, truncated);
 			if (diags < 0) {
 				buf.is_readonly = was_ro;
 				display_set_echo("[compile failed]");
@@ -725,7 +706,7 @@ static bool job_start_argv(const char[..] program, const char[..] argv[], size_t
 		}
 		resolved = str_from_cstr(prog_path);
 	}
-	for (i = 0; i < nargs; i++) {
+	for (; i < nargs; i++) {
 		stack_args[i] = argv[i];
 	}
 	c.init(resolved, stack_args, nargs);
@@ -805,7 +786,6 @@ bool job_start_tags(char *ctags, char *root, char *target, char *temp,
 	char *exclude_name) {
 	char exclude_arg[JobPathMax + 16] = {0};
 	const char[..] argv[11] = {0};
-	bool ok = false;
 	if (ctags == NULL || root == NULL || target == NULL || temp == NULL ||
 		exclude_name == NULL) {
 		return false;
@@ -829,7 +809,7 @@ bool job_start_tags(char *ctags, char *root, char *target, char *temp,
 	argv[10] = ".";
 	snprintf(g_job_tags_target, sizeof(g_job_tags_target), "%s", target);
 	snprintf(g_job_tags_temp, sizeof(g_job_tags_temp), "%s", temp);
-	ok = job_start_argv(str_from_cstr(ctags), argv, 11, root, JobTags);
+	bool ok = job_start_argv(str_from_cstr(ctags), argv, 11, root, JobTags);
 	if (!ok) {
 		fs_remove(str_from_cstr(temp));
 		g_job_tags_temp[0] = 0;
@@ -942,9 +922,6 @@ bool job_start_compile(char *command) {
 bool job_cursor_loc(char *path_out, size_t path_cap, int *line_out, int *col_out) {
 	Buffer *buf = buffer_current();
 	Window *w = window_current();
-	Line *line = NULL;
-	JobLocHead *h = NULL;
-	char *p = NULL;
 
 	if (buf == NULL || w == NULL || path_out == NULL || path_cap < 2 || line_out == NULL || col_out == NULL) {
 		return false;
@@ -955,12 +932,12 @@ bool job_cursor_loc(char *path_out, size_t path_cap, int *line_out, int *col_out
 	if (!str_eq(buf.name, "*grep*") && !str_eq(buf.name, "*compile*")) {
 		return false;
 	}
-	line = buf.line(w.cursor.line);
+	Line *line = buf.line(w.cursor.line);
 	if (line == NULL || line.metadata == NULL) {
 		return false;
 	}
-	h = (JobLocHead *)line.metadata;
-	p = job_loc_path(h);
+	JobLocHead *h = (JobLocHead *)line.metadata;
+	char *p = job_loc_path(h);
 	if (p == NULL || p[0] == 0) {
 		return false;
 	}
@@ -1026,7 +1003,7 @@ void job_poll() {
 		}
 		if (ready > 0) {
 			int i = 0;
-			for (i = 0; i < pol.ready_count(); i++) {
+			for (; i < pol.ready_count(); i++) {
 				auto (file, events) = pol.ready_file(i);
 				Cmd *jc = pol.ready_cmd(i);
 				(void)events;

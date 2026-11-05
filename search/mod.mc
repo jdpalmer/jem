@@ -109,7 +109,7 @@ static bool line_match_at(Line *line, size_t offset, char *needle, size_t nlen) 
 	}
 	{
 		char *vp = ptr(v);
-		for (i = 0; i < nlen; i++) {
+		for (; i < nlen; i++) {
 			if (vp[offset + i] != needle[i]) {
 				return false;
 			}
@@ -119,14 +119,12 @@ static bool line_match_at(Line *line, size_t offset, char *needle, size_t nlen) 
 }
 
 static bool search_from(Buffer *buf, Location from, bool forward, char *needle, size_t nlen, Location *begin, Location *end) {
-	int line_n = 0;
-	int nlines = 0;
 	if (buf == NULL || nlen == 0) {
 		return false;
 	}
-	nlines = buf.line_count_i();
+	int nlines = buf.line_count_i();
 	if (forward) {
-		line_n = from.line;
+		int line_n = from.line;
 		while (line_n <= nlines) {
 			Line *line = buf.line(line_n);
 			size_t off = 0;
@@ -150,7 +148,7 @@ static bool search_from(Buffer *buf, Location from, bool forward, char *needle, 
 			line_n++;
 		}
 	} else {
-		line_n = from.line;
+		int line_n = from.line;
 		while (line_n >= 1) {
 			Line *line = buf.line(line_n);
 			size_t lim = 0;
@@ -207,11 +205,10 @@ static size_t bytes_to_buffer_end(Buffer *buf, Location start) {
 	int line_number = start.line;
 	size_t offset = start.offset;
 	size_t size = 0;
-	int nlines = 0;
 	if (buf == NULL || line_number < 1) {
 		return 0;
 	}
-	nlines = buf.line_count_i();
+	int nlines = buf.line_count_i();
 	while (line_number <= nlines) {
 		Line *lp = buf.line(line_number);
 		size_t line_len = 0;
@@ -229,23 +226,18 @@ static size_t bytes_to_buffer_end(Buffer *buf, Location start) {
 }
 
 static char *buffer_slice_from(Buffer *buf, Location start, size_t *out_len) {
-	size_t size = 0;
-	char *text = NULL;
 	size_t used = 0;
-	int line_number = 0;
-	size_t offset = 0;
-	int nlines = 0;
 	if (buf == NULL || out_len == NULL) {
 		return NULL;
 	}
-	size = bytes_to_buffer_end(buf, start);
-	text = malloc(size + 1);
+	size_t size = bytes_to_buffer_end(buf, start);
+	char *text = malloc(size + 1);
 	if (text == NULL) {
 		return NULL;
 	}
-	line_number = start.line;
-	offset = start.offset;
-	nlines = buf.line_count_i();
+	int line_number = start.line;
+	size_t offset = start.offset;
+	int nlines = buf.line_count_i();
 	while (line_number <= nlines) {
 		Line *lp = buf.line(line_number);
 		size_t line_len = 0;
@@ -272,11 +264,10 @@ static char *buffer_slice_from(Buffer *buf, Location start, size_t *out_len) {
 }
 
 static Location location_advance_bytes(Buffer *buf, Location loc, size_t bytes) {
-	int nlines = 0;
 	if (buf == NULL) {
 		return loc;
 	}
-	nlines = buf.line_count_i();
+	int nlines = buf.line_count_i();
 	while (bytes > 0) {
 		Line *lp = NULL;
 		size_t line_len = 0;
@@ -306,7 +297,7 @@ static Location location_advance_bytes(Buffer *buf, Location loc, size_t bytes) 
 
 static void search_store_captures(ReCapture *src) {
 	size_t i = 0;
-	for (i = 0; i < ReMaxCaptures; i++) {
+	for (; i < ReMaxCaptures; i++) {
 		g_search.captures[i] = src[i];
 	}
 }
@@ -314,34 +305,26 @@ static void search_store_captures(ReCapture *src) {
 /* 1 = found, 0 = none, -1 = error (invalid / zero-length). */
 static int find_next_regex_match_from(Buffer *buf, Location search_start, char *pattern,
 	Location *begin, Location *end) {
-	size_t match_offset = 0;
-	size_t match_length = 0;
 	size_t text_len = 0;
-	char *text = NULL;
 	ReCapture caps[ReMaxCaptures] = {0};
-	ReStatus status = ReNone;
 	size_t i = 0;
 
 	search_clear_error();
 	if (buf == NULL || pattern == NULL || begin == NULL || end == NULL) {
 		return -1;
 	}
-	for (i = 0; i < ReMaxCaptures; i++) {
+	for (; i < ReMaxCaptures; i++) {
 		caps[i].start = -1;
 		caps[i].length = -1;
 	}
-	text = buffer_slice_from(buf, search_start, &text_len);
+	char *text = buffer_slice_from(buf, search_start, &text_len);
 	if (text == NULL) {
 		search_set_error((char *)(void *)"[out of memory]");
 		return -1;
 	}
-	{
-		auto (st, moff, mlen) = re_find_groups(ranged(pattern, strlen(pattern)),
-			ranged(text, text_len), ranged(caps, ReMaxCaptures));
-		status = st;
-		match_offset = moff;
-		match_length = mlen;
-	}
+	auto (st, match_offset, match_length) = re_find_groups(ranged(pattern, strlen(pattern)),
+		ranged(text, text_len), ranged(caps, ReMaxCaptures));
+	ReStatus status = st;
 	if (status != ReFound) {
 		free(text);
 		if (status == ReInvalid) {
@@ -381,7 +364,7 @@ static int find_prev_regex_match_from(Buffer *buf, Location limit, char *pattern
 	}
 	scan.line = 1;
 	scan.offset = 0;
-	for (i = 0; i < ReMaxCaptures; i++) {
+	for (; i < ReMaxCaptures; i++) {
 		best_caps[i].start = -1;
 		best_caps[i].length = -1;
 	}
@@ -479,8 +462,7 @@ static void search_collect_visible_spans_literal(Window *win) {
 	SearchSpan spans[SearchSpanMax] = {0};
 	int n = 0;
 	int top = 0;
-	int bot = 0;
-	int line_n = 0;
+	int line_n = top;
 	if (win == NULL || win.buffer == NULL || g_search.needle_len == 0 || win.height <= 0) {
 		window_clear_search_spans(win);
 		return;
@@ -489,11 +471,11 @@ static void search_collect_visible_spans_literal(Window *win) {
 	if (top < 1) {
 		top = 1;
 	}
-	bot = top + win.height - 1;
+	int bot = top + win.height - 1;
 	if (bot > win.buffer.line_count_i()) {
 		bot = win.buffer.line_count_i();
 	}
-	for (line_n = top; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
+	for (; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
 		Line *line = win.buffer.line(line_n);
 		size_t lim = 0;
 		size_t off = 0;
@@ -524,8 +506,7 @@ static void search_collect_visible_spans_regex(Window *win) {
 	SearchSpan spans[SearchSpanMax] = {0};
 	int n = 0;
 	int top = 0;
-	int bot = 0;
-	int line_n = 0;
+	int line_n = top;
 	if (win == NULL || win.buffer == NULL || g_search.needle_len == 0 || win.height <= 0) {
 		window_clear_search_spans(win);
 		return;
@@ -534,11 +515,11 @@ static void search_collect_visible_spans_regex(Window *win) {
 	if (top < 1) {
 		top = 1;
 	}
-	bot = top + win.height - 1;
+	int bot = top + win.height - 1;
 	if (bot > win.buffer.line_count_i()) {
 		bot = win.buffer.line_count_i();
 	}
-	for (line_n = top; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
+	for (; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
 		Line *line = win.buffer.line(line_n);
 		size_t lim = 0;
 		char *copy = NULL;
@@ -690,8 +671,7 @@ bool search_next() {
 		}
 	}
 	if (g_search.regexp) {
-		int found = 0;
-		found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
+		int found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
 		if (found > 0) {
 			return search_apply_hit(win, begin, end, false);
 		}
@@ -723,8 +703,7 @@ bool search_next() {
 		}
 	}
 	if (g_search.regexp) {
-		int found = 0;
-		found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
+		int found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
 		if (found > 0) {
 			return search_apply_hit(win, begin, end, true);
 		}
@@ -752,8 +731,7 @@ bool search_update() {
 	}
 	from = g_search.start;
 	if (g_search.regexp) {
-		int found = 0;
-		found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
+		int found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
 		if (found > 0) {
 			return search_apply_hit(win, begin, end, false);
 		}
@@ -781,13 +759,12 @@ void search_begin_replace_re() {
 
 static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *caps, size_t *out_len) {
 	size_t size = 0;
-	char *expanded = NULL;
 	size_t used = 0;
 	size_t i = 0;
 	if (repl == NULL || match_text == NULL || caps == NULL || out_len == NULL) {
 		return NULL;
 	}
-	for (i = 0; repl[i] != 0; i++) {
+	for (; repl[i] != 0; i++) {
 		if (repl[i] == '\\' && repl[i + 1] != 0) {
 			char esc = 0;
 			i++;
@@ -806,7 +783,7 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *c
 			size++;
 		}
 	}
-	expanded = malloc(size + 1);
+	char *expanded = malloc(size + 1);
 	if (expanded == NULL) {
 		return NULL;
 	}
@@ -840,19 +817,14 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *c
 
 bool search_replace_one() {
 	Window *win = window_current();
-	Line *line = NULL;
-	char *old = NULL;
-	size_t old_len = 0;
 	Location begin = {0};
-	char *repl = NULL;
-	size_t repl_len = 0;
 	char *expanded = NULL;
 	bool free_repl = false;
 	if (win == NULL || !g_search.have_match) {
 		return false;
 	}
 	begin = g_search.match_begin;
-	line = win.buffer.line(begin.line);
+	Line *line = win.buffer.line(begin.line);
 	if (line == NULL || g_search.match_end.line != begin.line ||
 		g_search.match_end.offset < begin.offset) {
 		/* Multi-line regex matches: still replace via set_text range. */
@@ -865,25 +837,20 @@ bool search_replace_one() {
 		return false;
 	}
 	/* Capture deleted text for undo — flatten range via save when multi-line. */
+	size_t old_len = 0;
 	if (g_search.match_end.line == begin.line) {
 		old_len = g_search.match_end.offset - begin.offset;
-		old = malloc(old_len + 1);
-		if (old == NULL) {
-			return false;
-		}
-		memcpy(old, ptr(line.data) + begin.offset, old_len);
-		old[old_len] = 0;
-	} else {
-		/* Approximate: store empty and still edit; undo records insert/delete of repl. */
-		old = malloc(1);
-		if (old == NULL) {
-			return false;
-		}
-		old[0] = 0;
-		old_len = 0;
 	}
-	repl = g_search.replacement;
-	repl_len = g_search.replacement_len;
+	char *old = malloc(old_len + 1);
+	if (old == NULL) {
+		return false;
+	}
+	if (g_search.match_end.line == begin.line) {
+		memcpy(old, ptr(line.data) + begin.offset, old_len);
+	}
+	old[old_len] = 0;
+	char *repl = g_search.replacement;
+	size_t repl_len = g_search.replacement_len;
 	if (g_search.regexp) {
 		if (g_search.re_slice == NULL) {
 			free(old);
@@ -1065,29 +1032,26 @@ static bool search_plain_in_buffer(Window *win, Buffer *buf, bool forward, char 
 // search_plain_find runs a non-incremental plain search using g_last_pattern.
 bool search_plain_find(bool forward) {
 	Window *win = window_current();
-	Buffer *origin = NULL;
 	char needle[256] = {0};
-	size_t nlen = 0;
 	size_t i = 0;
-	size_t nbuf = 0;
 	int origin_idx = 0;
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
 	snprintf(needle, sizeof(needle), "%s", g_last_pattern);
-	nlen = strlen(needle);
+	size_t nlen = strlen(needle);
 	if (nlen == 0) {
 		return true;
 	}
-	origin = win.buffer;
+	Buffer *origin = win.buffer;
 	if (search_plain_in_buffer(win, origin, forward, needle, nlen)) {
 		return true;
 	}
 	if (!search_scope_is_all()) {
 		return false;
 	}
-	nbuf = len(buffer_all);
-	for (i = 0; i < nbuf; i++) {
+	size_t nbuf = len(buffer_all);
+	for (; i < nbuf; i++) {
 		if (buffer_all[i] == origin) {
 			origin_idx = (int)i;
 			break;

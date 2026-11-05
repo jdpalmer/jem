@@ -22,7 +22,7 @@ static bool tag_detail_text_line(char *text, size_t text_len, int wanted,
 	if (text == NULL || wanted < 1 || start_out == NULL || len_out == NULL) {
 		return false;
 	}
-	for (i = 0; i <= text_len; i++) {
+	for (; i <= text_len; i++) {
 		if (i == text_len || text[i] == '\n') {
 			if (line == wanted) {
 				size_t n = i - start;
@@ -44,11 +44,10 @@ static bool tag_detail_line_comment(char *line, size_t n, const char *prefix,
 	char **part, size_t *part_len) {
 	size_t start = 0;
 	size_t end = n;
-	size_t plen = 0;
 	if (line == NULL || prefix == NULL || part == NULL || part_len == NULL) {
 		return false;
 	}
-	plen = strlen(prefix);
+	size_t plen = strlen(prefix);
 	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
 		start++;
 	}
@@ -118,13 +117,11 @@ static bool tag_detail_comment_part(char *line, size_t n, LangMode mode,
 }
 
 static bool tag_detail_prepend(char *dst, size_t cap, char *part, size_t n) {
-	size_t old = 0;
-	size_t need = 0;
 	if (dst == NULL || cap == 0 || part == NULL) {
 		return false;
 	}
-	old = strlen(dst);
-	need = n + (old > 0 ? 1 : 0) + old;
+	size_t old = strlen(dst);
+	size_t need = n + (old > 0 ? 1 : 0) + old;
 	if (need >= cap) {
 		return false;
 	}
@@ -184,8 +181,6 @@ static (char *, size_t, bool) tag_detail_source_bytes(TagEntry *entry) {
 }
 
 static void tag_detail_source_comment(TagEntry *entry, char *dst, size_t cap) {
-	LangMode mode = LModeNone;
-	int line = 0;
 	int used_lines = 0;
 	size_t total = 0;
 	if (entry == NULL || entry.path == NULL || dst == NULL || cap == 0) {
@@ -197,8 +192,8 @@ static void tag_detail_source_comment(TagEntry *entry, char *dst, size_t cap) {
 		if (!ok) {
 			return;
 		}
-		mode = tag_detail_lang_for_entry(entry);
-		line = tag_detail_entry_line(entry) - 1;
+		LangMode mode = tag_detail_lang_for_entry(entry);
+		int line = tag_detail_entry_line(entry) - 1;
 		while (line >= 1 && used_lines < TagDetailCommentLines) {
 			char *raw = NULL;
 			size_t raw_len = 0;
@@ -240,11 +235,10 @@ static Buffer *tag_detail_buffer() {
 }
 
 static Line *tag_detail_append_n(Buffer *buf, const char *text, size_t n) {
-	Line *first = NULL;
 	if (buf == NULL || text == NULL) {
 		return NULL;
 	}
-	first = buf.line(1);
+	Line *first = buf.line(1);
 	if (buf.line_count_i() == 1 && first != NULL && first.byte_len() == 0) {
 		Location at = {0};
 		Location end = {0};
@@ -287,7 +281,6 @@ static bool tag_detail_append_lines(Buffer *buf, char *text) {
 
 static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) {
 	char trimmed[2048] = {0};
-	size_t n = 0;
 	const char *s = sig;
 	if (dst == NULL || cap == 0) {
 		return;
@@ -300,7 +293,7 @@ static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) 
 		s++;
 	}
 	snprintf(trimmed, sizeof(trimmed), "%s", s);
-	n = strlen(trimmed);
+	size_t n = strlen(trimmed);
 	while (n > 0 && (trimmed[n - 1] == ' ' || trimmed[n - 1] == '\t' ||
 		trimmed[n - 1] == '\n' || trimmed[n - 1] == '\r')) {
 		trimmed[--n] = 0;
@@ -311,11 +304,10 @@ static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) 
 	}
 	{
 		char *line = trimmed;
-		char *nl = NULL;
 		size_t used = 0;
 		dst[0] = 0;
 		for (;;) {
-			nl = strchr(line, '\n');
+			char *nl = strchr(line, '\n');
 			if (nl != NULL) {
 				*nl = 0;
 			}
@@ -343,21 +335,17 @@ static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) 
 }
 
 bool tags_show_details(TagEntry *entry) {
-	Buffer *buf = NULL;
 	char line[TagPathMax + 1024] = {0};
 	char annotation[TagKindMax + TagNameMax * 2] = {0};
 	char comment[TagDetailCommentCap] = {0};
 	char shown_path[TagPathMax] = {0};
 	char signature[2048] = {0};
-	Line *source_line = NULL;
 	Window *old = window_current();
-	Window *shown = NULL;
 	Location top = {0};
-	int source_line_no = 0;
 	if (entry == NULL || entry.name == NULL || entry.path == NULL) {
 		return false;
 	}
-	buf = tag_detail_buffer();
+	Buffer *buf = tag_detail_buffer();
 	if (buf == NULL) {
 		return false;
 	}
@@ -396,7 +384,7 @@ bool tags_show_details(TagEntry *entry) {
 			return false;
 		}
 	}
-	source_line_no = tag_detail_entry_line(entry);
+	int source_line_no = tag_detail_entry_line(entry);
 	tags_display_path(entry, shown_path, sizeof(shown_path));
 	if (shown_path[0] == 0) {
 		snprintf(shown_path, sizeof(shown_path), "%s", entry.path);
@@ -405,7 +393,7 @@ bool tags_show_details(TagEntry *entry) {
 		return false;
 	}
 	snprintf(line, sizeof(line), "Source: %s:%d", shown_path, source_line_no);
-	source_line = tag_detail_append_n(buf, line, strlen(line));
+	Line *source_line = tag_detail_append_n(buf, line, strlen(line));
 	if (source_line == NULL) {
 		return false;
 	}
@@ -426,7 +414,7 @@ bool tags_show_details(TagEntry *entry) {
 		window_switch_buffer(buf);
 	}
 	buffer_set_current(buf);
-	shown = window_current();
+	Window *shown = window_current();
 	if (shown != NULL) {
 		top.line = 1;
 		top.offset = 0;
@@ -442,7 +430,6 @@ bool tags_describe_symbol() {
 	char symbol[TagNameMax] = {0};
 	char echo[TagNameMax + 32] = {0};
 	TagList matches = {0};
-	bool ok = false;
 	if (!tags_symbol_at_point(symbol, sizeof(symbol))) {
 		display_set_echo("[describe: no symbol at point]");
 		return false;
@@ -456,7 +443,7 @@ bool tags_describe_symbol() {
 		tags_list_free(&matches);
 		return false;
 	}
-	ok = tags_show_details(matches.items[0]);
+	bool ok = tags_show_details(matches.items[0]);
 	tags_list_free(&matches);
 	if (ok) {
 		snprintf(echo, sizeof(echo), "[describe: %s]", symbol);

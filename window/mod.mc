@@ -49,11 +49,10 @@ struct WindowState {
 WindowState window_active;
 
 void window_select(Window *win) {
-	Window *old = {0};
 	if (win == NULL) {
 		return;
 	}
-	old = window_active.current;
+	Window *old = window_active.current;
 	if (old != NULL && old != win) {
 		old.should_update_mode_line = true;
 	}
@@ -64,11 +63,10 @@ void window_select(Window *win) {
 }
 
 Window *window_create() {
-	Window *win = {0};
 	if (window_active.count >= (size_t)WindowMax) {
 		return NULL;
 	}
-	win = calloc(1, sizeof(Window));
+	Window *win = calloc(1, sizeof(Window));
 	if (win == NULL) {
 		return NULL;
 	}
@@ -89,24 +87,21 @@ void window_retile() {
 	size_t n = window_active.count;
 	size_t i = 0;
 	int mode_lines = 0;
-	int usable = 0;
-	int base_rows = 0;
-	int extra = 0;
 	int top = 0;
 	if (n == 0) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		if (window_active.windows[i] != NULL && !window_active.windows[i].no_mode_line) {
 			mode_lines++;
 		}
 	}
-	usable = term_rows() - mode_lines;
+	int usable = term_rows() - mode_lines;
 	if (usable < 0) {
 		usable = 0;
 	}
-	base_rows = usable / (int)n;
-	extra = usable % (int)n;
+	int base_rows = usable / (int)n;
+	int extra = usable % (int)n;
 	for (i = 0; i < n; i++) {
 		Window *win = window_active.windows[i];
 		int rows = base_rows;
@@ -154,7 +149,7 @@ void window_switch_buffer(Buffer *buf) {
 	cw.should_redraw = true;
 	cw.top_line = 1;
 	cw.h_scroll = 0;
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win != NULL && win != cw && win.buffer == buf) {
 			cw.top_line = win.top_line;
@@ -181,7 +176,7 @@ void window_replace_buffer(Buffer *old, Buffer *replacement) {
 	if (old == NULL || replacement == NULL || old == replacement) {
 		return;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *win = window_active.windows[i];
 		if (win == NULL || win.buffer != old) {
 			continue;
@@ -197,14 +192,11 @@ void window_replace_buffer(Buffer *old, Buffer *replacement) {
 }
 
 int window_gutter_width(Window *win) {
-	int n = 1;
 	int digits = 1;
-	int width = 0;
-	int cols = 0;
 	if (win == NULL || win.buffer == NULL) {
 		return 3;
 	}
-	n = win.buffer.line_count_i();
+	int n = win.buffer.line_count_i();
 	if (n < 1) {
 		n = 1;
 	}
@@ -212,8 +204,8 @@ int window_gutter_width(Window *win) {
 		digits++;
 		n /= 10;
 	}
-	width = digits + 2;
-	cols = term_cols();
+	int width = digits + 2;
+	int cols = term_cols();
 	if (width >= cols) {
 		width = cols - 1;
 	}
@@ -224,11 +216,10 @@ int window_gutter_width(Window *win) {
 }
 
 int window_content_row_offset(Window *win) {
-	int visible = 0;
 	if (win == NULL || win.buffer == NULL || !win.bottom_align || win.height <= 0) {
 		return 0;
 	}
-	visible = win.buffer.line_count_i() - win.top_line + 1;
+	int visible = win.buffer.line_count_i() - win.top_line + 1;
 	if (visible < 0) {
 		visible = 0;
 	}
@@ -239,11 +230,10 @@ int window_content_row_offset(Window *win) {
 }
 
 static void sync_goal_col(Window *win) {
-	Line *line = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		win.goal_col = 0;
 		return;
@@ -259,11 +249,10 @@ static void ensure_goal_col(Window *win) {
 }
 
 static void apply_goal_col(Window *win) {
-	Line *line = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line == NULL) {
 		win.cursor.offset = 0;
 		return;
@@ -286,12 +275,11 @@ void (Window *win).set_cursor(Location loc) {
 }
 
 void (Window *win).move_vertical(int delta) {
-	int nlines = 0;
 	if (win.buffer == NULL || delta == 0) {
 		return;
 	}
 	ensure_goal_col(win);
-	nlines = win.buffer.line_count_i();
+	int nlines = win.buffer.line_count_i();
 	if (delta > 0) {
 		if (win.cursor.line + delta <= nlines) {
 			win.cursor.line = win.cursor.line + delta;
@@ -315,7 +303,7 @@ void (Window *win).move_forward_char(int n) {
 	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		Line *line = win.buffer.line(win.cursor.line);
 		if (line != NULL && win.cursor.offset < line.byte_len()) {
 			win.cursor.offset = utf8_next_offset(line.view(), win.cursor.offset);
@@ -335,7 +323,7 @@ void (Window *win).move_backward_char(int n) {
 	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		Line *line = win.buffer.line(win.cursor.line);
 		if (line != NULL && win.cursor.offset > 0) {
 			win.cursor.offset = utf8_prev_offset(line.view(), win.cursor.offset);
@@ -360,20 +348,17 @@ static bool is_word_char(char b) {
 }
 
 static Location forward_word_loc(Buffer *buf, Location loc) {
-	Line *line = {0};
 	char[..] v = {0};
-	size_t off = 0;
-	int nlines = 0;
 	if (buf == NULL) {
 		return loc;
 	}
-	nlines = buf.line_count_i();
-	line = buf.line(loc.line);
+	int nlines = buf.line_count_i();
+	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return loc;
 	}
 	v = line.view();
-	off = loc.offset;
+	size_t off = loc.offset;
 	if (off >= len(v)) {
 		if (loc.line >= nlines) {
 			loc.offset = line.byte_len();
@@ -421,21 +406,19 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 }
 
 static Location backward_word_loc(Buffer *buf, Location loc) {
-	Line *line = {0};
 	char[..] v = {0};
-	size_t off = 0;
 	if (buf == NULL) {
 		return loc;
 	}
 	if (loc.line == 1 && loc.offset == 0) {
 		return loc;
 	}
-	line = buf.line(loc.line);
+	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return loc;
 	}
 	v = line.view();
-	off = loc.offset;
+	size_t off = loc.offset;
 	if (off == 0) {
 		if (loc.line > 1) {
 			loc.line--;
@@ -486,7 +469,7 @@ void (Window *win).move_forward_word(int n) {
 	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		win.cursor = forward_word_loc(win.buffer, win.cursor);
 	}
 	sync_goal_col(win);
@@ -498,7 +481,7 @@ void (Window *win).move_backward_word(int n) {
 	if (win.buffer == NULL || n <= 0) {
 		return;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		win.cursor = backward_word_loc(win.buffer, win.cursor);
 	}
 	sync_goal_col(win);
@@ -512,11 +495,10 @@ void (Window *win).move_bol() {
 }
 
 void (Window *win).move_eol() {
-	Line *line = {0};
 	if (win.buffer == NULL) {
 		return;
 	}
-	line = win.buffer.line(win.cursor.line);
+	Line *line = win.buffer.line(win.cursor.line);
 	if (line != NULL) {
 				win.cursor.offset = line.byte_len();
 			} else {
@@ -527,7 +509,6 @@ void (Window *win).move_eol() {
 }
 
 void (Window *win).ensure_visible() {
-	int bottom = 0;
 	if (win.height <= 0) {
 		return;
 	}
@@ -535,7 +516,7 @@ void (Window *win).ensure_visible() {
 		win.top_line = win.cursor.line;
 		win.should_redraw = true;
 	}
-	bottom = win.top_line + win.height - 1;
+	int bottom = win.top_line + win.height - 1;
 	if (win.cursor.line > bottom) {
 		win.top_line = win.cursor.line - win.height + 1;
 		if (win.top_line < 1) {
@@ -547,11 +528,10 @@ void (Window *win).ensure_visible() {
 
 bool window_split() {
 	Window *cur = window_current();
-	Window *nw = {0};
 	if (cur == NULL) {
 		return false;
 	}
-	nw = window_create();
+	Window *nw = window_create();
 	if (nw == NULL) {
 		return false;
 	}
@@ -570,7 +550,7 @@ bool window_only() {
 	if (cur == NULL) {
 		return false;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		if (window_active.windows[i] != cur) {
 			free(window_active.windows[i]);
 		}
@@ -584,14 +564,14 @@ bool window_only() {
 bool window_delete() {
 	Window *cur = window_current();
 	size_t i = 0;
-	size_t j = 0;
+	size_t j = i;
 	if (cur == NULL || window_active.count <= (size_t)1) {
 		return false;
 	}
 	for (i = 0; i < window_active.count; i++) {
 		if (window_active.windows[i] == cur) {
 			free(cur);
-			for (j = i; j + 1 < window_active.count; j++) {
+			for (; j + 1 < window_active.count; j++) {
 				window_active.windows[j] = window_active.windows[j + 1];
 			}
 			window_active.count--;
@@ -615,7 +595,7 @@ bool window_next() {
 	if (window_active.count <= (size_t)1) {
 		return false;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		if (window_active.windows[i] == window_active.current) {
 			window_select(window_active.windows[(i + 1) % window_active.count]);
 			return true;
@@ -627,15 +607,14 @@ bool window_next() {
 /* Remap sticky window positions after buf replace; clear ephemeral search spans. */
 void window_remap_after_edit(Buffer *buf, Location begin, Location end, Location new_end) {
 	size_t i = 0;
-	int nlines = 0;
 	if (buf == NULL) {
 		return;
 	}
-	nlines = buf.line_count_i();
+	int nlines = buf.line_count_i();
 	if (nlines < 1) {
 		nlines = 1;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		Window *w = window_active.windows[i];
 		if (w == NULL || w.buffer != buf) {
 			continue;
@@ -658,9 +637,8 @@ void window_remap_after_edit(Buffer *buf, Location begin, Location end, Location
 }
 
 void window_init() {
-	Window *win = {0};
 	memset(&window_active, 0, sizeof(window_active));
-	win = window_create();
+	Window *win = window_create();
 	if (win != NULL) {
 		window_select(win);
 		window_retile();
@@ -675,7 +653,7 @@ static int windows_showing(Buffer *buf) {
 	if (buf == NULL) {
 		return 0;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (; i < window_active.count; i++) {
 		if (window_active.windows[i] != NULL && window_active.windows[i].buffer == buf) {
 			n++;
 		}
@@ -688,7 +666,7 @@ static bool text_has_nl(const char *text, size_t n) {
 	if (text == NULL) {
 		return false;
 	}
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		if (text[i] == '\n') {
 			return true;
 		}
@@ -699,14 +677,12 @@ static bool text_has_nl(const char *text, size_t n) {
 /* jem.go NoteBufferEditOnWindows: structural / multi-window edits redraw; else DidEdit. */
 static void note_buffer_edit(Buffer *buf, bool structural, bool was_changed) {
 	size_t i = 0;
-	int showing = 0;
-	bool redraw = false;
 	if (buf == NULL) {
 		return;
 	}
-	showing = windows_showing(buf);
-	redraw = structural || showing != 1;
-	for (i = 0; i < window_active.count; i++) {
+	int showing = windows_showing(buf);
+	bool redraw = structural || showing != 1;
+	for (; i < window_active.count; i++) {
 		Window *w = window_active.windows[i];
 		if (w == NULL || w.buffer != buf) {
 			continue;
@@ -724,15 +700,12 @@ static void note_buffer_edit(Buffer *buf, bool structural, bool was_changed) {
 
 bool (Window *win).set_text(Location begin, Location end, const char *text, size_t n) {
 	Location new_end = {0};
-	bool ok = false;
-	bool was_changed = false;
-	bool structural = false;
 	if (win.buffer == NULL) {
 		return false;
 	}
-	was_changed = win.buffer.is_changed;
-	structural = begin.line != end.line || text_has_nl(text, n);
-	ok = win.buffer.replace_raw(begin, end, text, n, &new_end);
+	bool was_changed = win.buffer.is_changed;
+	bool structural = begin.line != end.line || text_has_nl(text, n);
+	bool ok = win.buffer.replace_raw(begin, end, text, n, &new_end);
 	if (!ok) {
 		return false;
 	}
@@ -764,7 +737,7 @@ void window_set_search_spans(Window *win, SearchSpan *spans, int n) {
 		n = SearchSpanMax;
 	}
 	win.search_span_count = n;
-	for (i = 0; i < n; i++) {
+	for (; i < n; i++) {
 		win.search_spans[i] = spans[i];
 	}
 	win.should_redraw = true;

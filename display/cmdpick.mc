@@ -54,9 +54,8 @@ static void cmdpick_rebuild(const char *query) {
 	} scored[CmdPickMax] = {0};
 	int nscored = 0;
 	int i = 0;
-	int j = 0;
 	g_cp_match_count = 0;
-	for (i = 0; i < g_cp_count; i++) {
+	for (; i < g_cp_count; i++) {
 		auto (ok, sc) = fuzzy_score(g_cp[i].name, query);
 		if (!ok) {
 			continue;
@@ -68,7 +67,7 @@ static void cmdpick_rebuild(const char *query) {
 	for (i = 1; i < nscored; i++) {
 		int idx = scored[i].idx;
 		int sc = scored[i].score;
-		j = i;
+		int j = i;
 		while (j > 0 && (scored[j - 1].score < sc ||
 			(scored[j - 1].score == sc && strcmp(g_cp[scored[j - 1].idx].name, g_cp[idx].name) > 0))) {
 			scored[j] = scored[j - 1];
@@ -84,8 +83,6 @@ static void cmdpick_rebuild(const char *query) {
 }
 
 static void cmdpick_refresh() {
-	char *out = NULL;
-	size_t cap = 0;
 	size_t len = 0;
 	int i = 0;
 	char prompt[64] = {0};
@@ -99,13 +96,13 @@ static void cmdpick_refresh() {
 		window_set_match_buffer_text(NULL, 0, 0);
 		return;
 	}
-	cap = (size_t)g_cp_match_count * 160 + 1;
-	out = malloc(cap);
+	size_t cap = (size_t)g_cp_match_count * 160 + 1;
+	char *out = malloc(cap);
 	if (out == NULL) {
 		return;
 	}
 	out[0] = 0;
-	for (i = 0; i < g_cp_match_count; i++) {
+	for (; i < g_cp_match_count; i++) {
 		CmdPickEntry *e = &g_cp[g_cp_matches[i]];
 		char line[160] = {0};
 		const char *arrow = (i == g_cp_sel) ? "→ " : "  ";
@@ -156,7 +153,7 @@ static int cmdpick_find_name(const char *name) {
 	if (name == NULL || name[0] == 0) {
 		return 0;
 	}
-	for (i = 0; i < g_cp_count; i++) {
+	for (; i < g_cp_count; i++) {
 		if (name_eq_fold(g_cp[i].name, name)) {
 			return i;
 		}
@@ -167,8 +164,6 @@ static int cmdpick_find_name(const char *name) {
 void fuzzy_command_open(const char **names, const char **binds, int count,
 	const char *prompt, const char *initial_name) {
 	int i = 0;
-	int j = 0;
-	int initial = 0;
 	memset(g_cp, 0, sizeof(g_cp));
 	g_cp_count = 0;
 	g_cp_match_count = 0;
@@ -181,7 +176,7 @@ void fuzzy_command_open(const char **names, const char **binds, int count,
 	if (count < 0) {
 		count = 0;
 	}
-	for (i = 0; i < count; i++) {
+	for (; i < count; i++) {
 		size_t nlen = 0;
 		size_t blen = 0;
 		if (names == NULL || names[i] == NULL || names[i][0] == 0) {
@@ -208,7 +203,7 @@ void fuzzy_command_open(const char **names, const char **binds, int count,
 	}
 	for (i = 1; i < g_cp_count; i++) {
 		CmdPickEntry key = g_cp[i];
-		j = i;
+		int j = i;
 		while (j > 0 && strcmp(g_cp[j - 1].name, key.name) > 0) {
 			g_cp[j] = g_cp[j - 1];
 			j--;
@@ -216,7 +211,7 @@ void fuzzy_command_open(const char **names, const char **binds, int count,
 		g_cp[j] = key;
 	}
 	cmdpick_rebuild("");
-	initial = cmdpick_find_name(initial_name != NULL && initial_name[0] != 0 ? initial_name : g_cp_last);
+	int initial = cmdpick_find_name(initial_name != NULL && initial_name[0] != 0 ? initial_name : g_cp_last);
 	if (g_cp_match_count == 0) {
 		g_cp_sel = 0;
 	} else {
@@ -257,12 +252,11 @@ char *fuzzy_command_selected() {
 }
 
 void fuzzy_command_remember(const char *name) {
-	size_t n = 0;
 	g_cp_last[0] = 0;
 	if (name == NULL) {
 		return;
 	}
-	n = strlen(name);
+	size_t n = strlen(name);
 	if (n >= (size_t)CmdPickNameCap) {
 		n = (size_t)CmdPickNameCap - 1;
 	}
