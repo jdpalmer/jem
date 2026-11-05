@@ -48,7 +48,7 @@ struct WindowState {
 
 WindowState window_active;
 
-void window_select(Window *win) {
+void window_select([[retains]] Window *win) {
 	if (win == NULL) {
 		return;
 	}
@@ -136,7 +136,7 @@ void (Window *win).save_state() {
 }
 
 // window_switch_buffer makes buf current in the active window (jem.go SwitchBuffer).
-void window_switch_buffer(Buffer *buf) {
+void window_switch_buffer([[retains]] Buffer *buf) {
 	Window *cw = window_current();
 	size_t i = 0;
 	if (buf == NULL || cw == NULL) {
@@ -171,7 +171,7 @@ void window_switch_buffer(Buffer *buf) {
 	cw.mark = buf.mark;
 }
 
-void window_replace_buffer(Buffer *old, Buffer *replacement) {
+void window_replace_buffer(Buffer *old, [[retains]] Buffer *replacement) {
 	size_t i = 0;
 	if (old == NULL || replacement == NULL || old == replacement) {
 		return;

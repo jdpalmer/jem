@@ -435,7 +435,7 @@ void buffer_list_init() {
 	g_buffer_cur = scratch;
 }
 
-void buffer_set_current(Buffer *buf) {
+void buffer_set_current([[retains]] Buffer *buf) {
 	static int64_t access_seq = 1;
 	if (buf == NULL) {
 		return;
@@ -448,7 +448,7 @@ Buffer *buffer_current() {
 	return g_buffer_cur;
 }
 
-bool buffer_list_add(Buffer *buf) {
+bool buffer_list_add([[retains]] Buffer *buf) {
 	if (buf == NULL) {
 		return false;
 	}
@@ -463,7 +463,7 @@ bool buffer_list_add(Buffer *buf) {
 }
 
 /* Append without making buf current (jem.go Create for *match*). */
-bool buffer_list_append(Buffer *buf) {
+bool buffer_list_append([[retains]] Buffer *buf) {
 	if (buf == NULL) {
 		return false;
 	}
@@ -569,7 +569,7 @@ static void undo_group_reset(UndoGroup *g) {
 	memset(g, 0, sizeof(*g));
 }
 
-void (UndoHistory *h).begin_command(Buffer *buf, Location before) {
+void (UndoHistory *h).begin_command([[retains]] Buffer *buf, Location before) {
 	if (h.is_replaying) {
 		return;
 	}

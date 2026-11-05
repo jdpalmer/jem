@@ -416,7 +416,7 @@ static bool git_cache_needs_refresh(GitModelineCache *cache, Buffer *buf, const 
 	return (now - cache.refreshed_at) >= (int64_t)GitExternalRefreshSec;
 }
 
-static GitModelineCache *git_cache_for_buffer(Buffer *buf) {
+static GitModelineCache *git_cache_for_buffer([[retains]] Buffer *buf) {
 	GitModelineCache *cache = NULL;
 	GitModelineCache *free_slot = NULL;
 	size_t i = 0;

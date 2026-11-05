@@ -36,7 +36,7 @@ static Window *window_showing_buffer(Buffer *buf) {
 }
 
 /* Ensure a window shows buf without selecting it (jem.go EnsureBufferWindow). */
-static Window *window_ensure_buffer(Buffer *buf) {
+static Window *window_ensure_buffer([[retains]] Buffer *buf) {
 	Window *cur = window_current();
 	if (buf == NULL) {
 		return NULL;

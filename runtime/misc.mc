@@ -279,7 +279,7 @@ void misc_kill_pending_no() {
 	display_set_echo("[aborted]");
 }
 
-void misc_begin_kill_confirm(Buffer *buf, const char *prompt) {
+void misc_begin_kill_confirm([[retains]] Buffer *buf, const char *prompt) {
 	g_kill_pending = buf;
 	push_listener(ListenerAskYesNo);
 	{

@@ -12,14 +12,16 @@ static void check(bool value) {
 
 static void test_multiline_insert_undo() {
 	Buffer *buf = buffer_new();
-	UndoHistory history = {0};
+	UndoHistory *history = calloc(1, sizeof(UndoHistory));
 	Location at = {0};
 	Location end = {0};
 	Location cursor = {0};
 	Buffer *undone = NULL;
 	char text[] = "first\nsecond";
 	check(buf != NULL);
+	check(history != NULL);
 	defer buf.free();
+	defer free(history);
 	at.line = 1;
 	history.begin_command(buf, at);
 	check(buf.insert_text(at, text, strlen(text), &end));
@@ -33,13 +35,15 @@ static void test_multiline_insert_undo() {
 
 static void test_large_undo_group() {
 	Buffer *buf = buffer_new();
-	UndoHistory history = {0};
+	UndoHistory *history = calloc(1, sizeof(UndoHistory));
 	Location at = {0};
 	Location cursor = {0};
 	Buffer *undone = NULL;
 	char text[] = "x";
 	check(buf != NULL);
+	check(history != NULL);
 	defer buf.free();
+	defer free(history);
 	at.line = 1;
 	history.begin_command(buf, at);
 	for (int i = 0; i < 80; i++) {
