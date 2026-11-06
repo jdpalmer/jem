@@ -27,9 +27,9 @@ vgcore.*
 .modc-cache/
 **/.modc-cache/
 
-# Built binary
+# Built binary / default modc output
 /jem
-
+/build/
 # Editor backups
 *.bak
 *.backup
