@@ -32,9 +32,8 @@ static TextStyle a_bold() {
 }
 
 static void put_paint(TextStyle[..] styles, size_t i, TextStyle val) {
-	TextStyle *sp = ptr(styles);
-	if (sp != NULL && i < len(styles)) {
-		sp[i] = val;
+	if (i < len(styles)) {
+		styles[i] = val;
 	}
 }
 
@@ -44,14 +43,8 @@ static void fill_paint(TextStyle[..] styles, size_t a, size_t b, TextStyle val) 
 	if (b > n) {
 		b = n;
 	}
-	{
-		TextStyle *sp = ptr(styles);
-		if (sp == NULL) {
-			return;
-		}
-		for (; j < b; j++) {
-			sp[j] = val;
-		}
+	for (; j < b; j++) {
+		styles[j] = val;
 	}
 }
 
@@ -59,13 +52,7 @@ static int line_byte(char[..] line, size_t i) {
 	if (i >= len(line)) {
 		return 0;
 	}
-	{
-		char *lp = ptr(line);
-		if (lp == NULL) {
-			return 0;
-		}
-		return lp[i];
-	}
+	return line[i];
 }
 
 static bool is_number_cont(int c) {
@@ -206,13 +193,11 @@ static void paint_delimiter(SynState* syn, int ch, size_t idx, TextStyle[..] sty
 }
 
 static void paint_ident_range(char[..] line, size_t start, size_t end, LangMode lm, TextStyle[..] styles) {
-	TextStyle a = TextStyleDefault;
-	char[..] word = {0};
 	if (start >= end || end > len(styles) || end > len(line)) {
 		return;
 	}
-	word = line[start..end];
-	a = ident_style_for(lm, word);
+	char[..] word = line[start..end];
+	TextStyle a = ident_style_for(lm, word);
 	if (text_style_eq(a, TextStyleDefault)) {
 		a = a_normal();
 	}
@@ -378,7 +363,6 @@ static void on_exit(int state, char[..] line, size_t i, size_t token_start, Lang
 // for structure-only scans. EOL carry cleanup runs only for a full-line scan.
 SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, TextStyle[..] styles,
 	size_t limit) {
-	Spec info = {ModeSyntaxGeneral};
 	SynState syn = {SynStateNormal};
 	size_t i = 0;
 	size_t k = 0;
@@ -386,7 +370,7 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 	if (prev != 0) {
 		syn = *prev;
 	}
-	info = syntax_spec_for(lang);
+	Spec info = syntax_spec_for(lang);
 	size_t full_len = len(line);
 	size_t n = full_len;
 	if (limit != 0 && limit < n) {
@@ -394,15 +378,12 @@ SynState syntax_highlight_line(LangMode lang, SynState* prev, char[..] line, Tex
 	}
 	/* Paint only where styles exist; still tokenize through n for SynState. */
 	{
-		TextStyle *sp = ptr(styles);
 		size_t paint_n = len(styles);
 		if (paint_n > n) {
 			paint_n = n;
 		}
-		if (sp != NULL) {
-			for (; i < paint_n; i++) {
-				sp[i] = a_normal();
-			}
+		for (; i < paint_n; i++) {
+			styles[i] = a_normal();
 		}
 	}
 

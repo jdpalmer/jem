@@ -9,15 +9,16 @@
 
 static Buffer *g_kill_pending;
 
+static const char[..] month_names[] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+};
+
 static const char *month_name(int mon) {
-	static const char *names[12] = {
-		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-	};
 	if (mon < 0 || mon > 11) {
 		return "?";
 	}
-	return names[mon];
+	return month_names[mon];
 }
 
 static void buffer_char_stats(Buffer *buf, Window *win, int *char_at, int *before, int *total) {
@@ -41,7 +42,7 @@ static void buffer_char_stats(Buffer *buf, Window *win, int *char_at, int *befor
 				at = '\n';
 			} else {
 				char[..] v = line.view();
-				at = ptr(v)[cbo];
+				at = v[cbo];
 			}
 		}
 		if (line == NULL || cbo == llen) {
@@ -64,7 +65,6 @@ static void buffer_char_stats(Buffer *buf, Window *win, int *char_at, int *befor
 bool cmd_insert_date(bool f, int n) {
 	Window *win = window_current();
 	char date[64] = {0};
-	Location at = {0};
 	(void)f;
 	(void)n;
 	if (win == NULL || win.buffer == NULL) {
@@ -80,7 +80,7 @@ bool cmd_insert_date(bool f, int n) {
 		return false;
 	}
 	snprintf(date, sizeof(date), "%s %d, %d", month_name(lt.tm_mon), lt.tm_mday, lt.tm_year + 1900);
-	at = win.cursor;
+	Location at = win.cursor;
 	buffer_undo.begin_command(win.buffer, at);
 	if (!win.set_text(at, at, date, strlen(date))) {
 		buffer_undo.end_command();

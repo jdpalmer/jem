@@ -95,7 +95,7 @@ const char[..] clipboard_provider_name() {
 	}
 }
 
-static size_t clipboard_args(bool writing, const char[..] args[4]) {
+static size_t clipboard_args(bool writing, const char[..][..] args) {
 	if (g_provider == ClipboardXclip) {
 		args[0] = "-selection";
 		args[1] = "clipboard";
@@ -238,14 +238,16 @@ static (char *, size_t, bool) clipboard_read_native() {
 		free(data);
 		return (NULL, 0, false);
 	}
-	data[used] = 0;
+	{
+		char[..] z = ranged(data, used + 1, capacity);
+		z[used] = 0;
+	}
 	return (data, used, true);
 }
 
 static bool clipboard_write_osc52(const char[..] text) {
-	static char alphabet[] =
+	static const char[..] alphabet =
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	uint8_t *bytes = (uint8_t *)ptr(text);
 	size_t i = 0;
 	if (len(text) == 0) {
 		return true;
@@ -256,21 +258,22 @@ static bool clipboard_write_osc52(const char[..] text) {
 	size_t groups = (len(text) + 2) / 3;
 	size_t encoded_len = groups * 4;
 	size_t total = 7 + encoded_len + 1;
-	char *encoded = malloc(total);
-	if (encoded == NULL) {
+	char *raw = malloc(total);
+	if (raw == NULL) {
 		return false;
 	}
-	memcpy(encoded, "\x1b]52;c;", 7);
+	char[..] encoded = ranged(raw, total);
+	memcpy(raw, "\x1b]52;c;", 7);
 	size_t out = 7;
 	for (; i < len(text); i += 3) {
-		uint32_t a = bytes[i];
+		uint32_t a = text[i];
 		uint32_t b = 0;
 		uint32_t c = 0;
 		if (i + 1 < len(text)) {
-			b = bytes[i + 1];
+			b = text[i + 1];
 		}
 		if (i + 2 < len(text)) {
-			c = bytes[i + 2];
+			c = text[i + 2];
 		}
 		encoded[out++] = alphabet[a >> 2];
 		encoded[out++] = alphabet[((a & 3) << 4) | (b >> 4)];
@@ -292,9 +295,9 @@ static bool clipboard_write_osc52(const char[..] text) {
 	 * tty_stdout() fd and writing directly) can interleave with whatever
 	 * escape sequence term/mod.mc currently has buffered but not yet
 	 * flushed, tearing it apart -- the "13;15H"/"29;60H" stray-text bug. */
-	term_write(encoded, out);
+	term_write(raw, out);
 	term_out_flush();
-	free(encoded);
+	free(raw);
 	return true;
 }
 

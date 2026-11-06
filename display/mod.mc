@@ -24,8 +24,8 @@ struct DispCell {
 };
 
 struct Screen {
-	DispCell *cells;
-	bool *row_dirty;
+	DispCell[..] cells;
+	bool[..] row_dirty;
 	int rows;
 	int cols;
 };
@@ -216,10 +216,10 @@ static bool in_search_span(Window *win, int line_number, size_t byte_off) {
 }
 
 static void screen_free(Screen *s) {
-	free(s.cells);
-	free(s.row_dirty);
-	s.cells = NULL;
-	s.row_dirty = NULL;
+	free(ptr(s.cells));
+	free(ptr(s.row_dirty));
+	s.cells = ranged((DispCell *)0, 0);
+	s.row_dirty = ranged((bool *)0, 0);
 	s.rows = 0;
 	s.cols = 0;
 }
@@ -233,7 +233,7 @@ static bool screen_resize(Screen *s, int rows, int cols) {
 	if (cols < 1) {
 		cols = 1;
 	}
-	if (s.rows == rows && s.cols == cols && s.cells != NULL && s.row_dirty != NULL) {
+	if (s.rows == rows && s.cols == cols && ptr(s.cells) != NULL && ptr(s.row_dirty) != NULL) {
 		return true;
 	}
 	int n = rows * cols;
@@ -244,14 +244,15 @@ static bool screen_resize(Screen *s, int rows, int cols) {
 		free(dirty);
 		return false;
 	}
+	DispCell[..] pv = ranged(p, n);
 	for (; i < n; i++) {
-		p[i].ch = ' ';
-		p[i].style = def;
+		pv[i].ch = ' ';
+		pv[i].style = def;
 	}
-	free(s.cells);
-	free(s.row_dirty);
-	s.cells = p;
-	s.row_dirty = dirty;
+	free(ptr(s.cells));
+	free(ptr(s.row_dirty));
+	s.cells = pv;
+	s.row_dirty = ranged(dirty, rows);
 	s.rows = rows;
 	s.cols = cols;
 	return true;
@@ -274,39 +275,41 @@ void put_rune(Screen *s, int row, int col, uint32_t ch, TextStyle style) {
 	}
 	c.ch = ch;
 	c.style = style;
-	if (s.row_dirty != NULL && row >= 0 && row < s.rows) {
+	if (ptr(s.row_dirty) != NULL && row >= 0 && row < s.rows) {
 		s.row_dirty[row] = true;
 	}
 }
 
 /* Solarized / ANSI RGB — match jem.go/term/term_style.go (truecolor, not 256). */
+static const char[..] color_rgb_base[] = {
+	"7;54;66",
+	"220;50;47",
+	"133;153;0",
+	"181;137;0",
+	"38;139;210",
+	"211;54;130",
+	"42;161;152",
+	"238;232;213",
+};
+
+static const char[..] color_rgb_sol[] = {
+	"0;43;54",
+	"7;54;66",
+	"88;110;117",
+	"101;123;131",
+	"131;148;150",
+	"147;161;161",
+	"238;232;213",
+	"253;246;227",
+};
+
 static const char *color_rgb_cstr(TermColor c) {
-	static const char *base[8] = {
-		"7;54;66",
-		"220;50;47",
-		"133;153;0",
-		"181;137;0",
-		"38;139;210",
-		"211;54;130",
-		"42;161;152",
-		"238;232;213",
-	};
-	static const char *sol[8] = {
-		"0;43;54",
-		"7;54;66",
-		"88;110;117",
-		"101;123;131",
-		"131;148;150",
-		"147;161;161",
-		"238;232;213",
-		"253;246;227",
-	};
 	int i = c;
 	if (i >= 0 && i <= 7) {
-		return base[i];
+		return color_rgb_base[i];
 	}
 	if (i >= 17 && i <= 24) {
-		return sol[i - 17];
+		return color_rgb_sol[i - 17];
 	}
 	return NULL;
 }
@@ -451,14 +454,12 @@ void paint_blank_row(Window *win, int screen_row) {
 }
 
 void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
-	char[..] v = {0};
 	int dcol = 0;
 	size_t i = 0;
 	ssize_t sel_start = -1;
 	size_t sel_end = 0;
 	TextStyle def = style_default();
 	SynState prev = {SynStateNormal};
-	SynState end = {SynStateNormal};
 
 	Line *line = win.buffer.line(buf_line);
 	if (line == NULL) {
@@ -471,30 +472,29 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 		h_scroll = 0;
 	}
 	int cols = term_cols();
-	v = line.view();
+	char[..] v = line.view();
 	size_t line_len = len(v);
 	sel_line(sel, buf_line, line_len, &sel_start, &sel_end);
 
 	/* highlight if needed (structure-only parse may set syntax_valid without styles) */
-	if ((!line.syntax_valid || line.styles == NULL) && len(v) != 0) {
+	if ((!line.syntax_valid || ptr(line.styles) == NULL) && len(v) != 0) {
 		TextStyle *st = calloc(len(v), sizeof(TextStyle));
 		if (st != NULL) {
+			TextStyle[..] styles_new = ranged(st, len(v));
 			if (buf_line > 1) {
 				Line *pl = win.buffer.line(buf_line - 1);
 				if (pl != NULL && pl.syntax_valid) {
 					prev = pl.syntax_end;
 				}
 			}
-			end = syntax_highlight_line(win.buffer.lang_mode, &prev, v, ranged(st, len(v)), 0);
-			free(line.styles);
-			line.styles = st;
-			line.styles_len = len(v);
+			SynState end = syntax_highlight_line(win.buffer.lang_mode, &prev, v, styles_new, 0);
+			free(ptr(line.styles));
+			line.styles = styles_new;
 			line.syntax_end = end;
 			line.syntax_valid = true;
 		}
 	}
-	TextStyle *styles = line.styles;
-	size_t styles_len = line.styles_len;
+	TextStyle[..] styles = line.styles;
 
 	if (line_len == 0) {
 		int fill = gutter;
@@ -522,7 +522,7 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 		if (sz == 0) {
 			break;
 		}
-		if (styles != NULL && i < styles_len) {
+		if (i < len(styles)) {
 			st = styles[i];
 			if (st.bits == 0) {
 				st = def;
@@ -775,7 +775,7 @@ static void row_sync(int row) {
 
 static void mark_all_dirty() {
 	int i = 0;
-	if (g_screen.row_dirty == NULL) {
+	if (ptr(g_screen.row_dirty) == NULL) {
 		return;
 	}
 	for (; i < g_screen.rows; i++) {
@@ -786,7 +786,7 @@ static void mark_all_dirty() {
 static void reset_front_to_spaces() {
 	int i = 0;
 	TextStyle normal = style_default();
-	if (g_prev.cells == NULL) {
+	if (ptr(g_prev.cells) == NULL) {
 		return;
 	}
 	int n = g_prev.rows * g_prev.cols;
@@ -811,12 +811,13 @@ static void screen_sync() {
 	}
 	if (term_rows() < g_screen.rows) {
 		int msg = term_rows();
-		if (g_screen.row_dirty != NULL && msg >= 0 && msg < g_screen.rows && g_screen.row_dirty[msg]) {
+		if (ptr(g_screen.row_dirty) != NULL && msg >= 0 && msg < g_screen.rows &&
+			g_screen.row_dirty[msg]) {
 			sync_rows = term_rows() + 1;
 		}
 	}
 	for (; i < sync_rows && i < g_screen.rows; i++) {
-		if (g_screen.row_dirty != NULL && g_screen.row_dirty[i]) {
+		if (ptr(g_screen.row_dirty) != NULL && g_screen.row_dirty[i]) {
 			g_screen.row_dirty[i] = false;
 			row_sync(i);
 		}
@@ -824,28 +825,30 @@ static void screen_sync() {
 }
 
 static void screen_rows_scroll_up(Screen *s, int start, int length, int n) {
-	if (s == NULL || s.cells == NULL || n <= 0 || n >= length) {
+	if (s == NULL || ptr(s.cells) == NULL || n <= 0 || n >= length) {
 		return;
 	}
 	if (start < 0 || start + length > s.rows) {
 		return;
 	}
 	int cols = s.cols;
+	DispCell *base = ptr(s.cells);
 	DispCell *tmp = malloc((size_t)n * (size_t)cols * sizeof(DispCell));
 	if (tmp == NULL) {
 		return;
 	}
-	memcpy(tmp, s.cells + start * cols, (size_t)n * (size_t)cols * sizeof(DispCell));
-	memmove(s.cells + start * cols, s.cells + (start + n) * cols,
+	memcpy(tmp, base + start * cols, (size_t)n * (size_t)cols * sizeof(DispCell));
+	memmove(base + start * cols, base + (start + n) * cols,
 		(size_t)(length - n) * (size_t)cols * sizeof(DispCell));
-	memcpy(s.cells + (start + length - n) * cols, tmp, (size_t)n * (size_t)cols * sizeof(DispCell));
+	memcpy(base + (start + length - n) * cols, tmp, (size_t)n * (size_t)cols * sizeof(DispCell));
 	free(tmp);
-	if (s.row_dirty != NULL) {
+	if (ptr(s.row_dirty) != NULL) {
+		bool *dbase = ptr(s.row_dirty);
 		bool *dtmp = malloc((size_t)n * sizeof(bool));
 		if (dtmp != NULL) {
-			memcpy(dtmp, s.row_dirty + start, (size_t)n * sizeof(bool));
-			memmove(s.row_dirty + start, s.row_dirty + start + n, (size_t)(length - n) * sizeof(bool));
-			memcpy(s.row_dirty + start + length - n, dtmp, (size_t)n * sizeof(bool));
+			memcpy(dtmp, dbase + start, (size_t)n * sizeof(bool));
+			memmove(dbase + start, dbase + start + n, (size_t)(length - n) * sizeof(bool));
+			memcpy(dbase + start + length - n, dtmp, (size_t)n * sizeof(bool));
 			free(dtmp);
 		}
 	}
@@ -917,7 +920,7 @@ static void apply_hardware_scroll(Window *win, int old_top) {
 	}
 	clear_front_rows(clear_from, clear_to);
 	for (int r = clear_from; r < clear_to; r++) {
-		if (g_screen.row_dirty != NULL && r >= 0 && r < g_screen.rows) {
+		if (ptr(g_screen.row_dirty) != NULL && r >= 0 && r < g_screen.rows) {
 			g_screen.row_dirty[r] = true;
 		}
 	}

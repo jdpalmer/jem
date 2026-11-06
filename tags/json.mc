@@ -92,13 +92,13 @@ static bool tag_json_u16(TagJsonCursor *c, uint32_t *out) {
 		return false;
 	}
 	for (; i < 4; i++) {
-		int h = tag_json_hex(c.p[i]);
+		int h = tag_json_hex(*c.p);
 		if (h < 0) {
 			return false;
 		}
 		v = (v << 4) | (uint32_t)h;
+		c.p++;
 	}
-	c.p = c.p + 4;
 	*out = v;
 	return true;
 }
@@ -166,11 +166,16 @@ static bool tag_json_string(TagJsonCursor *c, char **out) {
 			}
 			if (cp >= 0xD800 && cp <= 0xDBFF) {
 				uint32_t low = 0;
-				if (c.p[0] != '\\' || c.p[1] != 'u') {
+				if (*c.p != '\\') {
 					str_free(&b);
 					return false;
 				}
-				c.p = c.p + 2;
+				c.p++;
+				if (*c.p != 'u') {
+					str_free(&b);
+					return false;
+				}
+				c.p++;
 				if (!tag_json_u16(c, &low) || low < 0xDC00 || low > 0xDFFF) {
 					str_free(&b);
 					return false;
@@ -210,11 +215,11 @@ static bool tag_json_literal(TagJsonCursor *c, const char[..] word) {
 	}
 	size_t n = len(word);
 	for (; i < n; i++) {
-		if (c.p[i] == 0 || c.p[i] != ptr(word)[i]) {
+		if (*c.p == 0 || *c.p != word[i]) {
 			return false;
 		}
+		c.p++;
 	}
-	c.p = c.p + n;
 	return true;
 }
 
@@ -485,8 +490,8 @@ int tag_json_parse_line(char *line, TagJsonFields *out) {
 		tag_json_fields_free(&f);
 		return TagJsonSkip;
 	}
-	if (!semantic_ok || f.name == NULL || f.name[0] == 0 ||
-		f.path == NULL || f.path[0] == 0 || !f.line_valid) {
+	if (!semantic_ok || f.name == NULL || *f.name == 0 ||
+		f.path == NULL || *f.path == 0 || !f.line_valid) {
 		tag_json_fields_free(&f);
 		return TagJsonSkip;
 	}

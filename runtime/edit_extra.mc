@@ -54,7 +54,6 @@ static bool quote_insert_key(uint32_t k, int n) {
 	Window *w = window_current();
 	char utf[8] = {0};
 	int len = 0;
-	Location at = {0};
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
@@ -63,7 +62,7 @@ static bool quote_insert_key(uint32_t k, int n) {
 	}
 	if (k == '\n' || k == '\r' || k == term_key_value(TermKeyEnter)) {
 		char nl = '\n';
-		at = w.cursor;
+		Location at = w.cursor;
 		buffer_undo.begin_command(w.buffer, at);
 		while (n-- > 0) {
 			Location cur = w.cursor;
@@ -103,7 +102,7 @@ static bool quote_insert_key(uint32_t k, int n) {
 	} else {
 		return false;
 	}
-	at = w.cursor;
+	Location at = w.cursor;
 	buffer_undo.begin_command(w.buffer, at);
 	while (n-- > 0) {
 		Location cur = w.cursor;
@@ -201,7 +200,6 @@ bool cmd_transpose_lines(bool f, int n) {
 	Location p0 = {0};
 	Location p2 = {0};
 	size_t total = 0;
-	Location saved = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
@@ -245,11 +243,12 @@ bool cmd_transpose_lines(bool f, int n) {
 		/* get_text to EOF is prev\ncurr (no nl after curr); insert separator. */
 		size_t len2 = total - len1;
 		memcpy(swapped, original + len1, len2);
-		swapped[len2] = '\n';
+		char[..] sw = ranged(swapped, total + 2);
+		sw[len2] = '\n';
 		memcpy(swapped + len2 + 1, original, prev.byte_len());
 		total = len2 + 1 + prev.byte_len();
 	}
-	saved = w.cursor;
+	Location saved = w.cursor;
 	if (!replace_range_command(w, p0, p2, swapped, total)) {
 		free(original);
 		free(swapped);
@@ -265,14 +264,12 @@ bool cmd_transpose_lines(bool f, int n) {
 }
 
 static bool get_region(Window *w, Location *start_out, Location *end_out) {
-	Location cursor = {0};
-	Location mark = {0};
 	if (w == NULL || w.mark.line == 0) {
 		display_set_echo("No mark set");
 		return false;
 	}
-	cursor = w.cursor;
-	mark = w.mark;
+	Location cursor = w.cursor;
+	Location mark = w.mark;
 	if (cursor.line < mark.line || (cursor.line == mark.line && cursor.offset <= mark.offset)) {
 		*start_out = cursor;
 		*end_out = mark;
@@ -300,15 +297,16 @@ static bool transform_region_case(bool upper) {
 	if (text == NULL) {
 		return false;
 	}
+	char[..] tv = ranged(text, tlen);
 	for (; i < tlen; i++) {
 		char t = 0;
 		if (upper) {
-			t = ident_upper(text[i]);
+			t = ident_upper(tv[i]);
 		} else {
-			t = ident_lower(text[i]);
+			t = ident_lower(tv[i]);
 		}
-		if (t != text[i]) {
-			text[i] = t;
+		if (t != tv[i]) {
+			tv[i] = t;
 			changed = true;
 		}
 	}
@@ -356,7 +354,6 @@ bool cmd_sort_region(bool f, int n) {
 	size_t i = 0;
 	size_t sorted_len = 0;
 	int li = 0;
-	Location saved = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
@@ -383,8 +380,9 @@ bool cmd_sort_region(bool f, int n) {
 	}
 	/* Split on newlines into lines[]. */
 	size_t line_start = 0;
+	const char[..] tv = ranged(text, tlen + 1);
 	for (; i <= tlen; i++) {
-		if (i == tlen || text[i] == '\n') {
+		if (i == tlen || tv[i] == '\n') {
 			size_t llen = i - line_start;
 			char *one = NULL;
 			/* Drop trailing empty segment from final newline. */
@@ -397,7 +395,7 @@ bool cmd_sort_region(bool f, int n) {
 				if (p == NULL) {
 					free(text);
 					for (; li < nlines; li++) {
-						free(lines[li]);
+						free(ranged(lines, nlines)[li]);
 					}
 					free(lines);
 					return false;
@@ -409,7 +407,7 @@ bool cmd_sort_region(bool f, int n) {
 			if (one == NULL) {
 				free(text);
 				for (li = 0; li < nlines; li++) {
-					free(lines[li]);
+					free(ranged(lines, nlines)[li]);
 				}
 				free(lines);
 				return false;
@@ -417,15 +415,19 @@ bool cmd_sort_region(bool f, int n) {
 			if (llen > 0) {
 				memcpy(one, text + line_start, llen);
 			}
-			one[llen] = 0;
-			lines[nlines++] = one;
+			{
+				char[..] ov = ranged(one, llen + 1);
+				ov[llen] = 0;
+			}
+			ranged(lines, cap)[nlines] = one;
+			nlines++;
 			line_start = i + 1;
 		}
 	}
 	free(text);
 	if (nlines < 2) {
 		for (li = 0; li < nlines; li++) {
-			free(lines[li]);
+			free(ranged(lines, nlines)[li]);
 		}
 		free(lines);
 		display_set_echo("Sort needs at least 2 lines");
@@ -436,20 +438,20 @@ bool cmd_sort_region(bool f, int n) {
 	char *sorted = malloc(sorted_cap);
 	if (sorted == NULL) {
 		for (li = 0; li < nlines; li++) {
-			free(lines[li]);
+			free(ranged(lines, nlines)[li]);
 		}
 		free(lines);
 		return false;
 	}
 	for (li = 0; li < nlines; li++) {
-		size_t llen = strlen(lines[li]);
+		size_t llen = strlen(ranged(lines, nlines)[li]);
 		if (sorted_len + llen + 2 > sorted_cap) {
 			size_t ncap = sorted_cap * 2 + llen + 2;
 			char *p = realloc(sorted, ncap);
 			if (p == NULL) {
 				free(sorted);
 				for (li = 0; li < nlines; li++) {
-					free(lines[li]);
+					free(ranged(lines, nlines)[li]);
 				}
 				free(lines);
 				return false;
@@ -457,15 +459,19 @@ bool cmd_sort_region(bool f, int n) {
 			sorted = p;
 			sorted_cap = ncap;
 		}
-		memcpy(sorted + sorted_len, lines[li], llen);
+		memcpy(sorted + sorted_len, ranged(lines, nlines)[li], llen);
 		sorted_len += llen;
-		sorted[sorted_len++] = '\n';
+		{
+			char[..] sv = ranged(sorted, sorted_cap);
+			sv[sorted_len] = '\n';
+		}
+		sorted_len++;
 	}
 	for (li = 0; li < nlines; li++) {
-		free(lines[li]);
+		free(ranged(lines, nlines)[li]);
 	}
 	free(lines);
-	saved = w.cursor;
+	Location saved = w.cursor;
 	if (!replace_range_command(w, start, end, sorted, sorted_len)) {
 		free(sorted);
 		return false;
@@ -492,13 +498,12 @@ static bool ident_word_byte(char b) {
 }
 
 static bool ident_bounds(Buffer *buf, Location loc, Location *start_out, Location *end_out) {
-	char[..] v = {0};
 	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return false;
 	}
-	v = line.view();
-	char *vp = ptr(v);
+	char[..] v = line.view();
+	const char[..] vp = v;
 	size_t off = loc.offset;
 	if (off > len(v)) {
 		off = len(v);
@@ -544,10 +549,13 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 	size_t cur_len = 0;
 	int count = 0;
 	size_t used = 0;
+	const char[..] sv = ranged(s, n);
+	char[..] bv = ranged(blob, blob_cap);
+	char *[..] ov = ranged(outs, (size_t)max_outs);
 	*blob_used = 0;
 
 	for (; i < n; i++) {
-		char r = s[i];
+		char r = sv[i];
 		if (r == '_' || r == '-') {
 			if (cur_len > 0) {
 				size_t j = 0;
@@ -555,18 +563,18 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 					return -1;
 				}
 				for (j = 0; j < cur_len; j++) {
-					blob[used + j] = ident_lower(cur[j]);
+					bv[used + j] = ident_lower(cur[j]);
 				}
-				blob[used + cur_len] = 0;
-				outs[count++] = blob + used;
+				bv[used + cur_len] = 0;
+				ov[count++] = blob + used;
 				used = used + cur_len + 1;
 				cur_len = 0;
 			}
 			continue;
 		}
 		if (i > 0 && is_upper_letter(r)) {
-			char prev = s[i - 1];
-			bool next_lower = (i + 1 < n) && is_lower_letter(s[i + 1]);
+			char prev = sv[i - 1];
+			bool next_lower = (i + 1 < n) && is_lower_letter(sv[i + 1]);
 			if (is_lower_letter(prev) || is_digit_c(prev) || (is_upper_letter(prev) && next_lower)) {
 				if (cur_len > 0) {
 					size_t j = 0;
@@ -574,10 +582,10 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 						return -1;
 					}
 					for (j = 0; j < cur_len; j++) {
-						blob[used + j] = ident_lower(cur[j]);
+						bv[used + j] = ident_lower(cur[j]);
 					}
-					blob[used + cur_len] = 0;
-					outs[count++] = blob + used;
+					bv[used + cur_len] = 0;
+					ov[count++] = blob + used;
 					used = used + cur_len + 1;
 					cur_len = 0;
 				}
@@ -594,10 +602,10 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 			return -1;
 		}
 		for (; j < cur_len; j++) {
-			blob[used + j] = ident_lower(cur[j]);
+			bv[used + j] = ident_lower(cur[j]);
 		}
-		blob[used + cur_len] = 0;
-		outs[count++] = blob + used;
+		bv[used + cur_len] = 0;
+		ov[count++] = blob + used;
 		used = used + cur_len + 1;
 	}
 	*blob_used = used;
@@ -607,39 +615,44 @@ static int split_ident_parts(const char *s, size_t n, char *blob, size_t blob_ca
 static void title_part(char *dst, const char *src) {
 	size_t i = 1;
 	size_t n = strlen(src);
+	char[..] dv = ranged(dst, n + 1);
+	const char[..] sv = ranged(src, n + 1);
 	if (n == 0) {
-		dst[0] = 0;
+		dv[0] = 0;
 		return;
 	}
-	dst[0] = ident_upper(src[0]);
+	dv[0] = ident_upper(sv[0]);
 	for (; i < n; i++) {
-		dst[i] = ident_lower(src[i]);
+		dv[i] = ident_lower(sv[i]);
 	}
-	dst[n] = 0;
+	dv[n] = 0;
 }
 
 static bool join_ident_parts(char **parts, int nparts, IdentCaseStyle style, char *out, size_t out_cap) {
 	size_t len = 0;
 	int i = 0;
 	char titled[256] = {0};
-	out[0] = 0;
+	char[..] ov = ranged(out, out_cap);
+	char *[..] pv = ranged(parts, (size_t)nparts);
+	ov[0] = 0;
 	if (nparts == 0) {
 		return true;
 	}
 	if (style == IdentCamel || style == IdentPascal) {
 		for (; i < nparts; i++) {
 			if (style == IdentCamel && i == 0) {
-				size_t plen = strlen(parts[i]);
+				size_t plen = strlen(pv[i]);
+				const char[..] pi = ranged(pv[i], plen);
 				size_t j = 0;
 				if (len + plen + 1 > out_cap) {
 					return false;
 				}
 				for (j = 0; j < plen; j++) {
-					out[len + j] = ident_lower(parts[i][j]);
+					ov[len + j] = ident_lower(pi[j]);
 				}
 				len += plen;
 			} else {
-				title_part(titled, parts[i]);
+				title_part(titled, pv[i]);
 				{
 					size_t plen = strlen(titled);
 					if (len + plen + 1 > out_cap) {
@@ -650,33 +663,34 @@ static bool join_ident_parts(char **parts, int nparts, IdentCaseStyle style, cha
 				}
 			}
 		}
-		out[len] = 0;
+		ov[len] = 0;
 		return true;
 	}
 	/* snake / constant */
 	for (i = 0; i < nparts; i++) {
-		size_t plen = strlen(parts[i]);
+		size_t plen = strlen(pv[i]);
+		const char[..] pi = ranged(pv[i], plen);
 		size_t j = 0;
 		if (i > 0) {
 			if (len + 2 > out_cap) {
 				return false;
 			}
-			out[len++] = '_';
+			ov[len++] = '_';
 		}
 		if (len + plen + 1 > out_cap) {
 			return false;
 		}
 		for (j = 0; j < plen; j++) {
-			char c = parts[i][j];
+			char c = pi[j];
 			if (style == IdentConstant) {
-				out[len + j] = ident_upper(c);
+				ov[len + j] = ident_upper(c);
 			} else {
-				out[len + j] = ident_lower(c);
+				ov[len + j] = ident_lower(c);
 			}
 		}
 		len += plen;
 	}
-	out[len] = 0;
+	ov[len] = 0;
 	return true;
 }
 

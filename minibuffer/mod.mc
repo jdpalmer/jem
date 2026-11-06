@@ -32,7 +32,7 @@ static int g_history_count;
 // minibuffer_history_add appends text to the global prompt history.
 void minibuffer_history_add(const char *text) {
 	int i = 1;
-	if (text == NULL || text[0] == 0) {
+	if (text == NULL || *text == 0) {
 		return;
 	}
 	if (g_history_count > 0 &&
@@ -226,7 +226,7 @@ bool minibuffer_insert_paste(const char[..] text) {
 	memmove(g_mb.text + g_mb.cursor + insert_len,
 		g_mb.text + g_mb.cursor, g_mb.len - g_mb.cursor);
 	for (; i < insert_len; i++) {
-		char ch = ptr(text)[i];
+		char ch = text[i];
 		if (ch == '\r') {
 			ch = '\n';
 		}

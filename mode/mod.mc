@@ -24,13 +24,9 @@ static bool path_ends_with_ci(const char[..] path, const char[..] ext) {
 		return false;
 	}
 	size_t off = plen - elen;
-	{
-		const char *pp = ptr(path);
-		const char *ep = ptr(ext);
-		for (; i < elen; i++) {
-			if (ascii_lower(pp[off + i]) != ep[i]) {
-				return false;
-			}
+	for (; i < elen; i++) {
+		if (ascii_lower(path[off + i]) != ext[i]) {
+			return false;
 		}
 	}
 	return true;
@@ -135,29 +131,26 @@ const char *mode_display_name(LangMode lang) {
 
 /* Count leading ASCII spaces; -1 if the line mixes tabs into the indent. */
 static int leading_spaces_only(Line *line) {
-	char[..] v = {0};
 	size_t i = 0;
 	if (line == NULL) {
 		return 0;
 	}
-	v = line.view();
-	const char *p = ptr(v);
-	while (i < len(v) && p[i] == ' ') {
+	char[..] v = line.view();
+	while (i < len(v) && v[i] == ' ') {
 		i++;
 	}
-	if (i < len(v) && p[i] == '\t') {
+	if (i < len(v) && v[i] == '\t') {
 		return -1;
 	}
 	return (int)i;
 }
 
 static bool line_starts_with_tab(Line *line) {
-	char[..] v = {0};
 	if (line == NULL || line.byte_len() == 0) {
 		return false;
 	}
-	v = line.view();
-	return len(v) > 0 && ptr(v)[0] == '\t';
+	char[..] v = line.view();
+	return len(v) > 0 && v[0] == '\t';
 }
 
 static int indent_gcd(int a, int b) {
@@ -238,12 +231,11 @@ void mode_guess_indent(Buffer *buf) {
 }
 
 void mode_apply_from_path(Buffer *buf, const char *path) {
-	char[..] v = {0};
 	if (buf == NULL) {
 		return;
 	}
 	size_t plen = path != NULL ? strlen(path) : 0;
-	v = ranged(path, plen);
+	char[..] v = ranged(path, plen);
 	buf.lang_mode = mode_detect(v);
 	buf.indent = mode_indent_default(buf.lang_mode);
 	if (buf.lang_mode == LModeC) {

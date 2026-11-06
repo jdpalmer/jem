@@ -17,8 +17,9 @@ import "str";
 
 static EolMode detect_eol(char *data, size_t n) {
 	size_t i = 0;
+	const char[..] bytes = ranged(data != NULL ? data : "", n);
 	for (; i + 1 < n; i++) {
-		if (data[i] == '\r' && data[i + 1] == '\n') {
+		if (bytes[i] == '\r' && bytes[i + 1] == '\n') {
 			return EModeCRLF;
 		}
 	}
@@ -34,14 +35,13 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 		0 };
 	char joined[FilePathMax] = {
 		0 };
-	char[..] logical = str_empty();
 	char[..] to_clean = str_empty();
 
-	if (dst == NULL || dstcap < 2 || path == NULL || path[0] == 0) {
+	if (dst == NULL || dstcap < 2 || path == NULL || *path == 0) {
 		return false;
 	}
-	logical = str_from_cstr(path);
-	if (path[0] == '~') {
+	char[..] logical = str_from_cstr(path);
+	if (*path == '~') {
 #ifdef _WIN32
 		char[..] home = str_empty();
 		bool hok = false;
@@ -70,15 +70,15 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 		if (!hok || len(home) == 0) {
 			return false;
 		}
-		if (path[1] == 0) {
+		if (len(logical) == 1) {
 			to_clean = home;
-		} else if (path[1] == '/'
+		} else if (len(logical) > 1 && (logical[1] == '/'
 #ifdef _WIN32
-			|| path[1] == '\\'
+			|| logical[1] == '\\'
 #endif
-			) {
+			)) {
 			auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), home,
-				str_from_cstr(path + 2));
+				logical[2..]);
 			if (!jok) {
 				return false;
 			}
@@ -130,7 +130,7 @@ static void file_apply_path_meta(Buffer *buf, char *path) {
 
 // file_mtime_ns returns the modification time of path in nanoseconds, or 0 on error.
 int64_t file_mtime_ns(char *path) {
-	if (path == NULL || path[0] == 0) {
+	if (path == NULL || *path == 0) {
 		return 0;
 	}
 	{
@@ -172,7 +172,7 @@ bool file_needs_overwrite_confirm(Buffer *buf, char *path) {
 	if (buf == NULL || buf.file_mtime_ns == 0) {
 		return false;
 	}
-	if (path != NULL && path[0] != 0) {
+	if (path != NULL && *path != 0) {
 		char *use = file_resolve_path(resolved, sizeof(resolved), path) ? resolved : path;
 		int64_t cur = file_mtime_ns(use);
 		return cur != 0 && cur != buf.file_mtime_ns;
@@ -236,10 +236,14 @@ static (char *, size_t, bool) file_read_all(char *path) {
 		if (data == NULL) {
 			return (NULL, 0, false);
 		}
-		data[0] = 0;
+		{
+			char[..] z = ranged(data, 1);
+			z[0] = 0;
+		}
 		len = 0;
 	} else {
-		data[len] = 0;
+		char[..] z = ranged(data, len + 1, cap);
+		z[len] = 0;
 	}
 	return (data, len, true);
 }
@@ -278,7 +282,7 @@ static (Buffer *, bool) file_load_new(char *path) {
 	char resolved[FilePathMax] = {
 		0 };
 
-	if (path == NULL || path[0] == 0) {
+	if (path == NULL || *path == 0) {
 		return (NULL, false);
 	}
 	if (!file_resolve_path(resolved, sizeof(resolved), path)) {
@@ -316,21 +320,19 @@ static (Buffer *, bool) file_load_new(char *path) {
 // Opens the destination in place (like jem.go): follows symlinks and keeps
 // existing file modes. mkstemp+rename would replace a symlink and force 0600.
 bool file_save(Buffer *buf, char *path) {
-	char[..] usev = str_empty();
 	char resolved[FilePathMax] = {
 		0 };
 
 	if (buf == NULL) {
 		return false;
 	}
-	if (path != NULL && path[0] != 0) {
+	char[..] usev = buf.file_name;
+	if (path != NULL && *path != 0) {
 		if (file_resolve_path(resolved, sizeof(resolved), path)) {
 			usev = str_from_cstr(resolved);
 		} else {
 			usev = str_from_cstr(path);
 		}
-	} else {
-		usev = buf.file_name;
 	}
 	if (len(usev) == 0) {
 		return false;
@@ -361,7 +363,7 @@ bool file_save(Buffer *buf, char *path) {
 		w.close();
 	}
 	free(data);
-	if (path != NULL && path[0] != 0) {
+	if (path != NULL && *path != 0) {
 		file_apply_path_meta(buf, path);
 	}
 	buf.is_changed = false;
@@ -372,7 +374,6 @@ bool file_save(Buffer *buf, char *path) {
 
 // file_visit loads path or switches to an existing buffer with that path.
 (Buffer *, bool) file_visit(char *path) {
-	char[..] want = str_empty();
 	char resolved[FilePathMax] = {
 		0 };
 	if (path == NULL) {
@@ -382,7 +383,7 @@ bool file_save(Buffer *buf, char *path) {
 		snprintf(resolved, sizeof(resolved), "%s", path);
 	}
 	path = resolved;
-	want = str_from_cstr(path);
+	char[..] want = str_from_cstr(path);
 	for (auto b : buffer_all) {
 		if (b != NULL && str_eq(want, b.file_name)) {
 			/* Re-apply language/indent defaults (e.g. .mc → tabs) in case the
@@ -439,7 +440,7 @@ bool file_read_into_current(char *path) {
 	char resolved[FilePathMax] = {
 		0 };
 
-	if (buf == NULL || path == NULL || path[0] == 0) {
+	if (buf == NULL || path == NULL || *path == 0) {
 		return false;
 	}
 	if (!file_resolve_path(resolved, sizeof(resolved), path)) {
@@ -578,17 +579,20 @@ static void file_path_split(char *path, char *dir, size_t dircap, char *base, si
 	bool have_sep = false;
 
 	if (dir != NULL && dircap > 0) {
-		dir[0] = 0;
+		char[..] dv = ranged(dir, dircap);
+		dv[0] = 0;
 	}
 	if (base != NULL && basecap > 0) {
-		base[0] = 0;
+		char[..] bv = ranged(base, basecap);
+		bv[0] = 0;
 	}
 	if (path == NULL) {
 		return;
 	}
-	size_t n = strlen(path);
+	const char[..] pv = ranged(path, strlen(path));
+	size_t n = len(pv);
 	for (; i < n; i++) {
-		if (path[i] == '/') {
+		if (pv[i] == '/') {
 			last = i;
 			have_sep = true;
 		}
@@ -605,7 +609,8 @@ static void file_path_split(char *path, char *dir, size_t dircap, char *base, si
 			dlen = dircap - 1;
 		}
 		memcpy(dir, path, dlen);
-		dir[dlen] = 0;
+		char[..] dv = ranged(dir, dircap);
+		dv[dlen] = 0;
 	}
 	if (base != NULL && basecap > 0) {
 		snprintf(base, basecap, "%s", path + last + 1);
@@ -614,21 +619,15 @@ static void file_path_split(char *path, char *dir, size_t dircap, char *base, si
 
 static bool file_entry_is_dir(char *dir, char *name) {
 	char joined[FilePathMax] = {0};
-	char[..] jv = str_empty();
-	char[..] dv = str_empty();
-	char[..] nv = str_empty();
 
-	if (name == NULL || name[0] == 0) {
+	if (name == NULL || *name == 0) {
 		return false;
 	}
-	dv = str_from_cstr(dir != NULL && dir[0] != 0 ? dir : ".");
-	nv = str_from_cstr(name);
-	{
-		auto (view, ok) = path_join(ranged(joined, 0, sizeof(joined)), dv, nv);
-		if (!ok) {
-			return false;
-		}
-		jv = view;
+	char[..] dv = str_from_cstr(dir != NULL && *dir != 0 ? dir : ".");
+	char[..] nv = str_from_cstr(name);
+	auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), dv, nv);
+	if (!jok) {
+		return false;
 	}
 	{
 		auto (info, ok) = fs_stat(jv);
@@ -652,7 +651,6 @@ bool file_complete_path(char *buf, size_t cap) {
 	char dir_for_open[FilePathMax] = {0};
 	int match_count = 0;
 	bool match_is_dir = false;
-	Dir d = {0};
 
 	if (buf == NULL || cap < 2) {
 		return false;
@@ -678,7 +676,7 @@ bool file_complete_path(char *buf, size_t cap) {
 	snprintf(eprefix, sizeof(eprefix), "%s", tprefix);
 	size_t prefix_len = strlen(eprefix);
 	auto (opened, dok) = dir_open(str_from_cstr(edir));
-	d = opened;
+	Dir d = opened;
 	if (!dok) {
 		return false;
 	}

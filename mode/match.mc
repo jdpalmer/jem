@@ -87,7 +87,7 @@ static int line_byte_at(Line *line, size_t offset) {
 	if (offset >= len(v)) {
 		return -1;
 	}
-	return ptr(v)[offset];
+	return v[offset];
 }
 
 /* Ensure lines [1, line_number) have valid syntax_end (DFA carry). */
@@ -126,7 +126,6 @@ void mode_syntax_ensure_before(Buffer *buf, int line_number) {
 bool mode_syntax_state_at(Buffer *buf, int line_number, size_t offset, SynState *out) {
 	SynState st = {SynStateNormal};
 	TextStyle[..] nostyle = ranged((TextStyle *)0, 0);
-	char[..] v = {0};
 	if (out == NULL) {
 		return false;
 	}
@@ -146,7 +145,7 @@ bool mode_syntax_state_at(Buffer *buf, int line_number, size_t offset, SynState 
 		*out = st;
 		return false;
 	}
-	v = line.view();
+	char[..] v = line.view();
 	if (offset > len(v)) {
 		offset = len(v);
 	}

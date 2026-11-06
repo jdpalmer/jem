@@ -47,7 +47,7 @@ bool cmd_describe_command_on_accept() {
 		return true;
 	}
 	command_bind_label(cmd.fn, bind, sizeof(bind));
-	if (len(cmd.doc) > 0 && ptr(cmd.doc) != NULL && ptr(cmd.doc)[0] != 0) {
+	if (len(cmd.doc) > 0 && cmd.doc[0] != 0) {
 		if (bind[0] != 0) {
 			snprintf(msg, sizeof(msg), "%s (%s): %s", ptr(cmd.name), bind, ptr(cmd.doc));
 		} else {

@@ -348,7 +348,6 @@ static bool is_word_char(char b) {
 }
 
 static Location forward_word_loc(Buffer *buf, Location loc) {
-	char[..] v = {0};
 	if (buf == NULL) {
 		return loc;
 	}
@@ -357,7 +356,7 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 	if (line == NULL) {
 		return loc;
 	}
-	v = line.view();
+	char[..] v = line.view();
 	size_t off = loc.offset;
 	if (off >= len(v)) {
 		if (loc.line >= nlines) {
@@ -367,11 +366,8 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 		loc.line++;
 		off = 0;
 	} else {
-		{
-			char *vp = ptr(v);
-			while (off < len(v) && !is_word_char(vp[off])) {
-				off++;
-			}
+		while (off < len(v) && !is_word_char(v[off])) {
+			off++;
 		}
 	}
 	while (loc.line <= nlines) {
@@ -380,18 +376,15 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 			return loc;
 		}
 		v = line.view();
-		{
-			char *vp = ptr(v);
-			while (off < len(v) && !is_word_char(vp[off])) {
+		while (off < len(v) && !is_word_char(v[off])) {
+			off++;
+		}
+		if (off < len(v)) {
+			while (off < len(v) && is_word_char(v[off])) {
 				off++;
 			}
-			if (off < len(v)) {
-				while (off < len(v) && is_word_char(vp[off])) {
-					off++;
-				}
-				loc.offset = off;
-				return loc;
-			}
+			loc.offset = off;
+			return loc;
 		}
 		if (loc.line >= nlines) {
 			loc.offset = 0;
@@ -406,7 +399,6 @@ static Location forward_word_loc(Buffer *buf, Location loc) {
 }
 
 static Location backward_word_loc(Buffer *buf, Location loc) {
-	char[..] v = {0};
 	if (buf == NULL) {
 		return loc;
 	}
@@ -417,7 +409,7 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 	if (line == NULL) {
 		return loc;
 	}
-	v = line.view();
+	char[..] v = line.view();
 	size_t off = loc.offset;
 	if (off == 0) {
 		if (loc.line > 1) {
@@ -441,24 +433,18 @@ static Location backward_word_loc(Buffer *buf, Location loc) {
 		} else {
 			off = prev;
 		}
-		{
-			char *vp = ptr(v);
-			if (off < len(v)) {
-				b = vp[off];
-			}
-			if (is_word_char(b) || off == 0) {
-				break;
-			}
+		if (off < len(v)) {
+			b = v[off];
+		}
+		if (is_word_char(b) || off == 0) {
+			break;
 		}
 	}
-	{
-		char *vp = ptr(v);
-		while (off > 0 && !is_word_char(vp[off - 1])) {
-			off--;
-		}
-		while (off > 0 && is_word_char(vp[off - 1])) {
-			off--;
-		}
+	while (off > 0 && !is_word_char(v[off - 1])) {
+		off--;
+	}
+	while (off > 0 && is_word_char(v[off - 1])) {
+		off--;
 	}
 	loc.offset = off;
 	return loc;
@@ -662,12 +648,12 @@ static int windows_showing(Buffer *buf) {
 }
 
 static bool text_has_nl(const char *text, size_t n) {
-	size_t i = 0;
 	if (text == NULL) {
 		return false;
 	}
-	for (; i < n; i++) {
-		if (text[i] == '\n') {
+	const char[..] bytes = ranged(text, n);
+	for (auto c : bytes) {
+		if (c == '\n') {
 			return true;
 		}
 	}
@@ -737,8 +723,11 @@ void window_set_search_spans(Window *win, SearchSpan *spans, int n) {
 		n = SearchSpanMax;
 	}
 	win.search_span_count = n;
-	for (; i < n; i++) {
-		win.search_spans[i] = spans[i];
+	{
+		SearchSpan[..] src = ranged(spans != NULL ? spans : (SearchSpan *)0, (size_t)n);
+		for (; i < n; i++) {
+			win.search_spans[i] = src[i];
+		}
 	}
 	win.should_redraw = true;
 }

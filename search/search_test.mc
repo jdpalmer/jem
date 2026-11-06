@@ -95,7 +95,7 @@ static void test_regex_invalid() {
 	search_begin(true, true);
 	check(search_set_needle(pat));
 	check(!search_update());
-	check(search_last_error()[0] != 0);
+	check(*search_last_error() != 0);
 	search_end();
 }
 

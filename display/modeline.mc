@@ -13,10 +13,11 @@ void display_set_macro_state(bool recording, bool present) {
 	g_macro_present = present;
 }
 
-static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
+static void fit_buffer_name(const char[..] name, char[..] out) {
 	size_t n = len(name);
+	size_t cap = len(out);
 	int max_cols = 16;
-	if (out == NULL || cap == 0) {
+	if (cap == 0) {
 		return;
 	}
 	out[0] = 0;
@@ -43,7 +44,7 @@ static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
 		if (n >= cap) {
 			n = cap - 1;
 		}
-		memcpy(out, ptr(name), n);
+		memcpy(ptr(out), ptr(name), n);
 		out[n] = 0;
 		return;
 	}
@@ -78,7 +79,7 @@ static void fit_buffer_name(const char[..] name, char *out, size_t cap) {
 		}
 	}
 	if (end > 0) {
-		memcpy(out, ptr(name), end);
+		memcpy(ptr(out), ptr(name), end);
 	}
 	out[end] = 0xE2;
 	out[end + 1] = 0x80;
@@ -138,7 +139,7 @@ void paint_modeline(Window *win, int row) {
 		eol = "CRLF";
 	}
 	if (len(win.buffer.name) > 0) {
-		fit_buffer_name(win.buffer.name, fitted, sizeof(fitted));
+		fit_buffer_name(win.buffer.name, fitted);
 	} else {
 		snprintf(fitted, sizeof(fitted), "[No File]");
 	}
@@ -181,7 +182,7 @@ void paint_modeline(Window *win, int row) {
 	put_ascii(row, &col, lang, gut);
 	{
 		const char *git = git_modeline_text(win.buffer);
-		if (git != NULL && git[0] != 0) {
+		if (git != NULL && *git != 0) {
 			put_ascii(row, &col, " | ", gut);
 			put_ascii(row, &col, git, name_st);
 		}

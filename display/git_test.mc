@@ -113,7 +113,7 @@ static void test_modeline_and_gutter() {
 	window_select(win);
 
 	git = git_modeline_text(buf);
-	check(git != NULL && git[0] != 0);
+	check(git != NULL && *git != 0);
 	check(strstr(git, "[") != NULL); /* dirty status */
 	check(git_line_diff(buf, 2) == (int)GitLineDiffAdded ||
 		git_line_diff(buf, 2) == (int)GitLineDiffModified);

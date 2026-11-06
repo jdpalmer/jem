@@ -41,7 +41,6 @@ static bool mode_c_top_of_function(Window *win, Buffer *buf) {
 	for (; ln >= 1; ln--) {
 		Line *line = buf.line(ln);
 		char[..] v = {0};
-		const char *p = NULL;
 		size_t n = 0;
 		ptrdiff_t i = 0;
 		bool found = false;
@@ -49,10 +48,9 @@ static bool mode_c_top_of_function(Window *win, Buffer *buf) {
 			continue;
 		}
 		v = line.view();
-		p = ptr(v);
 		n = len(v);
 		for (i = (ptrdiff_t)n - 1; i >= 0; i--) {
-			char c = p[i];
+			char c = v[i];
 			if (c == '}') {
 				depth++;
 				continue;
@@ -110,17 +108,15 @@ static bool mode_c_end_of_function(Window *win, Buffer *buf) {
 	for (; ln <= nlines; ln++) {
 		Line *line = buf.line(ln);
 		char[..] v = {0};
-		const char *p = NULL;
 		size_t n = 0;
 		size_t i = 0;
 		if (line == NULL) {
 			continue;
 		}
 		v = line.view();
-		p = ptr(v);
 		n = len(v);
 		for (i = 0; i < n; i++) {
-			char c = p[i];
+			char c = v[i];
 			if (c == '{') {
 				depth++;
 			} else if (c == '}') {
@@ -169,12 +165,11 @@ static bool mode_c_mark_function(Window *win, Buffer *buf) {
 }
 
 static bool py_keyword_at(Line *line, size_t i, const char *kw) {
-	char[..] v = {0};
 	if (line == NULL || kw == NULL) {
 		return false;
 	}
 	size_t klen = strlen(kw);
-	v = line.view();
+	char[..] v = line.view();
 	const char *p = ptr(v);
 	size_t n = len(v);
 	if (i + klen > n) {
@@ -186,7 +181,7 @@ static bool py_keyword_at(Line *line, size_t i, const char *kw) {
 	if (i + klen >= n) {
 		return true;
 	}
-	char nc = p[i + klen];
+	char nc = v[i + klen];
 	return nc == ' ' || nc == '\t' || nc == ':' || nc == '(' || nc == '\r';
 }
 

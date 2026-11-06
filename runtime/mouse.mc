@@ -97,7 +97,6 @@ static void apply_wheel_ticks(int net) {
 
 // cmd_mouse_left moves point to the click; switches window if needed.
 bool cmd_mouse_left(bool f, int n) {
-	Location loc = {0};
 	(void)f;
 	(void)n;
 	Window *win = display_win_at(term_mouse_row());
@@ -111,7 +110,7 @@ bool cmd_mouse_left(bool f, int n) {
 	if (cur == NULL) {
 		return true;
 	}
-	loc = display_mouse_loc_in_window(win);
+	Location loc = display_mouse_loc_in_window(win);
 	cur.set_cursor(loc);
 	cur.mark.line = 0;
 	cur.mark.offset = 0;
@@ -125,7 +124,6 @@ bool cmd_mouse_left(bool f, int n) {
 
 // cmd_mouse_drag extends the selection from the click anchor to the pointer.
 bool cmd_mouse_drag(bool f, int n) {
-	Location loc = {0};
 	(void)f;
 	(void)n;
 	Window *win = display_win_at(term_mouse_row());
@@ -133,7 +131,7 @@ bool cmd_mouse_drag(bool f, int n) {
 	if (win == NULL || cur == NULL || win != cur || g_mouse_anchor_win != cur) {
 		return false;
 	}
-	loc = display_mouse_loc_in_window(win);
+	Location loc = display_mouse_loc_in_window(win);
 	cur.mark.line = g_mouse_anchor_line;
 	cur.mark.offset = g_mouse_anchor_offset;
 	cur.set_cursor(loc);

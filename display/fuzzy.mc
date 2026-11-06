@@ -46,11 +46,11 @@ static bool fuzzy_is_word_start(const char *name, int nlen, int i) {
 	if (i >= nlen) {
 		return false;
 	}
-	char c = name[i];
+	char c = ranged(name, nlen)[i];
 	if (c >= 'A' && c <= 'Z') {
 		return true;
 	}
-	char p = name[i - 1];
+	char p = ranged(name, nlen)[i - 1];
 	return !((p >= 'a' && p <= 'z') || (p >= 'A' && p <= 'Z') || (p >= '0' && p <= '9'));
 }
 
@@ -65,18 +65,18 @@ static bool fuzzy_is_word_start(const char *name, int nlen, int i) {
 		return (false, 0);
 	}
 	int nlen = (int)strlen(name);
-	if (query == NULL || query[0] == 0) {
+	if (query == NULL || *query == 0) {
 		return (true, 1);
 	}
 	int qlen = (int)strlen(query);
 	for (; qi < qlen; qi++) {
-		char qc = fuzzy_lower(query[qi]);
+		char qc = fuzzy_lower(ranged(query, qlen)[qi]);
 		int found = -1;
 		while (ni < nlen) {
 			int at = ni;
 			bool consec = false;
 			ni++;
-			if (fuzzy_lower(name[at]) != qc) {
+			if (fuzzy_lower(ranged(name, nlen)[at]) != qc) {
 				continue;
 			}
 			consec = prev >= 0 && at == prev + 1;
@@ -126,13 +126,13 @@ static int cmp_access_desc(void *a, void *b) {
 static void sort_buffers_by_access(Buffer **list, int n) {
 	int i = 1;
 	for (; i < n; i++) {
-		Buffer *key = list[i];
+		Buffer *key = ranged(list, n)[i];
 		int j = i;
-		while (j > 0 && cmp_access_desc(&list[j - 1], &key) > 0) {
-			list[j] = list[j - 1];
+		while (j > 0 && cmp_access_desc(&ranged(list, n)[j - 1], &key) > 0) {
+			ranged(list, n)[j] = ranged(list, n)[j - 1];
 			j--;
 		}
-		list[j] = key;
+		ranged(list, n)[j] = key;
 	}
 }
 
@@ -190,7 +190,8 @@ static void fuzzy_refresh_match_window() {
 	if (out == NULL) {
 		return;
 	}
-	out[0] = 0;
+	char[..] ov = ranged(out, cap);
+	ov[0] = 0;
 	for (; i < count; i++) {
 		FuzzyBufEntry *e = &g_fb_entries[g_fb_matches[i]];
 		char line[320] = {0};
@@ -202,8 +203,8 @@ static void fuzzy_refresh_match_window() {
 		}
 		if (i > 0) {
 			if (len + 1 < cap) {
-				out[len++] = '\n';
-				out[len] = 0;
+				ov[len++] = '\n';
+				ov[len] = 0;
 			}
 		}
 		if (len + (size_t)n + 1 > cap) {
@@ -211,7 +212,7 @@ static void fuzzy_refresh_match_window() {
 		}
 		memcpy(out + len, line, n);
 		len += n;
-		out[len] = 0;
+		ov[len] = 0;
 	}
 	window_set_match_buffer_text(out, len, g_fb_sel);
 	free(out);

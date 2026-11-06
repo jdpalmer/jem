@@ -30,8 +30,7 @@ struct Line {
 	char[..] data; /* owned heap */
 	SynState syntax_end;
 	bool syntax_valid;
-	TextStyle *styles;
-	size_t styles_len;
+	TextStyle[..] styles; /* owned heap */
 	bool cache_valid;
 	LangMode lang_mode;
 	/* Owned blob (free'd in line_free). Tools store jump targets here. */
@@ -215,9 +214,8 @@ size_t (Line *line).byte_len() {
 size_t (Line *line).first_nonblank() {
 	char[..] v = line.view();
 	size_t i = 0;
-	char *vp = ptr(v);
 	while (i < len(v)) {
-		char c = vp[i];
+		char c = v[i];
 		if (c != ' ' && c != '\t') {
 			return i;
 		}
@@ -253,9 +251,8 @@ char (Line *line).first_byte() {
 void (Line *line).invalidate() {
 	line.syntax_valid = false;
 	line.cache_valid = false;
-	free(line.styles);
-	line.styles = NULL;
-	line.styles_len = 0;
+	free(ptr(line.styles));
+	line.styles = ranged((TextStyle *)0, 0);
 }
 
 size_t (Line *line).display_col_at_offset(size_t offset) {
@@ -310,8 +307,8 @@ static void line_free(Line *line) {
 		return;
 	}
 	str_free(&line.data);
-	free(line.styles);
-	line.styles = NULL;
+	free(ptr(line.styles));
+	line.styles = ranged((TextStyle *)0, 0);
 	free(line.metadata);
 	line.metadata = NULL;
 }
@@ -582,7 +579,6 @@ void (UndoHistory *h).begin_command([[retains]] Buffer *buf, Location before) {
 }
 
 void (UndoHistory *h).end_command() {
-	int i = h.count;
 	if (h.is_replaying) {
 		return;
 	}
@@ -594,6 +590,8 @@ void (UndoHistory *h).end_command() {
 		undo_group_reset(&h.groups[(int)UndoHistoryMax - 1]);
 		h.count--;
 	}
+	/* Shift after trim so i stays within groups[0 .. UndoHistoryMax). */
+	int i = h.count;
 	for (; i > 0; i--) {
 		h.groups[i] = h.groups[i - 1];
 	}
@@ -627,21 +625,24 @@ void (UndoHistory *h).record_edit(UndoKind kind, int line_num, size_t offset, co
 	r.offset = offset;
 	r.end.line = line_num;
 	r.end.offset = offset;
-	if (kind == UndoInsert) {
-		for (size_t i = 0; i < n; i++) {
-			if (text[i] == '\n') {
-				r.end.line++;
-				r.end.offset = 0;
-			} else {
-				r.end.offset++;
+	{
+		const char[..] bytes = ranged(text != NULL ? text : "", n);
+		if (kind == UndoInsert) {
+			for (size_t i = 0; i < n; i++) {
+				if (bytes[i] == '\n') {
+					r.end.line++;
+					r.end.offset = 0;
+				} else {
+					r.end.offset++;
+				}
 			}
 		}
-	}
-	if (!str_set(&r.text, ranged(text, n))) {
-		memset(r, 0, sizeof(*r));
-		h.pending.records = ranged(ptr(h.pending.records), nrec,
-			cap(h.pending.records));
-		return;
+		if (!str_set(&r.text, bytes)) {
+			memset(r, 0, sizeof(*r));
+			h.pending.records = ranged(ptr(h.pending.records), nrec,
+				cap(h.pending.records));
+			return;
+		}
 	}
 }
 
@@ -845,11 +846,8 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		return true;
 	}
 
-	const char *insert = new_text;
-	if (insert == NULL) {
-		insert = "";
-	}
-	size_t insert_len = new_len;
+	const char[..] insert = ranged(new_text != NULL ? new_text : "", new_len);
+	size_t insert_len = len(insert);
 
 	if (!begin_is_eof) {
 		bline = buf.line(begin.line);
@@ -879,7 +877,7 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 			return false;
 		}
 	}
-	if (!str_append(&rebuilt, ranged(insert, insert_len))) {
+	if (!str_append(&rebuilt, insert)) {
 		str_free(&rebuilt);
 		return false;
 	}
@@ -900,11 +898,12 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	size_t keep_before = begin_is_eof ? (size_t)nlines : (size_t)(begin.line - 1);
 	size_t keep_after = end_is_eof ? 0 : (size_t)(nlines - end.line);
 	size_t new_line_count = keep_before + n_parts + keep_after;
-	Line *new_lines = calloc(new_line_count, sizeof(Line));
-	if (new_lines == NULL) {
+	Line *new_lines_raw = calloc(new_line_count, sizeof(Line));
+	if (new_lines_raw == NULL) {
 		str_free(&rebuilt);
 		return false;
 	}
+	Line[..] new_lines = ranged(new_lines_raw, new_line_count);
 
 	size_t part_start = 0;
 	size_t out = keep_before;
@@ -915,7 +914,7 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 				for (j = keep_before; j < out; j++) {
 					line_free(&new_lines[j]);
 				}
-				free(new_lines);
+				free(new_lines_raw);
 				str_free(&rebuilt);
 				return false;
 			}
@@ -965,7 +964,7 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		}
 	}
 	free(ptr(buf.lines));
-	buf.lines = ranged(new_lines, new_line_count, new_line_count);
+	buf.lines = new_lines;
 	buf.serial++;
 	buf.mark_changed();
 	str_free(&rebuilt);
@@ -984,9 +983,7 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 /* get_text returns malloc'd bytes between begin and end (jem.go GetText). EOF ok. */
 (char *, size_t, bool) (Buffer *buf).get_text(Location begin, Location end) {
 	int ln = begin.line;
-	char *data = NULL;
-	size_t n = 0;
-	size_t cap_n = 0;
+	char[..] out = {0};
 
 	int eof = buf.eof_line();
 	if (begin.line > end.line || (begin.line == end.line && begin.offset > end.offset)) {
@@ -1020,14 +1017,18 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 			e = line.byte_len();
 		}
 		if (e > b) {
-			n = e - b;
-			data = malloc(n + 1);
-			if (data == NULL) {
+			if (!str_set(&out, line.data[b..e])) {
 				return (NULL, 0, false);
 			}
-			memcpy(data, ptr(line.data) + b, n);
-			data[n] = 0;
-			return (data, n, true);
+			if (!str_reserve(&out, len(out) + 1)) {
+				str_free(&out);
+				return (NULL, 0, false);
+			}
+			{
+				char[..] z = ranged(ptr(out), len(out) + 1, cap(out));
+				z[len(out)] = 0;
+			}
+			return (ptr(out), len(out), true);
 		}
 		return (NULL, 0, true);
 	}
@@ -1038,7 +1039,6 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 		Line *line = buf.line(ln);
 		size_t from = 0;
 		size_t to = 0;
-		size_t chunk = 0;
 		if (line == NULL) {
 			continue;
 		}
@@ -1058,33 +1058,30 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 			from = 0;
 			to = line.byte_len();
 		}
-		chunk = to > from ? to - from : 0;
-		if (n + chunk + 2 > cap_n) {
-			size_t ncap = cap_n != 0 ? cap_n * 2 : 256;
-			char *p = NULL;
-			while (ncap < n + chunk + 2) {
-				ncap *= 2;
-			}
-			p = realloc(data, ncap);
-			if (p == NULL) {
-				free(data);
+		if (ln > begin.line) {
+			if (!str_append_byte(&out, '\n')) {
+				str_free(&out);
 				return (NULL, 0, false);
 			}
-			data = p;
-			cap_n = ncap;
 		}
-		if (ln > begin.line) {
-			data[n++] = '\n';
-		}
-		if (chunk > 0) {
-			memcpy(data + n, ptr(line.data) + from, chunk);
-			n += chunk;
+		if (to > from) {
+			if (!str_append(&out, line.data[from..to])) {
+				str_free(&out);
+				return (NULL, 0, false);
+			}
 		}
 	}
-	if (data != NULL) {
-		data[n] = 0;
+	if (ptr(out) != NULL) {
+		if (!str_reserve(&out, len(out) + 1)) {
+			str_free(&out);
+			return (NULL, 0, false);
+		}
+		{
+			char[..] z = ranged(ptr(out), len(out) + 1, cap(out));
+			z[len(out)] = 0;
+		}
 	}
-	return (data, n, true);
+	return (ptr(out), len(out), true);
 }
 
 bool (Buffer *buf).insert_text(Location at, const char *text, size_t n, Location *new_end_out) {
@@ -1131,6 +1128,7 @@ Line *(Buffer *buf).append_line(const char[..] text) {
 bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	size_t i = 0;
 	size_t count = 1;
+	const char[..] bytes = ranged(data != NULL ? data : "", data != NULL ? n : 0);
 
 	for (auto *line : buf.lines) {
 		line_free(line);
@@ -1138,11 +1136,9 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	free(ptr(buf.lines));
 	buf.lines = ranged((Line *)0, 0);
 
-	if (data == NULL) {
-		n = 0;
-	}
+	n = len(bytes);
 	for (; i < n; i++) {
-		if (data[i] == '\n') {
+		if (bytes[i] == '\n') {
 			count++;
 		}
 	}
@@ -1154,16 +1150,16 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 	size_t start = 0;
 	size_t line_i = 0;
 	for (i = 0; i <= n; i++) {
-		if (i == n || data[i] == '\n') {
-			const char *p = data + start;
-			size_t ln = i - start;
-			if (eol == EModeCRLF && ln != 0 && p[ln - 1] == '\r') {
-				ln--;
+		if (i == n || bytes[i] == '\n') {
+			size_t end = i;
+			if (eol == EModeCRLF && end > start && bytes[end - 1] == '\r') {
+				end--;
 			}
-			if (!make_line(&ptr(buf.lines)[line_i], buf, ranged(p, ln))) {
+			buf.lines = ranged(ptr(buf.lines), line_i + 1, cap(buf.lines));
+			if (!make_line(&buf.lines[line_i], buf, bytes[start..end])) {
 				size_t j = 0;
 				for (j = 0; j < line_i; j++) {
-					line_free(&ptr(buf.lines)[j]);
+					line_free(&buf.lines[j]);
 				}
 				free(ptr(buf.lines));
 				buf.lines = ranged((Line *)0, 0);
@@ -1202,22 +1198,23 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 			total = total + nllen;
 		}
 	}
-	char *out = malloc(total + 1);
-	if (out == NULL) {
+	char *raw = malloc(total + 1);
+	if (raw == NULL) {
 		return (NULL, 0, false);
 	}
+	char[..] out = ranged(raw, total + 1);
 	for (i = 0; i < len(buf.lines); i++) {
 		if (len(buf.lines[i].data) != 0) {
-			memcpy(out + off, ptr(buf.lines[i].data), len(buf.lines[i].data));
+			memcpy(raw + off, ptr(buf.lines[i].data), len(buf.lines[i].data));
 			off = off + len(buf.lines[i].data);
 		}
 		if (i + 1 < len(buf.lines)) {
-			memcpy(out + off, nl, nllen);
+			memcpy(raw + off, nl, nllen);
 			off = off + nllen;
 		}
 	}
 	out[off] = 0;
-	return (out, off, true);
+	return (raw, off, true);
 }
 
 void (Buffer *buf).set_name(const char[..] name) {

@@ -17,7 +17,7 @@ static bool json_append_escaped_string(JsonBuffer *buffer, const char *value,
 		return false;
 	}
 	while (i < len) {
-		char c = value[i];
+		char c = ranged(value, len)[i];
 		uint32_t codepoint = 0;
 		size_t available = 0;
 		size_t used = 0;
@@ -132,7 +132,7 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 			if (i != 0 && !json_buffer_append_char(buffer, ',')) {
 				return false;
 			}
-			if (!json_stringify_value(buffer, value.array.items[i])) {
+			if (!json_stringify_value(buffer, ranged(value.array.items, value.array.count)[i])) {
 				return false;
 			}
 		}
@@ -146,14 +146,14 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 				return false;
 			}
 			if (!json_append_escaped_string(buffer,
-				value.object.entries[i].key.data,
-				value.object.entries[i].key.length)) {
+				ranged(value.object.entries, value.object.count)[i].key.data,
+				ranged(value.object.entries, value.object.count)[i].key.length)) {
 				return false;
 			}
 			if (!json_buffer_append_char(buffer, ':')) {
 				return false;
 			}
-			if (!json_stringify_value(buffer, value.object.entries[i].value)) {
+			if (!json_stringify_value(buffer, ranged(value.object.entries, value.object.count)[i].value)) {
 				return false;
 			}
 		}

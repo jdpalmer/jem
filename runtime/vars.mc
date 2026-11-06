@@ -313,7 +313,8 @@ static bool parse_numeric_text(const char *text, int *out) {
 	if (*text == 0) {
 		return false;
 	}
-	int64_t n = (text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+	const char[..] tv = ranged(text, strlen(text) + 1);
+	int64_t n = (tv[0] == '0' && (tv[1] == 'x' || tv[1] == 'X'))
 		? strtoll(text + 2, &end, 16)
 		: strtoll(text, &end, 10);
 	if (end == text || n < 0 || n > 2147483647) {

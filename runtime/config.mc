@@ -54,8 +54,9 @@ enum {
 	}
 
 	char *tok = buf;
-	while (tok[0] != 0) {
-		if ((tok[0] == 'M' || tok[0] == 'm') && tok[1] == '-') {
+	while (*tok != 0) {
+		const char[..] tv = ranged(tok, strlen(tok) + 1);
+		if ((tv[0] == 'M' || tv[0] == 'm') && tv[1] == '-') {
 			if ((code & term_key_value(TermMETA)) != 0) {
 				return (0, false);
 			}
@@ -63,7 +64,7 @@ enum {
 			tok += 2;
 			continue;
 		}
-		if ((tok[0] == 'C' || tok[0] == 'c') && tok[1] == '-') {
+		if ((tv[0] == 'C' || tv[0] == 'c') && tv[1] == '-') {
 			if ((code & term_key_value(TermCTL)) != 0) {
 				return (0, false);
 			}
@@ -71,7 +72,7 @@ enum {
 			tok += 2;
 			continue;
 		}
-		if ((tok[0] == 'S' || tok[0] == 's') && tok[1] == '-') {
+		if ((tv[0] == 'S' || tv[0] == 's') && tv[1] == '-') {
 			if ((code & term_key_value(TermSHIFT)) != 0) {
 				return (0, false);
 			}
@@ -82,7 +83,7 @@ enum {
 		break;
 	}
 
-	if (tok[0] == 0) {
+	if (*tok == 0) {
 		return (0, false);
 	}
 	if (strcasecmp(tok, "TAB") == 0) {
@@ -125,8 +126,9 @@ enum {
 	if (strcasecmp(tok, "DELETE") == 0 || strcasecmp(tok, "DEL") == 0) {
 		return (code | term_key_value(TermKeyDelete), true);
 	}
-	if (tok[0] != 0 && tok[1] == 0) {
-		char b = tok[0];
+	const char[..] last = ranged(tok, strlen(tok) + 1);
+	if (last[0] != 0 && last[1] == 0) {
+		char b = last[0];
 		if ((code & (term_key_value(TermCTL) | term_key_value(TermMETA))) != 0 &&
 			b >= 'a' && b <= 'z') {
 			b = (char)(b - ('a' - 'A'));
@@ -183,7 +185,7 @@ static void config_apply_var_value(const char *key, const JsonValue *value) {
 	}
 	const char *string_value = json_string_value(value);
 	if (string_value != NULL) {
-		config_apply_var_text(key, (const char *)string_value);
+		config_apply_var_text(key, string_value);
 	}
 }
 
@@ -233,7 +235,7 @@ static void config_apply_keybindings_obj(const JsonValue *keybindings) {
 				display_set_echo("invalid JSON command name");
 				continue;
 			}
-			config_apply_binding(chord, (const char *)cmd, false);
+			config_apply_binding(chord, cmd, false);
 		}
 	}
 }
@@ -246,33 +248,31 @@ bool config_apply_json(char *text, size_t n) {
 	if (text == NULL) {
 		return false;
 	}
-	JsonValue *root = json_parse_n((const char *)text, n, &err);
+	JsonValue *root = json_parse_n(text, n, &err);
 	if (root == NULL) {
 		return false;
 	}
-	defer json_free(root);
+	/* No defer json_free: derived key/value pointers would be treated as
+	 * consumed after defer of the root. Free explicitly at the end. */
 	if (json_type(root) != JSON_OBJECT) {
+		json_free(root);
 		return false;
 	}
 
 	size_t count = json_object_size(root);
 	for (; i < count; i++) {
-		const char *obj_key = NULL;
-		size_t key_len = 0;
-		const JsonValue *value = NULL;
 		char name[ConfigKeyMax] = {0};
-
-		obj_key = json_object_key_at(root, i);
+		const char *obj_key = json_object_key_at(root, i);
 		if (obj_key == NULL) {
 			continue;
 		}
-		key_len = json_object_key_len_at(root, i);
+		size_t key_len = json_object_key_len_at(root, i);
 		if (key_len + 1 > sizeof(name)) {
 			continue;
 		}
 		memcpy(name, obj_key, key_len);
 		name[key_len] = 0;
-		value = json_object_value_at(root, i);
+		const JsonValue *value = json_object_value_at(root, i);
 		if (value == NULL) {
 			continue;
 		}
@@ -292,6 +292,7 @@ bool config_apply_json(char *text, size_t n) {
 		config_apply_var_value(name, value);
 	}
 
+	json_free(root);
 	return true;
 }
 
@@ -338,7 +339,6 @@ void config_load() {
 		return;
 	}
 	defer fclose(fp);
-	defer free(data);
 	for (;;) {
 		char chunk[4096] = {0};
 		size_t got = fread(chunk, 1, sizeof(chunk), fp);
@@ -347,6 +347,7 @@ void config_load() {
 		}
 		if (n + got + 1 > ConfigFileMax) {
 			fprintf(stderr, "jem: %s too large\n", path);
+			free(data);
 			return;
 		}
 		if (n + got + 1 > cap) {
@@ -357,6 +358,7 @@ void config_load() {
 			}
 			p = realloc(data, ncap);
 			if (p == NULL) {
+				free(data);
 				return;
 			}
 			data = p;
@@ -368,8 +370,12 @@ void config_load() {
 	if (data == NULL) {
 		return;
 	}
-	data[n] = 0;
+	{
+		char[..] dv = ranged(data, n + 1);
+		dv[n] = 0;
+	}
 	if (!config_apply_json(data, n)) {
 		fprintf(stderr, "jem: invalid %s\n", path);
 	}
+	free(data);
 }

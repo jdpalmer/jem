@@ -20,7 +20,7 @@ bool cmd_search_forward(bool f, int n) {
 	}
 	search_format_prompt(prompt, sizeof(prompt), "Search");
 	minibuffer_begin(prompt, 0);
-	if (prior != NULL && prior[0] != 0) {
+	if (prior != NULL && *prior != 0) {
 		minibuffer_set_text(str_from_cstr(prior));
 	}
 	return true;
@@ -41,16 +41,16 @@ bool cmd_search_backward(bool f, int n) {
 	}
 	search_format_prompt(prompt, sizeof(prompt), "Reverse search");
 	minibuffer_begin(prompt, 0);
-	if (prior != NULL && prior[0] != 0) {
+	if (prior != NULL && *prior != 0) {
 		minibuffer_set_text(str_from_cstr(prior));
 	}
 	return true;
 }
 
 bool cmd_run_prompted_search(bool forward, const char *pattern) {
-	if (pattern != NULL && pattern[0] != 0) {
+	if (pattern != NULL && *pattern != 0) {
 		search_set_last_pattern(pattern);
-	} else if (search_last_pattern()[0] == 0) {
+	} else if (*search_last_pattern() == 0) {
 		return true;
 	}
 	if (!search_plain_find(forward)) {

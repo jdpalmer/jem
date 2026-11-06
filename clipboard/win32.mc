@@ -13,8 +13,9 @@ static char *clipboard_expand_newlines(const char *text, size_t len, size_t *out
 	size_t i = 0;
 	size_t j = 0;
 	char *expanded = NULL;
+	const char[..] tv = ranged(text != NULL ? text : "", len);
 	for (i = 0; i < len; i++) {
-		if (text[i] == '\n') {
+		if (tv[i] == '\n') {
 			extra++;
 		}
 	}
@@ -22,13 +23,16 @@ static char *clipboard_expand_newlines(const char *text, size_t len, size_t *out
 	if (expanded == NULL) {
 		return NULL;
 	}
-	for (i = 0; i < len; i++) {
-		if (text[i] == '\n') {
-			expanded[j++] = '\r';
+	{
+		char[..] ev = ranged(expanded, len + extra + 1);
+		for (i = 0; i < len; i++) {
+			if (tv[i] == '\n') {
+				ev[j++] = '\r';
+			}
+			ev[j++] = tv[i];
 		}
-		expanded[j++] = text[i];
+		ev[j] = 0;
 	}
-	expanded[j] = 0;
 	*out_len = j;
 	return expanded;
 }
@@ -37,21 +41,25 @@ static char *clipboard_normalize_newlines(const char *text, size_t len, size_t *
 	char *normalized = NULL;
 	size_t i = 0;
 	size_t j = 0;
+	const char[..] tv = ranged(text != NULL ? text : "", len);
 	normalized = calloc(len + 1, 1);
 	if (normalized == NULL) {
 		return NULL;
 	}
-	for (i = 0; i < len; i++) {
-		if (text[i] == '\r') {
-			normalized[j++] = '\n';
-			if (i + 1 < len && text[i + 1] == '\n') {
-				i++;
+	{
+		char[..] nv = ranged(normalized, len + 1);
+		for (i = 0; i < len; i++) {
+			if (tv[i] == '\r') {
+				nv[j++] = '\n';
+				if (i + 1 < len && tv[i + 1] == '\n') {
+					i++;
+				}
+			} else {
+				nv[j++] = tv[i];
 			}
-		} else {
-			normalized[j++] = text[i];
 		}
+		nv[j] = 0;
 	}
-	normalized[j] = 0;
 	*out_len = j;
 	return normalized;
 }

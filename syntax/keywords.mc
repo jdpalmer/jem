@@ -4,62 +4,53 @@
 #include <string.h>
 #include <stdbool.h>
 
-static const char *c_keywords[] = {
+static const char[..] c_keywords[] = {
 	"break", "case", "catch", "continue", "default", "delete", "do", "else",
 	"for", "goto", "if", "new", "return", "sizeof", "switch", "throw", "try",
 	"while",
-	NULL,
 };
 
-static const char *c_types[] = {
+static const char[..] c_types[] = {
 	"auto", "bool", "char", "class", "const", "constexpr", "double", "enum",
 	"explicit", "extern", "false", "float", "friend", "inline", "int", "long",
 	"mutable", "namespace", "nullptr", "operator", "private", "protected",
 	"public", "register", "short", "signed", "static", "struct", "template",
 	"this", "true", "typedef", "typename", "union", "unsigned", "using",
 	"virtual", "void", "volatile",
-	NULL,
 };
 
-static const char *go_keywords[] = {
+static const char[..] go_keywords[] = {
 	"break", "case", "chan", "const", "continue", "default", "defer", "else",
 	"fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
 	"map", "package", "range", "return", "select", "struct", "switch", "type",
 	"var",
-	NULL,
 };
 
-static const char *go_types[] = {
+static const char[..] go_types[] = {
 	"any", "bool", "byte", "complex128", "complex64", "error", "false",
 	"float32", "float64", "int", "int16", "int32", "int64", "int8", "nil",
 	"rune", "string", "true", "uint", "uint16", "uint32", "uint64", "uint8",
 	"uintptr",
-	NULL,
 };
 
-static const char *py_keywords[] = {
+static const char[..] py_keywords[] = {
 	"and", "as", "assert", "async", "await", "break", "class", "continue",
 	"def", "del", "elif", "else", "except", "finally", "for", "from", "global",
 	"if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass",
 	"raise", "return", "try", "while", "with", "yield",
-	NULL,
 };
 
-static const char *py_types[] = {
+static const char[..] py_types[] = {
 	"False", "None", "True",
-	NULL,
 };
 
-static bool word_in_list(const char[..] word, const char **list) {
-	size_t i = 0;
+static bool word_in_list(const char[..] word, const char[..][..] list) {
 	size_t n = len(word);
-	if (list == NULL || n == 0) {
+	if (n == 0) {
 		return false;
 	}
-	for (; list[i] != NULL; i++) {
-		const char *z = list[i];
-		size_t zn = strlen(z);
-		if (zn == n && memcmp(ptr(word), z, n) == 0) {
+	for (auto z : list) {
+		if (len(z) == n && memcmp(ptr(word), ptr(z), n) == 0) {
 			return true;
 		}
 	}
@@ -68,8 +59,8 @@ static bool word_in_list(const char[..] word, const char **list) {
 
 // ident_style_for returns keyword/type style, or TextStyleDefault if plain.
 TextStyle ident_style_for(LangMode lang, const char[..] ident) {
-	const char **keys = NULL;
-	const char **types = NULL;
+	const char[..][..] keys = {0};
+	const char[..][..] types = {0};
 	switch (lang) {
 	case LModeC:
 	case LModeModC:

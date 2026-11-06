@@ -41,12 +41,11 @@ const char *mode_line_comment(LangMode lang) {
 }
 
 static bool line_has_comment_prefix(Line *line, const char *prefix, size_t plen) {
-	char[..] v = {0};
 	if (line == NULL || prefix == NULL || plen == 0) {
 		return false;
 	}
 	size_t pos = line.first_nonblank();
-	v = line.view();
+	char[..] v = line.view();
 	if (pos + plen > len(v)) {
 		return false;
 	}
@@ -58,7 +57,7 @@ static void comment_prefix_span(Line *line, const char *prefix, size_t plen, siz
 	size_t end = pos + plen;
 	char[..] v = line.view();
 	(void)prefix;
-	if (end < len(v) && ptr(v)[end] == ' ') {
+	if (end < len(v) && v[end] == ' ') {
 		end++;
 	}
 	*pos_out = pos;
@@ -87,12 +86,10 @@ static void adjust_loc_for_insert(Location *loc, int line_num, size_t at, size_t
 
 static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
 	int start_line, int end_line) {
-	Location saved_cursor = {0};
-	Location saved_mark = {0};
 	int line_num = start_line;
 
-	saved_cursor = win.cursor;
-	saved_mark = win.mark;
+	Location saved_cursor = win.cursor;
+	Location saved_mark = win.mark;
 	buffer_undo.begin_command(buf, win.cursor);
 	for (; line_num <= end_line; line_num++) {
 		Line *line = buf.line(line_num);
@@ -115,7 +112,7 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 			return false;
 		}
 		memcpy(old, ptr(line.data) + pos, old_len);
-		old[old_len] = 0;
+		ranged(old, old_len + 1)[old_len] = 0;
 		begin.line = line_num;
 		begin.offset = pos;
 		finish.line = line_num;
@@ -142,8 +139,6 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
 	int start_line, int end_line) {
 	char ins[16] = {0};
-	Location saved_cursor = {0};
-	Location saved_mark = {0};
 	int line_num = start_line;
 
 	if (plen == 0 || plen + 2 >= sizeof(ins)) {
@@ -151,13 +146,13 @@ static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, siz
 	}
 	memcpy(ins, prefix, plen);
 	size_t ins_len = plen;
-	if (prefix[plen - 1] != ' ') {
+	if (ranged(prefix, plen)[plen - 1] != ' ') {
 		ins[ins_len] = ' ';
 		ins_len++;
 	}
 	ins[ins_len] = 0;
-	saved_cursor = win.cursor;
-	saved_mark = win.mark;
+	Location saved_cursor = win.cursor;
+	Location saved_mark = win.mark;
 	buffer_undo.begin_command(buf, win.cursor);
 	for (; line_num <= end_line; line_num++) {
 		Line *line = buf.line(line_num);
@@ -215,7 +210,7 @@ bool mode_comment_dwim(bool f, int n) {
 		return false;
 	}
 	const char *prefix = mode_line_comment(buf.lang_mode);
-	if (prefix == NULL || prefix[0] == 0) {
+	if (prefix == NULL || *prefix == 0) {
 		return false;
 	}
 	size_t plen = strlen(prefix);

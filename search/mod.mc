@@ -98,19 +98,18 @@ char *search_last_error() {
 }
 
 static bool line_match_at(Line *line, size_t offset, char *needle, size_t nlen) {
-	char[..] v = {0};
 	size_t i = 0;
 	if (line == NULL || needle == NULL || nlen == 0) {
 		return false;
 	}
-	v = line.view();
+	char[..] v = line.view();
 	if (offset + nlen > len(v)) {
 		return false;
 	}
 	{
-		char *vp = ptr(v);
+		const char[..] nv = ranged(needle, nlen);
 		for (; i < nlen; i++) {
-			if (vp[offset + i] != needle[i]) {
+			if (v[offset + i] != nv[i]) {
 				return false;
 			}
 		}
@@ -253,12 +252,18 @@ static char *buffer_slice_from(Buffer *buf, Location start, size_t *out_len) {
 			memcpy(text + used, ptr(lp.data) + offset, chunk);
 			used = used + chunk;
 		}
-		text[used] = '\n';
+		{
+			char[..] tv = ranged(text, used + 1, size + 1);
+			tv[used] = '\n';
+		}
 		used++;
 		line_number++;
 		offset = 0;
 	}
-	text[used] = 0;
+	{
+		char[..] tv = ranged(text, used + 1, size + 1);
+		tv[used] = 0;
+	}
 	*out_len = used;
 	return text;
 }
@@ -295,9 +300,13 @@ static Location location_advance_bytes(Buffer *buf, Location loc, size_t bytes) 
 	return loc;
 }
 
-static void search_store_captures(ReCapture *src) {
+static void search_store_captures(ReCapture[..] src) {
 	size_t i = 0;
-	for (; i < ReMaxCaptures; i++) {
+	size_t n = len(src);
+	if (n > ReMaxCaptures) {
+		n = ReMaxCaptures;
+	}
+	for (; i < n; i++) {
 		g_search.captures[i] = src[i];
 	}
 }
@@ -535,7 +544,10 @@ static void search_collect_visible_spans_regex(Window *win) {
 		if (lim > 0) {
 			memcpy(copy, ptr(line.data), lim);
 		}
-		copy[lim] = 0;
+		{
+			char[..] cv = ranged(copy, lim + 1);
+			cv[lim] = 0;
+		}
 		cursor = 0;
 		while (cursor <= lim && n < (int)SearchSpanMax) {
 			size_t moff = 0;
@@ -651,7 +663,6 @@ static bool search_apply_hit(Window *win, Location begin, Location end, bool wra
 
 bool search_next() {
 	Window *win = window_current();
-	Location from = {0};
 	Location begin = {0};
 	Location end = {0};
 	if (win == NULL || win.buffer == NULL || g_search.needle_len == 0) {
@@ -659,7 +670,7 @@ bool search_next() {
 		search_apply_highlights(win);
 		return false;
 	}
-	from = win.cursor;
+	Location from = win.cursor;
 	if (g_search.have_match && g_search.forward) {
 		from = g_search.match_end;
 	} else if (g_search.have_match && !g_search.forward) {
@@ -721,7 +732,6 @@ bool search_next() {
 
 bool search_update() {
 	Window *win = window_current();
-	Location from = {0};
 	Location begin = {0};
 	Location end = {0};
 	if (win == NULL || g_search.needle_len == 0) {
@@ -729,7 +739,7 @@ bool search_update() {
 		search_apply_highlights(win);
 		return false;
 	}
-	from = g_search.start;
+	Location from = g_search.start;
 	if (g_search.regexp) {
 		int found = search_regex_from(win.buffer, from, g_search.forward, g_search.needle, &begin, &end);
 		if (found > 0) {
@@ -757,22 +767,26 @@ void search_begin_replace_re() {
 	g_search.replace_mode = true;
 }
 
-static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *caps, size_t *out_len) {
+static char *expand_regex_replacement(char *repl, char *match_text, ReCapture[..] caps, size_t *out_len) {
 	size_t size = 0;
 	size_t used = 0;
 	size_t i = 0;
-	if (repl == NULL || match_text == NULL || caps == NULL || out_len == NULL) {
+	if (repl == NULL || match_text == NULL || out_len == NULL) {
 		return NULL;
 	}
-	for (; repl[i] != 0; i++) {
-		if (repl[i] == '\\' && repl[i + 1] != 0) {
+	const char[..] rv = ranged(repl, strlen(repl));
+	for (; i < len(rv); i++) {
+		if (rv[i] == '\\' && i + 1 < len(rv)) {
 			char esc = 0;
 			i++;
-			esc = repl[i];
+			esc = rv[i];
 			if (esc >= '0' && esc <= '9') {
-				ReCapture cap = caps[esc - '0'];
-				if (cap.start >= 0 && cap.length >= 0) {
-					size = size + cap.length;
+				size_t idx = esc - '0';
+				if (idx < len(caps)) {
+					ReCapture cap = caps[idx];
+					if (cap.start >= 0 && cap.length >= 0) {
+						size = size + cap.length;
+					}
 				}
 			} else if (esc == 'n') {
 				size++;
@@ -783,20 +797,24 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *c
 			size++;
 		}
 	}
-	char *expanded = malloc(size + 1);
-	if (expanded == NULL) {
+	char *raw = malloc(size + 1);
+	if (raw == NULL) {
 		return NULL;
 	}
-	for (i = 0; repl[i] != 0; i++) {
-		if (repl[i] == '\\' && repl[i + 1] != 0) {
+	char[..] expanded = ranged(raw, size + 1);
+	for (i = 0; i < len(rv); i++) {
+		if (rv[i] == '\\' && i + 1 < len(rv)) {
 			char esc = 0;
 			i++;
-			esc = repl[i];
+			esc = rv[i];
 			if (esc >= '0' && esc <= '9') {
-				ReCapture cap = caps[esc - '0'];
-				if (cap.start >= 0 && cap.length >= 0) {
-					memcpy(expanded + used, match_text + cap.start, cap.length);
-					used = used + cap.length;
+				size_t idx = esc - '0';
+				if (idx < len(caps)) {
+					ReCapture cap = caps[idx];
+					if (cap.start >= 0 && cap.length >= 0) {
+						memcpy(raw + used, match_text + cap.start, cap.length);
+						used = used + cap.length;
+					}
 				}
 			} else if (esc == 'n') {
 				expanded[used] = '\n';
@@ -806,24 +824,23 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture *c
 				used++;
 			}
 		} else {
-			expanded[used] = repl[i];
+			expanded[used] = rv[i];
 			used++;
 		}
 	}
 	expanded[used] = 0;
 	*out_len = used;
-	return expanded;
+	return raw;
 }
 
 bool search_replace_one() {
 	Window *win = window_current();
-	Location begin = {0};
 	char *expanded = NULL;
 	bool free_repl = false;
 	if (win == NULL || !g_search.have_match) {
 		return false;
 	}
-	begin = g_search.match_begin;
+	Location begin = g_search.match_begin;
 	Line *line = win.buffer.line(begin.line);
 	if (line == NULL || g_search.match_end.line != begin.line ||
 		g_search.match_end.offset < begin.offset) {
@@ -848,7 +865,10 @@ bool search_replace_one() {
 	if (g_search.match_end.line == begin.line) {
 		memcpy(old, ptr(line.data) + begin.offset, old_len);
 	}
-	old[old_len] = 0;
+	{
+		char[..] ov = ranged(old, old_len + 1);
+		ov[old_len] = 0;
+	}
 	char *repl = g_search.replacement;
 	size_t repl_len = g_search.replacement_len;
 	if (g_search.regexp) {

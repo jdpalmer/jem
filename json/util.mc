@@ -26,7 +26,8 @@ static bool json_is_number_char(char c) {
 		c == 'e' || c == 'E';
 }
 
-static size_t json_utf8_encode(uint32_t codepoint, char *out) {
+static size_t json_utf8_encode(uint32_t codepoint, char *out_raw) {
+	char[..] out = ranged(out_raw, 4);
 	if ((codepoint >= 0xD800 && codepoint <= 0xDFFF) || codepoint > 0x10FFFF) {
 		codepoint = 0xFFFD;
 	}
@@ -57,7 +58,7 @@ static bool json_utf8_cont(int c) {
 }
 
 static size_t json_utf8_decode_strict(const char *text, size_t len, uint32_t *codepoint) {
-	const char *bytes = text;
+	const char[..] bytes = ranged(text, len);
 	size_t i = 1;
 
 	if (len == 0 || codepoint == NULL) {
@@ -232,9 +233,10 @@ static bool json_buffer_append_char(JsonBuffer *buffer, char c) {
 	if (!json_buffer_reserve(buffer, buffer.length + 1)) {
 		return false;
 	}
-	buffer.data[buffer.length] = c;
+	char[..] dv = ranged(buffer.data, buffer.capacity);
+	dv[buffer.length] = c;
 	buffer.length++;
-	buffer.data[buffer.length] = 0;
+	dv[buffer.length] = 0;
 	return true;
 }
 
@@ -252,7 +254,10 @@ static bool json_buffer_append_bytes(JsonBuffer *buffer, const char *bytes, size
 		memcpy(buffer.data + buffer.length, bytes, len);
 		buffer.length = buffer.length + len;
 	}
-	buffer.data[buffer.length] = 0;
+	{
+		char[..] dv = ranged(buffer.data, buffer.capacity);
+		dv[buffer.length] = 0;
+	}
 	return true;
 }
 

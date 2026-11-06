@@ -95,11 +95,13 @@ static void tag_picker_refresh() {
 		return;
 	}
 	size_t cap = (size_t)g_tp_match_count * (TagPathMax + TagNameMax + 768);
-	char *out = malloc(cap);
-	if (out == NULL) {
+	char *raw = malloc(cap);
+	if (raw == NULL) {
 		return;
 	}
+	char[..] out = ranged(raw, 1, cap);
 	out[0] = 0;
+	out = ranged(raw, 0, cap);
 	for (; i < g_tp_match_count; i++) {
 		TagEntry *entry = g_tp_entries.items[g_tp_matches[i].index];
 		char annotation[TagKindMax + TagNameMax * 2] = {0};
@@ -136,17 +138,19 @@ static void tag_picker_refresh() {
 			n = (int)sizeof(line) - 1;
 		}
 		if (i > 0 && used + 1 < cap) {
+			out = ranged(raw, used + 1, cap);
 			out[used++] = '\n';
 		}
 		if (used + (size_t)n + 1 > cap) {
 			break;
 		}
-		memcpy(out + used, line, n);
+		memcpy(raw + used, line, n);
 		used += n;
+		out = ranged(raw, used + 1, cap);
 		out[used] = 0;
 	}
-	window_set_match_buffer_text(out, used, g_tp_selected);
-	free(out);
+	window_set_match_buffer_text(raw, used, g_tp_selected);
+	free(raw);
 }
 
 bool tags_picker_open(TagList *entries, int purpose, const char[..] prompt,

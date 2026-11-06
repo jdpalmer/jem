@@ -25,7 +25,7 @@ bool cmd_spawn(bool f, int n) {
 }
 
 bool cmd_spawn_run_prompted(const char *command) {
-	if (command == NULL || command[0] == 0) {
+	if (command == NULL || *command == 0) {
 		display_set_echo("[empty command]");
 		return false;
 	}

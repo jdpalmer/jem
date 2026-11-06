@@ -128,14 +128,14 @@ void json_free([[consumes]] JsonValue *value) {
 		break;
 	case JSON_ARRAY:
 		for (; i < value.array.count; i++) {
-			json_free(value.array.items[i]);
+			json_free(ranged(value.array.items, value.array.count)[i]);
 		}
 		free(value.array.items);
 		break;
 	case JSON_OBJECT:
 		for (i = 0; i < value.object.count; i++) {
-			free(value.object.entries[i].key.data);
-			json_free(value.object.entries[i].value);
+			free(ranged(value.object.entries, value.object.count)[i].key.data);
+			json_free(ranged(value.object.entries, value.object.count)[i].value);
 		}
 		free(value.object.entries);
 		break;
@@ -231,7 +231,7 @@ bool json_array_append(JsonValue *array, JsonValue *item) {
 		sizeof(JsonValue *), array.array.count + 1)) {
 		return false;
 	}
-	array.array.items[array.array.count] = item;
+	ranged(array.array.items, array.array.capacity)[array.array.count] = item;
 	array.array.count++;
 	return true;
 }
@@ -247,14 +247,14 @@ const JsonValue *json_array_get(const JsonValue *array, size_t index) {
 	if (array == NULL || array.type != JSON_ARRAY || index >= array.array.count) {
 		return NULL;
 	}
-	return array.array.items[index];
+	return ranged(array.array.items, array.array.count)[index];
 }
 
 JsonValue *json_array_get_mutable(JsonValue *array, size_t index) {
 	if (array == NULL || array.type != JSON_ARRAY || index >= array.array.count) {
 		return NULL;
 	}
-	return array.array.items[index];
+	return ranged(array.array.items, array.array.count)[index];
 }
 
 static JsonObjectEntry *json_object_find_entry(JsonValue *object, const char *key,
@@ -265,8 +265,8 @@ static JsonObjectEntry *json_object_find_entry(JsonValue *object, const char *ke
 		return NULL;
 	}
 	for (; i < object.object.count; i++) {
-		if (json_string_equals(&object.object.entries[i].key, key, key_len)) {
-			return &object.object.entries[i];
+		if (json_string_equals(&ranged(object.object.entries, object.object.count)[i].key, key, key_len)) {
+			return &ranged(object.object.entries, object.object.count)[i];
 		}
 	}
 	return NULL;
@@ -280,8 +280,8 @@ static const JsonObjectEntry *json_object_find_entry_const(const JsonValue *obje
 		return NULL;
 	}
 	for (; i < object.object.count; i++) {
-		if (json_string_equals(&object.object.entries[i].key, key, key_len)) {
-			return &object.object.entries[i];
+		if (json_string_equals(&ranged(object.object.entries, object.object.count)[i].key, key, key_len)) {
+			return &ranged(object.object.entries, object.object.count)[i];
 		}
 	}
 	return NULL;
@@ -303,7 +303,7 @@ static bool json_object_put_owned(JsonValue *object, JsonString key, JsonValue *
 		sizeof(JsonObjectEntry), object.object.count + 1)) {
 		return false;
 	}
-	entry = &object.object.entries[object.object.count];
+	entry = &ranged(object.object.entries, object.object.capacity)[object.object.count];
 	object.object.count++;
 	entry.key = key;
 	entry.value = value;
@@ -349,7 +349,7 @@ const char *json_object_key_at(const JsonValue *object, size_t index) {
 		index >= object.object.count) {
 		return NULL;
 	}
-	return object.object.entries[index].key.data;
+	return ranged(object.object.entries, object.object.count)[index].key.data;
 }
 
 size_t json_object_key_len_at(const JsonValue *object, size_t index) {
@@ -357,7 +357,7 @@ size_t json_object_key_len_at(const JsonValue *object, size_t index) {
 		index >= object.object.count) {
 		return 0;
 	}
-	return object.object.entries[index].key.length;
+	return ranged(object.object.entries, object.object.count)[index].key.length;
 }
 
 const JsonValue *json_object_value_at(const JsonValue *object, size_t index) {
@@ -365,7 +365,7 @@ const JsonValue *json_object_value_at(const JsonValue *object, size_t index) {
 		index >= object.object.count) {
 		return NULL;
 	}
-	return object.object.entries[index].value;
+	return ranged(object.object.entries, object.object.count)[index].value;
 }
 
 const JsonValue *json_object_get_n(const JsonValue *object, const char *key,

@@ -147,7 +147,7 @@ static void test_line_comment_prefix() {
 	check(strcmp(mode_line_comment(LModeLisp), ";") == 0);
 	check(strcmp(mode_line_comment(LModeLua), "--") == 0);
 	check(strcmp(mode_line_comment(LModeModC), "//") == 0);
-	check(mode_line_comment(LModeCSS)[0] == 0);
+	check(*mode_line_comment(LModeCSS) == 0);
 }
 
 static void test_modc_mode_tabs() {

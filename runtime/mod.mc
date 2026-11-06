@@ -17,6 +17,7 @@ import "os";
 import "fs";
 import "path";
 import "str";
+import "crash";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -232,26 +233,29 @@ Command *find_cmd_entry(const char *name) {
 		return NULL;
 	}
 	/* Normalize: lower-case, '_' → '-' so Go-style names also match. */
-	for (; name[ni] != 0 && wi + 1 < sizeof(want); ni++) {
-		char c = name[ni];
-		if (c >= 'A' && c <= 'Z') {
-			c = (char)(c + ('a' - 'A'));
-		} else if (c == '_') {
-			c = '-';
+	{
+		const char[..] nv = ranged(name, strlen(name));
+		for (; ni < len(nv) && wi + 1 < sizeof(want); ni++) {
+			char c = nv[ni];
+			if (c >= 'A' && c <= 'Z') {
+				c = (char)(c + ('a' - 'A'));
+			} else if (c == '_') {
+				c = '-';
+			}
+			want[wi++] = c;
 		}
-		want[wi++] = c;
 	}
 	want[wi] = 0;
 	for (; i < g_cmd_count; i++) {
 		char have[128] = {0};
 		size_t j = 0;
-		size_t n = len(g_cmds[i].name);
-		const char *p = ptr(g_cmds[i].name);
-		if (p == NULL) {
+		const char[..] nm = g_cmds[i].name;
+		size_t n = len(nm);
+		if (ptr(nm) == NULL) {
 			continue;
 		}
 		for (j = 0; j < n && j + 1 < sizeof(have); j++) {
-			char c = p[j];
+			char c = nm[j];
 			if (c >= 'A' && c <= 'Z') {
 				c = (char)(c + ('a' - 'A'));
 			} else if (c == '_') {
@@ -492,7 +496,6 @@ bool cmd_insert_pending(bool f, int n) {
 	Window *w = window_current();
 	char utf[8] = {0};
 	uint32_t ch = g_pending_insert;
-	Location at = {0};
 	(void)f;
 	if (w == NULL || ch < 32) {
 		return true;
@@ -519,7 +522,7 @@ bool cmd_insert_pending(bool f, int n) {
 		utf[3] = (char)(0x80 | (ch & 0x3F));
 		len = 4;
 	}
-	at = w.cursor;
+	Location at = w.cursor;
 	buffer_undo.begin_command(w.buffer, at);
 	while (n-- > 0) {
 		if (!w.set_text(w.cursor, w.cursor, utf, len)) {
@@ -626,7 +629,10 @@ char *region_text(Window *w, Location a, Location b, size_t *out_n) {
 		if (data == NULL) {
 			return NULL;
 		}
-		data[0] = 0;
+		{
+			char[..] z = ranged(data, 1);
+			z[0] = 0;
+		}
 	}
 	return data;
 }
@@ -794,7 +800,6 @@ bool cmd_refresh(bool f, int n) {
 
 bool cmd_trim_whitespace(bool f, int n) {
 	Window *w = window_current();
-	char[..] v = {0};
 	Location begin = {0};
 	Location finish = {0};
 	(void)f;
@@ -806,8 +811,8 @@ bool cmd_trim_whitespace(bool f, int n) {
 	if (line == NULL) {
 		return false;
 	}
-	v = line.view();
-	char *vp = ptr(v);
+	char[..] v = line.view();
+	const char[..] vp = v;
 	size_t pos = w.cursor.offset;
 	size_t start = pos;
 	while (start > 0) {
@@ -843,7 +848,6 @@ bool cmd_trim_whitespace(bool f, int n) {
 
 bool cmd_transpose_chars(bool f, int n) {
 	Window *w = window_current();
-	char[..] v = {0};
 	Location begin = {0};
 	Location end = {0};
 	(void)f;
@@ -855,7 +859,7 @@ bool cmd_transpose_chars(bool f, int n) {
 	if (line == NULL) {
 		return false;
 	}
-	v = line.view();
+	char[..] v = line.view();
 	size_t offset = w.cursor.offset;
 	size_t right_start = offset;
 	size_t right_end = offset == len(v) ? offset : utf8_next_offset(v, right_start);
@@ -923,37 +927,37 @@ static char ascii_toupper(char c) {
 static bool transform_word_case(int mode) {
 	/* mode: 0=lower, 1=upper, 2=capitalize */
 	Window *w = window_current();
-	Location start = {0};
-	Location end = {0};
 	size_t tlen = 0;
 	size_t i = 0;
 	bool first = true;
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
-	start = w.cursor;
 	w.move_backward_word(1);
-	start = w.cursor;
+	Location start = w.cursor;
 	w.move_forward_word(1);
-	end = w.cursor;
+	Location end = w.cursor;
 	char *text = region_text(w, start, end, &tlen);
 	if (text == NULL || tlen == 0) {
 		free(text);
 		w.set_cursor(start);
 		return false;
 	}
-	for (; i < tlen; i++) {
-		if (mode == 0) {
-			text[i] = ascii_tolower(text[i]);
-		} else if (mode == 1) {
-			text[i] = ascii_toupper(text[i]);
-		} else {
-			if (first && ((text[i] >= 'a' && text[i] <= 'z') || (text[i] >= 'A' && text[i] <= 'Z'))) {
-				text[i] = ascii_toupper(text[i]);
-				first = false;
-			} else if ((text[i] >= 'a' && text[i] <= 'z') || (text[i] >= 'A' && text[i] <= 'Z')) {
-				text[i] = ascii_tolower(text[i]);
-				first = false;
+	{
+		char[..] tv = ranged(text, tlen);
+		for (; i < tlen; i++) {
+			if (mode == 0) {
+				tv[i] = ascii_tolower(tv[i]);
+			} else if (mode == 1) {
+				tv[i] = ascii_toupper(tv[i]);
+			} else {
+				if (first && ((tv[i] >= 'a' && tv[i] <= 'z') || (tv[i] >= 'A' && tv[i] <= 'Z'))) {
+					tv[i] = ascii_toupper(tv[i]);
+					first = false;
+				} else if ((tv[i] >= 'a' && tv[i] <= 'z') || (tv[i] >= 'A' && tv[i] <= 'Z')) {
+					tv[i] = ascii_tolower(tv[i]);
+					first = false;
+				}
 			}
 		}
 	}
@@ -1000,28 +1004,19 @@ static bool is_word_byte(char b) {
 }
 
 static Location next_word_start(Buffer *buf, Location loc) {
-	char[..] v = {0};
 	if (buf == NULL) {
 		return loc;
 	}
 	int nlines = buf.line_count_i();
-	Line *line = buf.line(loc.line);
-	if (line == NULL) {
-		return loc;
-	}
-	v = line.view();
 	size_t off = loc.offset;
 	while (loc.line <= nlines) {
-		line = buf.line(loc.line);
+		Line *line = buf.line(loc.line);
 		if (line == NULL) {
 			return loc;
 		}
-		v = line.view();
-		{
-			char *vp = ptr(v);
-			while (off < len(v) && !is_word_byte(vp[off])) {
-				off++;
-			}
+		char[..] v = line.view();
+		while (off < len(v) && !is_word_byte(v[off])) {
+			off++;
 		}
 		if (off < len(v)) {
 			loc.offset = off;
@@ -1041,10 +1036,6 @@ static Location next_word_start(Buffer *buf, Location loc) {
 
 bool cmd_transpose_words(bool f, int n) {
 	Window *w = window_current();
-	Location left_start = {0};
-	Location left_end = {0};
-	Location right_start = {0};
-	Location right_end = {0};
 	size_t left_len = 0;
 	size_t right_len = 0;
 	(void)f;
@@ -1052,18 +1043,17 @@ bool cmd_transpose_words(bool f, int n) {
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
-	left_start = w.cursor;
 	w.move_backward_word(1);
-	left_start = w.cursor;
+	Location left_start = w.cursor;
 	w.move_forward_word(1);
-	left_end = w.cursor;
-	right_start = next_word_start(w.buffer, left_end);
+	Location left_end = w.cursor;
+	Location right_start = next_word_start(w.buffer, left_end);
 	if (right_start.line == left_end.line && right_start.offset == left_end.offset) {
 		return false;
 	}
 	w.set_cursor(right_start);
 	w.move_forward_word(1);
-	right_end = w.cursor;
+	Location right_end = w.cursor;
 	char *left_text = region_text(w, left_start, left_end, &left_len);
 	char *right_text = region_text(w, right_start, right_end, &right_len);
 	if (left_text == NULL || right_text == NULL) {
@@ -1183,7 +1173,6 @@ bool cmd_mark_push(bool f, int n) {
 
 bool cmd_mark_pop(bool f, int n) {
 	Window *w = window_current();
-	Location loc = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL) {
@@ -1191,7 +1180,7 @@ bool cmd_mark_pop(bool f, int n) {
 	}
 	auto (popped, pop_ok) = markring_pop();
 	bool ok = pop_ok;
-	loc = popped;
+	Location loc = popped;
 	if (!ok) {
 		display_set_echo("[no saved mark]");
 		return false;
@@ -1207,14 +1196,13 @@ bool cmd_mark_pop(bool f, int n) {
 
 bool cmd_exchange_point_and_mark(bool f, int n) {
 	Window *w = window_current();
-	Location t = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.mark.line == 0) {
 		display_set_echo("[no mark in this window]");
 		return false;
 	}
-	t = w.cursor;
+	Location t = w.cursor;
 	w.set_cursor(w.mark);
 	w.mark = t;
 	w.ensure_visible();
@@ -1258,16 +1246,14 @@ bool cmd_insert_register(bool f, int n) {
 bool cmd_kill_region(bool f, int n) {
 	Window *w = window_current();
 	size_t tlen = 0;
-	Location begin = {0};
-	Location end = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.mark.line == 0) {
 		display_set_echo("No mark set");
 		return true;
 	}
-	begin = w.mark;
-	end = w.cursor;
+	Location begin = w.mark;
+	Location end = w.cursor;
 	char *text = region_text(w, begin, end, &tlen);
 	if (text != NULL) {
 		killring_kill(ranged(text, tlen));
@@ -1318,17 +1304,15 @@ bool cmd_copy_region(bool f, int n) {
 
 bool cmd_kill_line(bool f, int n) {
 	Window *w = window_current();
-	Location begin = {0};
-	Location end = {0};
 	size_t tlen = 0;
 	(void)f;
 	(void)n;
 	if (w == NULL) {
 		return true;
 	}
-	begin = w.cursor;
+	Location begin = w.cursor;
 	Line *line = w.buffer.line(begin.line);
-	end = begin;
+	Location end = begin;
 	if (line != NULL && begin.offset < line.byte_len()) {
 		end.offset = line.byte_len();
 	} else if (begin.line < w.buffer.line_count_i()) {
@@ -1353,7 +1337,6 @@ bool cmd_kill_line(bool f, int n) {
 
 bool cmd_yank(bool f, int n) {
 	Window *w = window_current();
-	char[..] yank = ranged((char *)0, 0);
 	(void)f;
 	if (n < 0) {
 		return false;
@@ -1364,7 +1347,7 @@ bool cmd_yank(bool f, int n) {
 	if (!killring_in_sequence() && !killring_clipboard_dirty()) {
 		(void)killring_read_clipboard();
 	}
-	yank = killring_yank();
+	char[..] yank = killring_yank();
 	if (w == NULL || len(yank) == 0) {
 		display_set_echo("Nothing to yank");
 		term_beep();
@@ -1513,11 +1496,12 @@ static bool goto_line_number(int target) {
 static bool parse_positive_line(char *s, int *out) {
 	int n = 0;
 	size_t i = 0;
-	if (s == NULL || s[0] == 0 || out == NULL) {
+	if (s == NULL || *s == 0 || out == NULL) {
 		return false;
 	}
-	for (; s[i] != 0; i++) {
-		char c = s[i];
+	const char[..] sv = ranged(s, strlen(s));
+	for (; i < len(sv); i++) {
+		char c = sv[i];
 		if (c < '0' || c > '9') {
 			return false;
 		}
@@ -1576,7 +1560,7 @@ bool cmd_compile(bool f, int n) {
 	minibuffer_begin("Compile: ", 0);
 	{
 		char *last = job_last_compile_command();
-		if (last != NULL && last[0] != 0) {
+		if (last != NULL && *last != 0) {
 			minibuffer_set_text(str_from_cstr(last));
 		}
 	}
@@ -1630,7 +1614,6 @@ bool cmd_describe_symbol(bool f, int n) {
 static bool insert_tag_completion(TagEntry *entry) {
 	Window *w = window_current();
 	char prefix[TagNameMax] = {0};
-	Location at = {0};
 	if (w == NULL || w.buffer == NULL || entry == NULL || entry.name == NULL) {
 		return false;
 	}
@@ -1650,7 +1633,7 @@ static bool insert_tag_completion(TagEntry *entry) {
 	if (n == 0) {
 		return true;
 	}
-	at = w.cursor;
+	Location at = w.cursor;
 	buffer_undo.begin_command(w.buffer, at);
 	if (!w.set_text(at, at, entry.name + plen, n)) {
 		buffer_undo.end_command();
@@ -1953,12 +1936,17 @@ static void append_key_text(char *out, size_t cap, const char *s) {
 		return;
 	}
 	memcpy(out + n, s, sl);
-	out[n + sl] = 0;
+	{
+		char[..] ov = ranged(out, cap);
+		ov[n + sl] = 0;
+	}
 }
 
 static void format_key_chord(uint32_t code, char *out, size_t cap) {
 	char ch[2] = {0};
-	out[0] = 0;
+	if (out != NULL && cap > 0) {
+		*out = 0;
+	}
 	if ((code & term_key_value(TermMETA)) != 0) {
 		append_key_text(out, cap, "M-");
 	}
@@ -2006,7 +1994,9 @@ static void format_key_chord(uint32_t code, char *out, size_t cap) {
 
 static void format_key_label(uint32_t code, char *out, size_t cap) {
 	if ((code & term_key_value(TermCTLX)) != 0) {
-		out[0] = 0;
+		if (out != NULL && cap > 0) {
+			*out = 0;
+		}
 		append_key_text(out, cap, "C-x ");
 		format_key_chord(code & ~term_key_value(TermCTLX), out + strlen(out), cap - strlen(out));
 		return;
@@ -2021,7 +2011,9 @@ static bool key_is_mouse(uint32_t code) {
 
 void command_bind_label(CommandFn fn, char *out, size_t cap) {
 	int i = 0;
-	out[0] = 0;
+	if (out != NULL && cap > 0) {
+		*out = 0;
+	}
 	if (fn == NULL) {
 		return;
 	}
@@ -2330,7 +2322,7 @@ static bool handle_listener_key(uint32_t key) {
 		if (key == (term_key_value(TermCTL) | (uint32_t)'S') ||
 			key == (term_key_value(TermMETA) | term_key_value(TermCTL) | (uint32_t)'S')) {
 			search_next();
-			if (search_last_error()[0] != 0) {
+			if (*search_last_error() != 0) {
 				char err[80] = {0};
 				snprintf(err, sizeof(err), "%s", search_last_error());
 				display_set_echo(err);
@@ -2341,7 +2333,7 @@ static bool handle_listener_key(uint32_t key) {
 			key == (term_key_value(TermMETA) | term_key_value(TermCTL) | (uint32_t)'R')) {
 			g_search_force_backward();
 			search_next();
-			if (search_last_error()[0] != 0) {
+			if (*search_last_error() != 0) {
 				char err[80] = {0};
 				snprintf(err, sizeof(err), "%s", search_last_error());
 				display_set_echo(err);
@@ -2351,7 +2343,7 @@ static bool handle_listener_key(uint32_t key) {
 		if (key == (term_key_value(TermCTL) | (uint32_t)'H') || key == 127) {
 			search_backspace();
 			search_update();
-			if (search_last_error()[0] != 0) {
+			if (*search_last_error() != 0) {
 				char err[80] = {0};
 				snprintf(err, sizeof(err), "%s", search_last_error());
 				display_set_echo(err);
@@ -2364,7 +2356,7 @@ static bool handle_listener_key(uint32_t key) {
 		}
 		if (key == term_key_value(TermKeyEnter)) {
 			char *needle = search_needle();
-			if (needle != NULL && needle[0] != 0) {
+			if (needle != NULL && *needle != 0) {
 				minibuffer_history_add(needle);
 			}
 			search_end();
@@ -2375,7 +2367,7 @@ static bool handle_listener_key(uint32_t key) {
 		if (key >= 32 && key < 127) {
 			search_append_char(key);
 			search_update();
-			if (search_last_error()[0] != 0) {
+			if (*search_last_error() != 0) {
 				char err[80] = {0};
 				snprintf(err, sizeof(err), "%s", search_last_error());
 				display_set_echo(err);
@@ -2738,7 +2730,6 @@ static bool handle_listener_key(uint32_t key) {
 					Window *rw = window_current();
 					size_t tlen = 0;
 					char msg[64] = {0};
-					char[..] view = {0};
 					if (rw == NULL || rw.mark.line == 0) {
 						display_set_echo("No mark set");
 						return true;
@@ -2753,11 +2744,7 @@ static bool handle_listener_key(uint32_t key) {
 						display_set_echo("[out of memory]");
 						return true;
 					}
-					if (text != NULL) {
-						view = ranged(text, tlen);
-					} else {
-						view = str_empty();
-					}
+					char[..] view = text != NULL ? ranged(text, tlen) : str_empty();
 					if (!register_set(name, view)) {
 						free(text);
 						display_set_echo("[invalid register]");
@@ -2773,15 +2760,13 @@ static bool handle_listener_key(uint32_t key) {
 				}
 				if (phase == (int)AskInsertRegister) {
 					Window *rw = window_current();
-					char[..] data = {0};
 					char msg[64] = {0};
-					Location at = {0};
 					char name = text_copy[0];
 					if (name == 0) {
 						display_set_echo("[register name required]");
 						return true;
 					}
-					data = register_get(name);
+					char[..] data = register_get(name);
 					if (len(data) == 0) {
 						snprintf(msg, sizeof(msg), "[register '%c' not found]", name);
 						display_set_echo(msg);
@@ -2790,7 +2775,7 @@ static bool handle_listener_key(uint32_t key) {
 					if (rw == NULL) {
 						return true;
 					}
-					at = rw.cursor;
+					Location at = rw.cursor;
 					buffer_undo.begin_command(rw.buffer, at);
 					if (!rw.set_text(at, at, ptr(data), len(data))) {
 						buffer_undo.end_command();
@@ -3111,15 +3096,17 @@ void runtime_run(int argc, char **argv) {
 	if (!term_open()) {
 		os_exit(1);
 	}
+	/* Restore cooked/main screen before panic/bounds lines hit stderr. */
+	crash_init(term_close);
 	display_init();
 	config_load();
 
 	/* Load argv files; leave *scratch* alone; show the first path (jem.go). */
 	{
 		Buffer *first = NULL;
+		char *[..] args = ranged(argv, (size_t)argc);
 		for (; i < argc; i++) {
-			auto (buf, ok) = file_visit(argv[i]);
-			if (!ok || buf == NULL) {
+			auto (buf, ok) = file_visit(args[i]);			if (!ok || buf == NULL) {
 				continue;
 			}
 			if (first == NULL) {

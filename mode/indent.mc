@@ -529,6 +529,7 @@ static int mode_calc_indent(Buffer *buf, int line_number) {
 }
 
 static size_t build_space_indent(int col, char *out, size_t cap) {
+	char[..] o = ranged(out, cap);
 	int i = 0;
 	if (col < 0) {
 		col = 0;
@@ -537,12 +538,13 @@ static size_t build_space_indent(int col, char *out, size_t cap) {
 		col = (int)cap;
 	}
 	for (; i < col; i++) {
-		out[i] = ' ';
+		o[i] = ' ';
 	}
 	return col;
 }
 
 static size_t build_tab_indent(int col, char *out, size_t cap) {
+	char[..] o = ranged(out, cap);
 	int i = 0;
 	size_t n = 0;
 	if (col <= 0) {
@@ -551,10 +553,10 @@ static size_t build_tab_indent(int col, char *out, size_t cap) {
 	int tabs = col / 8;
 	int spaces = col % 8;
 	for (; i < tabs && n < cap; i++) {
-		out[n++] = '\t';
+		o[n++] = '\t';
 	}
 	for (i = 0; i < spaces && n < cap; i++) {
-		out[n++] = ' ';
+		o[n++] = ' ';
 	}
 	return n;
 }
@@ -661,45 +663,44 @@ static int prev_nonblank_line(Buffer *buf, int line_number) {
 
 /* Markdown list/blockquote prefix from a reference line (jem.go mdBuildPrefix). */
 static size_t md_build_prefix(Line *line, char *out, size_t cap) {
-	char[..] p = {0};
+	char[..] o = ranged(out, cap);
 	size_t n = 0;
 	size_t i = 0;
 	if (line == NULL || cap == 0) {
 		return 0;
 	}
-	p = line.view();
+	char[..] p = line.view();
 	{
-		char *pp = ptr(p);
-		while (i < len(p) && (pp[i] == ' ' || pp[i] == '\t') && n < cap) {
-			out[n++] = pp[i++];
+		while (i < len(p) && (p[i] == ' ' || p[i] == '\t') && n < cap) {
+			o[n++] = p[i++];
 		}
-		while (i < len(p) && pp[i] == '>' && n + 2 <= cap) {
-			out[n++] = '>';
-			out[n++] = ' ';
+		while (i < len(p) && p[i] == '>' && n + 2 <= cap) {
+			o[n++] = '>';
+			o[n++] = ' ';
 			i++;
-			if (i < len(p) && pp[i] == ' ') {
+			if (i < len(p) && p[i] == ' ') {
 				i++;
 			}
-			while (i < len(p) && pp[i] == ' ') {
+			while (i < len(p) && p[i] == ' ') {
 				i++;
 			}
 		}
-		if (i < len(p) && (pp[i] == '-' || pp[i] == '*' || pp[i] == '+')) {
-			if (i + 1 < len(p) && pp[i + 1] == ' ' && n + 2 <= cap) {
-				out[n++] = pp[i];
-				out[n++] = ' ';
+		if (i < len(p) && (p[i] == '-' || p[i] == '*' || p[i] == '+')) {
+			if (i + 1 < len(p) && p[i + 1] == ' ' && n + 2 <= cap) {
+				o[n++] = p[i];
+				o[n++] = ' ';
 				return n;
 			}
 		}
 		size_t save = i;
 		int num = 0;
-		while (i < len(p) && pp[i] >= '0' && pp[i] <= '9') {
-			num = num * 10 + (pp[i] - '0');
+		while (i < len(p) && p[i] >= '0' && p[i] <= '9') {
+			num = num * 10 + (p[i] - '0');
 			i++;
 		}
 		if (i > save && i < len(p)) {
-			char del = pp[i];
-			if ((del == '.' || del == ')') && i + 1 < len(p) && pp[i + 1] == ' ') {
+			char del = p[i];
+			if ((del == '.' || del == ')') && i + 1 < len(p) && p[i + 1] == ' ') {
 				int next = num + 1;
 				char digits[16] = {0};
 				int dlen = 0;
@@ -721,8 +722,8 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 				if (n + (size_t)dlen + 2 <= cap) {
 					memcpy(out + n, digits, dlen);
 					n += dlen;
-					out[n++] = del;
-					out[n++] = ' ';
+					o[n++] = del;
+					o[n++] = ' ';
 					return n;
 				}
 			}
@@ -733,7 +734,6 @@ static size_t md_build_prefix(Line *line, char *out, size_t cap) {
 
 static bool insert_md_prefix_after_newline(Window *win) {
 	char prefix[IndentPrefixCap] = {0};
-	Location at = {0};
 	if (win == NULL || win.buffer == NULL || win.cursor.line <= 1) {
 		return true;
 	}
@@ -746,7 +746,7 @@ static bool insert_md_prefix_after_newline(Window *win) {
 	if (n == 0) {
 		return true;
 	}
-	at = win.cursor;
+	Location at = win.cursor;
 	if (!win.set_text(win.cursor, win.cursor, prefix, n)) {
 		return false;
 	}

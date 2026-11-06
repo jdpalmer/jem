@@ -130,35 +130,35 @@ static bool re_one(ReToken token, char c) {
 	return false;
 }
 
-static void re_caps_clear(ReCapture *groups, size_t n) {
+static void re_caps_clear(ReCapture[..] groups) {
 	size_t i = 0;
-	if (groups == NULL) {
-		return;
-	}
-	for (; i < n; i++) {
+	for (; i < len(groups); i++) {
 		groups[i].start = -1;
 		groups[i].length = -1;
 	}
 }
 
-static void re_caps_copy(ReCapture *dst, ReCapture *src, size_t n) {
+static void re_caps_copy(ReCapture[..] dst, ReCapture[..] src) {
 	size_t i = 0;
-	if (dst == NULL || src == NULL) {
-		return;
+	size_t n = len(dst);
+	if (n > len(src)) {
+		n = len(src);
 	}
 	for (; i < n; i++) {
 		dst[i] = src[i];
 	}
 }
 
-static bool re_compile(const char *pattern, size_t pat_len, ReToken *compiled, size_t capacity) {
+static bool re_compile(const char[..] pattern, ReToken[..] compiled) {
 	size_t i = 0;
 	size_t j = 0;
 	char group_stack[ReMaxCaptures - 1] = {0};
 	size_t group_depth = 0;
 	char next_group = 1;
+	size_t pat_len = len(pattern);
+	size_t capacity = len(compiled);
 
-	if (pattern == NULL || compiled == NULL || capacity == 0) {
+	if (capacity == 0) {
 		return false;
 	}
 	while (i < pat_len) {
@@ -271,120 +271,133 @@ static bool re_compile(const char *pattern, size_t pat_len, ReToken *compiled, s
 	return true;
 }
 
-static bool re_match_at(ReToken *pattern, const char *text, const char *text_end,
-	ssize_t *matchlength, ReCapture *groups, size_t group_count) {
+static bool re_match_at(ReToken[..] pattern, const char[..] text, ssize_t *matchlength,
+	ReCapture[..] groups) {
 	ReCapture saved[ReMaxCaptures] = {0};
+	ReCapture[..] saved_view = saved;
 
 	if (matchlength == NULL) {
 		return false;
 	}
 	ssize_t pre = *matchlength;
-	re_caps_copy(saved, groups, group_count);
+	re_caps_copy(saved_view, groups);
 	for (;;) {
-		if (pattern[0].type == ReUnused) {
+		if (len(pattern) == 0 || pattern[0].type == ReUnused) {
 			return true;
 		}
 		if (pattern[0].type == ReGroupStart) {
-			if (groups != NULL && pattern[0].ch < (char)group_count) {
+			if (pattern[0].ch < (char)len(groups)) {
 				groups[pattern[0].ch].start = *matchlength;
 				groups[pattern[0].ch].length = -1;
 			}
-			pattern++;
+			pattern = pattern[1..];
 			continue;
 		}
 		if (pattern[0].type == ReGroupEnd) {
-			if (groups != NULL && pattern[0].ch < (char)group_count) {
+			if (pattern[0].ch < (char)len(groups)) {
 				groups[pattern[0].ch].length =
 					*matchlength - groups[pattern[0].ch].start;
 			}
-			pattern++;
+			pattern = pattern[1..];
 			continue;
 		}
-		if (pattern[1].type == ReQuestion) {
+		if (len(pattern) > 1 && pattern[1].type == ReQuestion) {
 			ssize_t prelen = *matchlength;
 			ReCapture question_saved[ReMaxCaptures] = {0};
-			re_caps_copy(question_saved, groups, group_count);
-			if (re_match_at(&pattern[2], text, text_end, matchlength, groups, group_count)) {
+			ReCapture[..] qview = question_saved;
+			re_caps_copy(qview, groups);
+			if (re_match_at(pattern[2..], text, matchlength, groups)) {
 				return true;
 			}
 			*matchlength = prelen;
-			re_caps_copy(groups, question_saved, group_count);
-			if (text < text_end && re_one(pattern[0], *text) &&
-				re_match_at(&pattern[2], text + 1, text_end, matchlength, groups, group_count)) {
+			re_caps_copy(groups, qview);
+			if (len(text) > 0 && re_one(pattern[0], text[0]) &&
+				re_match_at(pattern[2..], text[1..], matchlength, groups)) {
 				(*matchlength)++;
 				return true;
 			}
 			*matchlength = prelen;
-			re_caps_copy(groups, question_saved, group_count);
+			re_caps_copy(groups, qview);
 			return false;
 		}
-		if (pattern[1].type == ReStar || pattern[1].type == RePlus) {
+		if (len(pattern) > 1 && (pattern[1].type == ReStar || pattern[1].type == RePlus)) {
 			bool require_one = pattern[1].type == RePlus;
 			ssize_t prelen = *matchlength;
-			const char *prepoint = text;
+			size_t consumed = 0;
 			ReCapture repeat_saved[ReMaxCaptures] = {0};
-			re_caps_copy(repeat_saved, groups, group_count);
-			while (text < text_end && re_one(pattern[0], text[0])) {
-				text++;
+			ReCapture[..] rview = repeat_saved;
+			re_caps_copy(rview, groups);
+			while (len(text) > 0 && re_one(pattern[0], text[0])) {
+				text = text[1..];
+				consumed++;
 				(*matchlength)++;
 			}
-			if (require_one && text == prepoint) {
+			if (require_one && consumed == 0) {
 				*matchlength = prelen;
-				re_caps_copy(groups, repeat_saved, group_count);
+				re_caps_copy(groups, rview);
 				return false;
 			}
-			while (text >= prepoint + (require_one ? 1 : 0)) {
+			size_t min_keep = require_one ? 1 : 0;
+			while (consumed >= min_keep) {
 				ReCapture attempt[ReMaxCaptures] = {0};
-				re_caps_copy(attempt, groups, group_count);
-				if (re_match_at(&pattern[2], text, text_end, matchlength, groups, group_count)) {
+				ReCapture[..] aview = attempt;
+				re_caps_copy(aview, groups);
+				if (re_match_at(pattern[2..], text, matchlength, groups)) {
 					return true;
 				}
-				text--;
-				re_caps_copy(groups, attempt, group_count);
+				if (consumed == 0) {
+					break;
+				}
+				/* Walk back one matched char: rebuild remaining text length. */
+				text = ranged(ptr(text) - 1, len(text) + 1);
+				consumed--;
+				re_caps_copy(groups, aview);
 				(*matchlength)--;
 			}
 			*matchlength = prelen;
-			re_caps_copy(groups, repeat_saved, group_count);
+			re_caps_copy(groups, rview);
 			return false;
 		}
-		if (pattern[0].type == ReEnd && pattern[1].type == ReUnused) {
-			return text >= text_end;
+		if (pattern[0].type == ReEnd &&
+			(len(pattern) == 1 || pattern[1].type == ReUnused)) {
+			return len(text) == 0;
 		}
-		if (text >= text_end || !re_one(*pattern, text[0])) {
+		if (len(text) == 0 || !re_one(pattern[0], text[0])) {
 			*matchlength = pre;
-			re_caps_copy(groups, saved, group_count);
+			re_caps_copy(groups, saved_view);
 			return false;
 		}
 		(*matchlength)++;
-		pattern++;
-		text++;
+		pattern = pattern[1..];
+		text = text[1..];
 	}
 }
 
-static ssize_t re_search_compiled(ReToken *pattern, const char *text, const char *text_end,
-	ssize_t *matchlength, ReCapture *groups, size_t group_count) {
+static ssize_t re_search_compiled(ReToken[..] pattern, const char[..] text,
+	ssize_t *matchlength, ReCapture[..] groups) {
 	ssize_t idx = 0;
+	const char[..] rest = text;
 
 	*matchlength = 0;
-	if (pattern[0].type == ReBegin) {
-		re_caps_clear(groups, group_count);
-		if (!re_match_at(&pattern[1], text, text_end, matchlength, groups, group_count)) {
+	if (len(pattern) > 0 && pattern[0].type == ReBegin) {
+		re_caps_clear(groups);
+		if (!re_match_at(pattern[1..], rest, matchlength, groups)) {
 			return -1;
 		}
-		if (groups != NULL && group_count > 0) {
+		if (len(groups) > 0) {
 			groups[0].start = 0;
 			groups[0].length = *matchlength;
 		}
 		return 0;
 	}
-	while (text < text_end) {
+	while (len(rest) > 0) {
 		size_t i = 0;
-		re_caps_clear(groups, group_count);
-		if (re_match_at(pattern, text, text_end, matchlength, groups, group_count)) {
-			if (groups != NULL && group_count > 0) {
+		re_caps_clear(groups);
+		if (re_match_at(pattern, rest, matchlength, groups)) {
+			if (len(groups) > 0) {
 				groups[0].start = idx;
 				groups[0].length = *matchlength;
-				for (i = 1; i < group_count; i++) {
+				for (i = 1; i < len(groups); i++) {
 					if (groups[i].start >= 0) {
 						groups[i].start = groups[i].start + idx;
 					}
@@ -393,24 +406,21 @@ static ssize_t re_search_compiled(ReToken *pattern, const char *text, const char
 			return idx;
 		}
 		idx++;
-		text++;
+		rest = rest[1..];
 	}
 	return -1;
 }
 
-static (ReStatus, size_t, size_t) re_find_raw(const char *pattern, size_t pat_len,
-	const char *text, size_t text_len, ReCapture *groups, size_t group_count) {
+static (ReStatus, size_t, size_t) re_find_raw(const char[..] pattern, const char[..] text,
+	ReCapture[..] groups) {
 	ReToken compiled[ReMaxTokens] = {0};
 	ssize_t matchlength = 0;
 
-	re_caps_clear(groups, group_count);
-	if (pattern == NULL || text == NULL) {
+	re_caps_clear(groups);
+	if (!re_compile(pattern, compiled)) {
 		return (ReInvalid, 0, 0);
 	}
-	if (!re_compile(pattern, pat_len, compiled, ReMaxTokens)) {
-		return (ReInvalid, 0, 0);
-	}
-	ssize_t offset = re_search_compiled(compiled, text, text + text_len, &matchlength, groups, group_count);
+	ssize_t offset = re_search_compiled(compiled, text, &matchlength, groups);
 	if (offset < 0) {
 		return (ReNone, 0, 0);
 	}
@@ -420,20 +430,15 @@ static (ReStatus, size_t, size_t) re_find_raw(const char *pattern, size_t pat_le
 // Find the first match of pattern in text.
 // On ReFound, offset/length are byte indices into text.
 (ReStatus, size_t, size_t) re_find(const char[..] pattern, const char[..] text) {
-	return re_find_raw(ptr(pattern), len(pattern), ptr(text), len(text), NULL, 0);
+	ReCapture[..] nogroups = ranged((ReCapture *)0, 0);
+	return re_find_raw(pattern, text, nogroups);
 }
 
 // Like re_find, and fill groups: [0] = whole match, [1..] = (... ) captures.
 // Pass an empty groups view to skip captures. At most ReMaxCaptures slots are used.
 (ReStatus, size_t, size_t) re_find_groups(const char[..] pattern, const char[..] text, ReCapture[..] groups) {
-	ReCapture *gp = NULL;
-	size_t gn = 0;
-	if (len(groups) > 0) {
-		gp = ptr(groups);
-		gn = len(groups);
-		if (gn > ReMaxCaptures) {
-			gn = ReMaxCaptures;
-		}
+	if (len(groups) > ReMaxCaptures) {
+		groups = groups[..ReMaxCaptures];
 	}
-	return re_find_raw(ptr(pattern), len(pattern), ptr(text), len(text), gp, gn);
+	return re_find_raw(pattern, text, groups);
 }

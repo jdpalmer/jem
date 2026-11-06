@@ -94,12 +94,13 @@ static bool g_term_debug_checked;
 static bool g_term_debug_on;
 static FILE *g_term_debug_fp;
 
-static void term_debug_log(const char *tag, const char *buf, size_t n) {
+static void term_debug_log(const char *tag, const char[..] buf) {
 	size_t i = 0;
+	size_t n = len(buf);
 	if (!g_term_debug_checked) {
-		const char *v = getenv("JEM_TERM_DEBUG");
+		auto (ok, v) = os_env("JEM_TERM_DEBUG");
 		g_term_debug_checked = true;
-		g_term_debug_on = (v != NULL && v[0] != 0 && v[0] != '0');
+		g_term_debug_on = ok && len(v) > 0 && v[0] != '0';
 		if (g_term_debug_on) {
 			g_term_debug_fp = fopen("/tmp/jem_term_debug.log", "a");
 		}
@@ -129,7 +130,7 @@ static bool term_write_all(const char *buf, size_t n) {
 	if (buf == NULL || n == 0) {
 		return true;
 	}
-	term_debug_log("write_all", buf, n);
+	term_debug_log("write_all", ranged(buf, n));
 #ifdef _WIN32
 	while (off < n) {
 		auto (wn, ok) = g_fout.write(str_from_bytes(buf + off, n - off));
@@ -389,9 +390,10 @@ void term_emit_u32(uint32_t v) {
 }
 
 /* Append decimal digits; returns new length. jem.c uses fmt_u32 the same way. */
-static int term_append_u32(char *dst, int cap, int n, uint32_t v) {
+static int term_append_u32(char[..] dst, int n, uint32_t v) {
 	char tmp[16] = {0};
 	int tn = 0;
+	int cap = (int)len(dst);
 	if (n < 0 || n >= cap) {
 		return -1;
 	}
@@ -426,7 +428,7 @@ static void term_emit_csi(int first, bool has_second, int second, char final_b) 
 	}
 	seq[n++] = 0x1b;
 	seq[n++] = '[';
-	n = term_append_u32(seq, cap, n, first);
+	n = term_append_u32(seq, n, first);
 	if (n < 0) {
 		return;
 	}
@@ -435,7 +437,7 @@ static void term_emit_csi(int first, bool has_second, int second, char final_b) 
 			return;
 		}
 		seq[n++] = ';';
-		n = term_append_u32(seq, cap, n, second);
+		n = term_append_u32(seq, n, second);
 		if (n < 0) {
 			return;
 		}
@@ -935,27 +937,29 @@ void term_set_mouse_pos(int col, int row) {
 	g_mouse_row = row;
 }
 
-static bool term_paste_terminator(char *data, size_t n) {
+static bool term_paste_terminator(const char[..] data) {
 	char terminator[6] = {0x1B, '[', '2', '0', '1', '~'};
-	return data != NULL && n >= sizeof(terminator) &&
-		memcmp(data + n - sizeof(terminator), terminator,
+	size_t n = len(data);
+	return n >= sizeof(terminator) &&
+		memcmp(ptr(data) + n - sizeof(terminator), terminator,
 			sizeof(terminator)) == 0;
 }
 
 static void term_read_bracketed_paste() {
 	enum { PasteMax = 64 * 1024 };
-	char *data = malloc((size_t)PasteMax + 6);
+	char *raw = malloc((size_t)PasteMax + 6);
 	char recent[6] = {0};
 	size_t used = 0;
 	size_t recent_len = 0;
 	bool truncated = false;
-	if (data == NULL) {
+	if (raw == NULL) {
 		return;
 	}
+	char[..] data = ranged(raw, 0, (size_t)PasteMax + 6);
 	for (;;) {
 		auto (byte, ok) = term_read_byte(g_byte_timeout_ms);
 		if (!ok) {
-			free(data);
+			free(raw);
 			return;
 		}
 		if (recent_len < sizeof(recent)) {
@@ -965,24 +969,25 @@ static void term_read_bracketed_paste() {
 			recent[sizeof(recent) - 1] = byte;
 		}
 		if (truncated) {
-			if (term_paste_terminator(recent, recent_len)) {
+			if (term_paste_terminator(ranged(recent, recent_len))) {
 				return;
 			}
 			continue;
 		}
+		data = ranged(raw, used + 1, cap(data));
 		data[used++] = byte;
-		if (term_paste_terminator(data, used)) {
+		if (term_paste_terminator(data)) {
 			size_t payload_len = used - 6;
 			if (payload_len > 0) {
-				event_enqueue(event_paste(data, payload_len));
-				data = NULL;
+				event_enqueue(event_paste(raw, payload_len));
+				raw = NULL;
 			}
-			free(data);
+			free(raw);
 			return;
 		}
 		if (used > (size_t)PasteMax) {
-			event_enqueue(event_paste(data, PasteMax));
-			data = NULL;
+			event_enqueue(event_paste(raw, PasteMax));
+			raw = NULL;
 			truncated = true;
 		}
 	}

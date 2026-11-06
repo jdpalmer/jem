@@ -11,11 +11,10 @@ static bool cursor_at_eob(Window *win) {
 }
 
 static int cursor_char(Window *win, Buffer *buf) {
-	Location loc = {0};
 	if (cursor_at_eob(win)) {
 		return -1;
 	}
-	loc = win.cursor;
+	Location loc = win.cursor;
 	Line *line = buf.line(loc.line);
 	if (line == NULL) {
 		return -1;
@@ -25,12 +24,11 @@ static int cursor_char(Window *win, Buffer *buf) {
 	}
 	{
 		char[..] v = line.view();
-		return ptr(v)[loc.offset];
+		return v[loc.offset];
 	}
 }
 
 static bool forward_sexp_once(Window *win, Buffer *buf) {
-	Location loc = {0};
 	Location match = {0};
 	for (;;) {
 		int skip = cursor_char(win, buf);
@@ -44,7 +42,7 @@ static bool forward_sexp_once(Window *win, Buffer *buf) {
 			return false;
 		}
 	}
-	loc = win.cursor;
+	Location loc = win.cursor;
 	int ch = cursor_char(win, buf);
 	if (ch == '(' || ch == '[' || ch == '{') {
 		if (!mode_find_matching_delimiter(buf, loc, &match)) {
@@ -71,10 +69,8 @@ static bool forward_sexp_once(Window *win, Buffer *buf) {
 }
 
 static bool backward_sexp_once(Window *win, Buffer *buf) {
-	Location orig = {0};
-	Location loc = {0};
 	Location match = {0};
-	orig = win.cursor;
+	Location orig = win.cursor;
 	if (!cmd_backward_char(false, 1)) {
 		return false;
 	}
@@ -87,7 +83,7 @@ static bool backward_sexp_once(Window *win, Buffer *buf) {
 			break;
 		}
 	}
-	loc = win.cursor;
+	Location loc = win.cursor;
 	int ch = cursor_char(win, buf);
 	if (ch == ')' || ch == ']' || ch == '}') {
 		if (!mode_find_matching_delimiter(buf, loc, &match)) {

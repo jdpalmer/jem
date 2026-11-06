@@ -22,11 +22,12 @@ static bool tag_detail_text_line(char *text, size_t text_len, int wanted,
 	if (text == NULL || wanted < 1 || start_out == NULL || len_out == NULL) {
 		return false;
 	}
+	const char[..] tv = ranged(text, text_len);
 	for (; i <= text_len; i++) {
-		if (i == text_len || text[i] == '\n') {
+		if (i == text_len || tv[i] == '\n') {
 			if (line == wanted) {
 				size_t n = i - start;
-				if (n > 0 && text[start + n - 1] == '\r') {
+				if (n > 0 && tv[start + n - 1] == '\r') {
 					n--;
 				}
 				*start_out = text + start;
@@ -47,11 +48,12 @@ static bool tag_detail_line_comment(char *line, size_t n, const char *prefix,
 	if (line == NULL || prefix == NULL || part == NULL || part_len == NULL) {
 		return false;
 	}
+	const char[..] lv = ranged(line, n);
 	size_t plen = strlen(prefix);
-	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
+	while (start < end && (lv[start] == ' ' || lv[start] == '\t')) {
 		start++;
 	}
-	while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t')) {
+	while (end > start && (lv[end - 1] == ' ' || lv[end - 1] == '\t')) {
 		end--;
 	}
 	if (plen == 0 || end - start < plen ||
@@ -59,7 +61,7 @@ static bool tag_detail_line_comment(char *line, size_t n, const char *prefix,
 		return false;
 	}
 	start += plen;
-	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
+	while (start < end && (lv[start] == ' ' || lv[start] == '\t')) {
 		start++;
 	}
 	*part = line + start;
@@ -83,32 +85,33 @@ static bool tag_detail_comment_part(char *line, size_t n, LangMode mode,
 	if (mode == LModeLisp) {
 		return tag_detail_line_comment(line, n, ";", part, part_len);
 	}
-	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
+	const char[..] lv = ranged(line, n);
+	while (start < end && (lv[start] == ' ' || lv[start] == '\t')) {
 		start++;
 	}
-	while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t')) {
+	while (end > start && (lv[end - 1] == ' ' || lv[end - 1] == '\t')) {
 		end--;
 	}
-	if (end - start >= 2 && line[start] == '/' && line[start + 1] == '/') {
+	if (end - start >= 2 && lv[start] == '/' && lv[start + 1] == '/') {
 		start += 2;
-	} else if (end - start >= 2 && line[start] == '/' &&
-		line[start + 1] == '*') {
+	} else if (end - start >= 2 && lv[start] == '/' &&
+		lv[start + 1] == '*') {
 		start += 2;
-	} else if (start < end && line[start] == '*') {
+	} else if (start < end && lv[start] == '*') {
 		start++;
-		if (start < end && line[start] == '/') {
+		if (start < end && lv[start] == '/') {
 			start++;
 		}
 	} else {
 		return false;
 	}
-	if (end - start >= 2 && line[end - 2] == '*' && line[end - 1] == '/') {
+	if (end - start >= 2 && lv[end - 2] == '*' && lv[end - 1] == '/') {
 		end -= 2;
 	}
-	while (start < end && (line[start] == ' ' || line[start] == '\t')) {
+	while (start < end && (lv[start] == ' ' || lv[start] == '\t')) {
 		start++;
 	}
-	while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t')) {
+	while (end > start && (lv[end - 1] == ' ' || lv[end - 1] == '\t')) {
 		end--;
 	}
 	*part = line + start;
@@ -128,7 +131,8 @@ static bool tag_detail_prepend(char *dst, size_t cap, char *part, size_t n) {
 	memmove(dst + n + (old > 0 ? 1 : 0), dst, old + 1);
 	memcpy(dst, part, n);
 	if (old > 0) {
-		dst[n] = '\n';
+		char[..] dv = ranged(dst, cap);
+		dv[n] = '\n';
 	}
 	return true;
 }
@@ -144,7 +148,7 @@ static LangMode tag_detail_lang_for_entry(TagEntry *entry) {
 			return b.lang_mode;
 		}
 	}
-	if (entry.path != NULL && entry.path[0] != 0) {
+	if (entry.path != NULL && *entry.path != 0) {
 		LangMode detected = mode_detect(str_from_cstr(entry.path));
 		if (detected != LModeNone) {
 			return detected;
@@ -186,7 +190,7 @@ static void tag_detail_source_comment(TagEntry *entry, char *dst, size_t cap) {
 	if (entry == NULL || entry.path == NULL || dst == NULL || cap == 0) {
 		return;
 	}
-	dst[0] = 0;
+	{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
 	{
 		auto (text, text_len, ok) = tag_detail_source_bytes(entry);
 		if (!ok) {
@@ -285,7 +289,7 @@ static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) 
 	if (dst == NULL || cap == 0) {
 		return;
 	}
-	dst[0] = 0;
+	{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
 	if (sig == NULL) {
 		return;
 	}
@@ -305,7 +309,7 @@ static void tag_detail_format_signature(char *dst, size_t cap, const char *sig) 
 	{
 		char *line = trimmed;
 		size_t used = 0;
-		dst[0] = 0;
+		{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
 		for (;;) {
 			char *nl = strchr(line, '\n');
 			if (nl != NULL) {
@@ -366,7 +370,7 @@ bool tags_show_details(TagEntry *entry) {
 			return false;
 		}
 	}
-	if (entry.signature != NULL && entry.signature[0] != 0) {
+	if (entry.signature != NULL && *entry.signature != 0) {
 		tag_detail_format_signature(signature, sizeof(signature), entry.signature);
 		if (!tag_detail_append(buf, "") ||
 			!tag_detail_append(buf, "## Signature") ||

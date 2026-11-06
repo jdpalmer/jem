@@ -26,7 +26,7 @@ static void spawn_print_notice(const char *label, const char *command) {
 	if (label == NULL) {
 		label = "Shell";
 	}
-	int n = (command != NULL && command[0] != 0)
+	int n = (command != NULL && *command != 0)
 		? snprintf(buf, sizeof(buf),
 			"\n[jem] %s: %s\n[jem] Terminal handed to shell. Exit shell to return to jem.\n\n",
 			label, command)
@@ -134,7 +134,7 @@ int spawn_run(const char *command) {
 		return -1;
 	}
 
-	bool oneshot = (command != NULL && command[0] != 0);
+	bool oneshot = (command != NULL && *command != 0);
 	if (oneshot) {
 		snprintf(g_spawn_line, sizeof(g_spawn_line), "%s", command);
 	} else {

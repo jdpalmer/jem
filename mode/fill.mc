@@ -1,4 +1,6 @@
 // mode/fill.mc — fill-paragraph (reflow words to fill_col).
+import "str";
+
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,9 +22,7 @@ bool mode_fill_paragraph(bool f, int n) {
 	int start = 0;
 	int ln = start;
 	int fill_col = FillDefaultCol;
-	char *blob = NULL;
-	size_t blob_cap = 0;
-	size_t blob_len = 0;
+	char[..] blob = {0};
 	char *words[FillWordMax] = {0};
 	int word_count = 0;
 	int wi = 0;
@@ -68,120 +68,94 @@ bool mode_fill_paragraph(bool f, int n) {
 		}
 		v = line.view();
 		while (i < len(v)) {
-			char *vp = ptr(v);
 			size_t j = 0;
 			size_t wlen = 0;
-			while (i < len(v) && fill_is_space(vp[i])) {
+			size_t blob_len = 0;
+			while (i < len(v) && fill_is_space(v[i])) {
 				i++;
 			}
 			if (i >= len(v)) {
 				break;
 			}
 			j = i;
-			while (j < len(v) && !fill_is_space(vp[j])) {
+			while (j < len(v) && !fill_is_space(v[j])) {
 				j++;
 			}
 			wlen = j - i;
 			if (word_count >= FillWordMax) {
-				free(blob);
+				str_free(&blob);
 				return false;
 			}
-			if (blob_len + wlen + 1 > blob_cap) {
-				size_t ncap = blob_cap != 0 ? blob_cap * 2 : 256;
-				char *p = NULL;
-				while (ncap < blob_len + wlen + 1) {
-					ncap = ncap * 2;
-				}
-				p = realloc(blob, ncap);
-				if (p == NULL) {
-					free(blob);
+			blob_len = len(blob);
+			{
+				char *old_base = ptr(blob);
+				if (!str_reserve(&blob, blob_len + wlen + 1)) {
+					str_free(&blob);
 					return false;
 				}
-				/* Rebase word pointers after realloc. */
-				{
+				char *new_base = ptr(blob);
+				if (old_base != NULL && old_base != new_base) {
 					int k = 0;
 					for (k = 0; k < word_count; k++) {
-						words[k] = p + (words[k] - blob);
+						words[k] = new_base + (words[k] - old_base);
 					}
 				}
-				blob = p;
-				blob_cap = ncap;
 			}
-			memcpy(blob + blob_len, vp + i, wlen);
-			blob[blob_len + wlen] = 0;
-			words[word_count] = blob + blob_len;
-			word_count++;
-			blob_len = blob_len + wlen + 1;
+			{
+				char[..] slot = ranged(ptr(blob), blob_len + wlen + 1, cap(blob));
+				memcpy(ptr(blob) + blob_len, ptr(v) + i, wlen);
+				slot[blob_len + wlen] = 0;
+				words[word_count] = ptr(blob) + blob_len;
+				word_count++;
+				blob = ranged(ptr(blob), blob_len + wlen + 1, cap(blob));
+			}
 			i = j;
 		}
 	}
 	if (word_count == 0) {
-		free(blob);
+		str_free(&blob);
 		return true;
 	}
 
-	size_t out_cap = blob_len + (size_t)word_count + 16;
-	char *out = malloc(out_cap);
-	if (out == NULL) {
-		free(blob);
-		return false;
-	}
-	size_t out_len = 0;
+	char[..] out = {0};
 	size_t cur_len = 0;
 	for (; wi < word_count; wi++) {
 		size_t wlen = strlen(words[wi]);
 		if (cur_len == 0) {
-			if (out_len + wlen + 2 > out_cap) {
-				size_t ncap = out_cap * 2 + wlen + 2;
-				char *p = realloc(out, ncap);
-				if (p == NULL) {
-					free(out);
-					free(blob);
-					return false;
-				}
-				out = p;
-				out_cap = ncap;
+			if (!str_append(&out, ranged(words[wi], wlen))) {
+				str_free(&out);
+				str_free(&blob);
+				return false;
 			}
-			memcpy(out + out_len, words[wi], wlen);
 			cur_len = wlen;
 			continue;
 		}
 		if (cur_len + 1 + wlen <= (size_t)fill_col) {
-			if (out_len + cur_len + 1 + wlen + 2 > out_cap) {
-				size_t ncap = out_cap * 2 + wlen + 2;
-				char *p = realloc(out, ncap);
-				if (p == NULL) {
-					free(out);
-					free(blob);
-					return false;
-				}
-				out = p;
-				out_cap = ncap;
+			if (!str_append_byte(&out, ' ')) {
+				str_free(&out);
+				str_free(&blob);
+				return false;
 			}
-			out[out_len + cur_len] = ' ';
-			memcpy(out + out_len + cur_len + 1, words[wi], wlen);
+			if (!str_append(&out, ranged(words[wi], wlen))) {
+				str_free(&out);
+				str_free(&blob);
+				return false;
+			}
 			cur_len = cur_len + 1 + wlen;
 		} else {
-			if (out_len + cur_len + 1 + wlen + 2 > out_cap) {
-				size_t ncap = out_cap * 2 + cur_len + wlen + 2;
-				char *p = realloc(out, ncap);
-				if (p == NULL) {
-					free(out);
-					free(blob);
-					return false;
-				}
-				out = p;
-				out_cap = ncap;
+			if (!str_append_byte(&out, '\n')) {
+				str_free(&out);
+				str_free(&blob);
+				return false;
 			}
-			out_len = out_len + cur_len;
-			out[out_len] = '\n';
-			out_len++;
-			memcpy(out + out_len, words[wi], wlen);
+			if (!str_append(&out, ranged(words[wi], wlen))) {
+				str_free(&out);
+				str_free(&blob);
+				return false;
+			}
 			cur_len = wlen;
 		}
 	}
-	out_len = out_len + cur_len;
-	out[out_len] = 0;
 
 	begin.line = start;
 	begin.offset = 0;
@@ -190,50 +164,42 @@ bool mode_fill_paragraph(bool f, int n) {
 	end_loc.offset = end_line != NULL ? end_line.byte_len() : 0;
 
 	/* Capture old paragraph text for undo. */
-	size_t need = 0;
-	size_t off = 0;
+	char[..] old = {0};
 	for (ln = start; ln <= end; ln++) {
 		Line *line = buf.line(ln);
-		if (line != NULL) {
-			need = need + line.byte_len();
+		if (line != NULL && line.byte_len() > 0) {
+			if (!str_append(&old, line.data)) {
+				str_free(&old);
+				str_free(&out);
+				str_free(&blob);
+				return false;
+			}
 		}
 		if (ln < end) {
-			need++;
-		}
-	}
-	char *old = malloc(need + 1);
-	size_t old_len = 0;
-	if (old != NULL) {
-		for (ln = start; ln <= end; ln++) {
-			Line *line = buf.line(ln);
-			if (line != NULL && line.byte_len() > 0) {
-				memcpy(old + off, ptr(line.data), line.byte_len());
-				off = off + line.byte_len();
-			}
-			if (ln < end) {
-				old[off] = '\n';
-				off++;
+			if (!str_append_byte(&old, '\n')) {
+				str_free(&old);
+				str_free(&out);
+				str_free(&blob);
+				return false;
 			}
 		}
-		old[off] = 0;
-		old_len = off;
 	}
 
 	buffer_undo.begin_command(buf, win.cursor);
-	if (!win.set_text(begin, end_loc, out, out_len)) {
-		free(old);
-		free(out);
-		free(blob);
+	if (!win.set_text(begin, end_loc, ptr(out), len(out))) {
+		str_free(&old);
+		str_free(&out);
+		str_free(&blob);
 		buffer_undo.end_command();
 		return false;
 	}
-	if (old != NULL) {
-		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, old_len);
+	if (len(old) != 0) {
+		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), len(old));
 	}
-	buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, out, out_len);
-	free(old);
-	free(out);
-	free(blob);
+	buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, ptr(out), len(out));
+	str_free(&old);
+	str_free(&out);
+	str_free(&blob);
 	buffer_undo.end_command();
 	return true;
 }
