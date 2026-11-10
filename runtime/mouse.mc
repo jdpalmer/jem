@@ -72,13 +72,10 @@ static void window_scroll(Window *win, int n) {
 		int c = win.cursor.line;
 		int last = window_last_visible_line(win);
 		if (c < win.top_line || c > last) {
-			Location loc = {0};
-			if (n > 0) {
-				loc.line = last;
-			} else {
-				loc.line = win.top_line;
-			}
-			loc.offset = 0;
+			Location loc = {
+				.line = n > 0 ? last : win.top_line,
+				.offset = 0
+			};
 			win.set_cursor(loc);
 		}
 	}

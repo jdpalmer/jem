@@ -66,7 +66,7 @@ static TagDb g_tags;
 static char g_tags_name[TagNameMax] = {0};
 static char g_tags_error[256] = {0};
 
-static char *tag_strdup(char *s) {
+[[provides]] static char *tag_strdup(char *s) {
 	if (s == NULL) {
 		return NULL;
 	}
@@ -341,7 +341,7 @@ static size_t tag_index_lower_bound(char *name) {
 	return lo;
 }
 
-void *tags_loc_alloc(char *path, int line, int column, char *pattern) {
+[[provides]] void *tags_loc_alloc(char *path, int line, int column, char *pattern) {
 	size_t patlen = 0;
 	if (path == NULL) {
 		return NULL;
@@ -449,17 +449,14 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 		}
 		if (len + n + 1 > cap) {
 			size_t ncap = cap != 0 ? cap * 2 : 8192;
-			char *p = NULL;
 			while (ncap < len + n + 1) {
 				ncap = ncap * 2;
 			}
-			p = realloc(data, ncap);
-			if (p == NULL) {
+			data = realloc(data, ncap);
+			if (data == NULL) {
 				r.close();
-				free(data);
 				return (NULL, 0, false);
 			}
-			data = p;
 			cap = ncap;
 		}
 		memcpy(data + len, chunk, n);
@@ -1483,7 +1480,6 @@ static Buffer *tags_ensure_list_buf() {
 }
 
 static void tags_present_list(Buffer *buf) {
-	Location loc = {0};
 	if (buf == NULL) {
 		return;
 	}
@@ -1499,8 +1495,7 @@ static void tags_present_list(Buffer *buf) {
 	if (w == NULL) {
 		return;
 	}
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	w.set_cursor(loc);
 	w.should_redraw = true;
 	w.should_update_mode_line = true;

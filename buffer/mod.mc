@@ -255,6 +255,14 @@ void (Line *line).invalidate() {
 	line.styles = ranged((TextStyle *)0, 0);
 }
 
+/* Take ownership of styles into the line (caller must not free styles). */
+void (Line *line).take_styles([[retains]] TextStyle *styles, size_t n, SynState end) {
+	free(ptr(line.styles));
+	line.styles = ranged(styles, n);
+	line.syntax_end = end;
+	line.syntax_valid = true;
+}
+
 size_t (Line *line).display_col_at_offset(size_t offset) {
 	char[..] v = line.view();
 	size_t i = 0;
@@ -357,7 +365,7 @@ void (Buffer *buf).ensure_min_lines() {
 }
 
 // buffer_new allocates an empty buffer with one blank line.
-Buffer *buffer_new() {
+[[provides]] Buffer *buffer_new() {
 	Buffer *buf = calloc(1, sizeof(Buffer));
 	if (buf == NULL) {
 		return NULL;
@@ -373,7 +381,7 @@ Buffer *buffer_new() {
 	return buf;
 }
 
-void ([[consumes]] Buffer *buf).free() {
+void ([[releases]] Buffer *buf).free() {
 	for (auto *line : buf.lines) {
 		line_free(line);
 	}
@@ -811,7 +819,6 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	char[..] rebuilt = {0};
 	Line *bline = {0};
 	Line *eline = {0};
-	Location new_end = {0};
 
 	if (buf.is_readonly) {
 		return false;
@@ -924,20 +931,16 @@ bool (Buffer *buf).replace_raw(Location begin, Location end, const char *new_tex
 	}
 
 	/* new_end at end of inserted text (jem.go: prefixLen+len(part0) or len(last part)). */
-	{
-		size_t last_start = 0;
-		for (i = 0; i < insert_len; i++) {
-			if (insert[i] == '\n') {
-				last_start = i + 1;
-			}
-		}
-		new_end.line = (int)keep_before + (int)n_parts;
-		if (n_parts == 1) {
-			new_end.offset = prefix_len + insert_len;
-		} else {
-			new_end.offset = insert_len - last_start;
+	size_t last_start = 0;
+	for (i = 0; i < insert_len; i++) {
+		if (insert[i] == '\n') {
+			last_start = i + 1;
 		}
 	}
+	Location new_end = {
+		.line = (int)keep_before + (int)n_parts,
+		.offset = n_parts == 1 ? prefix_len + insert_len : insert_len - last_start
+	};
 
 	for (i = 0; i < keep_before; i++) {
 		new_lines[i] = buf.lines[i];

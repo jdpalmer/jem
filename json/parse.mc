@@ -282,7 +282,7 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 	}
 }
 
-static JsonValue *json_parse_string_value(JsonParser *parser) {
+[[provides]] static JsonValue *json_parse_string_value(JsonParser *parser) {
 	JsonBuffer buffer = {0};
 
 	if (!json_parse_string_into(parser, &buffer)) {
@@ -303,14 +303,13 @@ static JsonValue *json_parse_string_value(JsonParser *parser) {
 	return value;
 }
 
-static JsonValue *json_parse_number_value(JsonParser *parser) {
-	JsonScanner s = {0};
+[[provides]] static JsonValue *json_parse_number_value(JsonParser *parser) {
 	double number = 0.0;
 
 	if (parser == NULL) {
 		return NULL;
 	}
-	s.p = parser.cursor;
+	JsonScanner s = { .p = parser.cursor };
 	if (!json_scan_double(&s, &number)) {
 		json_set_error(parser, "Invalid number format or overflow");
 		return NULL;
@@ -329,7 +328,7 @@ static JsonValue *json_parse_number_value(JsonParser *parser) {
 	return value;
 }
 
-static JsonValue *json_parse_object(JsonParser *parser) {
+[[provides]] static JsonValue *json_parse_object(JsonParser *parser) {
 
 	JsonValue *object = json_new_object();
 	if (object == NULL) {
@@ -386,8 +385,6 @@ static JsonValue *json_parse_object(JsonParser *parser) {
 			return NULL;
 		}
 		if (!json_object_put_owned(object, owned_key, value)) {
-			free(owned_key.data);
-			json_free(value);
 			parser.depth--;
 			json_free(object);
 			json_set_error(parser, "Out of memory");
@@ -397,7 +394,7 @@ static JsonValue *json_parse_object(JsonParser *parser) {
 		if (json_peek(parser) == '}') {
 			(void)json_take(parser, NULL);
 			parser.depth--;
-			return object;
+			break;
 		}
 		if (!json_expect(parser, ',', "Expected ',' or '}' after object value")) {
 			parser.depth--;
@@ -406,9 +403,10 @@ static JsonValue *json_parse_object(JsonParser *parser) {
 		}
 		json_skip_ws(parser);
 	}
+	return object;
 }
 
-static JsonValue *json_parse_array(JsonParser *parser) {
+[[provides]] static JsonValue *json_parse_array(JsonParser *parser) {
 
 	JsonValue *array = json_new_array();
 	if (array == NULL) {
@@ -440,7 +438,6 @@ static JsonValue *json_parse_array(JsonParser *parser) {
 			return NULL;
 		}
 		if (!json_array_append(array, item)) {
-			json_free(item);
 			parser.depth--;
 			json_free(array);
 			json_set_error(parser, "Out of memory");
@@ -450,7 +447,7 @@ static JsonValue *json_parse_array(JsonParser *parser) {
 		if (json_peek(parser) == ']') {
 			(void)json_take(parser, NULL);
 			parser.depth--;
-			return array;
+			break;
 		}
 		if (!json_expect(parser, ',', "Expected ',' or ']' after array value")) {
 			parser.depth--;
@@ -459,9 +456,10 @@ static JsonValue *json_parse_array(JsonParser *parser) {
 		}
 		json_skip_ws(parser);
 	}
+	return array;
 }
 
-static JsonValue *json_parse_value(JsonParser *parser) {
+[[provides]] static JsonValue *json_parse_value(JsonParser *parser) {
 
 	json_skip_ws(parser);
 	char c = json_peek(parser);
@@ -518,7 +516,7 @@ static JsonValue *json_parse_value(JsonParser *parser) {
 	return NULL;
 }
 
-JsonValue *json_parse_n(const char *text, size_t len, JsonError *error) {
+[[provides]] JsonValue *json_parse_n(const char *text, size_t len, JsonError *error) {
 	JsonParser parser = {0};
 
 	if (text == NULL) {
@@ -548,7 +546,7 @@ JsonValue *json_parse_n(const char *text, size_t len, JsonError *error) {
 	return value;
 }
 
-JsonValue *json_parse(const char *text, JsonError *error) {
+[[provides]] JsonValue *json_parse(const char *text, JsonError *error) {
 	if (text == NULL) {
 		return NULL;
 	}

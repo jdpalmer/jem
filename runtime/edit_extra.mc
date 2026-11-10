@@ -141,8 +141,6 @@ bool cmd_quote_handle_key(uint32_t key, int n) {
 // cmd_delete_blank_lines collapses blank-line runs around point (C-x C-o).
 bool cmd_delete_blank_lines(bool f, int n) {
 	Window *w = window_current();
-	Location begin = {0};
-	Location end = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
@@ -170,10 +168,8 @@ bool cmd_delete_blank_lines(bool f, int n) {
 			return true;
 		}
 		/* Keep `start`; delete lines start+1 .. end_line via [start+1,0) .. [end+1,0). */
-		begin.line = start + 1;
-		begin.offset = 0;
-		end.line = end_line + 1;
-		end.offset = 0;
+		Location begin = { .line = start + 1, .offset = 0 };
+		Location end = { .line = end_line + 1, .offset = 0 };
 		return replace_range_command(w, begin, end, "", 0);
 	}
 	{
@@ -186,10 +182,8 @@ bool cmd_delete_blank_lines(bool f, int n) {
 		if (nld == 0) {
 			return true;
 		}
-		begin.line = cur + 1;
-		begin.offset = 0;
-		end.line = cur + nld + 1;
-		end.offset = 0;
+		Location begin = { .line = cur + 1, .offset = 0 };
+		Location end = { .line = cur + nld + 1, .offset = 0 };
 		return replace_range_command(w, begin, end, "", 0);
 	}
 }
@@ -197,8 +191,6 @@ bool cmd_delete_blank_lines(bool f, int n) {
 // cmd_transpose_lines swaps the current line with the one above (C-x C-t).
 bool cmd_transpose_lines(bool f, int n) {
 	Window *w = window_current();
-	Location p0 = {0};
-	Location p2 = {0};
 	size_t total = 0;
 	(void)f;
 	(void)n;
@@ -217,10 +209,8 @@ bool cmd_transpose_lines(bool f, int n) {
 	if (prev == NULL || buf.line(curr) == NULL) {
 		return false;
 	}
-	p0.line = curr - 1;
-	p0.offset = 0;
-	p2.line = curr + 1;
-	p2.offset = 0; /* may be EOF when curr is last line */
+	Location p0 = { .line = curr - 1, .offset = 0 };
+	Location p2 = { .line = curr + 1, .offset = 0 }; /* offset 0 may be EOF */
 	char *original = region_text(w, p0, p2, &total);
 	if (original == NULL) {
 		return false;
@@ -248,7 +238,6 @@ bool cmd_transpose_lines(bool f, int n) {
 		memcpy(swapped + len2 + 1, original, prev.byte_len());
 		total = len2 + 1 + prev.byte_len();
 	}
-	Location saved = w.cursor;
 	if (!replace_range_command(w, p0, p2, swapped, total)) {
 		free(original);
 		free(swapped);
@@ -256,8 +245,7 @@ bool cmd_transpose_lines(bool f, int n) {
 	}
 	free(original);
 	free(swapped);
-	saved.line = curr - 1;
-	saved.offset = 0;
+	Location saved = { .line = curr - 1, .offset = 0 };
 	w.set_cursor(saved);
 	w.did_move = true;
 	return true;
@@ -334,10 +322,10 @@ bool cmd_upper_region(bool f, int n) {
 	return transform_region_case(true);
 }
 
-int cmp_cstr_ptr(void *a, void *b) {
-	char *sa = *(char **)a;
-	char *sb = *(char **)b;
-	return strcmp(sa, sb);
+static int cmp_char_slice(void *a, void *b) {
+	const char[..] *sa = (const char[..] *)a;
+	const char[..] *sb = (const char[..] *)b;
+	return str_cmp(*sa, *sb);
 }
 
 // cmd_sort_region sorts complete lines in the active region alphabetically.
@@ -345,15 +333,6 @@ bool cmd_sort_region(bool f, int n) {
 	Window *w = window_current();
 	Location rstart = {0};
 	Location rend = {0};
-	Location start = {0};
-	Location end = {0};
-	size_t tlen = 0;
-	char **lines = NULL;
-	int nlines = 0;
-	int cap = 0;
-	size_t i = 0;
-	size_t sorted_len = 0;
-	int li = 0;
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
@@ -370,118 +349,65 @@ bool cmd_sort_region(bool f, int n) {
 		display_set_echo("Sort needs at least 2 lines");
 		return false;
 	}
-	start.line = rstart.line;
-	start.offset = 0;
-	end.line = rend.line + 1;
-	end.offset = 0; /* may be EOF */
-	char *text = region_text(w, start, end, &tlen);
-	if (text == NULL) {
-		return false;
-	}
-	/* Split on newlines into lines[]. */
-	size_t line_start = 0;
-	const char[..] tv = ranged(text, tlen + 1);
-	for (; i <= tlen; i++) {
-		if (i == tlen || tv[i] == '\n') {
-			size_t llen = i - line_start;
-			char *one = NULL;
-			/* Drop trailing empty segment from final newline. */
-			if (i == tlen && llen == 0 && nlines > 0) {
-				break;
-			}
-			if (nlines >= cap) {
-				int ncap = cap != 0 ? cap * 2 : 8;
-				char **p = realloc(lines, (size_t)ncap * sizeof(char *));
-				if (p == NULL) {
-					free(text);
-					for (; li < nlines; li++) {
-						free(ranged(lines, nlines)[li]);
-					}
-					free(lines);
+	Location start = { .line = rstart.line, .offset = 0 };
+	Location end = { .line = rend.line + 1, .offset = 0 }; /* may be EOF */
+	pool p {
+		size_t tlen = 0;
+		char *text = region_text(w, start, end, &tlen);
+		if (text == NULL) {
+			return false;
+		}
+		/* Copy region into the pool, then drop the heap buffer. */
+		char[..] tv = {0};
+		if (!p.copy(&tv, ranged(text, tlen))) {
+			free(text);
+			return false;
+		}
+		free(text);
+
+		/* Line views into tv; headers + sorted bytes live in the pool. */
+		char[..][..] lines = {0};
+		size_t i = 0;
+		size_t line_start = 0;
+		for (; i <= tlen; i++) {
+			if (i == tlen || tv[i] == '\n') {
+				size_t llen = i - line_start;
+				/* Drop trailing empty segment from final newline. */
+				if (i == tlen && llen == 0 && len(lines) > 0) {
+					break;
+				}
+				if (!p.push(&lines, tv[line_start..i])) {
 					return false;
 				}
-				lines = p;
-				cap = ncap;
+				line_start = i + 1;
 			}
-			one = malloc(llen + 1);
-			if (one == NULL) {
-				free(text);
-				for (li = 0; li < nlines; li++) {
-					free(ranged(lines, nlines)[li]);
-				}
-				free(lines);
+		}
+		if (len(lines) < 2) {
+			display_set_echo("Sort needs at least 2 lines");
+			return false;
+		}
+		qsort(ptr(lines), len(lines), sizeof(lines[0]), cmp_char_slice);
+
+		char[..] sorted = {0};
+		for (auto line : lines) {
+			if (!p.append(&sorted, line)) {
 				return false;
 			}
-			if (llen > 0) {
-				memcpy(one, text + line_start, llen);
-			}
-			{
-				char[..] ov = ranged(one, llen + 1);
-				ov[llen] = 0;
-			}
-			ranged(lines, cap)[nlines] = one;
-			nlines++;
-			line_start = i + 1;
-		}
-	}
-	free(text);
-	if (nlines < 2) {
-		for (li = 0; li < nlines; li++) {
-			free(ranged(lines, nlines)[li]);
-		}
-		free(lines);
-		display_set_echo("Sort needs at least 2 lines");
-		return false;
-	}
-	qsort(lines, nlines, sizeof(char *), cmp_cstr_ptr);
-	size_t sorted_cap = tlen + (size_t)nlines + 8;
-	char *sorted = malloc(sorted_cap);
-	if (sorted == NULL) {
-		for (li = 0; li < nlines; li++) {
-			free(ranged(lines, nlines)[li]);
-		}
-		free(lines);
-		return false;
-	}
-	for (li = 0; li < nlines; li++) {
-		size_t llen = strlen(ranged(lines, nlines)[li]);
-		if (sorted_len + llen + 2 > sorted_cap) {
-			size_t ncap = sorted_cap * 2 + llen + 2;
-			char *p = realloc(sorted, ncap);
-			if (p == NULL) {
-				free(sorted);
-				for (li = 0; li < nlines; li++) {
-					free(ranged(lines, nlines)[li]);
-				}
-				free(lines);
+			if (!p.push(&sorted, '\n')) {
 				return false;
 			}
-			sorted = p;
-			sorted_cap = ncap;
 		}
-		memcpy(sorted + sorted_len, ranged(lines, nlines)[li], llen);
-		sorted_len += llen;
-		{
-			char[..] sv = ranged(sorted, sorted_cap);
-			sv[sorted_len] = '\n';
+
+		Location saved = w.cursor;
+		if (!replace_range_command(w, start, end, ptr(sorted), len(sorted))) {
+			return false;
 		}
-		sorted_len++;
+		w.set_cursor(saved);
+		w.mark.line = 0;
+		w.mark.offset = 0;
+		display_set_echo("Region sorted");
+		return true;
 	}
-	for (li = 0; li < nlines; li++) {
-		free(ranged(lines, nlines)[li]);
-	}
-	free(lines);
-	Location saved = w.cursor;
-	if (!replace_range_command(w, start, end, sorted, sorted_len)) {
-		free(sorted);
-		return false;
-	}
-	free(sorted);
-	w.set_cursor(saved);
-	w.mark.line = 0;
-	w.mark.offset = 0;
-	display_set_echo("Region sorted");
-	return true;
 }
 
 /* --- identifier case conversion --- */

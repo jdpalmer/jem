@@ -244,10 +244,8 @@ static Line *tag_detail_append_n(Buffer *buf, const char *text, size_t n) {
 	}
 	Line *first = buf.line(1);
 	if (buf.line_count_i() == 1 && first != NULL && first.byte_len() == 0) {
-		Location at = {0};
 		Location end = {0};
-		at.line = 1;
-		at.offset = 0;
+		Location at = { .line = 1, .offset = 0 };
 		if (!buf.replace_raw(at, at, text, n, &end)) {
 			return NULL;
 		}
@@ -345,7 +343,6 @@ bool tags_show_details(TagEntry *entry) {
 	char shown_path[TagPathMax] = {0};
 	char signature[2048] = {0};
 	Window *old = window_current();
-	Location top = {0};
 	if (entry == NULL || entry.name == NULL || entry.path == NULL) {
 		return false;
 	}
@@ -420,8 +417,7 @@ bool tags_show_details(TagEntry *entry) {
 	buffer_set_current(buf);
 	Window *shown = window_current();
 	if (shown != NULL) {
-		top.line = 1;
-		top.offset = 0;
+		Location top = { .line = 1, .offset = 0 };
 		shown.set_cursor(top);
 		shown.top_line = 1;
 		shown.should_redraw = true;

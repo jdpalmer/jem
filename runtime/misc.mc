@@ -9,7 +9,7 @@
 
 static Buffer *g_kill_pending;
 
-static const char[..] month_names[] = {
+static const char *month_names[] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };

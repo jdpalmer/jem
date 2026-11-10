@@ -87,6 +87,7 @@ static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_c
 		c.close();
 		return false;
 	}
+	defer pf.close();
 	(void)c.stdio(StdErr, IoNull);
 	if (!c.start()) {
 		c.close();

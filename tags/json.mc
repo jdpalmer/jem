@@ -199,9 +199,13 @@ static bool tag_json_string(TagJsonCursor *c, char **out) {
 		return false;
 	}
 	c.p++;
-	if (!str_ensure_z(&b)) {
+	if (!str_reserve(&b, len(b) + 1)) {
 		str_free(&b);
 		return false;
+	}
+	{
+		char[..] room = ranged(ptr(b), cap(b));
+		room[len(b)] = '\0';
 	}
 	*out = ptr(b);
 	b = str_empty(); /* ownership transferred to *out */
@@ -400,13 +404,12 @@ static char **tag_json_field_slot(TagJsonFields *f, char *key) {
 }
 
 int tag_json_parse_line(char *line, TagJsonFields *out) {
-	TagJsonCursor c = {0};
 	TagJsonFields f = {0};
 	bool semantic_ok = true;
 	if (line == NULL || out == NULL) {
 		return TagJsonMalformed;
 	}
-	c.p = line;
+	TagJsonCursor c = { .p = line };
 	tag_json_ws(&c);
 	if (*c.p != '{') {
 		return TagJsonMalformed;

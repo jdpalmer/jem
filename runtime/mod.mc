@@ -722,14 +722,12 @@ bool cmd_delete_word_backward(bool f, int n) {
 
 bool cmd_goto_bof(bool f, int n) {
 	Window *w = window_current();
-	Location loc = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL) {
 		return true;
 	}
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	w.set_cursor(loc);
 	return true;
 }
@@ -773,18 +771,14 @@ bool cmd_back_to_indentation(bool f, int n) {
 
 bool cmd_mark_whole_buffer(bool f, int n) {
 	Window *w = window_current();
-	Location mark = {0};
-	Location cur = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
 		return true;
 	}
-	mark.line = w.buffer.eof_line();
-	mark.offset = 0;
+	Location mark = { .line = w.buffer.eof_line(), .offset = 0 };
 	w.mark = mark;
-	cur.line = 1;
-	cur.offset = 0;
+	Location cur = { .line = 1, .offset = 0 };
 	w.set_cursor(cur);
 	w.should_redraw = true;
 	display_set_echo("Mark set");
@@ -800,8 +794,6 @@ bool cmd_refresh(bool f, int n) {
 
 bool cmd_trim_whitespace(bool f, int n) {
 	Window *w = window_current();
-	Location begin = {0};
-	Location finish = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
@@ -833,10 +825,8 @@ bool cmd_trim_whitespace(bool f, int n) {
 	if (start == end) {
 		return true;
 	}
-	begin.line = w.cursor.line;
-	begin.offset = start;
-	finish.line = w.cursor.line;
-	finish.offset = end;
+	Location begin = { .line = w.cursor.line, .offset = start };
+	Location finish = { .line = w.cursor.line, .offset = end };
 	buffer_undo.begin_command(w.buffer, w.cursor);
 	if (!delete_range_undo(w, begin, finish, false)) {
 		buffer_undo.end_command();
@@ -848,8 +838,6 @@ bool cmd_trim_whitespace(bool f, int n) {
 
 bool cmd_transpose_chars(bool f, int n) {
 	Window *w = window_current();
-	Location begin = {0};
-	Location end = {0};
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
@@ -885,10 +873,8 @@ bool cmd_transpose_chars(bool f, int n) {
 		memcpy(swapped, vp + right_start, right_len);
 		memcpy(swapped + right_len, vp + left_start, left_len);
 	}
-	begin.line = w.cursor.line;
-	begin.offset = left_start;
-	end.line = w.cursor.line;
-	end.offset = right_end;
+	Location begin = { .line = w.cursor.line, .offset = left_start };
+	Location end = { .line = w.cursor.line, .offset = right_end };
 	buffer_undo.begin_command(w.buffer, w.cursor);
 	{
 		char *old = region_text(w, begin, end, NULL);
@@ -1475,7 +1461,6 @@ bool cmd_read_file(bool f, int n) {
 
 static bool goto_line_number(int target) {
 	Window *w = window_current();
-	Location loc = {0};
 	if (w == NULL || w.buffer == NULL) {
 		return false;
 	}
@@ -1487,8 +1472,7 @@ static bool goto_line_number(int target) {
 	if (w.cursor.line != target || w.cursor.offset != 0) {
 		markring_push(w.cursor);
 	}
-	loc.line = target;
-	loc.offset = 0;
+	Location loc = { .line = target, .offset = 0 };
 	w.set_cursor(loc);
 	return true;
 }

@@ -52,14 +52,10 @@ static bool forward_sexp_once(Window *win, Buffer *buf) {
 		Line *mlp = buf.line(match.line);
 		size_t after = match.offset + 1;
 		if (mlp == NULL || after > mlp.byte_len()) {
-			Location next = {0};
-			next.line = match.line + 1;
-			next.offset = 0;
+			Location next = { .line = match.line + 1, .offset = 0 };
 			win.set_cursor(next);
 		} else {
-			Location next = {0};
-			next.line = match.line;
-			next.offset = after;
+			Location next = { .line = match.line, .offset = after };
 			win.set_cursor(next);
 		}
 		win.did_move = true;

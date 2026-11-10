@@ -117,9 +117,7 @@ static void window_scroll_match_to_selection(int selected) {
 		}
 	}
 	{
-		Location loc = {0};
-		loc.line = line;
-		loc.offset = 0;
+		Location loc = { .line = line, .offset = 0 };
 		mw.set_cursor(loc);
 	}
 	if (line < mw.top_line) {
@@ -170,7 +168,6 @@ static void show_match_window() {
 
 /* Replace *match* contents and show/scroll. Empty text hides the window. */
 void window_set_match_buffer_text(char *text, size_t n, int selected) {
-	Location begin = {0};
 	Location end = {0};
 	Location new_end = {0};
 	if (text == NULL || n == 0) {
@@ -183,8 +180,7 @@ void window_set_match_buffer_text(char *text, size_t n, int selected) {
 	}
 	bool ro = mb.is_readonly;
 	mb.is_readonly = false;
-	begin.line = 1;
-	begin.offset = 0;
+	Location begin = { .line = 1, .offset = 0 };
 	end.line = mb.line_count_i();
 	if (end.line < 1) {
 		end.line = 1;

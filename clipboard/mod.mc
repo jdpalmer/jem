@@ -210,21 +210,18 @@ static (char *, size_t, bool) clipboard_read_native() {
 			}
 			if (used + keep + 1 > capacity) {
 				size_t next = capacity == 0 ? 4096 : capacity * 2;
-				char *grown = NULL;
 				while (next < used + keep + 1) {
 					next *= 2;
 				}
 				if (next > (size_t)ClipboardReadMax + 1) {
 					next = (size_t)ClipboardReadMax + 1;
 				}
-				grown = realloc(data, next);
-				if (grown == NULL) {
-					free(data);
+				data = realloc(data, next);
+				if (data == NULL) {
 					output.close();
 					cmd.close();
 					return (NULL, 0, false);
 				}
-				data = grown;
 				capacity = next;
 			}
 			memcpy(data + used, chunk, keep);

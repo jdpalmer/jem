@@ -140,7 +140,6 @@ static bool mode_c_end_of_function(Window *win, Buffer *buf) {
 }
 
 static bool mode_c_mark_function(Window *win, Buffer *buf) {
-	Location saved = {0};
 	if (win == NULL || buf == NULL) {
 		return false;
 	}
@@ -151,8 +150,7 @@ static bool mode_c_mark_function(Window *win, Buffer *buf) {
 	}
 	win.mark.line = win.cursor.line;
 	win.mark.offset = win.cursor.offset;
-	saved.line = orig_line;
-	saved.offset = orig_off;
+	Location saved = { .line = orig_line, .offset = orig_off };
 	win.set_cursor(saved);
 	if (!mode_c_top_of_function(win, buf)) {
 		win.mark.line = 0;
@@ -224,7 +222,6 @@ static int find_def_line_number(Buffer *buf, int line_number) {
 }
 
 static bool mode_py_top_of_function(Window *win, Buffer *buf) {
-	Location loc = {0};
 	if (win == NULL || buf == NULL) {
 		return false;
 	}
@@ -233,15 +230,13 @@ static bool mode_py_top_of_function(Window *win, Buffer *buf) {
 		mode_msg("[Not in a function]");
 		return false;
 	}
-	loc.line = def_line;
-	loc.offset = 0;
+	Location loc = { .line = def_line, .offset = 0 };
 	win.set_cursor(loc);
 	win.did_move = true;
 	return true;
 }
 
 static bool mode_py_end_of_function(Window *win, Buffer *buf) {
-	Location loc = {0};
 	if (win == NULL || buf == NULL) {
 		return false;
 	}
@@ -269,15 +264,13 @@ static bool mode_py_end_of_function(Window *win, Buffer *buf) {
 		line_number++;
 	}
 	Line *line = buf.line(last_line);
-	loc.line = last_line;
-	loc.offset = line != NULL ? line.byte_len() : 0;
+	Location loc = { .line = last_line, .offset = line != NULL ? line.byte_len() : 0 };
 	win.set_cursor(loc);
 	win.did_move = true;
 	return true;
 }
 
 static bool mode_py_mark_function(Window *win, Buffer *buf) {
-	Location saved = {0};
 	if (win == NULL || buf == NULL) {
 		return false;
 	}
@@ -288,8 +281,7 @@ static bool mode_py_mark_function(Window *win, Buffer *buf) {
 	}
 	win.mark.line = win.cursor.line;
 	win.mark.offset = win.cursor.offset;
-	saved.line = orig_line;
-	saved.offset = orig_off;
+	Location saved = { .line = orig_line, .offset = orig_off };
 	win.set_cursor(saved);
 	if (!mode_py_top_of_function(win, buf)) {
 		win.mark.line = 0;

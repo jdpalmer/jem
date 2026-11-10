@@ -162,7 +162,7 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 	return false;
 }
 
-char *json_stringify(const JsonValue *value) {
+[[provides]] char *json_stringify(const JsonValue *value) {
 	JsonBuffer buffer = {0};
 
 	if (value == NULL) {

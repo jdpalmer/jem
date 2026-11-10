@@ -26,8 +26,6 @@ bool mode_fill_paragraph(bool f, int n) {
 	char *words[FillWordMax] = {0};
 	int word_count = 0;
 	int wi = 0;
-	Location begin = {0};
-	Location end_loc = {0};
 	(void)f;
 	(void)n;
 
@@ -157,11 +155,9 @@ bool mode_fill_paragraph(bool f, int n) {
 		}
 	}
 
-	begin.line = start;
-	begin.offset = 0;
+	Location begin = { .line = start, .offset = 0 };
 	Line *end_line = buf.line(end);
-	end_loc.line = end;
-	end_loc.offset = end_line != NULL ? end_line.byte_len() : 0;
+	Location end_loc = { .line = end, .offset = end_line != NULL ? end_line.byte_len() : 0 };
 
 	/* Capture old paragraph text for undo. */
 	char[..] old = {0};

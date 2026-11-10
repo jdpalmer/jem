@@ -157,7 +157,7 @@ static bool job_project_root(char *dst, size_t cap) {
 	return true;
 }
 
-static void *job_loc_alloc(char *path, int line, int column) {
+[[provides]] static void *job_loc_alloc(char *path, int line, int column) {
 	if (path == NULL) {
 		return NULL;
 	}
@@ -299,8 +299,6 @@ static Buffer *job_ensure_named(const char[..] name) {
 }
 
 static bool job_set_line1(Buffer *buf, char *text) {
-	Location begin = {0};
-	Location end = {0};
 	if (buf == NULL || text == NULL) {
 		return false;
 	}
@@ -308,15 +306,12 @@ static bool job_set_line1(Buffer *buf, char *text) {
 	if (line == NULL) {
 		return false;
 	}
-	begin.line = 1;
-	begin.offset = 0;
-	end.line = 1;
-	end.offset = line.byte_len();
+	Location begin = { .line = 1, .offset = 0 };
+	Location end = { .line = 1, .offset = line.byte_len() };
 	return buf.replace_raw(begin, end, text, strlen(text), NULL);
 }
 
 static void job_present_buffer(Buffer *buf) {
-	Location loc = {0};
 	if (buf == NULL) {
 		return;
 	}
@@ -332,8 +327,7 @@ static void job_present_buffer(Buffer *buf) {
 	if (w == NULL) {
 		return;
 	}
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	w.top_line = 1;
 	w.set_cursor(loc);
 	w.mark.line = 0;

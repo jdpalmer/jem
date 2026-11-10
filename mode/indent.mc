@@ -220,7 +220,6 @@ static int block_anchor_line(Buffer *buf, int open_line) {
 
 static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t offset) {
 	Line *line = buf.line(line_number);
-	Location here = {0};
 	Location open = {0};
 	if (line == NULL || offset >= line.byte_len()) {
 		return 0;
@@ -229,8 +228,7 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t of
 	if (ch != '}' && ch != ')' && ch != ']') {
 		return 0;
 	}
-	here.line = line_number;
-	here.offset = offset;
+	Location here = { .line = line_number, .offset = offset };
 	if (!mode_find_matching_delimiter(buf, here, &open)) {
 		return 0;
 	}
@@ -252,12 +250,10 @@ static int find_closing_delimiter_indent(Buffer *buf, int line_number, size_t of
 }
 
 static bool find_unmatched_open_delim(Buffer *buf, int line_number, size_t offset, Location *best, char *kind) {
-	Location at = {0};
 	Location paren = {0};
 	Location bracket = {0};
 	bool found = false;
-	at.line = line_number;
-	at.offset = offset;
+	Location at = { .line = line_number, .offset = offset };
 	if (mode_find_enclosing_open(buf, at, '(', ')', &paren)) {
 		*best = paren;
 		*kind = '(';
@@ -297,10 +293,8 @@ static int find_delimiter_continuation_indent(Buffer *buf, int line_number, size
 }
 
 static int find_enclosing_block_indent(Buffer *buf, int line_number, size_t offset) {
-	Location at = {0};
 	Location open = {0};
-	at.line = line_number;
-	at.offset = offset;
+	Location at = { .line = line_number, .offset = offset };
 	if (!mode_find_enclosing_open(buf, at, '{', '}', &open)) {
 		return -1;
 	}
@@ -563,8 +557,6 @@ static size_t build_tab_indent(int col, char *out, size_t cap) {
 
 /* Replace leading whitespace; records undo edits (caller owns begin/end_command). */
 static bool replace_leading(Window *win, char *prefix, size_t plen) {
-	Location begin = {0};
-	Location end = {0};
 	char *old = NULL;
 	if (win == NULL || win.buffer == NULL) {
 		return false;
@@ -575,10 +567,8 @@ static bool replace_leading(Window *win, char *prefix, size_t plen) {
 	}
 	size_t first = line.first_nonblank();
 	size_t old_off = win.cursor.offset;
-	begin.line = win.cursor.line;
-	begin.offset = 0;
-	end.line = win.cursor.line;
-	end.offset = first;
+	Location begin = { .line = win.cursor.line, .offset = 0 };
+	Location end = { .line = win.cursor.line, .offset = first };
 	if (first > 0) {
 		old = malloc(first);
 		if (old == NULL) {

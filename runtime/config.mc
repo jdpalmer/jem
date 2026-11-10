@@ -352,16 +352,13 @@ void config_load() {
 		}
 		if (n + got + 1 > cap) {
 			size_t ncap = cap == 0 ? 8192 : cap * 2;
-			char *p = NULL;
 			while (ncap < n + got + 1) {
 				ncap *= 2;
 			}
-			p = realloc(data, ncap);
-			if (p == NULL) {
-				free(data);
+			data = realloc(data, ncap);
+			if (data == NULL) {
 				return;
 			}
-			data = p;
 			cap = ncap;
 		}
 		memcpy(data + n, chunk, got);

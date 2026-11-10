@@ -281,7 +281,7 @@ void put_rune(Screen *s, int row, int col, uint32_t ch, TextStyle style) {
 }
 
 /* Solarized / ANSI RGB — match jem.go/term/term_style.go (truecolor, not 256). */
-static const char[..] color_rgb_base[] = {
+static const char *color_rgb_base[] = {
 	"7;54;66",
 	"220;50;47",
 	"133;153;0",
@@ -292,7 +292,7 @@ static const char[..] color_rgb_base[] = {
 	"238;232;213",
 };
 
-static const char[..] color_rgb_sol[] = {
+static const char *color_rgb_sol[] = {
 	"0;43;54",
 	"7;54;66",
 	"88;110;117",
@@ -479,19 +479,18 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 	/* highlight if needed (structure-only parse may set syntax_valid without styles) */
 	if ((!line.syntax_valid || ptr(line.styles) == NULL) && len(v) != 0) {
 		TextStyle *st = calloc(len(v), sizeof(TextStyle));
-		if (st != NULL) {
-			TextStyle[..] styles_new = ranged(st, len(v));
+		if (st == NULL) {
+			/* leave unstyled */
+		} else {
 			if (buf_line > 1) {
 				Line *pl = win.buffer.line(buf_line - 1);
 				if (pl != NULL && pl.syntax_valid) {
 					prev = pl.syntax_end;
 				}
 			}
-			SynState end = syntax_highlight_line(win.buffer.lang_mode, &prev, v, styles_new, 0);
-			free(ptr(line.styles));
-			line.styles = styles_new;
-			line.syntax_end = end;
-			line.syntax_valid = true;
+			SynState end = syntax_highlight_line(win.buffer.lang_mode, &prev, v,
+				ranged(st, len(v)), 0);
+			line.take_styles(st, len(v), end);
 		}
 	}
 	TextStyle[..] styles = line.styles;
@@ -845,12 +844,13 @@ static void screen_rows_scroll_up(Screen *s, int start, int length, int n) {
 	if (ptr(s.row_dirty) != NULL) {
 		bool *dbase = ptr(s.row_dirty);
 		bool *dtmp = malloc((size_t)n * sizeof(bool));
-		if (dtmp != NULL) {
-			memcpy(dtmp, dbase + start, (size_t)n * sizeof(bool));
-			memmove(dbase + start, dbase + start + n, (size_t)(length - n) * sizeof(bool));
-			memcpy(dbase + start + length - n, dtmp, (size_t)n * sizeof(bool));
-			free(dtmp);
+		if (dtmp == NULL) {
+			return;
 		}
+		defer free(dtmp);
+		memcpy(dtmp, dbase + start, (size_t)n * sizeof(bool));
+		memmove(dbase + start, dbase + start + n, (size_t)(length - n) * sizeof(bool));
+		memcpy(dbase + start + length - n, dtmp, (size_t)n * sizeof(bool));
 	}
 }
 
@@ -1214,11 +1214,9 @@ Window *display_win_at(int r) {
 
 // display_mouse_loc_in_window maps term mouse col/row into a buffer location in win.
 Location display_mouse_loc_in_window(Window *win) {
-	Location loc = {0};
 	int row = term_mouse_row();
 	int col = term_mouse_col();
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	if (win == NULL || win.buffer == NULL) {
 		return loc;
 	}

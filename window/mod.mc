@@ -163,9 +163,7 @@ void window_switch_buffer([[retains]] Buffer *buf) {
 	if (buf.cursor.line >= 1) {
 		cw.set_cursor(buf.cursor);
 	} else {
-		Location loc = {0};
-		loc.line = 1;
-		loc.offset = 0;
+		Location loc = { .line = 1, .offset = 0 };
 		cw.set_cursor(loc);
 	}
 	cw.mark = buf.mark;

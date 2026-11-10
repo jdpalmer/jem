@@ -214,17 +214,14 @@ static (char *, size_t, bool) file_read_all(char *path) {
 		}
 		if (len + (size_t)n + 1 > cap) {
 			size_t ncap = cap != 0 ? cap * 2 : 8192;
-			char *p = NULL;
 			while (ncap < len + (size_t)n + 1) {
 				ncap = ncap * 2;
 			}
-			p = realloc(data, ncap);
-			if (p == NULL) {
+			data = realloc(data, ncap);
+			if (data == NULL) {
 				r.close();
-				free(data);
 				return (NULL, 0, false);
 			}
-			data = p;
 			cap = ncap;
 		}
 		memcpy(data + len, chunk, n);
@@ -398,7 +395,6 @@ bool file_save(Buffer *buf, char *path) {
 
 // file_visit_location opens path and moves the cursor to 1-based line/column.
 bool file_visit_location(char *path, int line, int column) {
-	Location loc = {0};
 	auto (buf, ok) = file_visit(path);
 
 	if (!ok || buf == NULL || line < 1) {
@@ -418,8 +414,7 @@ bool file_visit_location(char *path, int line, int column) {
 	if (bline != NULL && off > bline.byte_len()) {
 		off = bline.byte_len();
 	}
-	loc.line = line;
-	loc.offset = off;
+	Location loc = { .line = line, .offset = off };
 	w.set_cursor(loc);
 	w.ensure_visible();
 	/* Rough center when room allows. */
@@ -480,7 +475,6 @@ bool file_reload_current(int line_number) {
 	Buffer *buf = buffer_current();
 	Window *w = window_current();
 	char path[FilePathMax] = {0};
-	Location loc = {0};
 
 	if (buf == NULL || len(buf.file_name) == 0) {
 		return false;
@@ -507,8 +501,7 @@ bool file_reload_current(int line_number) {
 		line_number = 1;
 	}
 	Line *bline = w.buffer.line(line_number);
-	loc.line = line_number;
-	loc.offset = 0;
+	Location loc = { .line = line_number, .offset = 0 };
 	(void)bline;
 	w.set_cursor(loc);
 	w.ensure_visible();

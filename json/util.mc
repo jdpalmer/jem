@@ -263,7 +263,6 @@ static bool json_buffer_append_bytes(JsonBuffer *buffer, const char *bytes, size
 
 static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
 	char stack_buf[64] = {0};
-	char *text = stack_buf;
 
 	if (buffer == NULL) {
 		return false;
@@ -272,25 +271,24 @@ static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
 	if (written < 0) {
 		return false;
 	}
-	if ((size_t)written >= sizeof(stack_buf)) {
-		text = malloc((size_t)written + 1);
-		if (text == NULL) {
-			return false;
-		}
-		written = snprintf(text, (size_t)written + 1, "%.17g", number);
-		if (written < 0) {
-			free(text);
-			return false;
-		}
+	if ((size_t)written < sizeof(stack_buf)) {
+		return json_buffer_append_bytes(buffer, stack_buf, written);
 	}
-	bool ok = json_buffer_append_bytes(buffer, text, written);
-	if (text != stack_buf) {
-		free(text);
+	char *heap = malloc((size_t)written + 1);
+	if (heap == NULL) {
+		return false;
 	}
+	written = snprintf(heap, (size_t)written + 1, "%.17g", number);
+	if (written < 0) {
+		free(heap);
+		return false;
+	}
+	bool ok = json_buffer_append_bytes(buffer, heap, written);
+	free(heap);
 	return ok;
 }
 
-static char *json_buffer_take(JsonBuffer *buffer) {
+[[provides]] static char *json_buffer_take(JsonBuffer *buffer) {
 	if (buffer == NULL) {
 		return NULL;
 	}
@@ -314,7 +312,7 @@ static void json_buffer_discard(JsonBuffer *buffer) {
 	buffer.capacity = 0;
 }
 
-static char *json_dup_bytes(const char *src, size_t len) {
+[[provides]] static char *json_dup_bytes(const char *src, size_t len) {
 
 	if (src == NULL && len != 0) {
 		return NULL;

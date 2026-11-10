@@ -49,12 +49,13 @@ TextStyle TextStyleDefault = {
 
 // text_style_make packs fg, bg, and flag bits into a TextStyle.
 TextStyle text_style_make(TermColor fg, TermColor bg, uint16_t flags) {
-	TextStyle s = {0};
-	s.bits = (uint16_t)((((uint16_t)fg) & (uint16_t)TextStyleColorMask) <<
-		(uint16_t)TextStyleFgShift |
-		(((uint16_t)bg) & (uint16_t)TextStyleColorMask) <<
-		(uint16_t)TextStyleBgShift |
-		flags);
+	TextStyle s = {
+		.bits = (uint16_t)((((uint16_t)fg) & (uint16_t)TextStyleColorMask) <<
+			(uint16_t)TextStyleFgShift |
+			(((uint16_t)bg) & (uint16_t)TextStyleColorMask) <<
+			(uint16_t)TextStyleBgShift |
+			flags)
+	};
 	return s;
 }
 

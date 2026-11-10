@@ -41,6 +41,7 @@ static void spawn_print_notice(const char *label, const char *command) {
 		if (ok) {
 			(void)out.write(ranged(buf, (size_t)n));
 		}
+		out.close();
 	}
 }
 

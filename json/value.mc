@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static JsonValue *json_value_alloc(JsonType type) {
+[[provides]] static JsonValue *json_value_alloc(JsonType type) {
 	JsonValue *value = calloc(1, sizeof(JsonValue));
 	if (value == NULL) {
 		return NULL;
@@ -54,11 +54,11 @@ static bool json_string_equals(const JsonString *string, const char *text, size_
 	return memcmp(string.data, text, len) == 0;
 }
 
-JsonValue *json_new_null() {
+[[provides]] JsonValue *json_new_null() {
 	return json_value_alloc(JSON_NULL);
 }
 
-JsonValue *json_new_bool(bool boolean) {
+[[provides]] JsonValue *json_new_bool(bool boolean) {
 	JsonValue *value = json_value_alloc(JSON_BOOL);
 	if (value == NULL) {
 		return NULL;
@@ -67,7 +67,7 @@ JsonValue *json_new_bool(bool boolean) {
 	return value;
 }
 
-JsonValue *json_new_number(double number) {
+[[provides]] JsonValue *json_new_number(double number) {
 	JsonValue *value = json_value_alloc(JSON_NUMBER);
 	if (value == NULL) {
 		return NULL;
@@ -76,7 +76,7 @@ JsonValue *json_new_number(double number) {
 	return value;
 }
 
-JsonValue *json_new_string_n(const char *string, size_t len) {
+[[provides]] JsonValue *json_new_string_n(const char *string, size_t len) {
 
 	if (string == NULL && len != 0) {
 		return NULL;
@@ -95,22 +95,22 @@ JsonValue *json_new_string_n(const char *string, size_t len) {
 	return value;
 }
 
-JsonValue *json_new_string(const char *string) {
+[[provides]] JsonValue *json_new_string(const char *string) {
 	if (string == NULL) {
 		return NULL;
 	}
 	return json_new_string_n(string, strlen(string));
 }
 
-JsonValue *json_new_array() {
+[[provides]] JsonValue *json_new_array() {
 	return json_value_alloc(JSON_ARRAY);
 }
 
-JsonValue *json_new_object() {
+[[provides]] JsonValue *json_new_object() {
 	return json_value_alloc(JSON_OBJECT);
 }
 
-void json_free([[consumes]] JsonValue *value) {
+void json_free([[releases]] JsonValue *value) {
 	size_t i = 0;
 
 	if (value == NULL) {
@@ -223,12 +223,14 @@ size_t json_string_length(const JsonValue *value) {
 	return value.string.length;
 }
 
-bool json_array_append(JsonValue *array, JsonValue *item) {
+bool json_array_append(JsonValue *array, [[retains]] JsonValue *item) {
 	if (array == NULL || item == NULL || array.type != JSON_ARRAY) {
+		json_free(item);
 		return false;
 	}
 	if (!json_grow_ptr_array((void **)&array.array.items, &array.array.capacity,
 		sizeof(JsonValue *), array.array.count + 1)) {
+		json_free(item);
 		return false;
 	}
 	ranged(array.array.items, array.array.capacity)[array.array.count] = item;
@@ -287,9 +289,12 @@ static const JsonObjectEntry *json_object_find_entry_const(const JsonValue *obje
 	return NULL;
 }
 
-static bool json_object_put_owned(JsonValue *object, JsonString key, JsonValue *value) {
+static bool json_object_put_owned(JsonValue *object, JsonString key,
+	[[retains]] JsonValue *value) {
 
 	if (object == NULL || value == NULL) {
+		free(key.data);
+		json_free(value);
 		return false;
 	}
 	JsonObjectEntry *entry = json_object_find_entry(object, key.data, key.length);
@@ -301,6 +306,8 @@ static bool json_object_put_owned(JsonValue *object, JsonString key, JsonValue *
 	}
 	if (!json_grow_ptr_array((void **)&object.object.entries, &object.object.capacity,
 		sizeof(JsonObjectEntry), object.object.count + 1)) {
+		free(key.data);
+		json_free(value);
 		return false;
 	}
 	entry = &ranged(object.object.entries, object.object.capacity)[object.object.count];
@@ -311,27 +318,27 @@ static bool json_object_put_owned(JsonValue *object, JsonString key, JsonValue *
 }
 
 bool json_object_set_n(JsonValue *object, const char *key, size_t key_len,
-	JsonValue *value) {
+	[[retains]] JsonValue *value) {
 	JsonString key_copy = {0};
 
 	if (object == NULL || value == NULL || object.type != JSON_OBJECT) {
+		json_free(value);
 		return false;
 	}
 	if (key == NULL && key_len != 0) {
+		json_free(value);
 		return false;
 	}
 	if (!json_string_copy(&key_copy, key, key_len)) {
+		json_free(value);
 		return false;
 	}
-	if (!json_object_put_owned(object, key_copy, value)) {
-		free(key_copy.data);
-		return false;
-	}
-	return true;
+	return json_object_put_owned(object, key_copy, value);
 }
 
-bool json_object_set(JsonValue *object, const char *key, JsonValue *value) {
+bool json_object_set(JsonValue *object, const char *key, [[retains]] JsonValue *value) {
 	if (key == NULL) {
+		json_free(value);
 		return false;
 	}
 	return json_object_set_n(object, key, strlen(key), value);

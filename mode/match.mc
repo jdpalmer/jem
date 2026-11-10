@@ -336,14 +336,11 @@ static bool location_has_delimiter(Buffer *buf, Location loc) {
 }
 
 static MatchResult match_target(Window *win, Location *match_out) {
-	Location cursor = {0};
-	Location prior = {0};
 	if (win == NULL || win.buffer == NULL) {
 		return MatchNone;
 	}
 	Buffer *buf = win.buffer;
-	cursor.line = win.cursor.line;
-	cursor.offset = win.cursor.offset;
+	Location cursor = { .line = win.cursor.line, .offset = win.cursor.offset };
 	if (cursor.line < 1 || cursor.line >= buf.eof_line()) {
 		return MatchNone;
 	}
@@ -356,8 +353,7 @@ static MatchResult match_target(Window *win, Location *match_out) {
 	if (cursor.offset == 0) {
 		return MatchNone;
 	}
-	prior.line = cursor.line;
-	prior.offset = cursor.offset - 1;
+	Location prior = { .line = cursor.line, .offset = cursor.offset - 1 };
 	if (location_has_delimiter(buf, prior)) {
 		if (mode_find_matching_delimiter(buf, prior, match_out)) {
 			return MatchFound;

@@ -359,7 +359,6 @@ static int find_next_regex_match_from(Buffer *buf, Location search_start, char *
 
 static int find_prev_regex_match_from(Buffer *buf, Location limit, char *pattern,
 	Location *begin, Location *end) {
-	Location scan = {0};
 	Location best_begin = {0};
 	Location best_end = {0};
 	ReCapture best_caps[ReMaxCaptures] = {0};
@@ -371,8 +370,7 @@ static int find_prev_regex_match_from(Buffer *buf, Location limit, char *pattern
 	if (buf == NULL || pattern == NULL) {
 		return -1;
 	}
-	scan.line = 1;
-	scan.offset = 0;
+	Location scan = { .line = 1, .offset = 0 };
 	for (; i < ReMaxCaptures; i++) {
 		best_caps[i].start = -1;
 		best_caps[i].length = -1;
@@ -1002,31 +1000,24 @@ const char *search_last_pattern() {
 }
 
 static bool search_plain_in_buffer(Window *win, Buffer *buf, bool forward, char *needle, size_t nlen) {
-	Location from = {0};
 	Location begin = {0};
 	Location end = {0};
 	if (win == NULL || buf == NULL || nlen == 0) {
 		return false;
 	}
+	Location from = win.cursor;
 	if (forward) {
-		from = win.cursor;
-		if (win.buffer == buf) {
-			/* start at cursor */
-		} else {
+		if (win.buffer != buf) {
 			from.line = 1;
 			from.offset = 0;
 		}
-	} else {
-		if (win.buffer == buf) {
-			from = win.cursor;
-		} else {
-			from.line = buf.eof_line();
-			from.offset = 0;
-			if (buf.line_count_i() >= 1) {
-				Line *last = buf.line(buf.line_count_i());
-				from.line = buf.line_count_i();
-				from.offset = last != NULL ? last.byte_len() : 0;
-			}
+	} else if (win.buffer != buf) {
+		from.line = buf.eof_line();
+		from.offset = 0;
+		if (buf.line_count_i() >= 1) {
+			Line *last = buf.line(buf.line_count_i());
+			from.line = buf.line_count_i();
+			from.offset = last != NULL ? last.byte_len() : 0;
 		}
 	}
 	if (!search_from(buf, from, forward, needle, nlen, &begin, &end)) {
