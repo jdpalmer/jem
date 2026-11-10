@@ -864,37 +864,28 @@ bool search_replace_one() {
 			memcpy(ptr(old), ptr(line.data) + begin.offset, old_len);
 		}
 		old[old_len] = 0;
+		char *repl = g_search.replacement;
 		size_t repl_len = g_search.replacement_len;
-		buffer_undo.begin_command(win.buffer, win.cursor);
 		if (g_search.regexp) {
 			if (g_search.re_slice == NULL) {
-				buffer_undo.end_command();
 				return false;
 			}
 			size_t need = expand_regex_replacement_size(g_search.replacement, g_search.captures);
 			char[..] expanded = p.alloc(char, need + 1);
 			if (ptr(expanded) == NULL) {
-				buffer_undo.end_command();
 				return false;
 			}
 			expand_regex_replacement_into(g_search.replacement, g_search.re_slice,
 				g_search.captures, expanded, &repl_len);
-			if (!win.set_text(g_search.match_begin, g_search.match_end, ptr(expanded), repl_len)) {
-				buffer_undo.end_command();
-				return false;
-			}
-			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), old_len);
-			buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, ptr(expanded), repl_len);
-		} else {
-			if (!win.set_text(g_search.match_begin, g_search.match_end,
-				g_search.replacement, repl_len)) {
-				buffer_undo.end_command();
-				return false;
-			}
-			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), old_len);
-			buffer_undo.record_edit(UndoInsert, begin.line, begin.offset,
-				g_search.replacement, repl_len);
+			repl = ptr(expanded);
 		}
+		buffer_undo.begin_command(win.buffer, win.cursor);
+		if (!win.set_text(g_search.match_begin, g_search.match_end, repl, repl_len)) {
+			buffer_undo.end_command();
+			return false;
+		}
+		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), old_len);
+		buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, repl, repl_len);
 		buffer_undo.end_command();
 		search_clear_re_slice();
 		if (!g_search.forward) {
