@@ -832,25 +832,30 @@ static void screen_rows_scroll_up(Screen *s, int start, int length, int n) {
 	}
 	int cols = s.cols;
 	DispCell *base = ptr(s.cells);
-	DispCell *tmp = malloc((size_t)n * (size_t)cols * sizeof(DispCell));
-	if (tmp == NULL) {
-		return;
-	}
-	memcpy(tmp, base + start * cols, (size_t)n * (size_t)cols * sizeof(DispCell));
-	memmove(base + start * cols, base + (start + n) * cols,
-		(size_t)(length - n) * (size_t)cols * sizeof(DispCell));
-	memcpy(base + (start + length - n) * cols, tmp, (size_t)n * (size_t)cols * sizeof(DispCell));
-	free(tmp);
-	if (ptr(s.row_dirty) != NULL) {
-		bool *dbase = ptr(s.row_dirty);
-		bool *dtmp = malloc((size_t)n * sizeof(bool));
-		if (dtmp == NULL) {
+	size_t ncells = (size_t)n * (size_t)cols;
+	pool p {
+		DispCell[..] tmp = p.alloc(DispCell, ncells);
+		if (ptr(tmp) == NULL) {
 			return;
 		}
-		defer free(dtmp);
-		memcpy(dtmp, dbase + start, (size_t)n * sizeof(bool));
-		memmove(dbase + start, dbase + start + n, (size_t)(length - n) * sizeof(bool));
-		memcpy(dbase + start + length - n, dtmp, (size_t)n * sizeof(bool));
+		bool[..] dtmp = {0};
+		if (ptr(s.row_dirty) != NULL) {
+			dtmp = p.alloc(bool, n);
+			if (ptr(dtmp) == NULL) {
+				return;
+			}
+		}
+		memcpy(ptr(tmp), base + start * cols, ncells * sizeof(DispCell));
+		memmove(base + start * cols, base + (start + n) * cols,
+			(size_t)(length - n) * (size_t)cols * sizeof(DispCell));
+		memcpy(base + (start + length - n) * cols, ptr(tmp),
+			ncells * sizeof(DispCell));
+		if (ptr(dtmp) != NULL) {
+			bool *dbase = ptr(s.row_dirty);
+			memcpy(ptr(dtmp), dbase + start, (size_t)n * sizeof(bool));
+			memmove(dbase + start, dbase + start + n, (size_t)(length - n) * sizeof(bool));
+			memcpy(dbase + start + length - n, ptr(dtmp), (size_t)n * sizeof(bool));
+		}
 	}
 }
 

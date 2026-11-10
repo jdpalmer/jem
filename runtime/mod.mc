@@ -3087,7 +3087,8 @@ void runtime_run(int argc, char **argv) {
 		Buffer *first = NULL;
 		char *[..] args = ranged(argv, (size_t)argc);
 		for (; i < argc; i++) {
-			auto (buf, ok) = file_visit(args[i]);			if (!ok || buf == NULL) {
+			auto (buf, ok) = file_visit(args[i]);
+			if (!ok || buf == NULL) {
 				continue;
 			}
 			if (first == NULL) {
