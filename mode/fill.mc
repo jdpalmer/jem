@@ -36,6 +36,7 @@ bool mode_fill_paragraph(bool f, int n) {
 	if (buf.is_readonly) {
 		return false;
 	}
+	defer str_free(&blob);
 	int line_num = win.cursor.line;
 	start = line_num;
 	while (start > 1) {
@@ -81,14 +82,12 @@ bool mode_fill_paragraph(bool f, int n) {
 			}
 			wlen = j - i;
 			if (word_count >= FillWordMax) {
-				str_free(&blob);
 				return false;
 			}
 			blob_len = len(blob);
 			{
 				char *old_base = ptr(blob);
 				if (!str_reserve(&blob, blob_len + wlen + 1)) {
-					str_free(&blob);
 					return false;
 				}
 				char *new_base = ptr(blob);
@@ -111,18 +110,16 @@ bool mode_fill_paragraph(bool f, int n) {
 		}
 	}
 	if (word_count == 0) {
-		str_free(&blob);
 		return true;
 	}
 
 	char[..] out = {0};
 	size_t cur_len = 0;
+	defer str_free(&out);
 	for (; wi < word_count; wi++) {
 		size_t wlen = strlen(words[wi]);
 		if (cur_len == 0) {
 			if (!str_append(&out, ranged(words[wi], wlen))) {
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 			cur_len = wlen;
@@ -130,25 +127,17 @@ bool mode_fill_paragraph(bool f, int n) {
 		}
 		if (cur_len + 1 + wlen <= (size_t)fill_col) {
 			if (!str_append_byte(&out, ' ')) {
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 			if (!str_append(&out, ranged(words[wi], wlen))) {
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 			cur_len = cur_len + 1 + wlen;
 		} else {
 			if (!str_append_byte(&out, '\n')) {
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 			if (!str_append(&out, ranged(words[wi], wlen))) {
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 			cur_len = wlen;
@@ -161,21 +150,16 @@ bool mode_fill_paragraph(bool f, int n) {
 
 	/* Capture old paragraph text for undo. */
 	char[..] old = {0};
+	defer str_free(&old);
 	for (ln = start; ln <= end; ln++) {
 		Line *line = buf.line(ln);
 		if (line != NULL && line.byte_len() > 0) {
 			if (!str_append(&old, line.data)) {
-				str_free(&old);
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 		}
 		if (ln < end) {
 			if (!str_append_byte(&old, '\n')) {
-				str_free(&old);
-				str_free(&out);
-				str_free(&blob);
 				return false;
 			}
 		}
@@ -183,9 +167,6 @@ bool mode_fill_paragraph(bool f, int n) {
 
 	buffer_undo.begin_command(buf, win.cursor);
 	if (!win.set_text(begin, end_loc, ptr(out), len(out))) {
-		str_free(&old);
-		str_free(&out);
-		str_free(&blob);
 		buffer_undo.end_command();
 		return false;
 	}
@@ -193,9 +174,6 @@ bool mode_fill_paragraph(bool f, int n) {
 		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), len(old));
 	}
 	buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, ptr(out), len(out));
-	str_free(&old);
-	str_free(&out);
-	str_free(&blob);
 	buffer_undo.end_command();
 	return true;
 }
