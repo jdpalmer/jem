@@ -864,23 +864,20 @@ bool cmd_transpose_chars(bool f, int n) {
 	}
 	size_t left_len = left_end - left_start;
 	size_t right_len = right_end - right_start;
-	char *swapped = malloc(left_len + right_len);
-	if (swapped == NULL) {
-		return false;
-	}
-	{
-		char *vp = ptr(v);
-		memcpy(swapped, vp + right_start, right_len);
-		memcpy(swapped + right_len, vp + left_start, left_len);
-	}
 	Location begin = { .line = w.cursor.line, .offset = left_start };
 	Location end = { .line = w.cursor.line, .offset = right_end };
-	buffer_undo.begin_command(w.buffer, w.cursor);
-	{
+	pool p {
+		char[..] swapped = {0};
+		if (!p.append(&swapped, v[right_start..right_end])) {
+			return false;
+		}
+		if (!p.append(&swapped, v[left_start..left_end])) {
+			return false;
+		}
+		buffer_undo.begin_command(w.buffer, w.cursor);
 		char *old = region_text(w, begin, end, NULL);
 		size_t olen = left_len + right_len;
-		if (!w.set_text(begin, end, swapped, left_len + right_len)) {
-			free(swapped);
+		if (!w.set_text(begin, end, ptr(swapped), len(swapped))) {
 			free(old);
 			buffer_undo.end_command();
 			return false;
@@ -889,11 +886,11 @@ bool cmd_transpose_chars(bool f, int n) {
 			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, olen);
 			free(old);
 		}
-		buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, swapped, left_len + right_len);
+		buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, ptr(swapped),
+			len(swapped));
+		buffer_undo.end_command();
+		return true;
 	}
-	free(swapped);
-	buffer_undo.end_command();
-	return true;
 }
 
 static char ascii_tolower(char c) {

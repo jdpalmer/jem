@@ -191,7 +191,6 @@ bool cmd_delete_blank_lines(bool f, int n) {
 // cmd_transpose_lines swaps the current line with the one above (C-x C-t).
 bool cmd_transpose_lines(bool f, int n) {
 	Window *w = window_current();
-	size_t total = 0;
 	(void)f;
 	(void)n;
 	if (w == NULL || w.buffer == NULL) {
@@ -211,44 +210,53 @@ bool cmd_transpose_lines(bool f, int n) {
 	}
 	Location p0 = { .line = curr - 1, .offset = 0 };
 	Location p2 = { .line = curr + 1, .offset = 0 }; /* offset 0 may be EOF */
-	char *original = region_text(w, p0, p2, &total);
-	if (original == NULL) {
-		return false;
-	}
-	size_t len1 = prev.byte_len() + 1;
-	if (total < len1) {
+	pool p {
+		size_t total = 0;
+		char *original = region_text(w, p0, p2, &total);
+		if (original == NULL) {
+			return false;
+		}
+		size_t len1 = prev.byte_len() + 1;
+		if (total < len1) {
+			free(original);
+			return false;
+		}
+		char[..] orig = {0};
+		if (!p.copy(&orig, ranged(original, total))) {
+			free(original);
+			return false;
+		}
 		free(original);
-		return false;
+
+		char[..] swapped = {0};
+		if (curr < buf.line_count_i()) {
+			/* original = prev\ncurr\n… */
+			if (!p.append(&swapped, orig[len1..])) {
+				return false;
+			}
+			if (!p.append(&swapped, orig[..len1])) {
+				return false;
+			}
+		} else {
+			/* get_text to EOF is prev\ncurr (no nl after curr); insert separator. */
+			if (!p.append(&swapped, orig[len1..])) {
+				return false;
+			}
+			if (!p.push(&swapped, '\n')) {
+				return false;
+			}
+			if (!p.append(&swapped, orig[..prev.byte_len()])) {
+				return false;
+			}
+		}
+		if (!replace_range_command(w, p0, p2, ptr(swapped), len(swapped))) {
+			return false;
+		}
+		Location saved = { .line = curr - 1, .offset = 0 };
+		w.set_cursor(saved);
+		w.did_move = true;
+		return true;
 	}
-	char *swapped = malloc(total + 2);
-	if (swapped == NULL) {
-		free(original);
-		return false;
-	}
-	if (curr < buf.line_count_i()) {
-		/* original = prev\ncurr\n… */
-		memcpy(swapped, original + len1, total - len1);
-		memcpy(swapped + (total - len1), original, len1);
-	} else {
-		/* get_text to EOF is prev\ncurr (no nl after curr); insert separator. */
-		size_t len2 = total - len1;
-		memcpy(swapped, original + len1, len2);
-		char[..] sw = ranged(swapped, total + 2);
-		sw[len2] = '\n';
-		memcpy(swapped + len2 + 1, original, prev.byte_len());
-		total = len2 + 1 + prev.byte_len();
-	}
-	if (!replace_range_command(w, p0, p2, swapped, total)) {
-		free(original);
-		free(swapped);
-		return false;
-	}
-	free(original);
-	free(swapped);
-	Location saved = { .line = curr - 1, .offset = 0 };
-	w.set_cursor(saved);
-	w.did_move = true;
-	return true;
 }
 
 static bool get_region(Window *w, Location *start_out, Location *end_out) {
@@ -272,42 +280,46 @@ static bool transform_region_case(bool upper) {
 	Window *w = window_current();
 	Location start = {0};
 	Location end = {0};
-	size_t tlen = 0;
-	size_t i = 0;
-	bool changed = false;
 	if (w == NULL || w.buffer == NULL || w.buffer.is_readonly) {
 		return false;
 	}
 	if (!get_region(w, &start, &end)) {
 		return false;
 	}
-	char *text = region_text(w, start, end, &tlen);
-	if (text == NULL) {
-		return false;
-	}
-	char[..] tv = ranged(text, tlen);
-	for (; i < tlen; i++) {
-		char t = 0;
-		if (upper) {
-			t = ident_upper(tv[i]);
-		} else {
-			t = ident_lower(tv[i]);
+	pool p {
+		size_t tlen = 0;
+		size_t i = 0;
+		bool changed = false;
+		char *text = region_text(w, start, end, &tlen);
+		if (text == NULL) {
+			return false;
 		}
-		if (t != tv[i]) {
-			tv[i] = t;
-			changed = true;
+		char[..] tv = {0};
+		if (!p.copy(&tv, ranged(text, tlen))) {
+			free(text);
+			return false;
 		}
-	}
-	if (!changed) {
 		free(text);
+		for (; i < len(tv); i++) {
+			char t = 0;
+			if (upper) {
+				t = ident_upper(tv[i]);
+			} else {
+				t = ident_lower(tv[i]);
+			}
+			if (t != tv[i]) {
+				tv[i] = t;
+				changed = true;
+			}
+		}
+		if (!changed) {
+			return true;
+		}
+		if (!replace_range_command(w, start, end, ptr(tv), len(tv))) {
+			return false;
+		}
 		return true;
 	}
-	if (!replace_range_command(w, start, end, text, tlen)) {
-		free(text);
-		return false;
-	}
-	free(text);
-	return true;
 }
 
 bool cmd_lower_region(bool f, int n) {
