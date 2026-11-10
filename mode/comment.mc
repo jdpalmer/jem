@@ -91,49 +91,49 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 	Location saved_cursor = win.cursor;
 	Location saved_mark = win.mark;
 	buffer_undo.begin_command(buf, win.cursor);
-	for (; line_num <= end_line; line_num++) {
-		Line *line = buf.line(line_num);
-		size_t pos = 0;
-		size_t end = 0;
-		Location begin = {0};
-		Location finish = {0};
-		char *old = NULL;
-		size_t old_len = 0;
-		if (line == NULL || !line_has_comment_prefix(line, prefix, plen)) {
-			continue;
+	pool p {
+		for (; line_num <= end_line; line_num++) {
+			Line *line = buf.line(line_num);
+			size_t pos = 0;
+			size_t end = 0;
+			Location begin = {0};
+			Location finish = {0};
+			size_t old_len = 0;
+			char[..] old = {0};
+			if (line == NULL || !line_has_comment_prefix(line, prefix, plen)) {
+				continue;
+			}
+			comment_prefix_span(line, prefix, plen, &pos, &end);
+			old_len = end - pos;
+			old = p.alloc(char, old_len + 1);
+			if (ptr(old) == NULL) {
+				win.set_cursor(saved_cursor);
+				win.mark = saved_mark;
+				buffer_undo.end_command();
+				return false;
+			}
+			memcpy(ptr(old), ptr(line.data) + pos, old_len);
+			old[old_len] = 0;
+			begin.line = line_num;
+			begin.offset = pos;
+			finish.line = line_num;
+			finish.offset = end;
+			if (!win.set_text(begin, finish, "", 0)) {
+				win.set_cursor(saved_cursor);
+				win.mark = saved_mark;
+				buffer_undo.end_command();
+				return false;
+			}
+			buffer_undo.record_edit(UndoDelete, line_num, pos, ptr(old), old_len);
+			adjust_loc_for_delete(&saved_cursor, line_num, pos, end);
+			adjust_loc_for_delete(&saved_mark, line_num, pos, end);
 		}
-		comment_prefix_span(line, prefix, plen, &pos, &end);
-		old_len = end - pos;
-		old = malloc(old_len + 1);
-		if (old == NULL) {
-			win.set_cursor(saved_cursor);
-			win.mark = saved_mark;
-			buffer_undo.end_command();
-			return false;
-		}
-		memcpy(old, ptr(line.data) + pos, old_len);
-		ranged(old, old_len + 1)[old_len] = 0;
-		begin.line = line_num;
-		begin.offset = pos;
-		finish.line = line_num;
-		finish.offset = end;
-		if (!win.set_text(begin, finish, "", 0)) {
-			free(old);
-			win.set_cursor(saved_cursor);
-			win.mark = saved_mark;
-			buffer_undo.end_command();
-			return false;
-		}
-		buffer_undo.record_edit(UndoDelete, line_num, pos, old, old_len);
-		free(old);
-		adjust_loc_for_delete(&saved_cursor, line_num, pos, end);
-		adjust_loc_for_delete(&saved_mark, line_num, pos, end);
+		buffer_undo.end_command();
+		win.set_cursor(saved_cursor);
+		win.mark = saved_mark;
+		win.did_move = true;
+		return true;
 	}
-	buffer_undo.end_command();
-	win.set_cursor(saved_cursor);
-	win.mark = saved_mark;
-	win.did_move = true;
-	return true;
 }
 
 static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,

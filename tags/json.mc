@@ -108,107 +108,91 @@ static bool tag_json_string(TagJsonCursor *c, char **out) {
 	if (c == NULL || out == NULL || *c.p != '"') {
 		return false;
 	}
+	defer str_free(&b);
 	*out = NULL;
 	c.p++;
 	while (*c.p != 0 && *c.p != '"') {
 		char ch = *c.p++;
 		if (ch < 0x20) {
-			str_free(&b);
 			return false;
 		}
 		if (ch != '\\') {
 			if (!str_append_byte(&b, ch)) {
-				str_free(&b);
 				return false;
 			}
 			continue;
 		}
 		ch = *c.p++;
 		if (ch == 0) {
-			str_free(&b);
 			return false;
 		}
 		if (ch == '"' || ch == '\\' || ch == '/') {
 			if (!str_append_byte(&b, ch)) {
-				str_free(&b);
 				return false;
 			}
 		} else if (ch == 'b') {
 			if (!str_append_byte(&b, '\b')) {
-				str_free(&b);
 				return false;
 			}
 		} else if (ch == 'f') {
 			if (!str_append_byte(&b, '\f')) {
-				str_free(&b);
 				return false;
 			}
 		} else if (ch == 'n') {
 			if (!str_append_byte(&b, '\n')) {
-				str_free(&b);
 				return false;
 			}
 		} else if (ch == 'r') {
 			if (!str_append_byte(&b, '\r')) {
-				str_free(&b);
 				return false;
 			}
 		} else if (ch == 't') {
 			if (!str_append_byte(&b, '\t')) {
-				str_free(&b);
 				return false;
 			}
 		} else if (ch == 'u') {
 			uint32_t cp = 0;
 			if (!tag_json_u16(c, &cp)) {
-				str_free(&b);
 				return false;
 			}
 			if (cp >= 0xD800 && cp <= 0xDBFF) {
 				uint32_t low = 0;
 				if (*c.p != '\\') {
-					str_free(&b);
 					return false;
 				}
 				c.p++;
 				if (*c.p != 'u') {
-					str_free(&b);
 					return false;
 				}
 				c.p++;
 				if (!tag_json_u16(c, &low) || low < 0xDC00 || low > 0xDFFF) {
-					str_free(&b);
 					return false;
 				}
 				cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
 			} else if (cp >= 0xDC00 && cp <= 0xDFFF) {
-				str_free(&b);
 				return false;
 			}
 			if (!tag_json_utf8(&b, cp)) {
-				str_free(&b);
 				return false;
 			}
 		} else {
-			str_free(&b);
 			return false;
 		}
 	}
 	if (*c.p != '"') {
-		str_free(&b);
 		return false;
 	}
 	c.p++;
 	if (!str_reserve(&b, len(b) + 1)) {
-		str_free(&b);
 		return false;
 	}
 	{
 		char[..] room = ranged(ptr(b), cap(b));
 		room[len(b)] = '\0';
 	}
-	*out = ptr(b);
-	b = str_empty(); /* ownership transferred to *out */
+	char *owned = ptr(b);
+	b = str_empty(); /* hand off; defer frees empty header */
+	*out = owned;
 	return true;
 }
 

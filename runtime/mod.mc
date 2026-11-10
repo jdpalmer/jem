@@ -651,19 +651,27 @@ static bool delete_range_undo(Window *w, Location begin, Location end, bool kill
 	if (lo.line == hi.line && lo.offset == hi.offset) {
 		return false;
 	}
-	char *text = region_text(w, lo, hi, &tlen);
-	if (kill && text != NULL && tlen > 0) {
-		killring_kill(ranged(text, tlen));
+	pool p {
+		char[..] tv = {0};
+		char *text = region_text(w, lo, hi, &tlen);
+		if (text != NULL) {
+			if (!p.copy(&tv, ranged(text, tlen))) {
+				free(text);
+				return false;
+			}
+			free(text);
+		}
+		if (kill && ptr(tv) != NULL && tlen > 0) {
+			killring_kill(tv);
+		}
+		if (!w.set_text(lo, hi, "", 0)) {
+			return false;
+		}
+		if (ptr(tv) != NULL) {
+			buffer_undo.record_edit(UndoDelete, w.cursor.line, w.cursor.offset, ptr(tv), tlen);
+		}
+		return true;
 	}
-	if (!w.set_text(lo, hi, "", 0)) {
-		free(text);
-		return false;
-	}
-	if (text != NULL) {
-		buffer_undo.record_edit(UndoDelete, w.cursor.line, w.cursor.offset, text, tlen);
-		free(text);
-	}
-	return true;
 }
 
 bool cmd_delete_word_forward(bool f, int n) {
@@ -875,16 +883,25 @@ bool cmd_transpose_chars(bool f, int n) {
 			return false;
 		}
 		buffer_undo.begin_command(w.buffer, w.cursor);
-		char *old = region_text(w, begin, end, NULL);
+		char[..] oldv = {0};
 		size_t olen = left_len + right_len;
+		{
+			char *old = region_text(w, begin, end, NULL);
+			if (old != NULL) {
+				if (!p.copy(&oldv, ranged(old, olen))) {
+					free(old);
+					buffer_undo.end_command();
+					return false;
+				}
+				free(old);
+			}
+		}
 		if (!w.set_text(begin, end, ptr(swapped), len(swapped))) {
-			free(old);
 			buffer_undo.end_command();
 			return false;
 		}
-		if (old != NULL) {
-			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, olen);
-			free(old);
+		if (ptr(oldv) != NULL) {
+			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(oldv), olen);
 		}
 		buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, ptr(swapped),
 			len(swapped));
@@ -920,15 +937,22 @@ static bool transform_word_case(int mode) {
 	Location start = w.cursor;
 	w.move_forward_word(1);
 	Location end = w.cursor;
-	char *text = region_text(w, start, end, &tlen);
-	if (text == NULL || tlen == 0) {
+	pool p {
+		char *text = region_text(w, start, end, &tlen);
+		char[..] tv = {0};
+		char[..] oldv = {0};
+		if (text == NULL || tlen == 0) {
+			free(text);
+			w.set_cursor(start);
+			return false;
+		}
+		if (!p.copy(&tv, ranged(text, tlen))) {
+			free(text);
+			w.set_cursor(start);
+			return false;
+		}
 		free(text);
-		w.set_cursor(start);
-		return false;
-	}
-	{
-		char[..] tv = ranged(text, tlen);
-		for (; i < tlen; i++) {
+		for (; i < len(tv); i++) {
 			if (mode == 0) {
 				tv[i] = ascii_tolower(tv[i]);
 			} else if (mode == 1) {
@@ -943,25 +967,29 @@ static bool transform_word_case(int mode) {
 				}
 			}
 		}
-	}
-	buffer_undo.begin_command(w.buffer, w.cursor);
-	{
-		char *old = region_text(w, start, end, NULL);
-		if (!w.set_text(start, end, text, tlen)) {
-			free(text);
-			free(old);
-			buffer_undo.end_command();
-			return false;
+		buffer_undo.begin_command(w.buffer, w.cursor);
+		{
+			char *old = region_text(w, start, end, NULL);
+			if (old != NULL) {
+				if (!p.copy(&oldv, ranged(old, tlen))) {
+					free(old);
+					buffer_undo.end_command();
+					return false;
+				}
+				free(old);
+			}
+			if (!w.set_text(start, end, ptr(tv), len(tv))) {
+				buffer_undo.end_command();
+				return false;
+			}
+			if (ptr(oldv) != NULL) {
+				buffer_undo.record_edit(UndoDelete, start.line, start.offset, ptr(oldv), tlen);
+			}
+			buffer_undo.record_edit(UndoInsert, start.line, start.offset, ptr(tv), len(tv));
 		}
-		if (old != NULL) {
-			buffer_undo.record_edit(UndoDelete, start.line, start.offset, old, tlen);
-			free(old);
-		}
-		buffer_undo.record_edit(UndoInsert, start.line, start.offset, text, tlen);
+		buffer_undo.end_command();
+		return true;
 	}
-	free(text);
-	buffer_undo.end_command();
-	return true;
 }
 
 bool cmd_lower_word(bool f, int n) {
@@ -1037,35 +1065,45 @@ bool cmd_transpose_words(bool f, int n) {
 	w.set_cursor(right_start);
 	w.move_forward_word(1);
 	Location right_end = w.cursor;
-	char *left_text = region_text(w, left_start, left_end, &left_len);
-	char *right_text = region_text(w, right_start, right_end, &right_len);
-	if (left_text == NULL || right_text == NULL) {
+	pool p {
+		char[..] leftv = {0};
+		char[..] rightv = {0};
+		char *left_text = region_text(w, left_start, left_end, &left_len);
+		char *right_text = region_text(w, right_start, right_end, &right_len);
+		if (left_text == NULL || right_text == NULL) {
+			free(left_text);
+			free(right_text);
+			return false;
+		}
+		if (!p.copy(&leftv, ranged(left_text, left_len)) ||
+			!p.copy(&rightv, ranged(right_text, right_len))) {
+			free(left_text);
+			free(right_text);
+			return false;
+		}
 		free(left_text);
 		free(right_text);
-		return false;
-	}
-	buffer_undo.begin_command(w.buffer, w.cursor);
-	/* Replace right then left (jem.go CmdTransposeWords). */
-	if (!w.set_text(right_start, right_end, left_text, left_len)) {
-		free(left_text);
-		free(right_text);
+		buffer_undo.begin_command(w.buffer, w.cursor);
+		/* Replace right then left (jem.go CmdTransposeWords). */
+		if (!w.set_text(right_start, right_end, ptr(leftv), left_len)) {
+			buffer_undo.end_command();
+			return false;
+		}
+		buffer_undo.record_edit(UndoDelete, right_start.line, right_start.offset,
+			ptr(rightv), right_len);
+		buffer_undo.record_edit(UndoInsert, right_start.line, right_start.offset,
+			ptr(leftv), left_len);
+		if (!w.set_text(left_start, left_end, ptr(rightv), right_len)) {
+			buffer_undo.end_command();
+			return false;
+		}
+		buffer_undo.record_edit(UndoDelete, left_start.line, left_start.offset,
+			ptr(leftv), left_len);
+		buffer_undo.record_edit(UndoInsert, left_start.line, left_start.offset,
+			ptr(rightv), right_len);
 		buffer_undo.end_command();
-		return false;
+		return true;
 	}
-	buffer_undo.record_edit(UndoDelete, right_start.line, right_start.offset, right_text, right_len);
-	buffer_undo.record_edit(UndoInsert, right_start.line, right_start.offset, left_text, left_len);
-	if (!w.set_text(left_start, left_end, right_text, right_len)) {
-		free(left_text);
-		free(right_text);
-		buffer_undo.end_command();
-		return false;
-	}
-	buffer_undo.record_edit(UndoDelete, left_start.line, left_start.offset, left_text, left_len);
-	buffer_undo.record_edit(UndoInsert, left_start.line, left_start.offset, right_text, right_len);
-	free(left_text);
-	free(right_text);
-	buffer_undo.end_command();
-	return true;
 }
 
 bool cmd_delete_backward(bool f, int n) {
@@ -1237,29 +1275,37 @@ bool cmd_kill_region(bool f, int n) {
 	}
 	Location begin = w.mark;
 	Location end = w.cursor;
-	char *text = region_text(w, begin, end, &tlen);
-	if (text != NULL) {
-		killring_kill(ranged(text, tlen));
-	}
-	buffer_undo.begin_command(w.buffer, w.cursor);
-	{
-		Location lo = begin;
-		Location hi = end;
-		if (begin.line > end.line || (begin.line == end.line && begin.offset > end.offset)) {
-			lo = end;
-			hi = begin;
+	pool p {
+		char[..] tv = {0};
+		char *text = region_text(w, begin, end, &tlen);
+		if (text != NULL) {
+			if (!p.copy(&tv, ranged(text, tlen))) {
+				free(text);
+				display_set_echo("Out of memory");
+				return true;
+			}
+			free(text);
+			killring_kill(tv);
 		}
-		w.set_text(lo, hi, "", 0);
+		buffer_undo.begin_command(w.buffer, w.cursor);
+		{
+			Location lo = begin;
+			Location hi = end;
+			if (begin.line > end.line || (begin.line == end.line && begin.offset > end.offset)) {
+				lo = end;
+				hi = begin;
+			}
+			w.set_text(lo, hi, "", 0);
+		}
+		if (ptr(tv) != NULL) {
+			buffer_undo.record_edit(UndoDelete, w.cursor.line, w.cursor.offset, ptr(tv), tlen);
+		}
+		buffer_undo.end_command();
+		w.mark.line = 0;
+		w.mark.offset = 0;
+		w.should_redraw = true;
+		return true;
 	}
-	if (text != NULL) {
-		buffer_undo.record_edit(UndoDelete, w.cursor.line, w.cursor.offset, text, tlen);
-		free(text);
-	}
-	buffer_undo.end_command();
-	w.mark.line = 0;
-	w.mark.offset = 0;
-	w.should_redraw = true;
-	return true;
 }
 
 bool cmd_copy_region(bool f, int n) {
@@ -1271,18 +1317,26 @@ bool cmd_copy_region(bool f, int n) {
 		display_set_echo("No mark set");
 		return true;
 	}
-	char *text = region_text(w, w.mark, w.cursor, &tlen);
-	if (text == NULL) {
-		display_set_echo("Out of memory");
+	pool p {
+		char[..] tv = {0};
+		char *text = region_text(w, w.mark, w.cursor, &tlen);
+		if (text == NULL) {
+			display_set_echo("Out of memory");
+			return true;
+		}
+		if (!p.copy(&tv, ranged(text, tlen))) {
+			free(text);
+			display_set_echo("Out of memory");
+			return true;
+		}
+		free(text);
+		killring_kill(tv);
+		w.mark.line = 0;
+		w.mark.offset = 0;
+		w.should_redraw = true;
+		display_set_echo("Region copied");
 		return true;
 	}
-	killring_kill(ranged(text, tlen));
-	free(text);
-	w.mark.line = 0;
-	w.mark.offset = 0;
-	w.should_redraw = true;
-	display_set_echo("Region copied");
-	return true;
 }
 
 bool cmd_kill_line(bool f, int n) {
@@ -1304,18 +1358,25 @@ bool cmd_kill_line(bool f, int n) {
 	} else {
 		return true;
 	}
-	char *text = region_text(w, begin, end, &tlen);
-	if (text != NULL) {
-		killring_kill(ranged(text, tlen));
+	pool p {
+		char[..] tv = {0};
+		char *text = region_text(w, begin, end, &tlen);
+		if (text != NULL) {
+			if (!p.copy(&tv, ranged(text, tlen))) {
+				free(text);
+				return true;
+			}
+			free(text);
+			killring_kill(tv);
+		}
+		buffer_undo.begin_command(w.buffer, begin);
+		w.set_text(begin, end, "", 0);
+		if (ptr(tv) != NULL) {
+			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(tv), tlen);
+		}
+		buffer_undo.end_command();
+		return true;
 	}
-	buffer_undo.begin_command(w.buffer, begin);
-	w.set_text(begin, end, "", 0);
-	if (text != NULL) {
-		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, text, tlen);
-		free(text);
-	}
-	buffer_undo.end_command();
-	return true;
 }
 
 bool cmd_yank(bool f, int n) {
@@ -2720,24 +2781,32 @@ static bool handle_listener_key(uint32_t key) {
 						display_set_echo("[register name required]");
 						return true;
 					}
-					char *text = region_text(rw, rw.mark, rw.cursor, &tlen);
-					if (text == NULL && tlen > 0) {
-						display_set_echo("[out of memory]");
+					pool p {
+						char[..] tv = {0};
+						char *text = region_text(rw, rw.mark, rw.cursor, &tlen);
+						if (text == NULL && tlen > 0) {
+							display_set_echo("[out of memory]");
+							return true;
+						}
+						if (text != NULL) {
+							if (!p.copy(&tv, ranged(text, tlen))) {
+								free(text);
+								display_set_echo("[out of memory]");
+								return true;
+							}
+							free(text);
+						}
+						if (!register_set(name, tv)) {
+							display_set_echo("[invalid register]");
+							return true;
+						}
+						rw.mark.line = 0;
+						rw.mark.offset = 0;
+						rw.should_redraw = true;
+						snprintf(msg, sizeof(msg), "Register '%c' copied.", name);
+						display_set_echo(msg);
 						return true;
 					}
-					char[..] view = text != NULL ? ranged(text, tlen) : str_empty();
-					if (!register_set(name, view)) {
-						free(text);
-						display_set_echo("[invalid register]");
-						return true;
-					}
-					free(text);
-					rw.mark.line = 0;
-					rw.mark.offset = 0;
-					rw.should_redraw = true;
-					snprintf(msg, sizeof(msg), "Register '%c' copied.", name);
-					display_set_echo(msg);
-					return true;
 				}
 				if (phase == (int)AskInsertRegister) {
 					Window *rw = window_current();

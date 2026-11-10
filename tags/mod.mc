@@ -70,19 +70,12 @@ static char g_tags_error[256] = {0};
 	if (s == NULL) {
 		return NULL;
 	}
-	char[..] buf = {0};
 	size_t n = strlen(s);
-	if (!str_set(&buf, ranged(s, n))) {
+	char[..] buf = alloc(char, n + 1);
+	if (ptr(buf) == NULL) {
 		return NULL;
 	}
-	if (!str_reserve(&buf, n + 1)) {
-		str_free(&buf);
-		return NULL;
-	}
-	{
-		char[..] z = ranged(ptr(buf), n + 1, cap(buf));
-		z[n] = 0;
-	}
+	memcpy(ptr(buf), s, n + 1);
 	return ptr(buf);
 }
 
@@ -90,18 +83,12 @@ static char *tag_strdup_n(char *s, size_t n) {
 	if (s == NULL) {
 		return NULL;
 	}
-	char[..] buf = {0};
-	if (!str_set(&buf, ranged(s, n))) {
+	char[..] buf = alloc(char, n + 1);
+	if (ptr(buf) == NULL) {
 		return NULL;
 	}
-	if (!str_reserve(&buf, n + 1)) {
-		str_free(&buf);
-		return NULL;
-	}
-	{
-		char[..] z = ranged(ptr(buf), n + 1, cap(buf));
-		z[n] = 0;
-	}
+	memcpy(ptr(buf), s, n);
+	buf[n] = 0;
 	return ptr(buf);
 }
 
@@ -173,15 +160,6 @@ void tags_list_free(TagList *list) {
 	release(&list.items);
 }
 
-static bool tag_list_adopt(TagList *list, [[retains]] TagEntry *copy) {
-	if (!push(&list.items, copy)) {
-		tag_entry_free(copy);
-		free(copy);
-		return false;
-	}
-	return true;
-}
-
 static bool tag_list_append(TagList *list, TagEntry *entry) {
 	if (list == NULL || entry == NULL) {
 		return false;
@@ -190,7 +168,7 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 	if (copy == NULL) {
 		return false;
 	}
-	memset(copy, 0, sizeof(*copy));
+	*copy = (TagEntry){0};
 	copy.name = tag_strdup(entry.name);
 	copy.path = tag_strdup(entry.path);
 	copy.kind = tag_strdup(entry.kind);
@@ -210,7 +188,15 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 		free(copy);
 		return false;
 	}
-	return tag_list_adopt(list, copy);
+	size_t n = len(list.items);
+	if (!reserve(&list.items, n + 1)) {
+		tag_entry_free(copy);
+		free(copy);
+		return false;
+	}
+	list.items = ranged(ptr(list.items), n + 1, cap(list.items));
+	list.items[n] = copy;
+	return true;
 }
 
 static int tag_entry_name_cmp(TagEntry *a, TagEntry *b) {

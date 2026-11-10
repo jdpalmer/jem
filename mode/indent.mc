@@ -557,7 +557,6 @@ static size_t build_tab_indent(int col, char *out, size_t cap) {
 
 /* Replace leading whitespace; records undo edits (caller owns begin/end_command). */
 static bool replace_leading(Window *win, char *prefix, size_t plen) {
-	char *old = NULL;
 	if (win == NULL || win.buffer == NULL) {
 		return false;
 	}
@@ -569,35 +568,36 @@ static bool replace_leading(Window *win, char *prefix, size_t plen) {
 	size_t old_off = win.cursor.offset;
 	Location begin = { .line = win.cursor.line, .offset = 0 };
 	Location end = { .line = win.cursor.line, .offset = first };
-	if (first > 0) {
-		old = malloc(first);
-		if (old == NULL) {
+	pool p {
+		char[..] old = {0};
+		if (first > 0) {
+			old = p.alloc(char, first);
+			if (ptr(old) == NULL) {
+				return false;
+			}
+			memcpy(ptr(old), ptr(line.data), first);
+		}
+		if (!win.set_text(begin, end, prefix, plen)) {
 			return false;
 		}
-		memcpy(old, ptr(line.data), first);
+		if (first > 0) {
+			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), first);
+		}
+		if (plen > 0) {
+			buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, prefix, plen);
+		}
+		if (old_off <= first) {
+			win.cursor.offset = plen;
+		} else {
+			win.cursor.offset = old_off - first + plen;
+		}
+		line = win.buffer.line(win.cursor.line);
+		if (line != NULL && win.cursor.offset > line.byte_len()) {
+			win.cursor.offset = line.byte_len();
+		}
+		win.set_cursor(win.cursor);
+		return true;
 	}
-	if (!win.set_text(begin, end, prefix, plen)) {
-		free(old);
-		return false;
-	}
-	if (first > 0) {
-		buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, first);
-	}
-	if (plen > 0) {
-		buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, prefix, plen);
-	}
-	free(old);
-	if (old_off <= first) {
-		win.cursor.offset = plen;
-	} else {
-		win.cursor.offset = old_off - first + plen;
-	}
-	line = win.buffer.line(win.cursor.line);
-	if (line != NULL && win.cursor.offset > line.byte_len()) {
-		win.cursor.offset = line.byte_len();
-	}
-	win.set_cursor(win.cursor);
-	return true;
 }
 
 static bool set_line_indent_spaces(Window *win, int col) {
