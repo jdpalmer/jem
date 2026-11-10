@@ -193,11 +193,8 @@ bool file_needs_overwrite_confirm(Buffer *buf, char *path) {
 // Read entire file into a malloc'd buffer (NUL-terminated). False on I/O error.
 static (char *, size_t, bool) file_read_all(char *path) {
 	char[..] pv = str_from_cstr(path);
-	char *data = NULL;
-	size_t cap = 0;
-	size_t len = 0;
-	char chunk[4096] = {
-		0 };
+	char[..] data = {0};
+	char chunk[4096] = {0};
 	auto (r, ok) = reader_open(pv, OpenRead, 0);
 	if (!ok) {
 		return (NULL, 0, false);
@@ -206,43 +203,28 @@ static (char *, size_t, bool) file_read_all(char *path) {
 		auto (n, rok) = r.read(ranged(chunk, sizeof(chunk)));
 		if (!rok) {
 			r.close();
-			free(data);
+			str_free(&data);
 			return (NULL, 0, false);
 		}
 		if (n == 0) {
 			break;
 		}
-		if (len + (size_t)n + 1 > cap) {
-			size_t ncap = cap != 0 ? cap * 2 : 8192;
-			while (ncap < len + (size_t)n + 1) {
-				ncap = ncap * 2;
-			}
-			data = realloc(data, ncap);
-			if (data == NULL) {
-				r.close();
-				return (NULL, 0, false);
-			}
-			cap = ncap;
-		}
-		memcpy(data + len, chunk, n);
-		len = len + (size_t)n;
-	}
-	r.close();
-	if (data == NULL) {
-		data = malloc(1);
-		if (data == NULL) {
+		if (!str_append(&data, ranged(chunk, n))) {
+			r.close();
+			str_free(&data);
 			return (NULL, 0, false);
 		}
-		{
-			char[..] z = ranged(data, 1);
-			z[0] = 0;
-		}
-		len = 0;
-	} else {
-		char[..] z = ranged(data, len + 1, cap);
-		z[len] = 0;
 	}
-	return (data, len, true);
+	r.close();
+	if (!str_reserve(&data, len(data) + 1)) {
+		str_free(&data);
+		return (NULL, 0, false);
+	}
+	{
+		char[..] z = ranged(ptr(data), len(data) + 1, cap(data));
+		z[len(data)] = 0;
+	}
+	return (ptr(data), len(data), true);
 }
 
 static bool file_path_missing(char *path) {

@@ -429,9 +429,7 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 
 (char *, size_t, bool) tags_read_file(char *path) {
 	char[..] pv = str_from_cstr(path);
-	char *data = NULL;
-	size_t cap = 0;
-	size_t len = 0;
+	char[..] data = {0};
 	char chunk[4096] = {0};
 	auto (r, ok) = reader_open(pv, OpenRead, 0);
 	if (!ok) {
@@ -441,43 +439,28 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 		auto (n, rok) = r.read(ranged(chunk, sizeof(chunk)));
 		if (!rok) {
 			r.close();
-			free(data);
+			str_free(&data);
 			return (NULL, 0, false);
 		}
 		if (n == 0) {
 			break;
 		}
-		if (len + n + 1 > cap) {
-			size_t ncap = cap != 0 ? cap * 2 : 8192;
-			while (ncap < len + n + 1) {
-				ncap = ncap * 2;
-			}
-			data = realloc(data, ncap);
-			if (data == NULL) {
-				r.close();
-				return (NULL, 0, false);
-			}
-			cap = ncap;
-		}
-		memcpy(data + len, chunk, n);
-		len = len + n;
-	}
-	r.close();
-	if (data == NULL) {
-		data = malloc(1);
-		if (data == NULL) {
+		if (!str_append(&data, ranged(chunk, n))) {
+			r.close();
+			str_free(&data);
 			return (NULL, 0, false);
 		}
-		{
-			char[..] z = ranged(data, 1);
-			z[0] = 0;
-		}
-		len = 0;
-	} else {
-		char[..] z = ranged(data, len + 1, cap);
-		z[len] = 0;
 	}
-	return (data, len, true);
+	r.close();
+	if (!str_reserve(&data, len(data) + 1)) {
+		str_free(&data);
+		return (NULL, 0, false);
+	}
+	{
+		char[..] z = ranged(ptr(data), len(data) + 1, cap(data));
+		z[len(data)] = 0;
+	}
+	return (ptr(data), len(data), true);
 }
 
 static bool tag_db_load(char *path) {
