@@ -166,9 +166,7 @@ static (char *, size_t, bool) clipboard_read_native() {
 	Cmd cmd = {0};
 	const char[..] args[4] = {0};
 	char chunk[4096] = {0};
-	char *data = NULL;
-	size_t used = 0;
-	size_t capacity = 0;
+	char[..] data = {0};
 	if (!clipboard_native_ready()) {
 		return (NULL, 0, false);
 	}
@@ -195,7 +193,7 @@ static (char *, size_t, bool) clipboard_read_native() {
 		auto (n, rok) = output.read(ranged(chunk, 0, sizeof(chunk)));
 		size_t keep = 0;
 		if (!rok) {
-			free(data);
+			str_free(&data);
 			output.close();
 			cmd.close();
 			return (NULL, 0, false);
@@ -203,43 +201,35 @@ static (char *, size_t, bool) clipboard_read_native() {
 		if (n == 0) {
 			break;
 		}
-		if (used < (size_t)ClipboardReadMax) {
+		if (len(data) < (size_t)ClipboardReadMax) {
 			keep = n;
-			if (keep > (size_t)ClipboardReadMax - used) {
-				keep = (size_t)ClipboardReadMax - used;
+			if (keep > (size_t)ClipboardReadMax - len(data)) {
+				keep = (size_t)ClipboardReadMax - len(data);
 			}
-			if (used + keep + 1 > capacity) {
-				size_t next = capacity == 0 ? 4096 : capacity * 2;
-				while (next < used + keep + 1) {
-					next *= 2;
-				}
-				if (next > (size_t)ClipboardReadMax + 1) {
-					next = (size_t)ClipboardReadMax + 1;
-				}
-				data = realloc(data, next);
-				if (data == NULL) {
-					output.close();
-					cmd.close();
-					return (NULL, 0, false);
-				}
-				capacity = next;
+			if (keep > 0 && !str_append(&data, ranged(chunk, keep))) {
+				str_free(&data);
+				output.close();
+				cmd.close();
+				return (NULL, 0, false);
 			}
-			memcpy(data + used, chunk, keep);
-			used += keep;
 		}
 	}
 	output.close();
 	auto (exit_code, waited) = cmd.wait();
 	cmd.close();
-	if (!waited || exit_code != 0 || used == 0) {
-		free(data);
+	if (!waited || exit_code != 0 || len(data) == 0) {
+		str_free(&data);
+		return (NULL, 0, false);
+	}
+	if (!str_reserve(&data, len(data) + 1)) {
+		str_free(&data);
 		return (NULL, 0, false);
 	}
 	{
-		char[..] z = ranged(data, used + 1, capacity);
-		z[used] = 0;
+		char[..] z = ranged(ptr(data), len(data) + 1, cap(data));
+		z[len(data)] = 0;
 	}
-	return (data, used, true);
+	return (ptr(data), len(data), true);
 }
 
 static bool clipboard_write_osc52(const char[..] text) {

@@ -95,62 +95,59 @@ static void tag_picker_refresh() {
 		return;
 	}
 	size_t cap = (size_t)g_tp_match_count * (TagPathMax + TagNameMax + 768);
-	char *raw = malloc(cap);
-	if (raw == NULL) {
-		return;
+	pool p {
+		char[..] out = p.alloc(char, cap);
+		if (ptr(out) == NULL) {
+			return;
+		}
+		out[0] = 0;
+		for (; i < g_tp_match_count; i++) {
+			TagEntry *entry = g_tp_entries.items[g_tp_matches[i].index];
+			char annotation[TagKindMax + TagNameMax * 2] = {0};
+			char shown_path[TagPathMax] = {0};
+			char line[TagPathMax + TagNameMax * 3 + 1024] = {0};
+			char arrow[5] = {0};
+			char empty_signature[1] = {0};
+			char *signature = empty_signature;
+			int n = 0;
+			snprintf(arrow, sizeof(arrow), "  ");
+			if (i == g_tp_selected) {
+				snprintf(arrow, sizeof(arrow), "→ ");
+			}
+			if (entry == NULL || entry.name == NULL) {
+				continue;
+			}
+			tags_format_annotation(entry, annotation, sizeof(annotation));
+			tags_display_path(entry, shown_path, sizeof(shown_path));
+			if (entry.signature != NULL) {
+				signature = entry.signature;
+			}
+			if (g_tp_with_path) {
+				n = snprintf(line, sizeof(line), "%s%s  %s  %s:%d %s",
+					arrow, entry.name, annotation, shown_path, entry.line,
+					signature);
+			} else {
+				n = snprintf(line, sizeof(line), "%s%s  %s  :%d %s",
+					arrow, entry.name, annotation, entry.line, signature);
+			}
+			if (n < 0) {
+				n = 0;
+			}
+			if ((size_t)n >= sizeof(line)) {
+				n = (int)sizeof(line) - 1;
+			}
+			if (i > 0 && used + 1 < cap) {
+				out[used++] = '\n';
+			}
+			if (used + (size_t)n + 1 > cap) {
+				break;
+			}
+			memcpy(ptr(out) + used, line, n);
+			used += n;
+			out[used] = 0;
+		}
+		window_set_match_buffer_text(ptr(out), used, g_tp_selected);
 	}
-	char[..] out = ranged(raw, 1, cap);
-	out[0] = 0;
-	out = ranged(raw, 0, cap);
-	for (; i < g_tp_match_count; i++) {
-		TagEntry *entry = g_tp_entries.items[g_tp_matches[i].index];
-		char annotation[TagKindMax + TagNameMax * 2] = {0};
-		char shown_path[TagPathMax] = {0};
-		char line[TagPathMax + TagNameMax * 3 + 1024] = {0};
-		char arrow[5] = {0};
-		char empty_signature[1] = {0};
-		char *signature = empty_signature;
-		int n = 0;
-		snprintf(arrow, sizeof(arrow), "  ");
-		if (i == g_tp_selected) {
-			snprintf(arrow, sizeof(arrow), "→ ");
-		}
-		if (entry == NULL || entry.name == NULL) {
-			continue;
-		}
-		tags_format_annotation(entry, annotation, sizeof(annotation));
-		tags_display_path(entry, shown_path, sizeof(shown_path));
-		if (entry.signature != NULL) {
-			signature = entry.signature;
-		}
-		if (g_tp_with_path) {
-			n = snprintf(line, sizeof(line), "%s%s  %s  %s:%d %s",
-				arrow, entry.name, annotation, shown_path, entry.line,
-				signature);
-		} else {
-			n = snprintf(line, sizeof(line), "%s%s  %s  :%d %s",
-				arrow, entry.name, annotation, entry.line, signature);
-		}
-		if (n < 0) {
-			n = 0;
-		}
-		if ((size_t)n >= sizeof(line)) {
-			n = (int)sizeof(line) - 1;
-		}
-		if (i > 0 && used + 1 < cap) {
-			out = ranged(raw, used + 1, cap);
-			out[used++] = '\n';
-		}
-		if (used + (size_t)n + 1 > cap) {
-			break;
-		}
-		memcpy(raw + used, line, n);
-		used += n;
-		out = ranged(raw, used + 1, cap);
-		out[used] = 0;
-	}
-	window_set_match_buffer_text(raw, used, g_tp_selected);
-	free(raw);
 }
 
 bool tags_picker_open(TagList *entries, int purpose, const char[..] prompt,

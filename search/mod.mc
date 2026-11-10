@@ -526,58 +526,55 @@ static void search_collect_visible_spans_regex(Window *win) {
 	if (bot > win.buffer.line_count_i()) {
 		bot = win.buffer.line_count_i();
 	}
-	for (; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
-		Line *line = win.buffer.line(line_n);
-		size_t lim = 0;
-		char *copy = NULL;
-		size_t cursor = 0;
-		if (line == NULL) {
-			continue;
-		}
-		lim = line.byte_len();
-		copy = malloc(lim + 1);
-		if (copy == NULL) {
-			continue;
-		}
-		if (lim > 0) {
-			memcpy(copy, ptr(line.data), lim);
-		}
-		{
-			char[..] cv = ranged(copy, lim + 1);
-			cv[lim] = 0;
-		}
-		cursor = 0;
-		while (cursor <= lim && n < (int)SearchSpanMax) {
-			size_t moff = 0;
-			size_t mlen = 0;
-			ReStatus st = ReNone;
-			{
-				auto (rst, roff, rlen) = re_find(ranged(g_search.needle, g_search.needle_len),
-					ranged(copy + cursor, lim - cursor));
-				st = rst;
-				moff = roff;
-				mlen = rlen;
+	pool p {
+		for (; line_n <= bot && n < (int)SearchSpanMax; line_n++) {
+			Line *line = win.buffer.line(line_n);
+			size_t lim = 0;
+			size_t cursor = 0;
+			char[..] copy = {0};
+			if (line == NULL) {
+				continue;
 			}
-			if (st == ReInvalid) {
-				free(copy);
-				window_clear_search_spans(win);
-				return;
+			lim = line.byte_len();
+			copy = p.alloc(char, lim + 1);
+			if (ptr(copy) == NULL) {
+				continue;
 			}
-			if (st != ReFound || mlen == 0) {
-				break;
+			if (lim > 0) {
+				memcpy(ptr(copy), ptr(line.data), lim);
 			}
-			spans[n].line = line_n;
-			spans[n].start = cursor + moff;
-			spans[n].end = cursor + moff + mlen;
-			n++;
-			cursor = cursor + moff + mlen;
-			if (mlen == 0) {
-				break;
+			copy[lim] = 0;
+			cursor = 0;
+			while (cursor <= lim && n < (int)SearchSpanMax) {
+				size_t moff = 0;
+				size_t mlen = 0;
+				ReStatus st = ReNone;
+				{
+					auto (rst, roff, rlen) = re_find(ranged(g_search.needle, g_search.needle_len),
+						copy[cursor..lim]);
+					st = rst;
+					moff = roff;
+					mlen = rlen;
+				}
+				if (st == ReInvalid) {
+					window_clear_search_spans(win);
+					return;
+				}
+				if (st != ReFound || mlen == 0) {
+					break;
+				}
+				spans[n].line = line_n;
+				spans[n].start = cursor + moff;
+				spans[n].end = cursor + moff + mlen;
+				n++;
+				cursor = cursor + moff + mlen;
+				if (mlen == 0) {
+					break;
+				}
 			}
 		}
-		free(copy);
+		window_set_search_spans(win, spans, n);
 	}
-	window_set_search_spans(win, spans, n);
 }
 
 static void search_collect_visible_spans(Window *win) {

@@ -1,6 +1,7 @@
 // runtime/config.mc — ~/.jem.json variables + keybindings (jem.go/runtime/config.go).
 // JSON DOM via the top-level json package (jem.c util_json).
 import "json";
+import "str";
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -299,9 +300,7 @@ bool config_apply_json(char *text, size_t n) {
 // config_load reads ~/.jem.json when present (jem.go ConfigLoad).
 void config_load() {
 	char path[ConfigPathMax] = {0};
-	char *data = NULL;
-	size_t n = 0;
-	size_t cap = 0;
+	char[..] data = {0};
 #ifdef _WIN32
 	char home_buf[ConfigPathMax] = {0};
 	{
@@ -339,40 +338,32 @@ void config_load() {
 		return;
 	}
 	defer fclose(fp);
+	defer str_free(&data);
 	for (;;) {
 		char chunk[4096] = {0};
 		size_t got = fread(chunk, 1, sizeof(chunk), fp);
 		if (got == 0) {
 			break;
 		}
-		if (n + got + 1 > ConfigFileMax) {
+		if (len(data) + got + 1 > ConfigFileMax) {
 			fprintf(stderr, "jem: %s too large\n", path);
-			free(data);
 			return;
 		}
-		if (n + got + 1 > cap) {
-			size_t ncap = cap == 0 ? 8192 : cap * 2;
-			while (ncap < n + got + 1) {
-				ncap *= 2;
-			}
-			data = realloc(data, ncap);
-			if (data == NULL) {
-				return;
-			}
-			cap = ncap;
+		if (!str_append(&data, ranged(chunk, got))) {
+			return;
 		}
-		memcpy(data + n, chunk, got);
-		n += got;
 	}
-	if (data == NULL) {
+	if (ptr(data) == NULL) {
+		return;
+	}
+	if (!str_reserve(&data, len(data) + 1)) {
 		return;
 	}
 	{
-		char[..] dv = ranged(data, n + 1);
-		dv[n] = 0;
+		char[..] dv = ranged(ptr(data), len(data) + 1, cap(data));
+		dv[len(data)] = 0;
 	}
-	if (!config_apply_json(data, n)) {
+	if (!config_apply_json(ptr(data), len(data))) {
 		fprintf(stderr, "jem: invalid %s\n", path);
 	}
-	free(data);
 }
