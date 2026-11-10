@@ -765,12 +765,11 @@ void search_begin_replace_re() {
 	g_search.replace_mode = true;
 }
 
-static char *expand_regex_replacement(char *repl, char *match_text, ReCapture[..] caps, size_t *out_len) {
+static size_t expand_regex_replacement_size(char *repl, ReCapture[..] caps) {
 	size_t size = 0;
-	size_t used = 0;
 	size_t i = 0;
-	if (repl == NULL || match_text == NULL || out_len == NULL) {
-		return NULL;
+	if (repl == NULL) {
+		return 0;
 	}
 	const char[..] rv = ranged(repl, strlen(repl));
 	for (; i < len(rv); i++) {
@@ -795,12 +794,15 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture[..
 			size++;
 		}
 	}
-	char *raw = malloc(size + 1);
-	if (raw == NULL) {
-		return NULL;
-	}
-	char[..] expanded = ranged(raw, size + 1);
-	for (i = 0; i < len(rv); i++) {
+	return size;
+}
+
+static void expand_regex_replacement_into(char *repl, char *match_text, ReCapture[..] caps,
+	char[..] expanded, size_t *out_len) {
+	size_t used = 0;
+	size_t i = 0;
+	const char[..] rv = ranged(repl, strlen(repl));
+	for (; i < len(rv); i++) {
 		if (rv[i] == '\\' && i + 1 < len(rv)) {
 			char esc = 0;
 			i++;
@@ -810,7 +812,7 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture[..
 				if (idx < len(caps)) {
 					ReCapture cap = caps[idx];
 					if (cap.start >= 0 && cap.length >= 0) {
-						memcpy(raw + used, match_text + cap.start, cap.length);
+						memcpy(ptr(expanded) + used, match_text + cap.start, cap.length);
 						used = used + cap.length;
 					}
 				}
@@ -828,13 +830,10 @@ static char *expand_regex_replacement(char *repl, char *match_text, ReCapture[..
 	}
 	expanded[used] = 0;
 	*out_len = used;
-	return raw;
 }
 
 bool search_replace_one() {
 	Window *win = window_current();
-	char *expanded = NULL;
-	bool free_repl = false;
 	if (win == NULL || !g_search.have_match) {
 		return false;
 	}
@@ -856,56 +855,55 @@ bool search_replace_one() {
 	if (g_search.match_end.line == begin.line) {
 		old_len = g_search.match_end.offset - begin.offset;
 	}
-	char *old = malloc(old_len + 1);
-	if (old == NULL) {
-		return false;
-	}
-	if (g_search.match_end.line == begin.line) {
-		memcpy(old, ptr(line.data) + begin.offset, old_len);
-	}
-	{
-		char[..] ov = ranged(old, old_len + 1);
-		ov[old_len] = 0;
-	}
-	char *repl = g_search.replacement;
-	size_t repl_len = g_search.replacement_len;
-	if (g_search.regexp) {
-		if (g_search.re_slice == NULL) {
-			free(old);
+	pool p {
+		char[..] old = p.alloc(char, old_len + 1);
+		if (ptr(old) == NULL) {
 			return false;
 		}
-		expanded = expand_regex_replacement(g_search.replacement, g_search.re_slice,
-			g_search.captures, &repl_len);
-		if (expanded == NULL) {
-			free(old);
-			return false;
+		if (g_search.match_end.line == begin.line) {
+			memcpy(ptr(old), ptr(line.data) + begin.offset, old_len);
 		}
-		repl = expanded;
-		free_repl = true;
-	}
-	buffer_undo.begin_command(win.buffer, win.cursor);
-	if (!win.set_text(g_search.match_begin, g_search.match_end, repl, repl_len)) {
+		old[old_len] = 0;
+		size_t repl_len = g_search.replacement_len;
+		buffer_undo.begin_command(win.buffer, win.cursor);
+		if (g_search.regexp) {
+			if (g_search.re_slice == NULL) {
+				buffer_undo.end_command();
+				return false;
+			}
+			size_t need = expand_regex_replacement_size(g_search.replacement, g_search.captures);
+			char[..] expanded = p.alloc(char, need + 1);
+			if (ptr(expanded) == NULL) {
+				buffer_undo.end_command();
+				return false;
+			}
+			expand_regex_replacement_into(g_search.replacement, g_search.re_slice,
+				g_search.captures, expanded, &repl_len);
+			if (!win.set_text(g_search.match_begin, g_search.match_end, ptr(expanded), repl_len)) {
+				buffer_undo.end_command();
+				return false;
+			}
+			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), old_len);
+			buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, ptr(expanded), repl_len);
+		} else {
+			if (!win.set_text(g_search.match_begin, g_search.match_end,
+				g_search.replacement, repl_len)) {
+				buffer_undo.end_command();
+				return false;
+			}
+			buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, ptr(old), old_len);
+			buffer_undo.record_edit(UndoInsert, begin.line, begin.offset,
+				g_search.replacement, repl_len);
+		}
 		buffer_undo.end_command();
-		free(old);
-		if (free_repl) {
-			free(expanded);
+		search_clear_re_slice();
+		if (!g_search.forward) {
+			win.set_cursor(begin);
 		}
-		return false;
+		g_search.have_match = false;
+		(void)search_next();
+		return true;
 	}
-	buffer_undo.record_edit(UndoDelete, begin.line, begin.offset, old, old_len);
-	buffer_undo.record_edit(UndoInsert, begin.line, begin.offset, repl, repl_len);
-	free(old);
-	if (free_repl) {
-		free(expanded);
-	}
-	buffer_undo.end_command();
-	search_clear_re_slice();
-	if (!g_search.forward) {
-		win.set_cursor(begin);
-	}
-	g_search.have_match = false;
-	(void)search_next();
-	return true;
 }
 
 bool search_set_replacement(char *s) {

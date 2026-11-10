@@ -3085,7 +3085,7 @@ void runtime_run(int argc, char **argv) {
 	/* Load argv files; leave *scratch* alone; show the first path (jem.go). */
 	{
 		Buffer *first = NULL;
-		char *[..] args = ranged(argv, (size_t)argc);
+		char*[..] args = ranged(argv, (size_t)argc);
 		for (; i < argc; i++) {
 			auto (buf, ok) = file_visit(args[i]);
 			if (!ok || buf == NULL) {

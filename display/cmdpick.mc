@@ -97,34 +97,34 @@ static void cmdpick_refresh() {
 		return;
 	}
 	size_t cap = (size_t)g_cp_match_count * 160 + 1;
-	char *out = malloc(cap);
-	if (out == NULL) {
-		return;
+	pool p {
+		char[..] out = p.alloc(char, cap);
+		if (ptr(out) == NULL) {
+			return;
+		}
+		out[0] = 0;
+		for (; i < g_cp_match_count; i++) {
+			CmdPickEntry *e = &g_cp[g_cp_matches[i]];
+			char line[160] = {0};
+			const char *arrow = (i == g_cp_sel) ? "→ " : "  ";
+			int n = 0;
+			n = snprintf(line, sizeof(line), "%s%-*s  %s", arrow, g_cp_name_width, e.name, e.bind);
+			if (n < 0) {
+				n = 0;
+			}
+			if (i > 0 && len + 1 < cap) {
+				out[len++] = '\n';
+				out[len] = 0;
+			}
+			if (len + (size_t)n + 1 > cap) {
+				break;
+			}
+			memcpy(ptr(out) + len, line, n);
+			len += n;
+			out[len] = 0;
+		}
+		window_set_match_buffer_text(ptr(out), len, g_cp_sel);
 	}
-	char[..] ov = ranged(out, cap);
-	ov[0] = 0;
-	for (; i < g_cp_match_count; i++) {
-		CmdPickEntry *e = &g_cp[g_cp_matches[i]];
-		char line[160] = {0};
-		const char *arrow = (i == g_cp_sel) ? "→ " : "  ";
-		int n = 0;
-		n = snprintf(line, sizeof(line), "%s%-*s  %s", arrow, g_cp_name_width, e.name, e.bind);
-		if (n < 0) {
-			n = 0;
-		}
-		if (i > 0 && len + 1 < cap) {
-			ov[len++] = '\n';
-			ov[len] = 0;
-		}
-		if (len + (size_t)n + 1 > cap) {
-			break;
-		}
-		memcpy(out + len, line, n);
-		len += n;
-		ov[len] = 0;
-	}
-	window_set_match_buffer_text(out, len, g_cp_sel);
-	free(out);
 }
 
 static bool name_eq_fold(const char *a, const char *b) {

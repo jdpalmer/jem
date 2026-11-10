@@ -255,47 +255,47 @@ static bool clipboard_write_osc52(const char[..] text) {
 	size_t groups = (len(text) + 2) / 3;
 	size_t encoded_len = groups * 4;
 	size_t total = 7 + encoded_len + 1;
-	char *raw = malloc(total);
-	if (raw == NULL) {
-		return false;
+	pool p {
+		char[..] encoded = p.alloc(char, total);
+		if (ptr(encoded) == NULL) {
+			return false;
+		}
+		memcpy(ptr(encoded), "\x1b]52;c;", 7);
+		size_t out = 7;
+		for (; i < len(text); i += 3) {
+			uint32_t a = text[i];
+			uint32_t b = 0;
+			uint32_t c = 0;
+			if (i + 1 < len(text)) {
+				b = text[i + 1];
+			}
+			if (i + 2 < len(text)) {
+				c = text[i + 2];
+			}
+			encoded[out++] = alphabet[a >> 2];
+			encoded[out++] = alphabet[((a & 3) << 4) | (b >> 4)];
+			if (i + 1 < len(text)) {
+				encoded[out++] = alphabet[((b & 15) << 2) | (c >> 6)];
+			} else {
+				encoded[out++] = '=';
+			}
+			if (i + 2 < len(text)) {
+				encoded[out++] = alphabet[c & 63];
+			} else {
+				encoded[out++] = '=';
+			}
+		}
+		encoded[out++] = 7; /* BEL terminator; modc char literals don't support \a or \xNN. */
+		/* Route through term's single output buffer (matches jem.c, which emits
+		 * OSC 52 via the same buffered stdout FILE* used for all other terminal
+		 * output). A second, independent write path here (e.g. opening our own
+		 * tty_stdout() fd and writing directly) can interleave with whatever
+		 * escape sequence term/mod.mc currently has buffered but not yet
+		 * flushed, tearing it apart -- the "13;15H"/"29;60H" stray-text bug. */
+		term_write(ptr(encoded), out);
+		term_out_flush();
+		return true;
 	}
-	char[..] encoded = ranged(raw, total);
-	memcpy(raw, "\x1b]52;c;", 7);
-	size_t out = 7;
-	for (; i < len(text); i += 3) {
-		uint32_t a = text[i];
-		uint32_t b = 0;
-		uint32_t c = 0;
-		if (i + 1 < len(text)) {
-			b = text[i + 1];
-		}
-		if (i + 2 < len(text)) {
-			c = text[i + 2];
-		}
-		encoded[out++] = alphabet[a >> 2];
-		encoded[out++] = alphabet[((a & 3) << 4) | (b >> 4)];
-		if (i + 1 < len(text)) {
-			encoded[out++] = alphabet[((b & 15) << 2) | (c >> 6)];
-		} else {
-			encoded[out++] = '=';
-		}
-		if (i + 2 < len(text)) {
-			encoded[out++] = alphabet[c & 63];
-		} else {
-			encoded[out++] = '=';
-		}
-	}
-	encoded[out++] = 7; /* BEL terminator; modc char literals don't support \a or \xNN. */
-	/* Route through term's single output buffer (matches jem.c, which emits
-	 * OSC 52 via the same buffered stdout FILE* used for all other terminal
-	 * output). A second, independent write path here (e.g. opening our own
-	 * tty_stdout() fd and writing directly) can interleave with whatever
-	 * escape sequence term/mod.mc currently has buffered but not yet
-	 * flushed, tearing it apart -- the "13;15H"/"29;60H" stray-text bug. */
-	term_write(raw, out);
-	term_out_flush();
-	free(raw);
-	return true;
 }
 
 // clipboard_write prefers a native provider and falls back to OSC 52.

@@ -186,36 +186,36 @@ static void fuzzy_refresh_match_window() {
 		return;
 	}
 	size_t cap = (size_t)count * 320 + 1;
-	char *out = malloc(cap);
-	if (out == NULL) {
-		return;
-	}
-	char[..] ov = ranged(out, cap);
-	ov[0] = 0;
-	for (; i < count; i++) {
-		FuzzyBufEntry *e = &g_fb_entries[g_fb_matches[i]];
-		char line[320] = {0};
-		int n = 0;
-		const char *arrow = (i == g_fb_sel) ? "→ " : "  ";
-		n = snprintf(line, sizeof(line), "%s%s  %d", arrow, e.name, e.lines);
-		if (n < 0) {
-			n = 0;
+	pool p {
+		char[..] out = p.alloc(char, cap);
+		if (ptr(out) == NULL) {
+			return;
 		}
-		if (i > 0) {
-			if (len + 1 < cap) {
-				ov[len++] = '\n';
-				ov[len] = 0;
+		out[0] = 0;
+		for (; i < count; i++) {
+			FuzzyBufEntry *e = &g_fb_entries[g_fb_matches[i]];
+			char line[320] = {0};
+			int n = 0;
+			const char *arrow = (i == g_fb_sel) ? "→ " : "  ";
+			n = snprintf(line, sizeof(line), "%s%s  %d", arrow, e.name, e.lines);
+			if (n < 0) {
+				n = 0;
 			}
+			if (i > 0) {
+				if (len + 1 < cap) {
+					out[len++] = '\n';
+					out[len] = 0;
+				}
+			}
+			if (len + (size_t)n + 1 > cap) {
+				break;
+			}
+			memcpy(ptr(out) + len, line, n);
+			len += n;
+			out[len] = 0;
 		}
-		if (len + (size_t)n + 1 > cap) {
-			break;
-		}
-		memcpy(out + len, line, n);
-		len += n;
-		ov[len] = 0;
+		window_set_match_buffer_text(ptr(out), len, g_fb_sel);
 	}
-	window_set_match_buffer_text(out, len, g_fb_sel);
-	free(out);
 }
 
 static void fuzzy_clamp_sel() {
