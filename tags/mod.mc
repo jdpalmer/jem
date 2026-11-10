@@ -70,29 +70,39 @@ static char g_tags_error[256] = {0};
 	if (s == NULL) {
 		return NULL;
 	}
+	char[..] buf = {0};
 	size_t n = strlen(s);
-	char *p = malloc(n + 1);
-	if (p == NULL) {
+	if (!str_set(&buf, ranged(s, n))) {
 		return NULL;
 	}
-	memcpy(p, s, n + 1);
-	return p;
+	if (!str_reserve(&buf, n + 1)) {
+		str_free(&buf);
+		return NULL;
+	}
+	{
+		char[..] z = ranged(ptr(buf), n + 1, cap(buf));
+		z[n] = 0;
+	}
+	return ptr(buf);
 }
 
 static char *tag_strdup_n(char *s, size_t n) {
 	if (s == NULL) {
 		return NULL;
 	}
-	char *p = malloc(n + 1);
-	if (p == NULL) {
+	char[..] buf = {0};
+	if (!str_set(&buf, ranged(s, n))) {
 		return NULL;
 	}
-	memcpy(p, s, n);
-	{
-		char[..] v = ranged(p, n + 1);
-		v[n] = 0;
+	if (!str_reserve(&buf, n + 1)) {
+		str_free(&buf);
+		return NULL;
 	}
-	return p;
+	{
+		char[..] z = ranged(ptr(buf), n + 1, cap(buf));
+		z[n] = 0;
+	}
+	return ptr(buf);
 }
 
 static void tag_entry_free(TagEntry *e) {
@@ -123,8 +133,8 @@ static void tag_db_free(TagDb *db) {
 	for (auto *e : db.entries) {
 		tag_entry_free(e);
 	}
-	free(ptr(db.entries));
-	free(ptr(db.by_name));
+	release(&db.entries);
+	release(&db.by_name);
 	memset(db, 0, sizeof(*db));
 }
 
@@ -132,32 +142,13 @@ void tags_invalidate() {
 	tag_db_free(&g_tags);
 }
 
-static bool tag_db_reserve(size_t need) {
-	if (need <= cap(g_tags.entries)) {
-		return true;
-	}
-	size_t ncap = cap(g_tags.entries) != 0 ? cap(g_tags.entries) : 256;
-	while (ncap < need) {
-		ncap = ncap * 2;
-	}
-	TagEntry *grown = realloc(ptr(g_tags.entries), ncap * sizeof(TagEntry));
-	if (grown == NULL) {
-		return false;
-	}
-	g_tags.entries = ranged(grown, len(g_tags.entries), ncap);
-	return true;
-}
-
 static bool tag_db_append(TagEntry *e) {
 	if (e == NULL) {
 		return false;
 	}
-	size_t n = len(g_tags.entries);
-	if (!tag_db_reserve(n + 1)) {
+	if (!push(&g_tags.entries, *e)) {
 		return false;
 	}
-	g_tags.entries = ranged(ptr(g_tags.entries), n + 1, cap(g_tags.entries));
-	g_tags.entries[n] = *e;
 	e.name = NULL;
 	e.path = NULL;
 	e.kind = NULL;
@@ -179,26 +170,15 @@ void tags_list_free(TagList *list) {
 			free(e);
 		}
 	}
-	free(ptr(list.items));
-	list.items = ranged((TagEntry **)0, 0);
+	release(&list.items);
 }
 
-static bool tag_list_reserve(TagList *list, size_t need) {
-	if (list == NULL) {
+static bool tag_list_adopt(TagList *list, [[retains]] TagEntry *copy) {
+	if (!push(&list.items, copy)) {
+		tag_entry_free(copy);
+		free(copy);
 		return false;
 	}
-	if (need <= cap(list.items)) {
-		return true;
-	}
-	size_t ncap = cap(list.items) != 0 ? cap(list.items) : 32;
-	while (ncap < need) {
-		ncap = ncap * 2;
-	}
-	TagEntry * *grown = realloc(ptr(list.items), ncap * sizeof(TagEntry *));
-	if (grown == NULL) {
-		return false;
-	}
-	list.items = ranged(grown, len(list.items), ncap);
 	return true;
 }
 
@@ -206,14 +186,11 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 	if (list == NULL || entry == NULL) {
 		return false;
 	}
-	size_t n = len(list.items);
-	if (!tag_list_reserve(list, n + 1)) {
-		return false;
-	}
-	TagEntry *copy = calloc(1, sizeof(TagEntry));
+	TagEntry *copy = alloc(TagEntry);
 	if (copy == NULL) {
 		return false;
 	}
+	memset(copy, 0, sizeof(*copy));
 	copy.name = tag_strdup(entry.name);
 	copy.path = tag_strdup(entry.path);
 	copy.kind = tag_strdup(entry.kind);
@@ -233,9 +210,7 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 		free(copy);
 		return false;
 	}
-	list.items = ranged(ptr(list.items), n + 1, cap(list.items));
-	list.items[n] = copy;
-	return true;
+	return tag_list_adopt(list, copy);
 }
 
 static int tag_entry_name_cmp(TagEntry *a, TagEntry *b) {
@@ -268,61 +243,61 @@ static bool tag_db_rebuild_index() {
 	size_t width = 1;
 	size_t i = 0;
 	size_t n = len(g_tags.entries);
-	free(ptr(g_tags.by_name));
-	g_tags.by_name = ranged((TagEntry **)0, 0);
+	release(&g_tags.by_name);
 	if (n == 0) {
 		return true;
 	}
-	TagEntry **indexed = malloc(n * sizeof(TagEntry *));
-	TagEntry **tmp_raw = malloc(n * sizeof(TagEntry *));
-	if (indexed == NULL || tmp_raw == NULL) {
-		free(indexed);
-		free(tmp_raw);
+	g_tags.by_name = alloc(TagEntry *, n);
+	if (ptr(g_tags.by_name) == NULL) {
 		return false;
 	}
-	TagEntry *[..] tmp = ranged(tmp_raw, n);
-	g_tags.by_name = ranged(indexed, n, n);
 	for (; i < n; i++) {
 		g_tags.by_name[i] = &g_tags.entries[i];
 	}
-	while (width < n) {
-		size_t left = 0;
-		for (left = 0; left < n; left += width * 2) {
-			size_t mid = left + width;
-			size_t right = left + width * 2;
-			size_t a = left;
-			size_t b = 0;
-			size_t out = left;
-			if (mid > n) {
-				mid = n;
-			}
-			if (right > n) {
-				right = n;
-			}
-			b = mid;
-			while (a < mid && b < right) {
-				if (tag_entry_name_cmp(g_tags.by_name[a], g_tags.by_name[b]) <= 0) {
+	pool p {
+		TagEntry *[..] tmp = p.alloc(TagEntry *, n);
+		if (ptr(tmp) == NULL) {
+			release(&g_tags.by_name);
+			return false;
+		}
+		while (width < n) {
+			size_t left = 0;
+			for (left = 0; left < n; left += width * 2) {
+				size_t mid = left + width;
+				size_t right = left + width * 2;
+				size_t a = left;
+				size_t b = 0;
+				size_t out = left;
+				if (mid > n) {
+					mid = n;
+				}
+				if (right > n) {
+					right = n;
+				}
+				b = mid;
+				while (a < mid && b < right) {
+					if (tag_entry_name_cmp(g_tags.by_name[a], g_tags.by_name[b]) <= 0) {
+						tmp[out++] = g_tags.by_name[a++];
+					} else {
+						tmp[out++] = g_tags.by_name[b++];
+					}
+				}
+				while (a < mid) {
 					tmp[out++] = g_tags.by_name[a++];
-				} else {
+				}
+				while (b < right) {
 					tmp[out++] = g_tags.by_name[b++];
 				}
 			}
-			while (a < mid) {
-				tmp[out++] = g_tags.by_name[a++];
+			for (i = 0; i < n; i++) {
+				g_tags.by_name[i] = tmp[i];
 			}
-			while (b < right) {
-				tmp[out++] = g_tags.by_name[b++];
+			if (width > n / 2) {
+				break;
 			}
+			width *= 2;
 		}
-		for (i = 0; i < n; i++) {
-			g_tags.by_name[i] = tmp[i];
-		}
-		if (width > n / 2) {
-			break;
-		}
-		width *= 2;
 	}
-	free(tmp_raw);
 	return true;
 }
 
