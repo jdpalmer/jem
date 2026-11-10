@@ -410,7 +410,7 @@ bool cmd_var_fuzzy_on_accept() {
 			snprintf(N.ask_buf, sizeof(N.ask_buf), "%s", v.name);
 		}
 		snprintf(prompt, sizeof(prompt), "Set %s (current %d): ", v.name, var_storage_read(v, buf));
-		minibuffer_begin(str_from_cstr(prompt), 0);
+		minibuffer_begin(ranged(prompt, strlen(prompt)), 0);
 	}
 	return true;
 }

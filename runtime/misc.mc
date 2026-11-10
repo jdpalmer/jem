@@ -9,12 +9,12 @@
 
 static Buffer *g_kill_pending;
 
-static const char *month_names[] = {
+static const char[..] month_names[] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-static const char *month_name(int mon) {
+static const char[..] month_name(int mon) {
 	if (mon < 0 || mon > 11) {
 		return "?";
 	}
@@ -288,7 +288,7 @@ void misc_begin_kill_confirm([[retains]] Buffer *buf, const char *prompt) {
 			L.ask_phase = AskYesKillBuffer;
 		}
 	}
-	minibuffer_begin(str_from_cstr(prompt), 1);
+	minibuffer_begin(ranged(prompt, strlen(prompt)), 1);
 }
 
 static void begin_kill_confirm(Buffer *buf) {

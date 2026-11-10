@@ -43,7 +43,7 @@ bool cmd_spawn_cli(bool f, int n) {
 	} else if (rc != -1) {
 		char msg[64] = {0};
 		snprintf(msg, sizeof(msg), "[shell exit %d]", rc);
-		display_set_echo(str_from_cstr(msg));
+		display_set_echo(ranged(msg, strlen(msg)));
 	}
 	return rc != -1;
 }

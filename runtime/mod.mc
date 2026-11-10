@@ -2484,7 +2484,7 @@ static bool handle_listener_key(uint32_t key) {
 				snprintf(tmp, sizeof(tmp), "%s", raw);
 			}
 			if (file_complete_path(tmp, sizeof(tmp))) {
-				minibuffer_set_text(str_from_cstr(tmp));
+				minibuffer_set_text(ranged(tmp, strlen(tmp)));
 			} else {
 				term_beep();
 			}
@@ -3087,7 +3087,7 @@ void runtime_run(int argc, char **argv) {
 		Buffer *first = NULL;
 		char*[..] args = ranged(argv, (size_t)argc);
 		for (; i < argc; i++) {
-			auto (buf, ok) = file_visit((char *)args[i]);
+			auto (buf, ok) = file_visit(args[i]);
 			if (!ok || buf == NULL) {
 				continue;
 			}

@@ -225,7 +225,7 @@ void fuzzy_command_open(const char **names, const char **binds, int count,
 		}
 	}
 	if (prompt != NULL && *prompt != 0) {
-		minibuffer_begin(str_from_cstr(prompt), 0);
+		minibuffer_begin(ranged(prompt, strlen(prompt)), 0);
 	} else {
 		minibuffer_begin("→ ", 0);
 	}

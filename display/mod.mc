@@ -281,7 +281,7 @@ void put_rune(Screen *s, int row, int col, uint32_t ch, TextStyle style) {
 }
 
 /* Solarized / ANSI RGB — match jem.go/term/term_style.go (truecolor, not 256). */
-static const char *color_rgb_base[] = {
+static const char[..] color_rgb_base[] = {
 	"7;54;66",
 	"220;50;47",
 	"133;153;0",
@@ -292,7 +292,7 @@ static const char *color_rgb_base[] = {
 	"238;232;213",
 };
 
-static const char *color_rgb_sol[] = {
+static const char[..] color_rgb_sol[] = {
 	"0;43;54",
 	"7;54;66",
 	"88;110;117",
@@ -303,7 +303,7 @@ static const char *color_rgb_sol[] = {
 	"253;246;227",
 };
 
-static const char *color_rgb_cstr(TermColor c) {
+static const char[..] color_rgb(TermColor c) {
 	int i = c;
 	if (i >= 0 && i <= 7) {
 		return color_rgb_base[i];
@@ -311,7 +311,7 @@ static const char *color_rgb_cstr(TermColor c) {
 	if (i >= 17 && i <= 24) {
 		return color_rgb_sol[i - 17];
 	}
-	return NULL;
+	return "";
 }
 
 /* Append color params into SGR seq; returns new length or -1 on overflow. */
@@ -331,11 +331,11 @@ static int append_color_sgr(char *buf, size_t cap, int n, TermColor c, int base_
 		}
 		return n + wn;
 	}
-	const char *rgb = color_rgb_cstr(c);
-	if (rgb == NULL) {
+	const char[..] rgb = color_rgb(c);
+	if (len(rgb) == 0) {
 		return n;
 	}
-	/* 38;2;r;g;b / 48;2;r;g;b */
+	/* 38;2;r;g;b / 48;2;r;g;b — %s on char[..] rewrites to %.*s. */
 	int wn = snprintf(buf + n, cap - (size_t)n, ";%d;2;%s", base_sgr + 8, rgb);
 	if (wn < 0 || (size_t)wn >= cap - (size_t)n) {
 		return -1;

@@ -356,14 +356,14 @@ bool tags_show_details(TagEntry *entry) {
 	buf.lang_mode = LModeMarkdown;
 	buf.is_changed = false;
 	snprintf(line, sizeof(line), "# %s", entry.name);
-	if (!tag_detail_append(buf, str_from_cstr(line))) {
+	if (!tag_detail_append(buf, ranged(line, strlen(line)))) {
 		return false;
 	}
 	tags_format_annotation(entry, annotation, sizeof(annotation));
 	if (annotation[0] != 0) {
 		snprintf(line, sizeof(line), "Kind: `%s`", annotation);
 		if (!tag_detail_append(buf, "") ||
-			!tag_detail_append(buf, str_from_cstr(line))) {
+			!tag_detail_append(buf, ranged(line, strlen(line)))) {
 			return false;
 		}
 	}
@@ -372,7 +372,7 @@ bool tags_show_details(TagEntry *entry) {
 		if (!tag_detail_append(buf, "") ||
 			!tag_detail_append(buf, "## Signature") ||
 			!tag_detail_append(buf, "") ||
-			!tag_detail_append(buf, str_from_cstr(signature))) {
+			!tag_detail_append(buf, ranged(signature, strlen(signature)))) {
 			return false;
 		}
 	}

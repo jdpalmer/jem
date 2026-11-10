@@ -77,9 +77,9 @@ static void test_delete_this_file() {
 	check(mkdtemp(dir) != NULL);
 	snprintf(path, sizeof(path), "%s/victim.txt", dir);
 	{
-		auto (w, wok) = writer_open(str_from_cstr(path), OpenWrite | OpenCreate | OpenTrunc, 0);
+		auto (w, wok) = writer_open(ranged(path, strlen(path)), OpenWrite | OpenCreate | OpenTrunc, 0);
 		check(wok);
-		(void)w.write(str_from_cstr("bye\n"));
+		(void)w.write("bye\n");
 		w.close();
 	}
 
@@ -91,12 +91,12 @@ static void test_delete_this_file() {
 
 	buf = buffer_current();
 	buf.set_name("victim.txt");
-	buf.set_file_name(str_from_cstr(path));
+	buf.set_file_name(ranged(path, strlen(path)));
 
 	check(cmd_delete_this_file(false, 1));
 	misc_delete_file_yes();
 	{
-		auto (info, ok) = fs_stat(str_from_cstr(path));
+		auto (info, ok) = fs_stat(ranged(path, strlen(path)));
 		(void)info;
 		check(!ok);
 	}

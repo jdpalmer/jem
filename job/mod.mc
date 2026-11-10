@@ -412,7 +412,7 @@ static int job_fill_grep(Buffer *buf, char *raw, size_t n, char *pattern, bool t
 				char header[JobPathMax + 8] = {
 					0 };
 				snprintf(header, sizeof(header), "## %s", path);
-				if (buf.append_line(str_from_cstr(header)) == NULL) {
+				if (buf.append_line(ranged(header, strlen(header))) == NULL) {
 					return -1;
 				}
 			}
@@ -437,7 +437,7 @@ static int job_fill_grep(Buffer *buf, char *raw, size_t n, char *pattern, bool t
 				memcpy(out + prefix, msg, mlen);
 				out[prefix + mlen] = 0;
 			}
-			ln = buf.append_line(str_from_cstr(out));
+			ln = buf.append_line(ranged(out, strlen(out)));
 			if (ln == NULL) {
 				return -1;
 			}
@@ -462,7 +462,7 @@ static int job_fill_grep(Buffer *buf, char *raw, size_t n, char *pattern, bool t
 			0 };
 		snprintf(msg_no, sizeof(msg_no), "[no matches for: %s]",
 			pattern != NULL ? pattern : "");
-		if (buf.append_line(str_from_cstr(msg_no)) == NULL) {
+		if (buf.append_line(ranged(msg_no, strlen(msg_no))) == NULL) {
 			return -1;
 		}
 	}
@@ -508,7 +508,7 @@ static int job_fill_compile(Buffer *buf, char *raw, size_t n, char *command, int
 		char cmd_line[600] = {
 			0 };
 		snprintf(cmd_line, sizeof(cmd_line), "$ %s", command != NULL ? command : "");
-		if (buf.append_line(str_from_cstr(cmd_line)) == NULL) {
+		if (buf.append_line(ranged(cmd_line, strlen(cmd_line))) == NULL) {
 			return -1;
 		}
 	}
@@ -547,7 +547,7 @@ static int job_fill_compile(Buffer *buf, char *raw, size_t n, char *command, int
 			linebuf[len_line - 1] = 0;
 			len_line--;
 		}
-		ln = buf.append_line(str_from_cstr(linebuf));
+		ln = buf.append_line(ranged(linebuf, strlen(linebuf)));
 		if (ln == NULL) {
 			return -1;
 		}

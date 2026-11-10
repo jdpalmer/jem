@@ -1518,7 +1518,7 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 	buf.is_changed = false;
 	if (title != NULL) {
 		snprintf(header, sizeof(header), "# %s", title);
-		if (buf.append_line(str_from_cstr(header)) == NULL) {
+		if (buf.append_line(ranged(header, strlen(header))) == NULL) {
 			buf.is_readonly = was_ro;
 			return false;
 		}
@@ -1536,7 +1536,7 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 			kind = e.kind;
 		}
 		snprintf(linebuf, sizeof(linebuf), "%s  %s:%d  (%s)", e.name, e.path, e.line, kind);
-		ln = buf.append_line(str_from_cstr(linebuf));
+		ln = buf.append_line(ranged(linebuf, strlen(linebuf)));
 		if (ln == NULL) {
 			buf.is_readonly = true;
 			return false;

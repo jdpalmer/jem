@@ -46,15 +46,15 @@ static int run_git(const char *dir, const char *a0, const char *a1, const char *
 		return -1;
 	}
 	args[n++] = "-C";
-	args[n++] = str_from_cstr(dir);
-	args[n++] = str_from_cstr(a0);
+	args[n++] = ranged(dir, strlen(dir));
+	args[n++] = ranged(a0, strlen(a0));
 	if (a1 != NULL) {
-		args[n++] = str_from_cstr(a1);
+		args[n++] = ranged(a1, strlen(a1));
 	}
 	if (a2 != NULL) {
-		args[n++] = str_from_cstr(a2);
+		args[n++] = ranged(a2, strlen(a2));
 	}
-	c.init(str_from_cstr(gitbin), args, n);
+	c.init(ranged(gitbin, strlen(gitbin)), args, n);
 	(void)c.stdio(StdOut, IoNull);
 	(void)c.stdio(StdErr, IoNull);
 	if (!c.start()) {
@@ -88,17 +88,17 @@ static void test_modeline_and_gutter() {
 
 	snprintf(path, sizeof(path), "%s/f.txt", dir);
 	{
-		auto (w, wok) = writer_open(str_from_cstr(path), OpenWrite | OpenCreate | OpenTrunc, 0);
+		auto (w, wok) = writer_open(ranged(path, strlen(path)), OpenWrite | OpenCreate | OpenTrunc, 0);
 		check(wok);
-		(void)w.write(str_from_cstr("one\n"));
+		(void)w.write("one\n");
 		w.close();
 	}
 	check(run_git(dir, "add", "f.txt", NULL) == 0);
 	check(run_git(dir, "commit", "-m", "init") == 0);
 	{
-		auto (w, wok) = writer_open(str_from_cstr(path), OpenWrite | OpenCreate | OpenTrunc, 0);
+		auto (w, wok) = writer_open(ranged(path, strlen(path)), OpenWrite | OpenCreate | OpenTrunc, 0);
 		check(wok);
-		(void)w.write(str_from_cstr("one\ntwo\n"));
+		(void)w.write("one\ntwo\n");
 		w.close();
 	}
 
@@ -107,7 +107,7 @@ static void test_modeline_and_gutter() {
 	check(buf != NULL);
 	check(buf.load_bytes("one\ntwo\n", 8, EModeLF));
 	buf.set_name("f.txt");
-	buf.set_file_name(str_from_cstr(path));
+	buf.set_file_name(ranged(path, strlen(path)));
 	win = window_create();
 	check(win != NULL);
 	window_select(win);
