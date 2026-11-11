@@ -23,9 +23,7 @@ enum JsonType {
 struct JsonValue;
 
 struct JsonArray {
-	JsonValue **items;
-	size_t count;
-	size_t capacity;
+	JsonValue *[..] items; /* owned heap of JsonValue* */
 };
 
 struct JsonObjectEntry {
@@ -34,9 +32,7 @@ struct JsonObjectEntry {
 };
 
 struct JsonObject {
-	JsonObjectEntry *entries;
-	size_t count;
-	size_t capacity;
+	JsonObjectEntry[..] entries; /* owned heap */
 };
 
 /* Flat payload: only the field matching `type` is live. Avoids %C union pitfalls. */

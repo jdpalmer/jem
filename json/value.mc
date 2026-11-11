@@ -95,8 +95,6 @@ static bool json_string_equals(const char[..] string, const char *text, size_t n
 }
 
 void json_free([[releases]] JsonValue *value) {
-	size_t i = 0;
-
 	if (value == NULL) {
 		return;
 	}
@@ -111,17 +109,17 @@ void json_free([[releases]] JsonValue *value) {
 		str_free(&value.string);
 		break;
 	case JSON_ARRAY:
-		for (; i < value.array.count; i++) {
-			json_free(ranged(value.array.items, value.array.count)[i]);
+		for (auto item : value.array.items) {
+			json_free(item);
 		}
-		free(value.array.items);
+		release(&value.array.items);
 		break;
 	case JSON_OBJECT:
-		for (i = 0; i < value.object.count; i++) {
-			str_free(&ranged(value.object.entries, value.object.count)[i].key);
-			json_free(ranged(value.object.entries, value.object.count)[i].value);
+		for (auto *entry : value.object.entries) {
+			str_free(&entry.key);
+			json_free(entry.value);
 		}
-		free(value.object.entries);
+		release(&value.object.entries);
 		break;
 	}
 	free(value);
@@ -215,13 +213,10 @@ bool json_array_append(JsonValue *array, [[retains]] JsonValue *item) {
 		json_free(item);
 		return false;
 	}
-	if (!json_grow_ptr_array((void **)&array.array.items, &array.array.capacity,
-		sizeof(JsonValue *), array.array.count + 1)) {
+	if (!push(&array.array.items, item)) {
 		json_free(item);
 		return false;
 	}
-	ranged(array.array.items, array.array.capacity)[array.array.count] = item;
-	array.array.count++;
 	return true;
 }
 
@@ -229,34 +224,31 @@ size_t json_array_size(const JsonValue *array) {
 	if (array == NULL || array.type != JSON_ARRAY) {
 		return 0;
 	}
-	return array.array.count;
+	return len(array.array.items);
 }
 
 const JsonValue *json_array_get(const JsonValue *array, size_t index) {
-	if (array == NULL || array.type != JSON_ARRAY || index >= array.array.count) {
+	if (array == NULL || array.type != JSON_ARRAY || index >= len(array.array.items)) {
 		return NULL;
 	}
-	return ranged(array.array.items, array.array.count)[index];
+	return array.array.items[index];
 }
 
 JsonValue *json_array_get_mutable(JsonValue *array, size_t index) {
-	if (array == NULL || array.type != JSON_ARRAY || index >= array.array.count) {
+	if (array == NULL || array.type != JSON_ARRAY || index >= len(array.array.items)) {
 		return NULL;
 	}
-	return ranged(array.array.items, array.array.count)[index];
+	return array.array.items[index];
 }
 
 static JsonObjectEntry *json_object_find_entry(JsonValue *object, const char *key,
 	size_t key_len) {
-	size_t i = 0;
-
 	if (object == NULL || object.type != JSON_OBJECT) {
 		return NULL;
 	}
-	for (; i < object.object.count; i++) {
-		if (json_string_equals(ranged(object.object.entries, object.object.count)[i].key,
-			key, key_len)) {
-			return &ranged(object.object.entries, object.object.count)[i];
+	for (auto *entry : object.object.entries) {
+		if (json_string_equals(entry.key, key, key_len)) {
+			return entry;
 		}
 	}
 	return NULL;
@@ -264,15 +256,12 @@ static JsonObjectEntry *json_object_find_entry(JsonValue *object, const char *ke
 
 static const JsonObjectEntry *json_object_find_entry_const(const JsonValue *object,
 	const char *key, size_t key_len) {
-	size_t i = 0;
-
 	if (object == NULL || object.type != JSON_OBJECT) {
 		return NULL;
 	}
-	for (; i < object.object.count; i++) {
-		if (json_string_equals(ranged(object.object.entries, object.object.count)[i].key,
-			key, key_len)) {
-			return &ranged(object.object.entries, object.object.count)[i];
+	for (auto *entry : object.object.entries) {
+		if (json_string_equals(entry.key, key, key_len)) {
+			return entry;
 		}
 	}
 	return NULL;
@@ -293,16 +282,16 @@ static bool json_object_put_owned(JsonValue *object, char[..] key,
 		entry.value = value;
 		return true;
 	}
-	if (!json_grow_ptr_array((void **)&object.object.entries, &object.object.capacity,
-		sizeof(JsonObjectEntry), object.object.count + 1)) {
+	size_t n = len(object.object.entries);
+	if (!reserve(&object.object.entries, n + 1)) {
 		str_free(&key);
 		json_free(value);
 		return false;
 	}
-	entry = &ranged(object.object.entries, object.object.capacity)[object.object.count];
-	object.object.count++;
-	entry.key = key;
-	entry.value = value;
+	object.object.entries = ranged(ptr(object.object.entries), n + 1,
+		cap(object.object.entries));
+	object.object.entries[n].key = key;
+	object.object.entries[n].value = value;
 	return true;
 }
 
@@ -337,16 +326,16 @@ size_t json_object_size(const JsonValue *object) {
 	if (object == NULL || object.type != JSON_OBJECT) {
 		return 0;
 	}
-	return object.object.count;
+	return len(object.object.entries);
 }
 
 const char *json_object_key_at(const JsonValue *object, size_t index) {
 	if (object == NULL || object.type != JSON_OBJECT ||
-		index >= object.object.count) {
+		index >= len(object.object.entries)) {
 		return NULL;
 	}
 	{
-		const char[..] key = ranged(object.object.entries, object.object.count)[index].key;
+		const char[..] key = object.object.entries[index].key;
 		if (str_is_empty(key)) {
 			return "";
 		}
@@ -356,18 +345,18 @@ const char *json_object_key_at(const JsonValue *object, size_t index) {
 
 size_t json_object_key_len_at(const JsonValue *object, size_t index) {
 	if (object == NULL || object.type != JSON_OBJECT ||
-		index >= object.object.count) {
+		index >= len(object.object.entries)) {
 		return 0;
 	}
-	return len(ranged(object.object.entries, object.object.count)[index].key);
+	return len(object.object.entries[index].key);
 }
 
 const JsonValue *json_object_value_at(const JsonValue *object, size_t index) {
 	if (object == NULL || object.type != JSON_OBJECT ||
-		index >= object.object.count) {
+		index >= len(object.object.entries)) {
 		return NULL;
 	}
-	return ranged(object.object.entries, object.object.count)[index].value;
+	return object.object.entries[index].value;
 }
 
 const JsonValue *json_object_get_n(const JsonValue *object, const char *key,

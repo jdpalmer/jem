@@ -288,34 +288,6 @@ static bool json_dup_bytes(char[..] *dst, const char *src, size_t nbytes) {
 	return true;
 }
 
-static bool json_grow_ptr_array(void **items, size_t *capacity, size_t item_size,
-	size_t needed) {
-
-	if (items == NULL || capacity == NULL || item_size == 0) {
-		return false;
-	}
-	if (*capacity >= needed) {
-		return true;
-	}
-	size_t new_capacity = *capacity == 0 ? 4 : *capacity;
-	while (new_capacity < needed) {
-		if (new_capacity > (((size_t)0 - 1) / 2)) {
-			return false;
-		}
-		new_capacity = new_capacity * 2;
-	}
-	if (new_capacity > (((size_t)0 - 1) / item_size)) {
-		return false;
-	}
-	void *grown = realloc(*items, new_capacity * item_size);
-	if (grown == NULL) {
-		return false;
-	}
-	*items = grown;
-	*capacity = new_capacity;
-	return true;
-}
-
 static char json_hex_digit(unsigned int value) {
 	if (value < 10) {
 		return (char)('0' + value);

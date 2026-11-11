@@ -127,11 +127,11 @@ static bool json_stringify_value(char[..] *buffer, const JsonValue *value) {
 		if (!json_buffer_append_char(buffer, '[')) {
 			return false;
 		}
-		for (; i < value.array.count; i++) {
+		for (; i < len(value.array.items); i++) {
 			if (i != 0 && !json_buffer_append_char(buffer, ',')) {
 				return false;
 			}
-			if (!json_stringify_value(buffer, ranged(value.array.items, value.array.count)[i])) {
+			if (!json_stringify_value(buffer, value.array.items[i])) {
 				return false;
 			}
 		}
@@ -140,18 +140,17 @@ static bool json_stringify_value(char[..] *buffer, const JsonValue *value) {
 		if (!json_buffer_append_char(buffer, '{')) {
 			return false;
 		}
-		for (i = 0; i < value.object.count; i++) {
+		for (i = 0; i < len(value.object.entries); i++) {
 			if (i != 0 && !json_buffer_append_char(buffer, ',')) {
 				return false;
 			}
-			if (!json_append_escaped_string(buffer,
-				ranged(value.object.entries, value.object.count)[i].key)) {
+			if (!json_append_escaped_string(buffer, value.object.entries[i].key)) {
 				return false;
 			}
 			if (!json_buffer_append_char(buffer, ':')) {
 				return false;
 			}
-			if (!json_stringify_value(buffer, ranged(value.object.entries, value.object.count)[i].value)) {
+			if (!json_stringify_value(buffer, value.object.entries[i].value)) {
 				return false;
 			}
 		}
