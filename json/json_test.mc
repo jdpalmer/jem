@@ -21,13 +21,9 @@ static void test_roundtrip_object() {
 	const char *src =
 		"{\"fill-column\":100,\"theme-mode\":1,\"keybindings\":{\"C-l\":null}}";
 	JsonError err = {0};
-	JsonValue *v = NULL;
-	char *out = NULL;
-	const JsonValue *kb = NULL;
-	const JsonValue *fc = NULL;
 	double n = 0.0;
 
-	v = json_parse(src, &err);
+	JsonValue *v = json_parse(src, &err);
 	check(v != NULL, "roundtrip parse");
 	if (v == NULL) {
 		fprintf(stderr, "  err=%s line=%zu col=%zu\n",
@@ -37,14 +33,14 @@ static void test_roundtrip_object() {
 	}
 	defer json_free(v);
 	check(json_type(v) == JSON_OBJECT, "roundtrip type object");
-	fc = json_object_get(v, "fill-column");
+	const JsonValue *fc = json_object_get(v, "fill-column");
 	check(fc != NULL, "fill-column present");
 	check(json_number_value(fc, &n), "fill-column number");
 	check(n == 100.0, "fill-column == 100");
-	kb = json_object_get(v, "keybindings");
+	const JsonValue *kb = json_object_get(v, "keybindings");
 	check(kb != NULL, "keybindings present");
 	check(json_type(kb) == JSON_OBJECT, "keybindings object");
-	out = json_stringify(v);
+	char *out = json_stringify(v);
 	check(out != NULL, "stringify");
 	if (out != NULL) {
 		check(strstr(out, "fill-column") != NULL, "stringify has key");
@@ -56,13 +52,15 @@ static void test_bad_trailing() {
 	JsonError err = {0};
 	JsonValue *v = json_parse("true false", &err);
 	check(v == NULL, "trailing reject");
+	if (v != NULL) {
+		json_free(v);
+	}
 	check(err.message != NULL, "trailing error message");
 }
 
 static void test_escape_unicode() {
 	JsonError err = {0};
 	JsonValue *v = json_parse("\"\\u00e9\"", &err);
-	const char *s = NULL;
 	check(v != NULL, "unicode parse");
 	if (v == NULL) {
 		fprintf(stderr, "  err=%s\n",
@@ -71,7 +69,7 @@ static void test_escape_unicode() {
 	}
 	defer json_free(v);
 	check(json_type(v) == JSON_STRING, "unicode string type");
-	s = json_string_value(v);
+	const char *s = json_string_value(v);
 	check(s != NULL, "unicode string value");
 	check(json_string_length(v) == 2, "unicode length 2");
 	check(memcmp(s, "\xC3\xA9", 2) == 0, "unicode utf8 bytes");
@@ -80,16 +78,18 @@ static void test_escape_unicode() {
 static void test_corpus_bytes(const char *text, size_t n, bool expect_ok,
 	const char *label) {
 	JsonError err = {0};
-	JsonValue *v = NULL;
 
-	v = json_parse_n(text, n, &err);
+	JsonValue *v = json_parse_n(text, n, &err);
 	if (expect_ok) {
 		check(v != NULL, label);
 		if (v != NULL) {
-			defer json_free(v);
+			json_free(v);
 		}
 	} else {
 		check(v == NULL, label);
+		if (v != NULL) {
+			json_free(v);
+		}
 	}
 }
 

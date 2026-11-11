@@ -6,18 +6,18 @@
 #include <string.h>
 #include <math.h>
 
-static bool json_append_escaped_string(JsonBuffer *buffer, const char *value,
-	size_t len) {
+static bool json_append_escaped_string(char[..] *buffer, const char[..] value) {
 	size_t i = 0;
+	size_t nbytes = len(value);
 
-	if (buffer == NULL || value == NULL) {
+	if (buffer == NULL) {
 		return false;
 	}
 	if (!json_buffer_append_char(buffer, '"')) {
 		return false;
 	}
-	while (i < len) {
-		char c = ranged(value, len)[i];
+	while (i < nbytes) {
+		char c = value[i];
 		uint32_t codepoint = 0;
 		size_t available = 0;
 		size_t used = 0;
@@ -87,12 +87,12 @@ static bool json_append_escaped_string(JsonBuffer *buffer, const char *value,
 				i++;
 				break;
 			}
-			available = (len - i) >= 4 ? 4 : (len - i);
-			used = json_utf8_decode_strict(value + i, available, &codepoint);
+			available = (nbytes - i) >= 4 ? 4 : (nbytes - i);
+			used = json_utf8_decode_strict(ptr(value) + i, available, &codepoint);
 			if (used == 0) {
 				return false;
 			}
-			if (!json_buffer_append_bytes(buffer, value + i, used)) {
+			if (!json_buffer_append_bytes(buffer, ptr(value) + i, used)) {
 				return false;
 			}
 			i = i + used;
@@ -102,7 +102,7 @@ static bool json_append_escaped_string(JsonBuffer *buffer, const char *value,
 	return json_buffer_append_char(buffer, '"');
 }
 
-static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
+static bool json_stringify_value(char[..] *buffer, const JsonValue *value) {
 	size_t i = 0;
 
 	if (buffer == NULL || value == NULL) {
@@ -122,8 +122,7 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 		}
 		return json_buffer_append_number(buffer, value.number);
 	case JSON_STRING:
-		return json_append_escaped_string(buffer, value.string.data,
-			value.string.length);
+		return json_append_escaped_string(buffer, value.string);
 	case JSON_ARRAY:
 		if (!json_buffer_append_char(buffer, '[')) {
 			return false;
@@ -146,8 +145,7 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 				return false;
 			}
 			if (!json_append_escaped_string(buffer,
-				ranged(value.object.entries, value.object.count)[i].key.data,
-				ranged(value.object.entries, value.object.count)[i].key.length)) {
+				ranged(value.object.entries, value.object.count)[i].key)) {
 				return false;
 			}
 			if (!json_buffer_append_char(buffer, ':')) {
@@ -163,7 +161,7 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 }
 
 [[provides]] char *json_stringify(const JsonValue *value) {
-	JsonBuffer buffer = {0};
+	char[..] buffer = {0};
 
 	if (value == NULL) {
 		return NULL;
@@ -172,15 +170,15 @@ static bool json_stringify_value(JsonBuffer *buffer, const JsonValue *value) {
 		json_buffer_discard(&buffer);
 		return NULL;
 	}
-	/* Inline take: avoid return-flow of &stack buffer through json_buffer_take. */
-	char *data = buffer.data;
-	if (data == NULL) {
-		return calloc(1, 1);
+	if (!json_ensure_cstr(&buffer)) {
+		json_buffer_discard(&buffer);
+		return NULL;
 	}
-	buffer.data = NULL;
-	buffer.length = 0;
-	buffer.capacity = 0;
-	return data;
+	{
+		char *data = ptr(buffer);
+		buffer = str_empty(); /* hand off; caller frees with free() */
+		return data;
+	}
 }
 
 bool json_write(const JsonValue *value, JsonWriteFn writer, void *ctx) {
@@ -192,8 +190,8 @@ bool json_write(const JsonValue *value, JsonWriteFn writer, void *ctx) {
 	if (text == NULL) {
 		return false;
 	}
-	size_t len = strlen(text);
-	bool ok = writer(ctx, text, len);
+	size_t nbytes = strlen(text);
+	bool ok = writer(ctx, text, nbytes);
 	free(text);
 	return ok;
 }

@@ -1,4 +1,6 @@
 // json — DOM JSON parser/serializer (pure %C port of jem.c util_json).
+import "str";
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,11 +20,6 @@ enum JsonType {
 	JSON_OBJECT = 5
 };
 
-struct JsonString {
-	char *data;
-	size_t length;
-};
-
 struct JsonValue;
 
 struct JsonArray {
@@ -32,7 +29,7 @@ struct JsonArray {
 };
 
 struct JsonObjectEntry {
-	JsonString key;
+	char[..] key;
 	JsonValue *value;
 };
 
@@ -47,7 +44,7 @@ struct JsonValue {
 	JsonType type;
 	bool boolean;
 	double number;
-	JsonString string;
+	char[..] string;
 	JsonArray array;
 	JsonObject object;
 };

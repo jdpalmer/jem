@@ -15,43 +15,27 @@
 	return value;
 }
 
-static bool json_string_copy(JsonString *dst, const char *src, size_t len) {
-	if (dst == NULL) {
-		return false;
-	}
-	dst.data = json_dup_bytes(src, len);
-	if (dst.data == NULL) {
-		dst.length = 0;
-		return false;
-	}
-	dst.length = len;
-	return true;
+static bool json_string_copy(char[..] *dst, const char *src, size_t nbytes) {
+	return json_dup_bytes(dst, src, nbytes);
 }
 
-static bool json_string_take_buffer(JsonString *dst, JsonBuffer *buffer) {
+static bool json_string_take_buffer(char[..] *dst, char[..] *buffer) {
 	if (dst == NULL || buffer == NULL) {
 		return false;
 	}
-	dst.length = buffer.length;
-	dst.data = json_buffer_take(buffer);
-	if (dst.data == NULL) {
-		dst.length = 0;
+	if (!json_ensure_cstr(buffer)) {
 		return false;
 	}
+	*dst = *buffer;
+	*buffer = str_empty();
 	return true;
 }
 
-static bool json_string_equals(const JsonString *string, const char *text, size_t len) {
-	if (string == NULL) {
+static bool json_string_equals(const char[..] string, const char *text, size_t nbytes) {
+	if (text == NULL && nbytes != 0) {
 		return false;
 	}
-	if (string.length != len) {
-		return false;
-	}
-	if (len == 0) {
-		return true;
-	}
-	return memcmp(string.data, text, len) == 0;
+	return str_eq(string, ranged(text != NULL ? text : "", nbytes));
 }
 
 [[provides]] JsonValue *json_new_null() {
@@ -76,19 +60,19 @@ static bool json_string_equals(const JsonString *string, const char *text, size_
 	return value;
 }
 
-[[provides]] JsonValue *json_new_string_n(const char *string, size_t len) {
+[[provides]] JsonValue *json_new_string_n(const char *string, size_t nbytes) {
 
-	if (string == NULL && len != 0) {
+	if (string == NULL && nbytes != 0) {
 		return NULL;
 	}
-	if (!json_utf8_validate(string, len)) {
+	if (!json_utf8_validate(string, nbytes)) {
 		return NULL;
 	}
 	JsonValue *value = json_value_alloc(JSON_STRING);
 	if (value == NULL) {
 		return NULL;
 	}
-	if (!json_string_copy(&value.string, string, len)) {
+	if (!json_string_copy(&value.string, string, nbytes)) {
 		free(value);
 		return NULL;
 	}
@@ -124,7 +108,7 @@ void json_free([[releases]] JsonValue *value) {
 	case JSON_NUMBER:
 		break;
 	case JSON_STRING:
-		free(value.string.data);
+		str_free(&value.string);
 		break;
 	case JSON_ARRAY:
 		for (; i < value.array.count; i++) {
@@ -134,7 +118,7 @@ void json_free([[releases]] JsonValue *value) {
 		break;
 	case JSON_OBJECT:
 		for (i = 0; i < value.object.count; i++) {
-			free(ranged(value.object.entries, value.object.count)[i].key.data);
+			str_free(&ranged(value.object.entries, value.object.count)[i].key);
 			json_free(ranged(value.object.entries, value.object.count)[i].value);
 		}
 		free(value.object.entries);
@@ -213,14 +197,17 @@ const char *json_string_value(const JsonValue *value) {
 	if (value == NULL || value.type != JSON_STRING) {
 		return NULL;
 	}
-	return value.string.data;
+	if (str_is_empty(value.string)) {
+		return "";
+	}
+	return ptr(value.string);
 }
 
 size_t json_string_length(const JsonValue *value) {
 	if (value == NULL || value.type != JSON_STRING) {
 		return 0;
 	}
-	return value.string.length;
+	return len(value.string);
 }
 
 bool json_array_append(JsonValue *array, [[retains]] JsonValue *item) {
@@ -267,7 +254,8 @@ static JsonObjectEntry *json_object_find_entry(JsonValue *object, const char *ke
 		return NULL;
 	}
 	for (; i < object.object.count; i++) {
-		if (json_string_equals(&ranged(object.object.entries, object.object.count)[i].key, key, key_len)) {
+		if (json_string_equals(ranged(object.object.entries, object.object.count)[i].key,
+			key, key_len)) {
 			return &ranged(object.object.entries, object.object.count)[i];
 		}
 	}
@@ -282,31 +270,32 @@ static const JsonObjectEntry *json_object_find_entry_const(const JsonValue *obje
 		return NULL;
 	}
 	for (; i < object.object.count; i++) {
-		if (json_string_equals(&ranged(object.object.entries, object.object.count)[i].key, key, key_len)) {
+		if (json_string_equals(ranged(object.object.entries, object.object.count)[i].key,
+			key, key_len)) {
 			return &ranged(object.object.entries, object.object.count)[i];
 		}
 	}
 	return NULL;
 }
 
-static bool json_object_put_owned(JsonValue *object, JsonString key,
+static bool json_object_put_owned(JsonValue *object, char[..] key,
 	[[retains]] JsonValue *value) {
 
 	if (object == NULL || value == NULL) {
-		free(key.data);
+		str_free(&key);
 		json_free(value);
 		return false;
 	}
-	JsonObjectEntry *entry = json_object_find_entry(object, key.data, key.length);
+	JsonObjectEntry *entry = json_object_find_entry(object, ptr(key), len(key));
 	if (entry != NULL) {
-		free(key.data);
+		str_free(&key);
 		json_free(entry.value);
 		entry.value = value;
 		return true;
 	}
 	if (!json_grow_ptr_array((void **)&object.object.entries, &object.object.capacity,
 		sizeof(JsonObjectEntry), object.object.count + 1)) {
-		free(key.data);
+		str_free(&key);
 		json_free(value);
 		return false;
 	}
@@ -319,7 +308,7 @@ static bool json_object_put_owned(JsonValue *object, JsonString key,
 
 bool json_object_set_n(JsonValue *object, const char *key, size_t key_len,
 	[[retains]] JsonValue *value) {
-	JsonString key_copy = {0};
+	char[..] key_copy = {0};
 
 	if (object == NULL || value == NULL || object.type != JSON_OBJECT) {
 		json_free(value);
@@ -356,7 +345,13 @@ const char *json_object_key_at(const JsonValue *object, size_t index) {
 		index >= object.object.count) {
 		return NULL;
 	}
-	return ranged(object.object.entries, object.object.count)[index].key.data;
+	{
+		const char[..] key = ranged(object.object.entries, object.object.count)[index].key;
+		if (str_is_empty(key)) {
+			return "";
+		}
+		return ptr(key);
+	}
 }
 
 size_t json_object_key_len_at(const JsonValue *object, size_t index) {
@@ -364,7 +359,7 @@ size_t json_object_key_len_at(const JsonValue *object, size_t index) {
 		index >= object.object.count) {
 		return 0;
 	}
-	return ranged(object.object.entries, object.object.count)[index].key.length;
+	return len(ranged(object.object.entries, object.object.count)[index].key);
 }
 
 const JsonValue *json_object_value_at(const JsonValue *object, size_t index) {

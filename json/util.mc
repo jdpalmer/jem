@@ -7,12 +7,6 @@
 #include <string.h>
 #include <math.h>
 
-struct JsonBuffer {
-	char *data;
-	size_t length;
-	size_t capacity;
-};
-
 struct JsonScanner {
 	const char *p;
 };
@@ -201,67 +195,43 @@ static bool json_scan_double(JsonScanner *s, double *out) {
 	return true;
 }
 
-static bool json_buffer_reserve(JsonBuffer *buffer, size_t needed) {
-
-	if (buffer == NULL) {
+/* Ensure capacity for a trailing NUL without growing len (C-boundary handoff). */
+static bool json_ensure_cstr(char[..] *s) {
+	if (s == NULL) {
 		return false;
 	}
-	size_t target = needed + 1;
-	if (buffer.capacity >= target) {
-		return true;
-	}
-	size_t new_capacity = buffer.capacity == 0 ? 32 : buffer.capacity;
-	while (new_capacity < target) {
-		if (new_capacity > (((size_t)0 - 1) / 2)) {
-			return false;
-		}
-		new_capacity = new_capacity * 2;
-	}
-	char *grown = realloc(buffer.data, new_capacity);
-	if (grown == NULL) {
+	size_t n = len(*s);
+	if (!str_reserve(s, n + 1)) {
 		return false;
-	}
-	buffer.data = grown;
-	buffer.capacity = new_capacity;
-	return true;
-}
-
-static bool json_buffer_append_char(JsonBuffer *buffer, char c) {
-	if (buffer == NULL) {
-		return false;
-	}
-	if (!json_buffer_reserve(buffer, buffer.length + 1)) {
-		return false;
-	}
-	char[..] dv = ranged(buffer.data, buffer.capacity);
-	dv[buffer.length] = c;
-	buffer.length++;
-	dv[buffer.length] = 0;
-	return true;
-}
-
-static bool json_buffer_append_bytes(JsonBuffer *buffer, const char *bytes, size_t len) {
-	if (buffer == NULL) {
-		return false;
-	}
-	if (bytes == NULL && len != 0) {
-		return false;
-	}
-	if (!json_buffer_reserve(buffer, buffer.length + len)) {
-		return false;
-	}
-	if (len != 0) {
-		memcpy(buffer.data + buffer.length, bytes, len);
-		buffer.length = buffer.length + len;
 	}
 	{
-		char[..] dv = ranged(buffer.data, buffer.capacity);
-		dv[buffer.length] = 0;
+		char[..] z = ranged(ptr(*s), n + 1, cap(*s));
+		z[n] = 0;
 	}
 	return true;
 }
 
-static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
+static bool json_buffer_append_char(char[..] *buffer, char c) {
+	if (buffer == NULL) {
+		return false;
+	}
+	return str_append_byte(buffer, c);
+}
+
+static bool json_buffer_append_bytes(char[..] *buffer, const char *bytes, size_t nbytes) {
+	if (buffer == NULL) {
+		return false;
+	}
+	if (bytes == NULL && nbytes != 0) {
+		return false;
+	}
+	if (nbytes == 0) {
+		return true;
+	}
+	return str_append(buffer, ranged(bytes, nbytes));
+}
+
+static bool json_buffer_append_number(char[..] *buffer, double number) {
 	char stack_buf[64] = {0};
 
 	if (buffer == NULL) {
@@ -274,57 +244,48 @@ static bool json_buffer_append_number(JsonBuffer *buffer, double number) {
 	if ((size_t)written < sizeof(stack_buf)) {
 		return json_buffer_append_bytes(buffer, stack_buf, written);
 	}
-	char *heap = malloc((size_t)written + 1);
-	if (heap == NULL) {
+	char[..] heap = {0};
+	if (!str_reserve(&heap, (size_t)written + 1)) {
 		return false;
 	}
-	written = snprintf(heap, (size_t)written + 1, "%.17g", number);
+	written = snprintf(ptr(heap), (size_t)written + 1, "%.17g", number);
 	if (written < 0) {
-		free(heap);
+		str_free(&heap);
 		return false;
 	}
-	bool ok = json_buffer_append_bytes(buffer, heap, written);
-	free(heap);
+	heap = ranged(ptr(heap), (size_t)written, cap(heap));
+	bool ok = str_append(buffer, heap);
+	str_free(&heap);
 	return ok;
 }
 
-[[provides]] static char *json_buffer_take(JsonBuffer *buffer) {
-	if (buffer == NULL) {
-		return NULL;
-	}
-	if (buffer.data == NULL) {
-		return calloc(1, 1);
-	}
-	char *data = buffer.data;
-	buffer.data = NULL;
-	buffer.length = 0;
-	buffer.capacity = 0;
-	return data;
-}
-
-static void json_buffer_discard(JsonBuffer *buffer) {
+static void json_buffer_discard(char[..] *buffer) {
 	if (buffer == NULL) {
 		return;
 	}
-	free(buffer.data);
-	buffer.data = NULL;
-	buffer.length = 0;
-	buffer.capacity = 0;
+	str_free(buffer);
 }
 
-[[provides]] static char *json_dup_bytes(const char *src, size_t len) {
-
-	if (src == NULL && len != 0) {
-		return NULL;
-	}
-	char *dst = calloc(len + 1, 1);
+/* Copy bytes into an owned slice and reserve a trailing NUL for C APIs. */
+static bool json_dup_bytes(char[..] *dst, const char *src, size_t nbytes) {
 	if (dst == NULL) {
-		return NULL;
+		return false;
 	}
-	if (len != 0) {
-		memcpy(dst, src, len);
+	if (src == NULL && nbytes != 0) {
+		return false;
 	}
-	return dst;
+	*dst = str_empty();
+	if (nbytes != 0) {
+		if (!str_append(dst, ranged(src, nbytes))) {
+			str_free(dst);
+			return false;
+		}
+	}
+	if (!json_ensure_cstr(dst)) {
+		str_free(dst);
+		return false;
+	}
+	return true;
 }
 
 static bool json_grow_ptr_array(void **items, size_t *capacity, size_t item_size,

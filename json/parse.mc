@@ -143,13 +143,13 @@ static bool json_parse_hex4(JsonParser *parser, uint16_t *value) {
 	return true;
 }
 
-static bool json_append_utf8(JsonBuffer *buffer, uint32_t codepoint) {
+static bool json_append_utf8(char[..] *buffer, uint32_t codepoint) {
 	char bytes[4] = {0};
-	size_t len = json_utf8_encode(codepoint, bytes);
-	return json_buffer_append_bytes(buffer, bytes, len);
+	size_t nbytes = json_utf8_encode(codepoint, bytes);
+	return json_buffer_append_bytes(buffer, bytes, nbytes);
 }
 
-static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
+static bool json_parse_string_into(JsonParser *parser, char[..] *buffer) {
 	char c = 0;
 
 	if (parser == NULL || buffer == NULL) {
@@ -283,7 +283,7 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 }
 
 [[provides]] static JsonValue *json_parse_string_value(JsonParser *parser) {
-	JsonBuffer buffer = {0};
+	char[..] buffer = {0};
 
 	if (!json_parse_string_into(parser, &buffer)) {
 		json_buffer_discard(&buffer);
@@ -296,6 +296,7 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 		return NULL;
 	}
 	if (!json_string_take_buffer(&value.string, &buffer)) {
+		json_buffer_discard(&buffer);
 		free(value);
 		json_set_error(parser, "Out of memory");
 		return NULL;
@@ -318,9 +319,9 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 		json_set_error(parser, "Invalid number format");
 		return NULL;
 	}
-	size_t len = s.p - parser.cursor;
+	size_t nbytes = s.p - parser.cursor;
 	parser.cursor = s.p;
-	parser.column = parser.column + len;
+	parser.column = parser.column + nbytes;
 	JsonValue *value = json_new_number(number);
 	if (value == NULL) {
 		json_set_error(parser, "Out of memory");
@@ -353,8 +354,8 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 		return object;
 	}
 	for (;;) {
-		JsonBuffer key = {0};
-		JsonString owned_key = {0};
+		char[..] key = {0};
+		char[..] owned_key = {0};
 
 		if (!json_parse_string_into(parser, &key)) {
 			json_buffer_discard(&key);
@@ -377,6 +378,7 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 			return NULL;
 		}
 		if (!json_string_take_buffer(&owned_key, &key)) {
+			json_buffer_discard(&key);
 			json_free(value);
 			parser.depth--;
 			json_free(object);
@@ -389,6 +391,8 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 			json_set_error(parser, "Out of memory");
 			return NULL;
 		}
+		/* Ownership moved into object; clear without freeing. */
+		owned_key = str_empty();
 		json_skip_ws(parser);
 		if (json_peek(parser) == '}') {
 			(void)json_take(parser, NULL);
@@ -515,14 +519,14 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 	return NULL;
 }
 
-[[provides]] JsonValue *json_parse_n(const char *text, size_t len, JsonError *error) {
+[[provides]] JsonValue *json_parse_n(const char *text, size_t nbytes, JsonError *error) {
 	JsonParser parser = {0};
 
 	if (text == NULL) {
 		return NULL;
 	}
 	parser.cursor = text;
-	parser.end = text + len;
+	parser.end = text + nbytes;
 	parser.error.message = NULL;
 	parser.error.line = 1;
 	parser.error.column = 1;
