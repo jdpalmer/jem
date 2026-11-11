@@ -1,4 +1,6 @@
 // Interactive fuzzy picker for tag navigation and completion.
+import "str";
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -58,9 +60,15 @@ static void tag_picker_rebuild(const char *query) {
 	for (; i < len(g_tp_entries.items); i++) {
 		TagEntry *entry = g_tp_entries.items[i];
 		TagPickScore candidate = {0};
+		char namebuf[TagNameMax] = {0};
 		int pos = 0;
-		auto (matched, score) = fuzzy_score(entry != NULL ? entry.name : NULL,
-			query);
+		if (entry == NULL || str_is_empty(entry.name)) {
+			continue;
+		}
+		if (snprintf(namebuf, sizeof(namebuf), "%s", entry.name) < 0) {
+			continue;
+		}
+		auto (matched, score) = fuzzy_score(namebuf, query);
 		if (!matched) {
 			continue;
 		}
@@ -107,19 +115,18 @@ static void tag_picker_refresh() {
 			char shown_path[TagPathMax] = {0};
 			char line[TagPathMax + TagNameMax * 3 + 1024] = {0};
 			char arrow[5] = {0};
-			char empty_signature[1] = {0};
-			char *signature = empty_signature;
+			const char[..] signature = {0};
 			int n = 0;
 			snprintf(arrow, sizeof(arrow), "  ");
 			if (i == g_tp_selected) {
 				snprintf(arrow, sizeof(arrow), "→ ");
 			}
-			if (entry == NULL || entry.name == NULL) {
+			if (entry == NULL || str_is_empty(entry.name)) {
 				continue;
 			}
 			tags_format_annotation(entry, annotation, sizeof(annotation));
 			tags_display_path(entry, shown_path, sizeof(shown_path));
-			if (entry.signature != NULL) {
+			if (!str_is_empty(entry.signature)) {
 				signature = entry.signature;
 			}
 			if (g_tp_with_path) {

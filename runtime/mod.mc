@@ -1656,7 +1656,8 @@ bool cmd_describe_symbol(bool f, int n) {
 static bool insert_tag_completion(TagEntry *entry) {
 	Window *w = window_current();
 	char prefix[TagNameMax] = {0};
-	if (w == NULL || w.buffer == NULL || entry == NULL || entry.name == NULL) {
+	if (w == NULL || w.buffer == NULL || entry == NULL ||
+		str_is_empty(entry.name)) {
 		return false;
 	}
 	if (w.buffer.is_readonly) {
@@ -1668,22 +1669,23 @@ static bool insert_tag_completion(TagEntry *entry) {
 		return false;
 	}
 	size_t plen = strlen(prefix);
-	if (strncmp(entry.name, prefix, plen) != 0) {
+	if (len(entry.name) < plen ||
+		!str_eq(entry.name[0 .. plen], str_from_cstr(prefix))) {
 		return false;
 	}
-	size_t n = strlen(entry.name + plen);
+	size_t n = len(entry.name) - plen;
 	if (n == 0) {
 		return true;
 	}
 	Location at = w.cursor;
+	const char[..] suffix = entry.name[plen ..];
 	buffer_undo.begin_command(w.buffer, at);
-	if (!w.set_text(at, at, entry.name + plen, n)) {
+	if (!w.set_text(at, at, ptr(suffix), n)) {
 		buffer_undo.end_command();
 		display_set_echo("[completion: insert failed]");
 		return false;
 	}
-	buffer_undo.record_edit(UndoInsert, at.line, at.offset,
-		entry.name + plen, n);
+	buffer_undo.record_edit(UndoInsert, at.line, at.offset, ptr(suffix), n);
 	buffer_undo.end_command();
 	display_set_echo("");
 	return true;

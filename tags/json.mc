@@ -1,4 +1,6 @@
 // Bounded JSON object parser for one Universal Ctags NDJSON record.
+import "str";
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -12,14 +14,14 @@ enum TagJsonResult {
 };
 
 struct TagJsonFields {
-	char *type;
-	char *name;
-	char *path;
-	char *kind;
-	char *signature;
-	char *scope;
-	char *typeref;
-	char *pattern;
+	char[..] type;
+	char[..] name;
+	char[..] path;
+	char[..] kind;
+	char[..] signature;
+	char[..] scope;
+	char[..] typeref;
+	char[..] pattern;
 	int line;
 	bool line_valid;
 };
@@ -32,14 +34,14 @@ void tag_json_fields_free(TagJsonFields *f) {
 	if (f == NULL) {
 		return;
 	}
-	free(f.type);
-	free(f.name);
-	free(f.path);
-	free(f.kind);
-	free(f.signature);
-	free(f.scope);
-	free(f.typeref);
-	free(f.pattern);
+	str_free(&f.type);
+	str_free(&f.name);
+	str_free(&f.path);
+	str_free(&f.kind);
+	str_free(&f.signature);
+	str_free(&f.scope);
+	str_free(&f.typeref);
+	str_free(&f.pattern);
 	memset(f, 0, sizeof(*f));
 }
 
@@ -103,13 +105,13 @@ static bool tag_json_u16(TagJsonCursor *c, uint32_t *out) {
 	return true;
 }
 
-static bool tag_json_string(TagJsonCursor *c, char **out) {
+static bool tag_json_string(TagJsonCursor *c, char[..] *out) {
 	char[..] b = {0};
 	if (c == NULL || out == NULL || *c.p != '"') {
 		return false;
 	}
 	defer str_free(&b);
-	*out = NULL;
+	*out = str_empty();
 	c.p++;
 	while (*c.p != 0 && *c.p != '"') {
 		char ch = *c.p++;
@@ -183,16 +185,11 @@ static bool tag_json_string(TagJsonCursor *c, char **out) {
 		return false;
 	}
 	c.p++;
-	if (!str_reserve(&b, len(b) + 1)) {
-		return false;
-	}
 	{
-		char[..] room = ranged(ptr(b), cap(b));
-		room[len(b)] = '\0';
+		char[..] handoff = b;
+		b = str_empty(); /* hand off; defer frees empty header */
+		*out = handoff;
 	}
-	char *owned = ptr(b);
-	b = str_empty(); /* hand off; defer frees empty header */
-	*out = owned;
 	return true;
 }
 
@@ -285,9 +282,9 @@ static bool tag_json_skip_value(TagJsonCursor *c, int depth) {
 		return false;
 	}
 	if (*c.p == '"') {
-		char *value = NULL;
+		char[..] value = {0};
 		bool ok = tag_json_string(c, &value);
-		free(value);
+		str_free(&value);
 		return ok;
 	}
 	if (*c.p == '{') {
@@ -298,11 +295,11 @@ static bool tag_json_skip_value(TagJsonCursor *c, int depth) {
 			return true;
 		}
 		for (;;) {
-			char *key = NULL;
+			char[..] key = {0};
 			if (!tag_json_string(c, &key)) {
 				return false;
 			}
-			free(key);
+			str_free(&key);
 			tag_json_ws(c);
 			if (*c.p != ':') {
 				return false;
@@ -359,29 +356,29 @@ static bool tag_json_skip_value(TagJsonCursor *c, int depth) {
 	return tag_json_literal(c, "null");
 }
 
-static char **tag_json_field_slot(TagJsonFields *f, char *key) {
-	if (strcmp(key, "_type") == 0) {
+static char[..] *tag_json_field_slot(TagJsonFields *f, const char[..] key) {
+	if (str_eq(key, "_type")) {
 		return &f.type;
 	}
-	if (strcmp(key, "name") == 0) {
+	if (str_eq(key, "name")) {
 		return &f.name;
 	}
-	if (strcmp(key, "path") == 0) {
+	if (str_eq(key, "path")) {
 		return &f.path;
 	}
-	if (strcmp(key, "kind") == 0) {
+	if (str_eq(key, "kind")) {
 		return &f.kind;
 	}
-	if (strcmp(key, "signature") == 0) {
+	if (str_eq(key, "signature")) {
 		return &f.signature;
 	}
-	if (strcmp(key, "scope") == 0) {
+	if (str_eq(key, "scope")) {
 		return &f.scope;
 	}
-	if (strcmp(key, "typeref") == 0) {
+	if (str_eq(key, "typeref")) {
 		return &f.typeref;
 	}
-	if (strcmp(key, "pattern") == 0) {
+	if (str_eq(key, "pattern")) {
 		return &f.pattern;
 	}
 	return NULL;
@@ -402,27 +399,27 @@ int tag_json_parse_line(char *line, TagJsonFields *out) {
 	tag_json_ws(&c);
 	if (*c.p != '}') {
 		for (;;) {
-			char *key = NULL;
-			char **slot = NULL;
+			char[..] key = {0};
+			char[..] *slot = NULL;
 			if (!tag_json_string(&c, &key)) {
 				tag_json_fields_free(&f);
 				return TagJsonMalformed;
 			}
 			tag_json_ws(&c);
 			if (*c.p != ':') {
-				free(key);
+				str_free(&key);
 				tag_json_fields_free(&f);
 				return TagJsonMalformed;
 			}
 			c.p++;
 			tag_json_ws(&c);
 			slot = tag_json_field_slot(&f, key);
-			if (strcmp(key, "line") == 0) {
+			if (str_eq(key, "line")) {
 				int value = 0;
 				bool valid = false;
 				if (!tag_json_number(&c, &value, &valid)) {
 					if (!tag_json_skip_value(&c, 0)) {
-						free(key);
+						str_free(&key);
 						tag_json_fields_free(&f);
 						return TagJsonMalformed;
 					}
@@ -433,28 +430,30 @@ int tag_json_parse_line(char *line, TagJsonFields *out) {
 				}
 			} else if (slot != NULL) {
 				if (*c.p == '"') {
-					char *value = NULL;
+					char[..] value = {0};
+					char[..] old = {0};
 					if (!tag_json_string(&c, &value)) {
-						free(key);
+						str_free(&key);
 						tag_json_fields_free(&f);
 						return TagJsonMalformed;
 					}
-					free(*slot);
+					old = *slot;
 					*slot = value;
+					str_free(&old);
 				} else {
 					if (!tag_json_skip_value(&c, 0)) {
-						free(key);
+						str_free(&key);
 						tag_json_fields_free(&f);
 						return TagJsonMalformed;
 					}
 					semantic_ok = false;
 				}
 			} else if (!tag_json_skip_value(&c, 0)) {
-				free(key);
+				str_free(&key);
 				tag_json_fields_free(&f);
 				return TagJsonMalformed;
 			}
-			free(key);
+			str_free(&key);
 			tag_json_ws(&c);
 			if (*c.p == '}') {
 				break;
@@ -473,12 +472,12 @@ int tag_json_parse_line(char *line, TagJsonFields *out) {
 		tag_json_fields_free(&f);
 		return TagJsonMalformed;
 	}
-	if (f.type == NULL || strcmp(f.type, "tag") != 0) {
+	if (str_is_empty(f.type) || !str_eq(f.type, "tag")) {
 		tag_json_fields_free(&f);
 		return TagJsonSkip;
 	}
-	if (!semantic_ok || f.name == NULL || *f.name == 0 ||
-		f.path == NULL || *f.path == 0 || !f.line_valid) {
+	if (!semantic_ok || str_is_empty(f.name) || str_is_empty(f.path) ||
+		!f.line_valid) {
 		tag_json_fields_free(&f);
 		return TagJsonSkip;
 	}
