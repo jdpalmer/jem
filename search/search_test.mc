@@ -13,19 +13,17 @@ static void check(bool value) {
 }
 
 static void test_literal_replace() {
-	Buffer *buf = NULL;
-	Buffer *undone = NULL;
-	Window *win = NULL;
-	Location cursor = {0};
 	char original[] = "a a";
 	char needle[] = "a";
 	char replacement[] = "aa";
+	Location cursor = {0};
+	Buffer *undone = NULL;
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(original, strlen(original), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	check(win != NULL);
 	window_select(win);
 
@@ -53,20 +51,16 @@ static void test_literal_replace() {
 }
 
 static void test_regex_forward() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	char text[] = "xxaaayy";
 	char pat[] = "a+";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(text, strlen(text), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	check(win != NULL);
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 
 	search_begin(true, true);
@@ -81,15 +75,13 @@ static void test_regex_forward() {
 }
 
 static void test_regex_invalid() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
 	char text[] = "abc";
 	char pat[] = "[";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(text, strlen(text), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
 
 	search_begin(true, true);
@@ -100,19 +92,15 @@ static void test_regex_invalid() {
 }
 
 static void test_regex_zero_length() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	char text[] = "abc";
 	char pat[] = "a*";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(text, strlen(text), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 1;
+	Location loc = { .line = 1, .offset = 1 };
 	win.set_cursor(loc);
 	search_begin(true, true);
 	check(search_set_needle(pat));
@@ -122,16 +110,14 @@ static void test_regex_zero_length() {
 }
 
 static void test_regex_capture_replace() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
 	char text[] = "ab";
 	char pat[] = "(a)(b)";
 	char repl[] = "\\2\\1";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(text, strlen(text), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
 
 	search_begin_replace_re();
@@ -148,19 +134,15 @@ static void test_regex_capture_replace() {
 }
 
 static void test_regex_dot_newline() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	char text[] = "a\nb";
 	char pat[] = "a.b";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(text, strlen(text), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 
 	search_begin(true, true);
@@ -175,19 +157,13 @@ static void test_regex_dot_newline() {
 }
 
 static void test_plain_find_and_scope() {
-	Buffer *buf = NULL;
-	Buffer *other = NULL;
-	Window *win = NULL;
-	Location loc = {0};
-
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes("hello world", strlen("hello world"), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	check(win != NULL);
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 
 	search_scope_set(0);
@@ -200,7 +176,7 @@ static void test_plain_find_and_scope() {
 	search_set_last_pattern("missing");
 	check(!search_plain_find(true));
 
-	other = buffer_new();
+	Buffer *other = buffer_new();
 	check(other != NULL);
 	other.set_name("other");
 	check(other.load_bytes("zzz target zzz", strlen("zzz target zzz"), EModeLF));
