@@ -19,9 +19,8 @@ static void check(bool value) {
 static Window *g_win;
 
 static Window *setup(const char *text) {
-	Buffer *buf = NULL;
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(text, strlen(text), EModeLF));
 	if (g_win == NULL) {
@@ -61,7 +60,7 @@ static void test_insert_date() {
 		auto (got, got_len, ok) = win.buffer.save_bytes();
 		check(ok);
 		check(got_len >= 10);
-		check(got[0] >= 'A' && got[0] <= 'Z');
+		check(ranged(got, got_len)[0] >= 'A' && ranged(got, got_len)[0] <= 'Z');
 		check(strstr(got, ", 20") != NULL || strstr(got, ", 19") != NULL);
 		free(got);
 	}
@@ -69,9 +68,7 @@ static void test_insert_date() {
 
 static void test_show_position() {
 	Window *win = setup("hello");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 1;
+	Location loc = { .line = 1, .offset = 1 };
 	win.set_cursor(loc);
 	check(cmd_show_position(false, 1));
 	expect_contains(display_echo_text(), "X=");
@@ -96,26 +93,22 @@ static void test_set_eol_mode() {
 }
 
 static void test_kill_buffer_fuzzy() {
-	Buffer *other = NULL;
-	size_t before = 0;
-	int i = 0;
-	Buffer *sel = NULL;
 	(void)setup("x");
-	other = buffer_new();
+	Buffer *other = buffer_new();
 	check(other != NULL);
 	other.set_name("other");
 	check(buffer_list_add(other));
-	before = len(buffer_all);
+	size_t before = len(buffer_all);
 	check(before >= 2);
 	check(cmd_kill_buffer_fuzzy(false, 1));
-	for (i = 0; i < 8; i++) {
-		sel = fuzzy_buffer_selected();
+	Buffer *sel = fuzzy_buffer_selected();
+	for (int i = 0; i < 8; i++) {
 		if (sel != NULL && !sel.is_scratch()) {
 			break;
 		}
 		(void)fuzzy_buffer_handle_key(term_key_value(TermKeyDown));
+		sel = fuzzy_buffer_selected();
 	}
-	sel = fuzzy_buffer_selected();
 	check(sel != NULL && !sel.is_scratch());
 	check(cmd_kill_buffer_fuzzy_on_accept());
 	misc_kill_pending_yes();

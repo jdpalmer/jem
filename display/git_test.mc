@@ -74,12 +74,8 @@ static int run_git(const char *dir, const char *a0, const char *a1, const char *
 static void test_modeline_and_gutter() {
 	char dir[512] = {0};
 	char path[512] = {0};
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	const char *git = NULL;
-	int n = 0;
 
-	n = snprintf(dir, sizeof(dir), "/tmp/jem-git-XXXXXX");
+	int n = snprintf(dir, sizeof(dir), "/tmp/jem-git-XXXXXX");
 	check(n > 0);
 	check(mkdtemp(dir) != NULL);
 	check(run_git(dir, "init", NULL, NULL) == 0);
@@ -103,16 +99,16 @@ static void test_modeline_and_gutter() {
 	}
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes("one\ntwo\n", 8, EModeLF));
 	buf.set_name("f.txt");
 	buf.set_file_name(ranged(path, strlen(path)));
-	win = window_create();
+	Window *win = window_create();
 	check(win != NULL);
 	window_select(win);
 
-	git = git_modeline_text(buf);
+	const char *git = git_modeline_text(buf);
 	check(git != NULL && *git != 0);
 	check(strstr(git, "[") != NULL); /* dirty status */
 	check(git_line_diff(buf, 2) == (int)GitLineDiffAdded ||

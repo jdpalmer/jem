@@ -22,9 +22,8 @@ static void check(bool value) {
 static Window *g_win;
 
 static Window *setup(const char *text) {
-	Buffer *buf = NULL;
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(text, strlen(text), EModeLF));
 	if (g_win == NULL) {
@@ -44,16 +43,14 @@ static Window *setup(const char *text) {
 }
 
 static void test_kill_buffer_confirm() {
-	Buffer *other = NULL;
-	size_t before = 0;
 	(void)setup("x");
-	other = buffer_new();
+	Buffer *other = buffer_new();
 	check(other != NULL);
 	other.set_name("victim");
 	check(buffer_list_add(other));
 	buffer_set_current(other);
 	g_win.buffer = other;
-	before = len(buffer_all);
+	size_t before = len(buffer_all);
 	check(cmd_kill_buffer(false, 0));
 	misc_kill_pending_yes();
 	check(len(buffer_all) == before - 1);
@@ -68,11 +65,8 @@ static void test_kill_scratch_rejected() {
 static void test_delete_this_file() {
 	char dir[512] = {0};
 	char path[512] = {0};
-	Buffer *buf = NULL;
-	Buffer *other = NULL;
-	int n = 0;
 
-	n = snprintf(dir, sizeof(dir), "/tmp/jem-del-XXXXXX");
+	int n = snprintf(dir, sizeof(dir), "/tmp/jem-del-XXXXXX");
 	check(n > 0);
 	check(mkdtemp(dir) != NULL);
 	snprintf(path, sizeof(path), "%s/victim.txt", dir);
@@ -84,12 +78,12 @@ static void test_delete_this_file() {
 	}
 
 	(void)setup("bye");
-	other = buffer_new();
+	Buffer *other = buffer_new();
 	check(other != NULL);
 	other.set_name("keeper");
 	check(buffer_list_add(other));
 
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	buf.set_name("victim.txt");
 	buf.set_file_name(ranged(path, strlen(path)));
 

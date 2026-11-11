@@ -19,9 +19,8 @@ static void check(bool value) {
 static Window *g_win;
 
 static Window *setup(const char *text) {
-	Buffer *buf = NULL;
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(text, strlen(text), EModeLF));
 	if (g_win == NULL) {
@@ -54,9 +53,7 @@ static void test_toggle_search_scope() {
 
 static void test_prompted_search() {
 	Window *win = setup("aaa bbb aaa");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_run_prompted_search(true, "bbb"));
 	check(win.cursor.offset == 7);

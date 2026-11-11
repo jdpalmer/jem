@@ -22,20 +22,15 @@ static void expect_text(Buffer *buf, const char *want) {
 }
 
 static void test_comment_dwim_line() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
-
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	buf.lang_mode = LModeGo;
 	check(buf.load_bytes("\tx := 1", strlen("\tx := 1"), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	check(win != NULL);
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 1;
+	Location loc = { .line = 1, .offset = 1 };
 	win.set_cursor(loc);
 	win.mark.line = 0;
 	win.mark.offset = 0;
@@ -47,18 +42,13 @@ static void test_comment_dwim_line() {
 }
 
 static void test_comment_dwim_python() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
-
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	buf.lang_mode = LModePython;
 	check(buf.load_bytes("    x = 1", strlen("    x = 1"), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 4;
+	Location loc = { .line = 1, .offset = 4 };
 	win.set_cursor(loc);
 	win.mark.line = 0;
 
@@ -69,18 +59,13 @@ static void test_comment_dwim_python() {
 }
 
 static void test_comment_dwim_unsupported() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
-
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	buf.lang_mode = LModeCSS;
 	check(buf.load_bytes("color: red;", strlen("color: red;"), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	win.mark.line = 0;
 
@@ -89,20 +74,15 @@ static void test_comment_dwim_unsupported() {
 }
 
 static void test_comment_dwim_region() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
-
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	buf.lang_mode = LModeGo;
 	check(buf.load_bytes("a := 1\nb := 2\nc := 3", strlen("a := 1\nb := 2\nc := 3"), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
 	win.mark.line = 1;
 	win.mark.offset = 0;
-	loc.line = 2;
-	loc.offset = 0;
+	Location loc = { .line = 2, .offset = 0 };
 	win.set_cursor(loc);
 
 	check(mode_comment_dwim(false, 1));
@@ -118,19 +98,15 @@ static void test_comment_dwim_region() {
 }
 
 static void test_fill_paragraph() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	char src[] = "one two three four five six seven eight nine ten eleven twelve";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	buf.fill_col = 20;
 	check(buf.load_bytes(src, strlen(src), EModeLF));
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 
 	check(mode_fill_paragraph(false, 1));
@@ -152,23 +128,20 @@ static void test_line_comment_prefix() {
 }
 
 static void test_modc_mode_tabs() {
-	IndentConfig cfg = {0};
 	check(mode_detect("foo.mc") == LModeModC);
 	check(mode_detect("FOO.MC") == LModeModC);
 	check(mode_detect("foo.c") == LModeC);
 	check(mode_detect("foo.cpp") == LModeC);
 	check(mode_detect("foo.hpp") == LModeC);
 	check(str_eq(mode_display_name(LModeModC), "%C"));
-	cfg = mode_indent_default(LModeModC);
+	IndentConfig cfg = mode_indent_default(LModeModC);
 	check(cfg.width == 8);
 	check(cfg.use_tabs != 0);
 }
 
 static void test_c_indent_autodetect() {
-	Buffer *buf = NULL;
-
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes("int main(void) {\n    return 0;\n}\n",
 		strlen("int main(void) {\n    return 0;\n}\n"), EModeLF));
 	mode_apply_from_path(buf, "main.c");
@@ -191,10 +164,6 @@ static void test_c_indent_autodetect() {
 
 /* Multi-line signature with hanging `{` — body/close align to declarator, not `{` line. */
 static void test_hanging_brace_anchor_indent() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
-	Location at = {0};
 	Location open = {0};
 	const char *src =
 		"SynState foo(int a, int b,\n"
@@ -207,22 +176,20 @@ static void test_hanging_brace_anchor_indent() {
 
 	buffer_list_init();
 	window_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(src, strlen(src), EModeLF));
 	buf.lang_mode = LModeModC;
 	buf.indent = mode_indent_default(LModeModC);
-	win = window_current();
+	Window *win = window_current();
 	check(win != NULL);
 	window_switch_buffer(buf);
 
 	/* return 1; — enclosing `{` is on line 2; indent anchors to line 1. */
-	at.line = 6;
-	at.offset = 1;
+	Location at = { .line = 6, .offset = 1 };
 	check(mode_find_enclosing_open(buf, at, '{', '}', &open));
 	check(open.line == 2);
-	loc.line = 6;
-	loc.offset = 0;
+	Location loc = { .line = 6, .offset = 0 };
 	win.set_cursor(loc);
 	check(mode_indent_line(false, 1));
 	check(buf.line(6).indent_column() == 8);
@@ -236,19 +203,15 @@ static void test_hanging_brace_anchor_indent() {
 }
 
 static void test_goto_match() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	Location match = {0};
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes("{ }", strlen("{ }"), EModeLF));
 	buf.lang_mode = LModeC;
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	check(mode_find_matching_delimiter(buf, loc, &match));
 	check(match.line == 1 && match.offset == 2);
@@ -257,20 +220,16 @@ static void test_goto_match() {
 }
 
 static void test_c_top_end_function() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	const char *src = "int f(void)\n{\n  return 1;\n}\n";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(src, strlen(src), EModeLF));
 	buf.lang_mode = LModeC;
-	win = window_create();
+	Window *win = window_create();
 	check(win != NULL);
 	window_select(win);
-	loc.line = 3;
-	loc.offset = 2;
+	Location loc = { .line = 3, .offset = 2 };
 	win.set_cursor(loc);
 	check(mode_end_of_function(false, 1));
 	check(win.cursor.line == 4);
@@ -283,19 +242,15 @@ static void test_c_top_end_function() {
 }
 
 static void test_py_top_end_function() {
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Location loc = {0};
 	const char *src = "def f():\n  a = 1\n  b = 2\nx = 3\n";
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf.load_bytes(src, strlen(src), EModeLF));
 	buf.lang_mode = LModePython;
-	win = window_create();
+	Window *win = window_create();
 	window_select(win);
-	loc.line = 2;
-	loc.offset = 0;
+	Location loc = { .line = 2, .offset = 0 };
 	win.set_cursor(loc);
 	check(mode_top_of_function(false, 1));
 	check(win.cursor.line == 1);

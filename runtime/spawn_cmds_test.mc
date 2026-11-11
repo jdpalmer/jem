@@ -19,9 +19,8 @@ static void check(bool value) {
 static Window *g_win;
 
 static void setup() {
-	Buffer *buf = NULL;
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes("x", 1, EModeLF));
 	if (g_win == NULL) {
@@ -53,10 +52,9 @@ static void test_spawn_prompt() {
 }
 
 static void test_spawn_true() {
-	int rc = 0;
 	setup();
 	/* Non-TTY tests still run the Cmd; resume must tolerate non-TTY. */
-	rc = spawn_run("true");
+	int rc = spawn_run("true");
 	check(rc == 0 || rc == -1);
 	/* If spawn setup failed (no /bin/sh), that is acceptable in odd environments. */
 	if (rc == 0) {

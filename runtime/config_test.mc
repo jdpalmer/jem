@@ -20,10 +20,9 @@ static Window *g_win;
 static bool g_cmds_ready;
 
 static void setup() {
-	Buffer *buf = NULL;
 	vars_init();
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes("x", 1, EModeLF));
 	if (g_win == NULL) {
@@ -97,23 +96,14 @@ static void test_legacy_theme_and_keybindings() {
 		"    \"C-l\": null\n"
 		"  }\n"
 		"}\n";
-	uint32_t cx_f = 0;
-	uint32_t c_l = 0;
-	CommandFn set_var = NULL;
 	setup();
 	check(config_apply_json(json, strlen(json)));
 	check(vars_get_named("theme-mode") == 1);
-	{
-		auto (k, ok) = config_parse_key_sequence("C-x f");
-		check(ok);
-		cx_f = k;
-	}
-	{
-		auto (k, ok) = config_parse_key_sequence("C-l");
-		check(ok);
-		c_l = k;
-	}
-	set_var = runtime_find_cmd("set-variable");
+	auto (cx_f, ok_cx) = config_parse_key_sequence("C-x f");
+	check(ok_cx);
+	auto (c_l, ok_cl) = config_parse_key_sequence("C-l");
+	check(ok_cl);
+	CommandFn set_var = runtime_find_cmd("set-variable");
 	check(set_var != NULL);
 	check(runtime_find_bind(cx_f) == set_var);
 	check(runtime_find_bind(c_l) == NULL);

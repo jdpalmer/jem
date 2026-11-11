@@ -16,10 +16,8 @@ static void check(bool value) {
 static Window *g_win;
 
 static Window *setup(const char *text, LangMode lang, int line, size_t offset) {
-	Buffer *buf = NULL;
-	Location loc = {0};
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(text, strlen(text), EModeLF));
 	buf.lang_mode = lang;
@@ -34,8 +32,7 @@ static Window *setup(const char *text, LangMode lang, int line, size_t offset) {
 		g_win.buffer = buf;
 		window_select(g_win);
 	}
-	loc.line = line;
-	loc.offset = offset;
+	Location loc = { .line = line, .offset = offset };
 	g_win.set_cursor(loc);
 	g_win.height = 20;
 	g_win.screen_top_row = 0;

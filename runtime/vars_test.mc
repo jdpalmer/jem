@@ -18,10 +18,9 @@ static void check(bool value) {
 static Window *g_win;
 
 static void setup() {
-	Buffer *buf = NULL;
 	vars_init();
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes("hello", strlen("hello"), EModeLF));
 	if (g_win == NULL) {
@@ -38,9 +37,8 @@ static void setup() {
 }
 
 static void test_vars_fill_column() {
-	Buffer *buf = NULL;
 	setup();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(vars_count() >= 5);
 	check(vars_set_named("fill-column", 72));
 	check(vars_get_named("fill-column") == 72);
@@ -74,9 +72,8 @@ static void test_vars_theme_and_auto_indent() {
 }
 
 static void test_vars_indent() {
-	Buffer *buf = NULL;
 	setup();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(vars_set_named("indent-width", 4));
 	check(buf.indent.width == 4);
 	check(vars_set_named("indent-continued", 8));

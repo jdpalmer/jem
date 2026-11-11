@@ -84,15 +84,13 @@ static void test_edit_invalidates_following_syntax() {
 static void test_delete_to_eof() {
 	Buffer *buf = buffer_new();
 	Location begin = {0};
-	Location end = {0};
 	check(buf != NULL);
 	defer buf.free();
 	begin.line = 1;
 	check(buf.insert_text(begin, "hello", strlen("hello"), NULL));
 	begin.line = 1;
 	begin.offset = 3;
-	end.line = buf.eof_line();
-	end.offset = 0;
+	Location end = { .line = buf.eof_line(), .offset = 0 };
 	check(buf.replace_raw(begin, end, "", 0, NULL));
 	check(buf.line_count_i() == 1);
 	check(buf.line(1).byte_len() == 3);
@@ -102,7 +100,6 @@ static void test_delete_to_eof() {
 static void test_delete_blanks_range_to_next() {
 	Buffer *buf = buffer_new();
 	Location begin = {0};
-	Location end = {0};
 	Location g0 = {0};
 	Location ge = {0};
 	const char *src = "a\n\n\nb";
@@ -113,8 +110,7 @@ static void test_delete_blanks_range_to_next() {
 	check(buf.line_count_i() == 4);
 	begin.line = 2;
 	begin.offset = 0;
-	end.line = 4;
-	end.offset = 0;
+	Location end = { .line = 4, .offset = 0 };
 	check(buf.replace_raw(begin, end, "", 0, NULL));
 	check(buf.line_count_i() == 2);
 	g0.line = 1;
@@ -150,18 +146,11 @@ static void test_get_text_eof_no_trailing_nl() {
 }
 
 static void test_location_remap_replace() {
-	Location begin = {0};
-	Location end = {0};
-	Location new_end = {0};
-	Location loc = {0};
-
 	/* Insert "xx" at 1:3 — mark at insert point stays (nil insertion-type). */
-	begin.line = 1;
-	begin.offset = 3;
-	end = begin;
-	new_end.line = 1;
-	new_end.offset = 5;
-	loc = begin;
+	Location begin = { .line = 1, .offset = 3 };
+	Location end = begin;
+	Location new_end = { .line = 1, .offset = 5 };
+	Location loc = begin;
 	location_remap_replace(&loc, begin, end, new_end);
 	check(loc.line == 1 && loc.offset == 3);
 

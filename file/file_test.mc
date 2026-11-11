@@ -49,9 +49,8 @@ static void test_complete_path() {
 	char dir[512] = {0};
 	char path[512] = {0};
 	char buf[512] = {0};
-	int n = 0;
 
-	n = snprintf(dir, sizeof(dir), "/tmp/jem-fcomp-XXXXXX");
+	int n = snprintf(dir, sizeof(dir), "/tmp/jem-fcomp-XXXXXX");
 	check(n > 0);
 	check(mkdtemp(dir) != NULL);
 
@@ -78,9 +77,6 @@ static void test_complete_path() {
 static void test_check_reload_clean_buffer() {
 	char dir[512] = {0};
 	char path[512] = {0};
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Line *line = NULL;
 	int ask_line = 0;
 
 	snprintf(dir, sizeof(dir), "/tmp/jem-arevert-XXXXXX");
@@ -89,12 +85,9 @@ static void test_check_reload_clean_buffer() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	{
-		auto (loaded, ok) = file_load(path);
-		check(ok && loaded != NULL);
-		buf = loaded;
-	}
-	win = setup_window(buf);
+	auto (buf, ok) = file_load(path);
+	check(ok && buf != NULL);
+	Window *win = setup_window(buf);
 	win.cursor.line = 1;
 	win.cursor.offset = 3;
 	check(buf.file_mtime_ns != 0);
@@ -103,7 +96,7 @@ static void test_check_reload_clean_buffer() {
 	write_path(path, "alpha\nbeta\ngamma\n");
 
 	check(!file_check_reload_current(false, false, false, &ask_line));
-	line = buf.line(1);
+	Line *line = buf.line(1);
 	check(line != NULL);
 	check(len(line.data) == 5 && memcmp(ptr(line.data), "alpha", 5) == 0);
 	check(buf.line_count_i() == 4); /* trailing newline → empty last line */
@@ -115,9 +108,6 @@ static void test_check_reload_clean_buffer() {
 static void test_check_reload_skips_dirty_when_notified() {
 	char dir[512] = {0};
 	char path[512] = {0};
-	Buffer *buf = NULL;
-	Window *win = NULL;
-	Line *line = NULL;
 	int ask_line = 0;
 
 	snprintf(dir, sizeof(dir), "/tmp/jem-arevert2-XXXXXX");
@@ -126,12 +116,9 @@ static void test_check_reload_skips_dirty_when_notified() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	{
-		auto (loaded, ok) = file_load(path);
-		check(ok && loaded != NULL);
-		buf = loaded;
-	}
-	win = setup_window(buf);
+	auto (buf, ok) = file_load(path);
+	check(ok && buf != NULL);
+	Window *win = setup_window(buf);
 	(void)win;
 	buf.is_changed = true;
 	buf.file_mtime_ns = 1;
@@ -140,7 +127,7 @@ static void test_check_reload_skips_dirty_when_notified() {
 	buf.notified_mtime_ns = file_mtime_ns(path);
 
 	check(!file_check_reload_current(false, false, false, &ask_line));
-	line = buf.line(1);
+	Line *line = buf.line(1);
 	check(line != NULL);
 	check(len(line.data) == 5 && memcmp(ptr(line.data), "first", 5) == 0);
 }
@@ -148,7 +135,6 @@ static void test_check_reload_skips_dirty_when_notified() {
 static void test_check_reload_dirty_sets_notified() {
 	char dir[512] = {0};
 	char path[512] = {0};
-	Buffer *buf = NULL;
 	int ask_line = 0;
 
 	snprintf(dir, sizeof(dir), "/tmp/jem-arevert3-XXXXXX");
@@ -157,11 +143,8 @@ static void test_check_reload_dirty_sets_notified() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	{
-		auto (loaded, ok) = file_load(path);
-		check(ok && loaded != NULL);
-		buf = loaded;
-	}
+	auto (buf, ok) = file_load(path);
+	check(ok && buf != NULL);
 	(void)setup_window(buf);
 	buf.is_changed = true;
 	buf.file_mtime_ns = 1;
@@ -177,8 +160,6 @@ static void test_check_reload_dirty_sets_notified() {
 static void test_check_reload_auto_revert_dirty() {
 	char dir[512] = {0};
 	char path[512] = {0};
-	Buffer *buf = NULL;
-	Line *line = NULL;
 	int ask_line = 0;
 
 	snprintf(dir, sizeof(dir), "/tmp/jem-arevert4-XXXXXX");
@@ -187,11 +168,8 @@ static void test_check_reload_auto_revert_dirty() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	{
-		auto (loaded, ok) = file_load(path);
-		check(ok && loaded != NULL);
-		buf = loaded;
-	}
+	auto (buf, ok) = file_load(path);
+	check(ok && buf != NULL);
 	(void)setup_window(buf);
 	buf.is_changed = true;
 	buf.file_mtime_ns = 1;
@@ -199,7 +177,7 @@ static void test_check_reload_auto_revert_dirty() {
 	write_path(path, "reverted\n");
 
 	check(!file_check_reload_current(false, true, false, &ask_line));
-	line = buf.line(1);
+	Line *line = buf.line(1);
 	check(line != NULL);
 	check(len(line.data) == 8 && memcmp(ptr(line.data), "reverted", 8) == 0);
 	check(!buf.is_changed);
@@ -211,10 +189,8 @@ static void test_save_preserves_mode_and_symlink() {
 	char target[512] = {0};
 	char linkpath[512] = {0};
 	char text[64] = {0};
-	Buffer *buf = NULL;
+	char linkbuf[512] = {0};
 	struct stat st = {0};
-	File r = {0};
-	size_t got = 0;
 
 	snprintf(dir, sizeof(dir), "/tmp/jem-fsave-XXXXXX");
 	check(mkdtemp(dir) != NULL);
@@ -225,7 +201,7 @@ static void test_save_preserves_mode_and_symlink() {
 	check(symlink(target, linkpath) == 0);
 
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes("new\n", 4, EModeLF));
 	buf.set_file_name(str_from_cstr(linkpath));
@@ -233,22 +209,19 @@ static void test_save_preserves_mode_and_symlink() {
 	check(file_save(buf, NULL));
 
 	check(lstat(linkpath, &st) == 0);
-	check(S_ISLNK(st.st_mode));
+	check(readlink(linkpath, linkbuf, sizeof(linkbuf) - 1) > 0);
 	check(stat(target, &st) == 0);
 	check((st.st_mode & 0x1ff) == 0x1ed); /* 0777 / 0755 */
 
 	{
-		auto (rf, rok) = reader_open(str_from_cstr(target), 0);
+		auto (r, rok) = reader_open(str_from_cstr(target), OpenRead, 0);
 		check(rok);
-		r = rf;
-	}
-	{
 		auto (n, ok) = r.read(ranged(text, sizeof(text) - 1));
 		check(ok && n > 0);
-		got = (size_t)n;
+		size_t got = n;
+		r.close();
+		text[got] = 0;
 	}
-	r.close();
-	text[got] = 0;
 	check(strcmp(text, "new\n") == 0);
 }
 

@@ -27,18 +27,16 @@ static bool lang_is_brace_function(LangMode lang) {
 }
 
 static bool mode_c_top_of_function(Window *win, Buffer *buf) {
-	int line_number = 0;
 	int depth = 0;
-	int ln = line_number;
 	if (win == NULL || buf == NULL || buf.line_count_i() == 0) {
 		mode_msg("[Not in a function]");
 		return false;
 	}
-	line_number = win.cursor.line;
+	int line_number = win.cursor.line;
 	if (line_number == buf.eof_line()) {
 		line_number = buf.line_count_i();
 	}
-	for (; ln >= 1; ln--) {
+	for (int ln = line_number; ln >= 1; ln--) {
 		Line *line = buf.line(ln);
 		char[..] v = {0};
 		size_t n = 0;
@@ -79,9 +77,7 @@ static bool mode_c_top_of_function(Window *win, Buffer *buf) {
 				sig_line--;
 			}
 			{
-				Location loc = {0};
-				loc.line = sig_line;
-				loc.offset = 0;
+				Location loc = { .line = sig_line, .offset = 0 };
 				win.set_cursor(loc);
 				win.did_move = true;
 			}
@@ -93,19 +89,17 @@ static bool mode_c_top_of_function(Window *win, Buffer *buf) {
 }
 
 static bool mode_c_end_of_function(Window *win, Buffer *buf) {
-	int line_number = 0;
 	int depth = 0;
-	int ln = line_number;
 	if (win == NULL || buf == NULL || buf.line_count_i() == 0) {
 		mode_msg("[Not in a function]");
 		return false;
 	}
-	line_number = win.cursor.line;
+	int line_number = win.cursor.line;
 	int nlines = buf.line_count_i();
 	if (line_number == buf.eof_line()) {
 		line_number = nlines;
 	}
-	for (; ln <= nlines; ln++) {
+	for (int ln = line_number; ln <= nlines; ln++) {
 		Line *line = buf.line(ln);
 		char[..] v = {0};
 		size_t n = 0;
@@ -125,9 +119,7 @@ static bool mode_c_end_of_function(Window *win, Buffer *buf) {
 					continue;
 				}
 				{
-					Location loc = {0};
-					loc.line = ln;
-					loc.offset = i;
+					Location loc = { .line = ln, .offset = i };
 					win.set_cursor(loc);
 					win.did_move = true;
 				}

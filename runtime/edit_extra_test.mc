@@ -26,9 +26,8 @@ static void expect_text(Buffer *buf, const char *want) {
 static Window *g_win;
 
 static Window *setup(const char *text) {
-	Buffer *buf = NULL;
 	buffer_list_init();
-	buf = buffer_current();
+	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes(text, strlen(text), EModeLF));
 	if (g_win == NULL) {
@@ -48,9 +47,7 @@ static Window *setup(const char *text) {
 
 static void test_delete_blank_lines() {
 	Window *win = setup("a\n\n\nb");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_delete_blank_lines(false, 1));
 	expect_text(win.buffer, "a\nb");
@@ -58,9 +55,7 @@ static void test_delete_blank_lines() {
 
 static void test_delete_blank_lines_on_blank() {
 	Window *win = setup("a\n\n\n\nb");
-	Location loc = {0};
-	loc.line = 3;
-	loc.offset = 0;
+	Location loc = { .line = 3, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_delete_blank_lines(false, 1));
 	expect_text(win.buffer, "a\n\nb");
@@ -68,9 +63,7 @@ static void test_delete_blank_lines_on_blank() {
 
 static void test_transpose_lines() {
 	Window *win = setup("one\ntwo\nthree");
-	Location loc = {0};
-	loc.line = 2;
-	loc.offset = 0;
+	Location loc = { .line = 2, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_transpose_lines(false, 1));
 	expect_text(win.buffer, "two\none\nthree");
@@ -79,11 +72,9 @@ static void test_transpose_lines() {
 
 static void test_region_case() {
 	Window *win = setup("Hello World");
-	Location loc = {0};
 	win.mark.line = 1;
 	win.mark.offset = 0;
-	loc.line = 1;
-	loc.offset = 11;
+	Location loc = { .line = 1, .offset = 11 };
 	win.set_cursor(loc);
 	check(cmd_upper_region(false, 1));
 	expect_text(win.buffer, "HELLO WORLD");
@@ -97,11 +88,9 @@ static void test_region_case() {
 
 static void test_sort_region() {
 	Window *win = setup("c\na\nb\n");
-	Location loc = {0};
 	win.mark.line = 1;
 	win.mark.offset = 0;
-	loc.line = 3;
-	loc.offset = 1;
+	Location loc = { .line = 3, .offset = 1 };
 	win.set_cursor(loc);
 	check(cmd_sort_region(false, 1));
 	expect_text(win.buffer, "a\nb\nc\n");
@@ -109,9 +98,7 @@ static void test_sort_region() {
 
 static void test_snake_case() {
 	Window *win = setup("fooBar baz");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 3;
+	Location loc = { .line = 1, .offset = 3 };
 	win.set_cursor(loc);
 	check(cmd_snake_case(false, 1));
 	expect_text(win.buffer, "foo_bar baz");
@@ -119,9 +106,7 @@ static void test_snake_case() {
 
 static void test_pascal_case() {
 	Window *win = setup("foo_bar");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_pascal_case(false, 1));
 	expect_text(win.buffer, "FooBar");
@@ -129,9 +114,7 @@ static void test_pascal_case() {
 
 static void test_camel_from_xml() {
 	Window *win = setup("XMLHttpRequest");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_camel_case(false, 1));
 	expect_text(win.buffer, "xmlHttpRequest");
@@ -139,9 +122,7 @@ static void test_camel_from_xml() {
 
 static void test_constant_case() {
 	Window *win = setup("fooBar");
-	Location loc = {0};
-	loc.line = 1;
-	loc.offset = 0;
+	Location loc = { .line = 1, .offset = 0 };
 	win.set_cursor(loc);
 	check(cmd_constant_case(false, 1));
 	expect_text(win.buffer, "FOO_BAR");
