@@ -1,7 +1,7 @@
 // jem — %C port of the jem text editor.
 import "runtime";
 
-int main(int argc, char **argv) {
-	runtime_run(argc, argv);
+int main(const char[..][..] args) {
+	runtime_run(args);
 	return 0;
 }

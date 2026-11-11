@@ -155,13 +155,13 @@ int spawn_run(const char *command) {
 #ifdef _WIN32
 	if (oneshot) {
 		argv[0] = "/C";
-		argv[1] = str_from_cstr(g_spawn_line);
+		argv[1] = ranged(g_spawn_line, strlen(g_spawn_line));
 		nargs = 2;
 	}
 #else
 	if (oneshot) {
 		argv[0] = "-c";
-		argv[1] = str_from_cstr(g_spawn_line);
+		argv[1] = ranged(g_spawn_line, strlen(g_spawn_line));
 		nargs = 2;
 	}
 #endif
@@ -182,7 +182,7 @@ int spawn_run(const char *command) {
 		spawn_print_notice("Launching interactive shell", NULL);
 	}
 
-	c.init(str_from_cstr(g_spawn_prog), argv, nargs);
+	c.init(ranged(g_spawn_prog, strlen(g_spawn_prog)), argv, nargs);
 	if (!c.start()) {
 		c.close();
 		(void)term_resume();

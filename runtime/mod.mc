@@ -3133,8 +3133,7 @@ void runtime_after_buffer_edit(Buffer *buf, Location begin, Location end, Locati
 	mouse_after_buffer_edit(buf);
 }
 
-void runtime_run(int argc, char **argv) {
-	int i = 1;
+void runtime_run(const char[..][..] args) {
 	memset(&g_app, 0, sizeof(g_app));
 	g_app.running = true;
 	vars_init();
@@ -3153,12 +3152,20 @@ void runtime_run(int argc, char **argv) {
 	display_init();
 	config_load();
 
-	/* Load argv files; leave *scratch* alone; show the first path (jem.go). */
+	/* Load argv files; leave *scratch* alone; show the first path (jem.go).
+	 * args[0] is the program name; remaining entries are views into argv (NUL excluded). */
 	{
 		Buffer *first = NULL;
-		char*[..] args = ranged(argv, (size_t)argc);
-		for (; i < argc; i++) {
-			auto (buf, ok) = file_visit(args[i]);
+		size_t i = 1;
+		for (; i < len(args); i++) {
+			char path[4096] = {
+				0 };
+			const char[..] arg = args[i];
+			if (len(arg) == 0 || len(arg) >= sizeof(path)) {
+				continue;
+			}
+			snprintf(path, sizeof(path), "%.*s", (int)len(arg), ptr(arg));
+			auto (buf, ok) = file_visit(path);
 			if (!ok || buf == NULL) {
 				continue;
 			}

@@ -45,10 +45,10 @@ static bool g_job_out_open;
 static File g_job_err = {
 	0 };
 static bool g_job_err_open;
-static char *g_job_buf = NULL;
-static size_t g_job_len = 0;
-static char *g_job_err_buf = NULL;
-static size_t g_job_err_len = 0;
+static char[..] g_job_buf = {
+	0 };
+static char[..] g_job_err_buf = {
+	0 };
 static char g_job_root[JobPathMax] = {
 	0 };
 static char g_job_arg0[512] = {
@@ -61,57 +61,62 @@ static char g_job_tags_temp[JobPathMax] = {
 	0 };
 static bool g_job_tags_changed;
 
-static bool job_accum_append(char *src, size_t n) {
-	if (n == 0 || src == NULL) {
-		return true;
-	}
-	if (g_job_len + n > JobOutCap) {
-		n = JobOutCap - g_job_len;
-		if (n == 0) {
-			return true;
-		}
-	}
-	size_t need = g_job_len + n + 1;
-	if (need > JobOutCap + 1) {
-		need = JobOutCap + 1;
-	}
-	char *p = realloc(g_job_buf, need);
-	if (p == NULL) {
+static void job_bufs_reset() {
+	str_free(&g_job_buf);
+	g_job_buf = str_empty();
+	str_free(&g_job_err_buf);
+	g_job_err_buf = str_empty();
+}
+
+/* Ensure a trailing NUL past len for C %s / char* call sites. */
+static bool job_buf_nul(char[..]* s) {
+	if (s == NULL) {
 		return false;
 	}
-	memcpy(p + g_job_len, src, n);
-	g_job_len = g_job_len + n;
-	{
-		char[..] v = ranged(p, g_job_len + 1, need);
-		v[g_job_len] = 0;
+	if (!str_reserve(s, len(*s) + 1)) {
+		return false;
 	}
-	g_job_buf = p;
+	{
+		char[..] z = ranged(ptr(*s), len(*s) + 1, cap(*s));
+		z[len(*s)] = 0;
+	}
 	return true;
 }
 
-static bool job_err_append(char *src, size_t n) {
-	if (n == 0 || src == NULL) {
+static bool job_accum_append(const char[..] src) {
+	size_t n = len(src);
+	size_t cur = len(g_job_buf);
+	if (n == 0 || ptr(src) == NULL) {
 		return true;
 	}
-	if (g_job_err_len + n > (size_t)JobErrCap) {
-		n = (size_t)JobErrCap - g_job_err_len;
-		if (n == 0) {
-			return true;
-		}
+	if (cur >= (size_t)JobOutCap) {
+		return true;
 	}
-	size_t need = g_job_err_len + n + 1;
-	char *p = realloc(g_job_err_buf, need);
-	if (p == NULL) {
+	if (cur + n > (size_t)JobOutCap) {
+		n = (size_t)JobOutCap - cur;
+	}
+	if (!str_append(&g_job_buf, ranged(ptr(src), n))) {
 		return false;
 	}
-	memcpy(p + g_job_err_len, src, n);
-	g_job_err_len += n;
-	{
-		char[..] v = ranged(p, g_job_err_len + 1, need);
-		v[g_job_err_len] = 0;
+	return job_buf_nul(&g_job_buf);
+}
+
+static bool job_err_append(const char[..] src) {
+	size_t n = len(src);
+	size_t cur = len(g_job_err_buf);
+	if (n == 0 || ptr(src) == NULL) {
+		return true;
 	}
-	g_job_err_buf = p;
-	return true;
+	if (cur >= (size_t)JobErrCap) {
+		return true;
+	}
+	if (cur + n > (size_t)JobErrCap) {
+		n = (size_t)JobErrCap - cur;
+	}
+	if (!str_append(&g_job_err_buf, ranged(ptr(src), n))) {
+		return false;
+	}
+	return job_buf_nul(&g_job_err_buf);
 }
 
 static void job_clear() {
@@ -204,11 +209,11 @@ static bool job_abs_path(char *dst, size_t cap, char *rel) {
 	}
 	{
 		auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)),
-			str_from_cstr(g_job_root), str_from_cstr(rel));
+			ranged(g_job_root, strlen(g_job_root)), ranged(rel, strlen(rel)));
 		if (!jok || len(jv) == 0) {
 			return false;
 		}
-		int n = snprintf(dst, cap, "%s", jv);
+		int n = snprintf(dst, cap, "%.*s", (int)len(jv), ptr(jv));
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
@@ -597,7 +602,7 @@ static void job_finish(int exit_code) {
 		0 };
 	int kind = g_job_kind;
 
-	bool truncated = g_job_len >= JobOutCap;
+	bool truncated = len(g_job_buf) >= (size_t)JobOutCap;
 	if (kind == (int)JobGrep) {
 		Buffer *buf = job_ensure_named("*grep*");
 		if (buf == NULL) {
@@ -605,7 +610,8 @@ static void job_finish(int exit_code) {
 		} else {
 			bool was_ro = buf.is_readonly;
 			buf.is_readonly = false;
-			int matches = job_fill_grep(buf, g_job_buf, g_job_len, g_job_arg0, truncated);
+			int matches = job_fill_grep(buf, ptr(g_job_buf), len(g_job_buf), g_job_arg0,
+				truncated);
 			if (matches < 0) {
 				buf.is_readonly = was_ro;
 				display_set_echo("[grep failed]");
@@ -627,7 +633,8 @@ static void job_finish(int exit_code) {
 		} else {
 			bool was_ro = buf.is_readonly;
 			buf.is_readonly = false;
-			int diags = job_fill_compile(buf, g_job_buf, g_job_len, g_job_arg0, exit_code, truncated);
+			int diags = job_fill_compile(buf, ptr(g_job_buf), len(g_job_buf), g_job_arg0,
+				exit_code, truncated);
 			if (diags < 0) {
 				buf.is_readonly = was_ro;
 				display_set_echo("[compile failed]");
@@ -644,18 +651,18 @@ static void job_finish(int exit_code) {
 		}
 	} else if (kind == (int)JobTags) {
 		if (exit_code != 0) {
-			if (g_job_err_buf != NULL && *g_job_err_buf != 0) {
+			if (len(g_job_err_buf) > 0 && ptr(g_job_err_buf) != NULL) {
 				snprintf(echo, sizeof(echo), "[tags failed: %.200s]",
-					g_job_err_buf);
+					ptr(g_job_err_buf));
 			} else {
 				snprintf(echo, sizeof(echo), "[tags failed: exit %d]",
 					exit_code);
 			}
-			fs_remove(str_from_cstr(g_job_tags_temp));
-		} else if (!fs_rename(str_from_cstr(g_job_tags_temp),
-				str_from_cstr(g_job_tags_target))) {
+			fs_remove(ranged(g_job_tags_temp, strlen(g_job_tags_temp)));
+		} else if (!fs_rename(ranged(g_job_tags_temp, strlen(g_job_tags_temp)),
+				ranged(g_job_tags_target, strlen(g_job_tags_target)))) {
 			snprintf(echo, sizeof(echo), "[tags failed: cannot replace tags file]");
-			fs_remove(str_from_cstr(g_job_tags_temp));
+			fs_remove(ranged(g_job_tags_temp, strlen(g_job_tags_temp)));
 		} else {
 			snprintf(echo, sizeof(echo), "[tags ok: %s]", g_job_tags_target);
 			g_job_tags_changed = true;
@@ -667,23 +674,15 @@ static void job_finish(int exit_code) {
 		snprintf(echo, sizeof(echo), "[job done exit=%d]", exit_code);
 		display_set_echo(echo);
 	}
-	free(g_job_buf);
-	free(g_job_err_buf);
-	g_job_buf = NULL;
-	g_job_len = 0;
-	g_job_err_buf = NULL;
-	g_job_err_len = 0;
+	job_bufs_reset();
 	job_clear();
 }
 
 static bool job_start_argv(const char[..] program, const char[..] *argv, size_t nargs,
-	char *workdir, int kind) {
+	const char[..] workdir, int kind) {
 	char prog_path[JobPathMax] = {
 		0 };
 	Cmd *c = &g_job_cmd;
-	size_t i = 0;
-	const char[..] stack_args[JobMaxArgs] = {
-		0 };
 
 	if (g_job_kind != (int)JobNone) {
 		display_set_echo("[busy: background job running]");
@@ -693,12 +692,7 @@ static bool job_start_argv(const char[..] program, const char[..] *argv, size_t 
 		display_set_echo("[job: too many arguments]");
 		return false;
 	}
-	free(g_job_buf);
-	free(g_job_err_buf);
-	g_job_buf = NULL;
-	g_job_len = 0;
-	g_job_err_buf = NULL;
-	g_job_err_len = 0;
+	job_bufs_reset();
 	g_job_kind = kind;
 
 	auto (found, lok) = os_look_path(
@@ -709,15 +703,8 @@ static bool job_start_argv(const char[..] program, const char[..] *argv, size_t 
 		g_job_kind = JobNone;
 		return false;
 	}
-	const char[..] resolved = str_from_cstr(prog_path);
-	{
-		const char[..][..] av = ranged(argv, nargs);
-		for (; i < nargs; i++) {
-			stack_args[i] = av[i];
-		}
-	}
-	c.init(resolved, stack_args, nargs);
-	if (!c.dir(str_from_cstr(workdir))) {
+	c.init(ranged(prog_path, strlen(prog_path)), argv, nargs);
+	if (!c.dir(workdir)) {
 		display_set_echo("[job: bad working directory]");
 		job_clear();
 		return false;
@@ -768,16 +755,11 @@ bool job_cancel() {
 	}
 	g_job_cmd.close();
 	if (kind == (int)JobTags && g_job_tags_temp[0] != 0) {
-		fs_remove(str_from_cstr(g_job_tags_temp));
+		fs_remove(ranged(g_job_tags_temp, strlen(g_job_tags_temp)));
 		g_job_tags_temp[0] = 0;
 		g_job_tags_target[0] = 0;
 	}
-	free(g_job_buf);
-	free(g_job_err_buf);
-	g_job_buf = NULL;
-	g_job_len = 0;
-	g_job_err_buf = NULL;
-	g_job_err_len = 0;
+	job_bufs_reset();
 	job_clear();
 	display_set_echo("[cancelled]");
 	return true;
@@ -799,26 +781,27 @@ bool job_start_tags(char *ctags, char *root, char *target, char *temp,
 	}
 	if (g_job_kind != (int)JobNone) {
 		display_set_echo("[busy: background job running]");
-		fs_remove(str_from_cstr(temp));
+		fs_remove(ranged(temp, strlen(temp)));
 		return false;
 	}
 	snprintf(exclude_arg, sizeof(exclude_arg), "--exclude=%s", exclude_name);
 	argv[0] = "--options=NONE";
 	argv[1] = "-R";
 	argv[2] = "--exclude=.git";
-	argv[3] = str_from_cstr(exclude_arg);
+	argv[3] = ranged(exclude_arg, strlen(exclude_arg));
 	argv[4] = "--exclude=.jem-tags-*";
 	argv[5] = "--output-format=json";
 	argv[6] = "--fields=+nKSzastP";
 	argv[7] = "--extras=+q";
 	argv[8] = "-f";
-	argv[9] = str_from_cstr(temp);
+	argv[9] = ranged(temp, strlen(temp));
 	argv[10] = ".";
 	snprintf(g_job_tags_target, sizeof(g_job_tags_target), "%s", target);
 	snprintf(g_job_tags_temp, sizeof(g_job_tags_temp), "%s", temp);
-	bool ok = job_start_argv(str_from_cstr(ctags), argv, 11, root, JobTags);
+	bool ok = job_start_argv(ranged(ctags, strlen(ctags)), argv, 11,
+		ranged(root, strlen(root)), JobTags);
 	if (!ok) {
-		fs_remove(str_from_cstr(temp));
+		fs_remove(ranged(temp, strlen(temp)));
 		g_job_tags_temp[0] = 0;
 		g_job_tags_target[0] = 0;
 		return false;
@@ -857,9 +840,10 @@ bool job_start_grep(char *pattern) {
 			argv_rg[1] = "--column";
 			argv_rg[2] = "--no-heading";
 			argv_rg[3] = "--color=never";
-			argv_rg[4] = str_from_cstr(g_job_arg0);
+			argv_rg[4] = ranged(g_job_arg0, strlen(g_job_arg0));
 			argv_rg[5] = ".";
-			return job_start_argv("rg", argv_rg, 6, g_job_root, JobGrep);
+			return job_start_argv("rg", argv_rg, 6,
+				ranged(g_job_root, strlen(g_job_root)), JobGrep);
 		}
 	}
 	{
@@ -870,9 +854,10 @@ bool job_start_grep(char *pattern) {
 			return false;
 		}
 		argv_grep[0] = "-rn";
-		argv_grep[1] = str_from_cstr(g_job_arg0);
+		argv_grep[1] = ranged(g_job_arg0, strlen(g_job_arg0));
 		argv_grep[2] = ".";
-		return job_start_argv("grep", argv_grep, 3, g_job_root, JobGrep);
+		return job_start_argv("grep", argv_grep, 3,
+			ranged(g_job_root, strlen(g_job_root)), JobGrep);
 	}
 }
 
@@ -905,9 +890,9 @@ bool job_start_compile(char *command) {
 			}
 		}
 		argv[0] = "/C";
-		argv[1] = str_from_cstr(g_job_arg0);
-		return job_start_argv(str_from_cstr(sh), argv, 2, g_job_root,
-			JobCompile);
+		argv[1] = ranged(g_job_arg0, strlen(g_job_arg0));
+		return job_start_argv(ranged(sh, strlen(sh)), argv, 2,
+			ranged(g_job_root, strlen(g_job_root)), JobCompile);
 	}
 #else
 	{
@@ -918,9 +903,9 @@ bool job_start_compile(char *command) {
 			return false;
 		}
 		argv[0] = "-c";
-		argv[1] = str_from_cstr(g_job_arg0);
-		return job_start_argv(str_from_cstr(sh), argv, 2, g_job_root,
-			JobCompile);
+		argv[1] = ranged(g_job_arg0, strlen(g_job_arg0));
+		return job_start_argv(ranged(sh, strlen(sh)), argv, 2,
+			ranged(g_job_root, strlen(g_job_root)), JobCompile);
 	}
 #endif
 }
@@ -976,11 +961,11 @@ static bool job_read_ready(File *file) {
 	char chunk[4096] = {0};
 	if (file == &g_job_out) {
 		auto (n, ok) = g_job_out.read(ranged(chunk, sizeof(chunk)));
-		return ok && n > 0 && job_accum_append(chunk, n);
+		return ok && n > 0 && job_accum_append(ranged(chunk, n));
 	}
 	if (file == &g_job_err) {
 		auto (n, ok) = g_job_err.read(ranged(chunk, sizeof(chunk)));
-		return ok && n > 0 && job_err_append(chunk, n);
+		return ok && n > 0 && job_err_append(ranged(chunk, n));
 	}
 	return false;
 }
@@ -1057,12 +1042,11 @@ void job_poll() {
 			break;
 		}
 	}
-	if (g_job_kind == (int)JobCompile && g_job_err_len > 0) {
-		if (g_job_len > 0) {
-			char newline[1] = {'\n'};
-			(void)job_accum_append(newline, 1);
+	if (g_job_kind == (int)JobCompile && len(g_job_err_buf) > 0) {
+		if (len(g_job_buf) > 0) {
+			(void)job_accum_append("\n");
 		}
-		(void)job_accum_append(g_job_err_buf, g_job_err_len);
+		(void)job_accum_append(ranged(ptr(g_job_err_buf), len(g_job_err_buf)));
 	}
 	job_finish(exit_code);
 }
