@@ -391,7 +391,7 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 		f.path = str_empty();
 	} else {
 		auto (jv, jok) = path_join(ranged(resolved, 0, sizeof(resolved)),
-			str_from_cstr(tags_dir), f.path);
+			ranged(tags_dir, strlen(tags_dir)), f.path);
 		if (!jok || len(jv) == 0) {
 			tag_entry_free(&e);
 			tag_json_fields_free(&f);
@@ -455,14 +455,14 @@ static bool tag_db_load(char *path) {
 	int source_line = 0;
 	g_tags_error[0] = 0;
 	memset(&g_tags, 0, sizeof(g_tags));
-	auto (text, text_len, ok) = tags_read_file(str_from_cstr(path));
+	char[..] pathv = str_from_cstr(path);
+	auto (text, text_len, ok) = tags_read_file(pathv);
 	if (!ok) {
 		g_tags = previous;
 		return false;
 	}
 	{
-		char[..] pv = str_from_cstr(path);
-		char[..] d = path_dir(pv);
+		char[..] d = path_dir(pathv);
 		if (len(d) == 0 || ptr(d) == NULL) {
 			/* keep empty tags_dir */
 		} else {
@@ -541,7 +541,7 @@ static bool tag_db_load(char *path) {
 		str_free(&line);
 	}
 	free(text);
-	auto (info, sok) = fs_stat(str_from_cstr(path));
+	auto (info, sok) = fs_stat(pathv);
 	if (!sok) {
 		tags_invalidate();
 		g_tags = previous;
@@ -601,8 +601,9 @@ static bool tag_resolve_path(char *out, size_t cap) {
 	char cand[TagPathMax] = {0};
 	char prev[TagPathMax] = {0};
 	tag_file_name(tag_name, sizeof(tag_name));
-	if (path_is_abs(str_from_cstr(tag_name))) {
-		auto (inf, ok) = fs_stat(str_from_cstr(tag_name));
+	char[..] tag_namev = ranged(tag_name, strlen(tag_name));
+	if (path_is_abs(tag_namev)) {
+		auto (inf, ok) = fs_stat(tag_namev);
 		(void)inf;
 		if (!ok) {
 			return false;
@@ -617,8 +618,9 @@ static bool tag_resolve_path(char *out, size_t cap) {
 		return false;
 	}
 	for (;;) {
+		char[..] dirv = ranged(dir, strlen(dir));
 		auto (jv, jok) = path_join(ranged(cand, 0, sizeof(cand)),
-			str_from_cstr(dir), str_from_cstr(tag_name));
+			dirv, tag_namev);
 		if (jok && len(jv) > 0) {
 			auto (inf, ok) = fs_stat(jv);
 			(void)inf;
@@ -632,7 +634,7 @@ static bool tag_resolve_path(char *out, size_t cap) {
 		}
 		snprintf(prev, sizeof(prev), "%s", dir);
 		{
-			char[..] parent = path_dir(str_from_cstr(dir));
+			char[..] parent = path_dir(dirv);
 			int n = 0;
 			if (len(parent) == 0 || ptr(parent) == NULL) {
 				return false;
@@ -652,7 +654,7 @@ static void tag_search_anchor(char *dst, size_t cap) {
 	char tag_name[TagNameMax] = {0};
 	char dir[TagPathMax] = {0};
 	tag_file_name(tag_name, sizeof(tag_name));
-	if (path_is_abs(str_from_cstr(tag_name))) {
+	if (path_is_abs(ranged(tag_name, strlen(tag_name)))) {
 		snprintf(dst, cap, "abs:%s", tag_name);
 		return;
 	}
@@ -674,7 +676,7 @@ bool tags_ensure_loaded(bool quiet) {
 		return false;
 	}
 	if (g_tags.path[0] != 0 && strcmp(g_tags.path, path) == 0 && strcmp(g_tags.anchor, anchor) == 0) {
-		auto (info, sok) = fs_stat(str_from_cstr(path));
+		auto (info, sok) = fs_stat(ranged(path, strlen(path)));
 		if (sok && info.mtime_ns == g_tags.mtime) {
 			return true;
 		}
@@ -1191,7 +1193,7 @@ void tags_maybe_show_call_hint() {
 		!tag_find_call_hint(win, name, sizeof(name), scope, sizeof(scope))) {
 		return;
 	}
-	const char[..] nv = str_from_cstr(name);
+	const char[..] nv = ranged(name, strlen(name));
 	size_t i = tag_index_lower_bound(nv);
 	while (i < len(g_tags.by_name) && str_eq(g_tags.by_name[i].name, nv)) {
 		TagEntry *entry = g_tags.by_name[i++];
@@ -1249,7 +1251,7 @@ void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 	if (entry == NULL || str_is_empty(entry.path)) {
 		return;
 	}
-	char[..] dir = path_dir(str_from_cstr(g_tags.path));
+	char[..] dir = path_dir(ranged(g_tags.path, strlen(g_tags.path)));
 	if (ptr(dir) != NULL && len(dir) > 0) {
 		int n = snprintf(root, sizeof(root), "%s", dir);
 		if (n < 0 || (size_t)n >= sizeof(root)) {
@@ -1260,7 +1262,7 @@ void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 	{
 		const char[..] pv = entry.path;
 		if (rlen > 0 && rlen < len(pv) &&
-			str_eq(pv[0 .. rlen], str_from_cstr(root)) &&
+			str_eq(pv[0 .. rlen], ranged(root, rlen)) &&
 			pv[rlen] == '/') {
 			snprintf(dst, cap, "%s", pv[rlen + 1 ..]);
 		} else {
@@ -1628,8 +1630,9 @@ static bool tags_project_root(char *dst, size_t cap) {
 		return false;
 	}
 	for (;;) {
+		char[..] dirv = ranged(dir, strlen(dir));
 		auto (jv, jok) = path_join(ranged(git, 0, sizeof(git)),
-			str_from_cstr(dir), ".git");
+			dirv, ".git");
 		if (jok && len(jv) > 0) {
 			auto (inf, ok) = fs_stat(jv);
 			(void)inf;
@@ -1643,7 +1646,7 @@ static bool tags_project_root(char *dst, size_t cap) {
 		}
 		snprintf(prev, sizeof(prev), "%s", dir);
 		{
-			char[..] parent = path_dir(str_from_cstr(dir));
+			char[..] parent = path_dir(dirv);
 			if (len(parent) == 0 || ptr(parent) == NULL) {
 				break;
 			}
@@ -1745,7 +1748,8 @@ bool tags_build() {
 		display_set_echo("[busy: background job running]");
 		return false;
 	}
-	if (path_is_abs(str_from_cstr(tag_name))) {
+	char[..] tag_namev = ranged(tag_name, strlen(tag_name));
+	if (path_is_abs(tag_namev)) {
 		if (strlen(tag_name) >= sizeof(target)) {
 			display_set_echo("[tags output path is too long]");
 			return false;
@@ -1753,7 +1757,7 @@ bool tags_build() {
 		snprintf(target, sizeof(target), "%s", tag_name);
 	} else {
 		auto (tv, ok) = path_join(ranged(target, 0, sizeof(target)),
-			str_from_cstr(root), str_from_cstr(tag_name));
+			ranged(root, strlen(root)), tag_namev);
 		if (!ok || len(tv) == 0) {
 			display_set_echo("[cannot determine tags output path]");
 			return false;
@@ -1764,15 +1768,15 @@ bool tags_build() {
 		return false;
 	}
 	{
-		char[..] base = path_base(str_from_cstr(target));
+		char[..] base = path_base(ranged(target, strlen(target)));
 		if (len(base) == 0 || ptr(base) == NULL) {
-			fs_remove(str_from_cstr(temp));
+			fs_remove(ranged(temp, strlen(temp)));
 			display_set_echo("[invalid tags output path]");
 			return false;
 		}
 		int n = snprintf(exclude_name, sizeof(exclude_name), "%s", base);
 		if (n < 0 || (size_t)n >= sizeof(exclude_name)) {
-			fs_remove(str_from_cstr(temp));
+			fs_remove(ranged(temp, strlen(temp)));
 			display_set_echo("[invalid tags output path]");
 			return false;
 		}

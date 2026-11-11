@@ -59,7 +59,7 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 					snprintf(home_buf, sizeof(home_buf), "%.*s%.*s",
 						(int)len(drive), ptr(drive),
 						(int)len(pathv), ptr(pathv));
-					home = str_from_cstr(home_buf);
+					home = ranged(home_buf, strlen(home_buf));
 					hok = true;
 				}
 			}
@@ -119,11 +119,11 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 static void file_apply_path_meta(Buffer *buf, char *path) {
 	char[..] pv = str_from_cstr(path);
 	char[..] base = path_base(pv);
-	buf.set_file_name(str_from_cstr(path));
+	buf.set_file_name(pv);
 	if (len(base) > 0 && ptr(base) != NULL) {
 		buf.set_name(base);
 	} else {
-		buf.set_name(str_from_cstr(path));
+		buf.set_name(pv);
 	}
 	mode_apply_from_path(buf, path);
 }
@@ -304,7 +304,7 @@ bool file_save(Buffer *buf, char *path) {
 	char[..] usev = buf.file_name;
 	if (path != NULL && *path != 0) {
 		if (file_resolve_path(resolved, sizeof(resolved), path)) {
-			usev = str_from_cstr(resolved);
+			usev = ranged(resolved, strlen(resolved));
 		} else {
 			usev = str_from_cstr(path);
 		}
@@ -358,7 +358,7 @@ bool file_save(Buffer *buf, char *path) {
 		snprintf(resolved, sizeof(resolved), "%s", path);
 	}
 	path = resolved;
-	char[..] want = str_from_cstr(path);
+	char[..] want = ranged(resolved, strlen(resolved));
 	for (auto b : buffer_all) {
 		if (b != NULL && str_eq(want, b.file_name)) {
 			/* Re-apply language/indent defaults (e.g. .mc → tabs) in case the
@@ -594,8 +594,11 @@ static bool file_entry_is_dir(char *dir, char *name) {
 	if (name == NULL || *name == 0) {
 		return false;
 	}
-	char[..] dv = str_from_cstr(dir != NULL && *dir != 0 ? dir : ".");
-	char[..] nv = str_from_cstr(name);
+	const char[..] dv = ".";
+	const char[..] nv = str_from_cstr(name);
+	if (dir != NULL && *dir != 0) {
+		dv = str_from_cstr(dir);
+	}
 	auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), dv, nv);
 	if (!jok) {
 		return false;
@@ -646,7 +649,7 @@ bool file_complete_path(char *buf, size_t cap) {
 	snprintf(edir, sizeof(edir), "%s", dir_for_open);
 	snprintf(eprefix, sizeof(eprefix), "%s", tprefix);
 	size_t prefix_len = strlen(eprefix);
-	auto (opened, dok) = dir_open(str_from_cstr(edir));
+	auto (opened, dok) = dir_open(ranged(edir, strlen(edir)));
 	Dir d = opened;
 	if (!dok) {
 		return false;

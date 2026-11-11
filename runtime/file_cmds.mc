@@ -43,7 +43,7 @@ void misc_delete_file_yes() {
 		display_set_echo("[no such file]");
 		return;
 	}
-	if (!fs_remove(str_from_cstr(path))) {
+	if (!fs_remove(ranged(path, strlen(path)))) {
 		display_set_echo("[delete failed]");
 		return;
 	}
@@ -71,7 +71,7 @@ bool cmd_delete_this_file(bool f, int n) {
 	}
 	snprintf(path, sizeof(path), "%.*s", (int)len(buf.file_name), ptr(buf.file_name));
 	{
-		auto (info, ok) = fs_stat(str_from_cstr(path));
+		auto (info, ok) = fs_stat(ranged(path, strlen(path)));
 		if (!ok || info.kind != KindFile) {
 			display_set_echo("[no such file]");
 			return false;

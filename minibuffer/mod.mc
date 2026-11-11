@@ -152,7 +152,7 @@ bool minibuffer_step_history(int dir) {
 	}
 	if (g_mb.history_pos == 0) {
 		if (g_mb.have_saved_edit) {
-			minibuffer_set_text(str_from_cstr(g_mb.saved_edit));
+			minibuffer_set_text(ranged(g_mb.saved_edit, strlen(g_mb.saved_edit)));
 		} else {
 			g_mb.len = 0;
 			g_mb.cursor = 0;

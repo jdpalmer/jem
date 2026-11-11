@@ -1670,7 +1670,7 @@ static bool insert_tag_completion(TagEntry *entry) {
 	}
 	size_t plen = strlen(prefix);
 	if (len(entry.name) < plen ||
-		!str_eq(entry.name[0 .. plen], str_from_cstr(prefix))) {
+		!str_eq(entry.name[0 .. plen], ranged(prefix, plen))) {
 		return false;
 	}
 	size_t n = len(entry.name) - plen;

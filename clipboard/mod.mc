@@ -46,8 +46,8 @@ static bool clipboard_find_pair(ClipboardProvider provider,
 		!clipboard_find(read_path, sizeof(read_path), read_name)) {
 		return false;
 	}
-	cstr_write(g_write_path, str_from_cstr(write_path));
-	cstr_write(g_read_path, str_from_cstr(read_path));
+	cstr_write(g_write_path, ranged(write_path, strlen(write_path)));
+	cstr_write(g_read_path, ranged(read_path, strlen(read_path)));
 	g_provider = provider;
 	return true;
 }
@@ -142,7 +142,7 @@ static bool clipboard_write_native(const char[..] text) {
 	}
 #endif
 	size_t nargs = clipboard_args(true, args);
-	cmd.init(str_from_cstr(g_write_path), args, nargs);
+	cmd.init(ranged(g_write_path, strlen(g_write_path)), args, nargs);
 	cmd.stdio(StdOut, IoNull);
 	cmd.stdio(StdErr, IoNull);
 	auto (input, ok) = cmd.pipe(StdIn);
@@ -176,7 +176,7 @@ static (char *, size_t, bool) clipboard_read_native() {
 	}
 #endif
 	size_t nargs = clipboard_args(false, args);
-	cmd.init(str_from_cstr(g_read_path), args, nargs);
+	cmd.init(ranged(g_read_path, strlen(g_read_path)), args, nargs);
 	cmd.stdio(StdIn, IoNull);
 	cmd.stdio(StdErr, IoNull);
 	auto (output, ok) = cmd.pipe(StdOut);
