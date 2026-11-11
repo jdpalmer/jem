@@ -1465,7 +1465,7 @@ bool cmd_save_buffer(bool f, int n) {
 	if (len(b.file_name) == 0) {
 		return cmd_write_file(false, 1);
 	}
-	if (file_needs_overwrite_confirm(b, NULL)) {
+	if (file_needs_overwrite_confirm(b, "")) {
 		push_listener(ListenerAskYesNo);
 		{
 			Listener *L = top_listener();
@@ -1480,7 +1480,7 @@ bool cmd_save_buffer(bool f, int n) {
 		minibuffer_begin("file changed on disk. overwrite (y/n) ", 1);
 		return true;
 	}
-	if (file_save(b, NULL)) {
+	if (file_save(b, "")) {
 		display_set_echo("Wrote file");
 	} else {
 		display_set_echo("Write failed");
@@ -1614,7 +1614,7 @@ bool cmd_goto_tag(bool f, int n) {
 	(void)f;
 	(void)n;
 	if (tags_symbol_at_point(sym, sizeof(sym))) {
-		bool ok = tags_goto_name(sym);
+		bool ok = tags_goto_name(ranged(sym, strlen(sym)));
 		if (ok && tags_picker_active()) {
 			push_listener(ListenerTagPicker);
 		}
@@ -1703,7 +1703,7 @@ bool cmd_complete_symbol(bool f, int n) {
 	if (!tags_ensure_loaded(false)) {
 		return false;
 	}
-	if (!tags_collect_completions(prefix, &matches)) {
+	if (!tags_collect_completions(ranged(prefix, strlen(prefix)), &matches)) {
 		display_set_echo("[completion: cannot collect matches]");
 		return false;
 	}
@@ -2612,7 +2612,7 @@ static bool handle_listener_key(uint32_t key) {
 				}
 				if (phase == (int)AskYesOverwrite) {
 					Buffer *b = buffer_current();
-					char *path = linebuf[0] != 0 ? linebuf : NULL;
+					const char[..] path = ranged(linebuf, strlen(linebuf));
 					if (b != NULL && file_save(b, path)) {
 						display_set_echo("Wrote file");
 					} else {
@@ -2662,7 +2662,7 @@ static bool handle_listener_key(uint32_t key) {
 			if (kind == ListenerAskString) {
 				Window *w = window_current();
 				if (phase == (int)AskFindFile) {
-					auto (buf, ok) = file_visit(text_copy);
+					auto (buf, ok) = file_visit(ranged(text_copy, strlen(text_copy)));
 					if (ok && buf != NULL) {
 						window_switch_buffer(buf);
 						tags_preload();
@@ -2674,11 +2674,12 @@ static bool handle_listener_key(uint32_t key) {
 				}
 				if (phase == (int)AskWriteFile) {
 					Buffer *b = buffer_current();
-					if (text_copy[0] == 0 || b == NULL) {
+					const char[..] textv = ranged(text_copy, strlen(text_copy));
+					if (len(textv) == 0 || b == NULL) {
 						display_set_echo("Write failed");
 						return true;
 					}
-					if (file_needs_overwrite_confirm(b, text_copy)) {
+					if (file_needs_overwrite_confirm(b, textv)) {
 						push_listener(ListenerAskYesNo);
 						{
 							Listener *Ow = top_listener();
@@ -2690,7 +2691,7 @@ static bool handle_listener_key(uint32_t key) {
 						minibuffer_begin("file changed on disk. overwrite (y/n) ", 1);
 						return true;
 					}
-					if (file_save(b, text_copy)) {
+					if (file_save(b, textv)) {
 						if (w != NULL) {
 							w.should_redraw = true;
 							w.should_update_mode_line = true;
@@ -2707,7 +2708,7 @@ static bool handle_listener_key(uint32_t key) {
 						display_set_echo("Read failed");
 						return true;
 					}
-					if (file_read_into_current(text_copy)) {
+					if (file_read_into_current(ranged(text_copy, strlen(text_copy)))) {
 						if (w != NULL) {
 							w.buffer = buffer_current();
 							w.cursor = w.buffer.cursor;
@@ -2742,7 +2743,7 @@ static bool handle_listener_key(uint32_t key) {
 						display_set_echo("Empty tag name");
 						return true;
 					}
-					tags_goto_name(text_copy);
+					tags_goto_name(ranged(text_copy, strlen(text_copy)));
 					if (tags_picker_active()) {
 						push_listener(ListenerTagPicker);
 					}
@@ -3158,14 +3159,11 @@ void runtime_run(const char[..][..] args) {
 		Buffer *first = NULL;
 		size_t i = 1;
 		for (; i < len(args); i++) {
-			char path[4096] = {
-				0 };
 			const char[..] arg = args[i];
-			if (len(arg) == 0 || len(arg) >= sizeof(path)) {
+			if (len(arg) == 0) {
 				continue;
 			}
-			snprintf(path, sizeof(path), "%.*s", (int)len(arg), ptr(arg));
-			auto (buf, ok) = file_visit(path);
+			auto (buf, ok) = file_visit(arg);
 			if (!ok || buf == NULL) {
 				continue;
 			}

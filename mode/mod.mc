@@ -230,13 +230,11 @@ void mode_guess_indent(Buffer *buf) {
 	buf.indent.width = space_gcd;
 }
 
-void mode_apply_from_path(Buffer *buf, const char *path) {
+void mode_apply_from_path(Buffer *buf, const char[..] path) {
 	if (buf == NULL) {
 		return;
 	}
-	size_t plen = path != NULL ? strlen(path) : 0;
-	char[..] v = ranged(path, plen);
-	buf.lang_mode = mode_detect(v);
+	buf.lang_mode = mode_detect(path);
 	buf.indent = mode_indent_default(buf.lang_mode);
 	if (buf.lang_mode == LModeC) {
 		mode_guess_indent(buf);

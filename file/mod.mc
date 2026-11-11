@@ -30,20 +30,20 @@ enum {
 	FilePathMax = 4096 };
 
 // file_resolve_path writes a cleaned logical path into dst (~, relative → cwd).
-bool file_resolve_path(char *dst, size_t dstcap, char *path) {
+bool file_resolve_path(char *dst, size_t dstcap, const char[..] path) {
 	char tmp[FilePathMax] = {
 		0 };
 	char joined[FilePathMax] = {
 		0 };
-	char[..] to_clean = str_empty();
+	const char[..] to_clean = str_empty();
 
-	if (dst == NULL || dstcap < 2 || path == NULL || *path == 0) {
+	if (dst == NULL || dstcap < 2 || len(path) == 0) {
 		return false;
 	}
-	char[..] logical = str_from_cstr(path);
-	if (*path == '~') {
+	const char[..] logical = path;
+	if (logical[0] == '~') {
 #ifdef _WIN32
-		char[..] home = str_empty();
+		const char[..] home = str_empty();
 		bool hok = false;
 		char home_buf[FilePathMax] = {
 			0 };
@@ -116,25 +116,24 @@ bool file_resolve_path(char *dst, size_t dstcap, char *path) {
 	return true;
 }
 
-static void file_apply_path_meta(Buffer *buf, char *path) {
-	char[..] pv = str_from_cstr(path);
-	char[..] base = path_base(pv);
-	buf.set_file_name(pv);
+static void file_apply_path_meta(Buffer *buf, const char[..] path) {
+	const char[..] base = path_base(path);
+	buf.set_file_name(path);
 	if (len(base) > 0 && ptr(base) != NULL) {
 		buf.set_name(base);
 	} else {
-		buf.set_name(pv);
+		buf.set_name(path);
 	}
 	mode_apply_from_path(buf, path);
 }
 
 // file_mtime_ns returns the modification time of path in nanoseconds, or 0 on error.
-int64_t file_mtime_ns(char *path) {
-	if (path == NULL || *path == 0) {
+int64_t file_mtime_ns(const char[..] path) {
+	if (len(path) == 0) {
 		return 0;
 	}
 	{
-		auto (info, ok) = fs_stat(str_from_cstr(path));
+		auto (info, ok) = fs_stat(path);
 		if (!ok) {
 			return 0;
 		}
@@ -144,7 +143,6 @@ int64_t file_mtime_ns(char *path) {
 
 // file_sync_mtime refreshes FileModTime from the buffer's path and clears the D marker.
 void file_sync_mtime(Buffer *buf) {
-	char path[FilePathMax] = {0};
 	if (buf == NULL) {
 		return;
 	}
@@ -153,49 +151,38 @@ void file_sync_mtime(Buffer *buf) {
 		buf.notified_mtime_ns = 0;
 		return;
 	}
-	{
-		int n = snprintf(path, sizeof(path), "%s", buf.file_name);
-		if (n < 0 || (size_t)n >= sizeof(path)) {
-			buf.file_mtime_ns = 0;
-			buf.notified_mtime_ns = 0;
-			return;
-		}
-	}
-	buf.file_mtime_ns = file_mtime_ns(path);
+	buf.file_mtime_ns = file_mtime_ns(buf.file_name);
 	buf.notified_mtime_ns = 0;
 }
 
 // file_needs_overwrite_confirm is true when path's mtime differs from the buffer's.
-bool file_needs_overwrite_confirm(Buffer *buf, char *path) {
+// Empty path means use the buffer's file_name.
+bool file_needs_overwrite_confirm(Buffer *buf, const char[..] path) {
 	char resolved[FilePathMax] = {0};
 
 	if (buf == NULL || buf.file_mtime_ns == 0) {
 		return false;
 	}
-	if (path != NULL && *path != 0) {
-		char *use = file_resolve_path(resolved, sizeof(resolved), path) ? resolved : path;
+	if (len(path) > 0) {
+		const char[..] use = path;
+		if (file_resolve_path(resolved, sizeof(resolved), path)) {
+			use = ranged(resolved, strlen(resolved));
+		}
 		int64_t cur = file_mtime_ns(use);
 		return cur != 0 && cur != buf.file_mtime_ns;
 	}
 	if (len(buf.file_name) == 0) {
 		return false;
 	}
-	{
-		int n = snprintf(resolved, sizeof(resolved), "%s", buf.file_name);
-		if (n < 0 || (size_t)n >= sizeof(resolved)) {
-			return false;
-		}
-	}
-	int64_t cur = file_mtime_ns(resolved);
+	int64_t cur = file_mtime_ns(buf.file_name);
 	return cur != 0 && cur != buf.file_mtime_ns;
 }
 
 // Read entire file into a malloc'd buffer (NUL-terminated). False on I/O error.
-static (char *, size_t, bool) file_read_all(char *path) {
-	char[..] pv = str_from_cstr(path);
+static (char *, size_t, bool) file_read_all(const char[..] path) {
 	char[..] data = {0};
 	char chunk[4096] = {0};
-	auto (r, ok) = reader_open(pv, OpenRead, 0);
+	auto (r, ok) = reader_open(path, OpenRead, 0);
 	if (!ok) {
 		return (NULL, 0, false);
 	}
@@ -227,17 +214,14 @@ static (char *, size_t, bool) file_read_all(char *path) {
 	return (ptr(data), len(data), true);
 }
 
-static bool file_path_missing(char *path) {
-	char[..] pv = str_from_cstr(path);
-	{
-		auto (info, ok) = fs_stat(pv);
-		(void)info;
-		return !ok;
-	}
+static bool file_path_missing(const char[..] path) {
+	auto (info, ok) = fs_stat(path);
+	(void)info;
+	return !ok;
 }
 
 // file_load_new creates an empty buffer bound to path (missing on-disk file).
-static (Buffer *, bool) file_load_new(char *path) {
+static (Buffer *, bool) file_load_new(const char[..] path) {
 	Buffer *buf = buffer_new();
 	if (buf == NULL) {
 		return (NULL, false);
@@ -255,21 +239,21 @@ static (Buffer *, bool) file_load_new(char *path) {
 
 // file_load reads path into a new buffer and adds it to the list.
 // Missing paths become an empty "[New file]" buffer (jem.go LoadCurrentBuffer).
-(Buffer *, bool) file_load(char *path) {
+(Buffer *, bool) file_load(const char[..] path) {
 	char resolved[FilePathMax] = {
 		0 };
 
-	if (path == NULL || *path == 0) {
+	if (len(path) == 0) {
 		return (NULL, false);
 	}
-	if (!file_resolve_path(resolved, sizeof(resolved), path)) {
-		snprintf(resolved, sizeof(resolved), "%s", path);
+	const char[..] use = path;
+	if (file_resolve_path(resolved, sizeof(resolved), path)) {
+		use = ranged(resolved, strlen(resolved));
 	}
-	path = resolved;
-	auto (data, n, ok) = file_read_all(path);
+	auto (data, n, ok) = file_read_all(use);
 	if (!ok) {
-		if (file_path_missing(path)) {
-			return file_load_new(path);
+		if (file_path_missing(use)) {
+			return file_load_new(use);
 		}
 		return (NULL, false);
 	}
@@ -281,7 +265,7 @@ static (Buffer *, bool) file_load_new(char *path) {
 	}
 	buf.load_bytes(data, n, detect_eol(data, n));
 	free(data);
-	file_apply_path_meta(buf, path);
+	file_apply_path_meta(buf, use);
 	file_sync_mtime(buf);
 	buf.saved_undo_serial = buf.serial;
 	if (!buffer_list_add(buf)) {
@@ -292,21 +276,22 @@ static (Buffer *, bool) file_load_new(char *path) {
 }
 
 // file_save writes buf to its file_name (or path if provided).
+// Empty path means use the buffer's file_name.
 // Opens the destination in place (like jem.go): follows symlinks and keeps
 // existing file modes. mkstemp+rename would replace a symlink and force 0600.
-bool file_save(Buffer *buf, char *path) {
+bool file_save(Buffer *buf, const char[..] path) {
 	char resolved[FilePathMax] = {
 		0 };
 
 	if (buf == NULL) {
 		return false;
 	}
-	char[..] usev = buf.file_name;
-	if (path != NULL && *path != 0) {
+	const char[..] usev = buf.file_name;
+	if (len(path) > 0) {
 		if (file_resolve_path(resolved, sizeof(resolved), path)) {
 			usev = ranged(resolved, strlen(resolved));
 		} else {
-			usev = str_from_cstr(path);
+			usev = path;
 		}
 	}
 	if (len(usev) == 0) {
@@ -338,7 +323,7 @@ bool file_save(Buffer *buf, char *path) {
 		w.close();
 	}
 	free(data);
-	if (path != NULL && *path != 0) {
+	if (len(path) > 0) {
 		file_apply_path_meta(buf, path);
 	}
 	buf.is_changed = false;
@@ -348,31 +333,30 @@ bool file_save(Buffer *buf, char *path) {
 }
 
 // file_visit loads path or switches to an existing buffer with that path.
-(Buffer *, bool) file_visit(char *path) {
+(Buffer *, bool) file_visit(const char[..] path) {
 	char resolved[FilePathMax] = {
 		0 };
-	if (path == NULL) {
+	if (len(path) == 0) {
 		return (NULL, false);
 	}
-	if (!file_resolve_path(resolved, sizeof(resolved), path)) {
-		snprintf(resolved, sizeof(resolved), "%s", path);
+	const char[..] use = path;
+	if (file_resolve_path(resolved, sizeof(resolved), path)) {
+		use = ranged(resolved, strlen(resolved));
 	}
-	path = resolved;
-	char[..] want = ranged(resolved, strlen(resolved));
 	for (auto b : buffer_all) {
-		if (b != NULL && str_eq(want, b.file_name)) {
+		if (b != NULL && str_eq(use, b.file_name)) {
 			/* Re-apply language/indent defaults (e.g. .mc → tabs) in case the
 			 * buffer was opened under an older mode mapping. */
-			file_apply_path_meta(b, path);
+			file_apply_path_meta(b, use);
 			buffer_set_current(b);
 			return (b, true);
 		}
 	}
-	return file_load(path);
+	return file_load(use);
 }
 
 // file_visit_location opens path and moves the cursor to 1-based line/column.
-bool file_visit_location(char *path, int line, int column) {
+bool file_visit_location(const char[..] path, int line, int column) {
 	auto (buf, ok) = file_visit(path);
 
 	if (!ok || buf == NULL || line < 1) {
@@ -408,27 +392,27 @@ bool file_visit_location(char *path, int line, int column) {
 }
 
 // file_read_into_current loads path into the current buffer (jem.go LoadCurrentBuffer).
-bool file_read_into_current(char *path) {
+bool file_read_into_current(const char[..] path) {
 	Buffer *buf = buffer_current();
 	char resolved[FilePathMax] = {
 		0 };
 
-	if (buf == NULL || path == NULL || *path == 0) {
+	if (buf == NULL || len(path) == 0) {
 		return false;
 	}
-	if (!file_resolve_path(resolved, sizeof(resolved), path)) {
-		snprintf(resolved, sizeof(resolved), "%s", path);
+	const char[..] use = path;
+	if (file_resolve_path(resolved, sizeof(resolved), path)) {
+		use = ranged(resolved, strlen(resolved));
 	}
-	path = resolved;
 	if (buf.is_readonly) {
 		display_set_echo("Read-only buffer");
 		return false;
 	}
-	auto (data, n, ok) = file_read_all(path);
+	auto (data, n, ok) = file_read_all(use);
 	if (!ok) {
-		if (file_path_missing(path)) {
+		if (file_path_missing(use)) {
 			buf.load_bytes(NULL, 0, EModeLF);
-			file_apply_path_meta(buf, path);
+			file_apply_path_meta(buf, use);
 			buf.is_changed = false;
 			buf.file_mtime_ns = 0;
 			buf.notified_mtime_ns = 0;
@@ -440,7 +424,7 @@ bool file_read_into_current(char *path) {
 	}
 	buf.load_bytes(data, n, detect_eol(data, n));
 	free(data);
-	file_apply_path_meta(buf, path);
+	file_apply_path_meta(buf, use);
 	buf.is_changed = false;
 	file_sync_mtime(buf);
 	buf.saved_undo_serial = buf.serial;
@@ -452,18 +436,11 @@ bool file_read_into_current(char *path) {
 bool file_reload_current(int line_number) {
 	Buffer *buf = buffer_current();
 	Window *w = window_current();
-	char path[FilePathMax] = {0};
 
 	if (buf == NULL || len(buf.file_name) == 0) {
 		return false;
 	}
-	{
-		int n = snprintf(path, sizeof(path), "%s", buf.file_name);
-		if (n < 0 || (size_t)n >= sizeof(path)) {
-			return false;
-		}
-	}
-	if (!file_read_into_current(path)) {
+	if (!file_read_into_current(buf.file_name)) {
 		return false;
 	}
 	if (w == NULL || w.buffer == NULL) {
@@ -496,7 +473,6 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 	int *out_line) {
 	Buffer *buf = buffer_current();
 	Window *w = window_current();
-	char fname[FilePathMax] = {0};
 
 	if (dispatching) {
 		return false;
@@ -507,13 +483,7 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 	if (len(buf.file_name) == 0 || buf.file_mtime_ns == 0) {
 		return false;
 	}
-	{
-		int n = snprintf(fname, sizeof(fname), "%s", buf.file_name);
-		if (n < 0 || (size_t)n >= sizeof(fname)) {
-			return false;
-		}
-	}
-	int64_t cur = file_mtime_ns(fname);
+	int64_t cur = file_mtime_ns(buf.file_name);
 	if (cur == 0 || cur == buf.file_mtime_ns) {
 		if (buf.notified_mtime_ns != 0) {
 			buf.notified_mtime_ns = 0;
@@ -544,7 +514,8 @@ bool file_check_reload_current(bool dispatching, bool auto_revert, bool ask_prom
 	return false;
 }
 
-static void file_path_split(char *path, char *dir, size_t dircap, char *base, size_t basecap) {
+static void file_path_split(const char[..] path, char *dir, size_t dircap, char *base,
+	size_t basecap) {
 	size_t i = 0;
 	size_t last = 0;
 	bool have_sep = false;
@@ -557,13 +528,12 @@ static void file_path_split(char *path, char *dir, size_t dircap, char *base, si
 		char[..] bv = ranged(base, basecap);
 		bv[0] = 0;
 	}
-	if (path == NULL) {
+	if (len(path) == 0) {
 		return;
 	}
-	const char[..] pv = ranged(path, strlen(path));
-	size_t n = len(pv);
+	size_t n = len(path);
 	for (; i < n; i++) {
-		if (pv[i] == '/') {
+		if (path[i] == '/') {
 			last = i;
 			have_sep = true;
 		}
@@ -579,27 +549,23 @@ static void file_path_split(char *path, char *dir, size_t dircap, char *base, si
 		if (dlen >= dircap) {
 			dlen = dircap - 1;
 		}
-		memcpy(dir, path, dlen);
+		memcpy(dir, ptr(path), dlen);
 		char[..] dv = ranged(dir, dircap);
 		dv[dlen] = 0;
 	}
 	if (base != NULL && basecap > 0) {
-		snprintf(base, basecap, "%s", path + last + 1);
+		snprintf(base, basecap, "%s", path[last + 1 ..]);
 	}
 }
 
-static bool file_entry_is_dir(char *dir, char *name) {
+static bool file_entry_is_dir(const char[..] dir, const char[..] name) {
 	char joined[FilePathMax] = {0};
 
-	if (name == NULL || *name == 0) {
+	if (len(name) == 0) {
 		return false;
 	}
-	const char[..] dv = ".";
-	const char[..] nv = str_from_cstr(name);
-	if (dir != NULL && *dir != 0) {
-		dv = str_from_cstr(dir);
-	}
-	auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), dv, nv);
+	const char[..] dv = len(dir) > 0 ? dir : ".";
+	auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), dv, name);
 	if (!jok) {
 		return false;
 	}
@@ -634,10 +600,12 @@ bool file_complete_path(char *buf, size_t cap) {
 		snprintf(buf, cap, "~/");
 		return true;
 	}
-	file_path_split(typed, tdir, sizeof(tdir), tprefix, sizeof(tprefix));
+	file_path_split(ranged(typed, strlen(typed)), tdir, sizeof(tdir), tprefix,
+		sizeof(tprefix));
 	if (tdir[0] == 0) {
 		snprintf(dir_for_open, sizeof(dir_for_open), ".");
-	} else if (!file_resolve_path(dir_for_open, sizeof(dir_for_open), tdir)) {
+	} else if (!file_resolve_path(dir_for_open, sizeof(dir_for_open),
+		ranged(tdir, strlen(tdir)))) {
 		snprintf(dir_for_open, sizeof(dir_for_open), "%s", tdir);
 	}
 	{
@@ -679,7 +647,8 @@ bool file_complete_path(char *buf, size_t cap) {
 		}
 		if (match_count == 0) {
 			snprintf(common, sizeof(common), "%s", name);
-			match_is_dir = file_entry_is_dir(edir, name);
+			match_is_dir = file_entry_is_dir(ranged(edir, strlen(edir)),
+				ranged(name, strlen(name)));
 		} else {
 			size_t i = 0;
 			while (common[i] != 0 && name[i] != 0 && common[i] == name[i]) {

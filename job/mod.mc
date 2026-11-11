@@ -954,7 +954,7 @@ bool job_visit_at_point() {
 	if (w != NULL) {
 		markring_push(w.cursor);
 	}
-	return file_visit_location(path, line, col);
+	return file_visit_location(ranged(path, strlen(path)), line, col);
 }
 
 static bool job_read_ready(File *file) {

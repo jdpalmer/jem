@@ -449,20 +449,19 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 	return (ptr(data), len(data), true);
 }
 
-static bool tag_db_load(char *path) {
+static bool tag_db_load(const char[..] path) {
 	TagDb previous = g_tags;
 	char tags_dir[TagPathMax] = {0};
 	int source_line = 0;
 	g_tags_error[0] = 0;
 	memset(&g_tags, 0, sizeof(g_tags));
-	char[..] pathv = str_from_cstr(path);
-	auto (text, text_len, ok) = tags_read_file(pathv);
+	auto (text, text_len, ok) = tags_read_file(path);
 	if (!ok) {
 		g_tags = previous;
 		return false;
 	}
 	{
-		char[..] d = path_dir(pathv);
+		const char[..] d = path_dir(path);
 		if (len(d) == 0 || ptr(d) == NULL) {
 			/* keep empty tags_dir */
 		} else {
@@ -541,7 +540,7 @@ static bool tag_db_load(char *path) {
 		str_free(&line);
 	}
 	free(text);
-	auto (info, sok) = fs_stat(pathv);
+	auto (info, sok) = fs_stat(path);
 	if (!sok) {
 		tags_invalidate();
 		g_tags = previous;
@@ -681,7 +680,7 @@ bool tags_ensure_loaded(bool quiet) {
 			return true;
 		}
 	}
-	if (!tag_db_load(path)) {
+	if (!tag_db_load(ranged(path, strlen(path)))) {
 		if (!quiet) {
 			if (g_tags_error[0] != 0) {
 				display_set_echo(g_tags_error);
@@ -792,20 +791,14 @@ bool tags_ready() {
 bool tags_paths_equal(const char[..] a, const char[..] b) {
 	char aclean[TagPathMax] = {0};
 	char bclean[TagPathMax] = {0};
-	char abuf[TagPathMax] = {0};
-	char bbuf[TagPathMax] = {0};
 	if (len(a) == 0 || len(b) == 0) {
 		return false;
 	}
 	if (str_eq(a, b)) {
 		return true;
 	}
-	if (snprintf(abuf, sizeof(abuf), "%s", a) < 0 ||
-		snprintf(bbuf, sizeof(bbuf), "%s", b) < 0) {
-		return false;
-	}
-	if (file_resolve_path(aclean, sizeof(aclean), abuf) &&
-		file_resolve_path(bclean, sizeof(bclean), bbuf)) {
+	if (file_resolve_path(aclean, sizeof(aclean), a) &&
+		file_resolve_path(bclean, sizeof(bclean), b)) {
 		return strcmp(aclean, bclean) == 0;
 	}
 	return false;
@@ -1000,14 +993,13 @@ static void tag_list_sort_ranked(TagList *list) {
 	}
 }
 
-bool tags_collect_matches(char *name, TagList *out) {
-	const char[..] nv = str_from_cstr(name);
-	if (str_is_empty(nv) || out == NULL || !tags_ready()) {
+bool tags_collect_matches(const char[..] name, TagList *out) {
+	if (str_is_empty(name) || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
-	size_t i = tag_index_lower_bound(nv);
-	while (i < len(g_tags.by_name) && str_eq(g_tags.by_name[i].name, nv)) {
+	size_t i = tag_index_lower_bound(name);
+	while (i < len(g_tags.by_name) && str_eq(g_tags.by_name[i].name, name)) {
 		if (!tag_list_append(out, g_tags.by_name[i])) {
 			tags_list_free(out);
 			return false;
@@ -1018,24 +1010,23 @@ bool tags_collect_matches(char *name, TagList *out) {
 	return true;
 }
 
-bool tags_collect_completions(char *prefix, TagList *out) {
+bool tags_collect_completions(const char[..] prefix, TagList *out) {
 	Buffer *cur = buffer_current();
 	char[..] cur_path = cur != NULL ? cur.file_name : str_empty();
 	char scope_hint[TagNameMax] = {0};
-	const char[..] pv = str_from_cstr(prefix);
-	if (str_is_empty(pv) || out == NULL || !tags_ready()) {
+	if (str_is_empty(prefix) || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
-	size_t plen = len(pv);
+	size_t plen = len(prefix);
 	tag_scope_hint(scope_hint, sizeof(scope_hint));
-	size_t i = tag_index_lower_bound(pv);
+	size_t i = tag_index_lower_bound(prefix);
 	while (i < len(g_tags.by_name)) {
 		TagEntry *best = NULL;
 		const char[..] name = g_tags.by_name[i].name;
 		size_t j = i;
 		if (str_is_empty(name) || len(name) < plen ||
-			!str_eq(name[0 .. plen], pv)) {
+			!str_eq(name[0 .. plen], prefix)) {
 			break;
 		}
 		while (j < len(g_tags.by_name) &&
@@ -1049,7 +1040,7 @@ bool tags_collect_completions(char *prefix, TagList *out) {
 		}
 		{
 			auto (found, _) = str_find(name, ".");
-			if (!str_eq(name, pv) && !found &&
+			if (!str_eq(name, prefix) && !found &&
 				!tag_list_append(out, best)) {
 				tags_list_free(out);
 				return false;
@@ -1434,23 +1425,18 @@ int tags_resolve_line(Buffer *buf, TagEntry *entry) {
 
 bool tags_visit_entry(TagEntry *e) {
 	Window *w = window_current();
-	char pathbuf[TagPathMax] = {0};
 	if (e == NULL || str_is_empty(e.path) || e.line < 1) {
-		return false;
-	}
-	if (snprintf(pathbuf, sizeof(pathbuf), "%s", e.path) < 0 ||
-		pathbuf[0] == 0) {
 		return false;
 	}
 	if (w != NULL) {
 		markring_push(w.cursor);
 	}
-	auto (buf, ok) = file_visit(pathbuf);
+	auto (buf, ok) = file_visit(e.path);
 	if (!ok || buf == NULL) {
 		return false;
 	}
 	int line = tags_resolve_line(buf, e);
-	return file_visit_location(pathbuf, line, 1);
+	return file_visit_location(e.path, line, 1);
 }
 
 static Buffer *tags_ensure_list_buf() {
@@ -1537,9 +1523,9 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 	return true;
 }
 
-bool tags_goto_name(char *name) {
+bool tags_goto_name(const char[..] name) {
 	TagList matches = {0};
-	if (name == NULL || *name == 0) {
+	if (str_is_empty(name)) {
 		display_set_echo("[empty tag name]");
 		return false;
 	}
@@ -1662,11 +1648,11 @@ static bool tags_project_root(char *dst, size_t cap) {
 	return tag_start_dir(dst, cap);
 }
 
-static bool tags_make_temp(char *dst, size_t cap, char *target) {
-	if (dst == NULL || cap < 2 || target == NULL || *target == 0) {
+static bool tags_make_temp(char *dst, size_t cap, const char[..] target) {
+	if (dst == NULL || cap < 2 || len(target) == 0) {
 		return false;
 	}
-	char[..] parent = path_dir(str_from_cstr(target));
+	const char[..] parent = path_dir(target);
 	if (len(parent) == 0 || ptr(parent) == NULL) {
 		return false;
 	}
@@ -1683,16 +1669,16 @@ static bool tags_make_temp(char *dst, size_t cap, char *target) {
 	return true;
 }
 
-static bool tags_is_universal_ctags(char *path_name) {
+static bool tags_is_universal_ctags(const char[..] path_name) {
 	Cmd cmd = {0};
 	const char[..] args[1] = {0};
 	char text[512] = {0};
 	size_t used = 0;
-	if (path_name == NULL || *path_name == 0) {
+	if (len(path_name) == 0) {
 		return false;
 	}
 	args[0] = "--version";
-	cmd.init(str_from_cstr(path_name), args, 1);
+	cmd.init(path_name, args, 1);
 	cmd.stdio(StdErr, IoNull);
 	auto (output, ok) = cmd.pipe(StdOut);
 	if (!ok) {
@@ -1736,7 +1722,7 @@ bool tags_build() {
 			return false;
 		}
 	}
-	if (!tags_is_universal_ctags(ctags)) {
+	if (!tags_is_universal_ctags(ranged(ctags, strlen(ctags)))) {
 		display_set_echo("[jem requires Universal Ctags]");
 		return false;
 	}
@@ -1763,7 +1749,7 @@ bool tags_build() {
 			return false;
 		}
 	}
-	if (!tags_make_temp(temp, sizeof(temp), target)) {
+	if (!tags_make_temp(temp, sizeof(temp), ranged(target, strlen(target)))) {
 		display_set_echo("[cannot create temporary tags file]");
 		return false;
 	}

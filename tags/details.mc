@@ -433,7 +433,7 @@ bool tags_describe_symbol() {
 		return false;
 	}
 	if (!tags_ensure_loaded(false) ||
-		!tags_collect_matches(symbol, &matches)) {
+		!tags_collect_matches(ranged(symbol, strlen(symbol)), &matches)) {
 		return false;
 	}
 	if (len(matches.items) == 0) {

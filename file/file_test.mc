@@ -85,7 +85,7 @@ static void test_check_reload_clean_buffer() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	auto (buf, ok) = file_load(path);
+	auto (buf, ok) = file_load(ranged(path, strlen(path)));
 	check(ok && buf != NULL);
 	Window *win = setup_window(buf);
 	win.cursor.line = 1;
@@ -116,7 +116,7 @@ static void test_check_reload_skips_dirty_when_notified() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	auto (buf, ok) = file_load(path);
+	auto (buf, ok) = file_load(ranged(path, strlen(path)));
 	check(ok && buf != NULL);
 	Window *win = setup_window(buf);
 	(void)win;
@@ -124,7 +124,7 @@ static void test_check_reload_skips_dirty_when_notified() {
 	buf.file_mtime_ns = 1;
 
 	write_path(path, "second\n");
-	buf.notified_mtime_ns = file_mtime_ns(path);
+	buf.notified_mtime_ns = file_mtime_ns(ranged(path, strlen(path)));
 
 	check(!file_check_reload_current(false, false, false, &ask_line));
 	Line *line = buf.line(1);
@@ -143,7 +143,7 @@ static void test_check_reload_dirty_sets_notified() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	auto (buf, ok) = file_load(path);
+	auto (buf, ok) = file_load(ranged(path, strlen(path)));
 	check(ok && buf != NULL);
 	(void)setup_window(buf);
 	buf.is_changed = true;
@@ -153,8 +153,8 @@ static void test_check_reload_dirty_sets_notified() {
 
 	check(!file_check_reload_current(false, false, false, &ask_line));
 	check(buf.notified_mtime_ns != 0);
-	check(buf.notified_mtime_ns == file_mtime_ns(path));
-	check(file_needs_overwrite_confirm(buf, NULL));
+	check(buf.notified_mtime_ns == file_mtime_ns(ranged(path, strlen(path))));
+	check(file_needs_overwrite_confirm(buf, ""));
 }
 
 static void test_check_reload_auto_revert_dirty() {
@@ -168,7 +168,7 @@ static void test_check_reload_auto_revert_dirty() {
 	write_path(path, "first\n");
 
 	buffer_list_init();
-	auto (buf, ok) = file_load(path);
+	auto (buf, ok) = file_load(ranged(path, strlen(path)));
 	check(ok && buf != NULL);
 	(void)setup_window(buf);
 	buf.is_changed = true;
@@ -206,7 +206,7 @@ static void test_save_preserves_mode_and_symlink() {
 	check(buf.load_bytes("new\n", 4, EModeLF));
 	buf.set_file_name(str_from_cstr(linkpath));
 	(void)setup_window(buf);
-	check(file_save(buf, NULL));
+	check(file_save(buf, ""));
 
 	check(lstat(linkpath, &st) == 0);
 	check(readlink(linkpath, linkbuf, sizeof(linkbuf) - 1) > 0);
