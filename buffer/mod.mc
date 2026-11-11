@@ -406,22 +406,6 @@ int (Buffer *buf).eof_line() {
 	return buf.line_count_i() + 1;
 }
 
-static bool buffers_reserve(size_t need) {
-	if (need <= cap(buffer_all)) {
-		return true;
-	}
-	size_t ncap = cap(buffer_all) != 0 ? cap(buffer_all) : 4;
-	while (ncap < need) {
-		ncap = ncap * 2;
-	}
-	Buffer * *p = realloc(ptr(buffer_all), ncap * sizeof(Buffer *));
-	if (p == NULL) {
-		return false;
-	}
-	buffer_all = ranged(p, len(buffer_all), ncap);
-	return true;
-}
-
 void buffer_list_init() {
 	buffer_all = ranged((Buffer **)0, 0);
 	g_buffer_cur = NULL;
@@ -431,16 +415,14 @@ void buffer_list_init() {
 		return;
 	}
 	scratch.set_name(ScratchName);
-	if (!buffers_reserve(1)) {
+	if (!push(&buffer_all, scratch)) {
 		scratch.free();
 		return;
 	}
-	buffer_all = ranged(ptr(buffer_all), 1, cap(buffer_all));
-	buffer_all[0] = scratch;
-	g_buffer_cur = scratch;
+	g_buffer_cur = buffer_all[len(buffer_all) - 1];
 }
 
-void buffer_set_current([[retains]] Buffer *buf) {
+void buffer_set_current(Buffer *buf) {
 	static int64_t access_seq = 1;
 	if (buf == NULL) {
 		return;
@@ -457,13 +439,11 @@ bool buffer_list_add([[retains]] Buffer *buf) {
 	if (buf == NULL) {
 		return false;
 	}
-	size_t n = len(buffer_all);
-	if (!buffers_reserve(n + 1)) {
+	if (!push(&buffer_all, buf)) {
+		buf.free();
 		return false;
 	}
-	buffer_all = ranged(ptr(buffer_all), n + 1, cap(buffer_all));
-	buffer_all[n] = buf;
-	buffer_set_current(buf);
+	buffer_set_current(buffer_all[len(buffer_all) - 1]);
 	return true;
 }
 
@@ -472,12 +452,10 @@ bool buffer_list_append([[retains]] Buffer *buf) {
 	if (buf == NULL) {
 		return false;
 	}
-	size_t n = len(buffer_all);
-	if (!buffers_reserve(n + 1)) {
+	if (!push(&buffer_all, buf)) {
+		buf.free();
 		return false;
 	}
-	buffer_all = ranged(ptr(buffer_all), n + 1, cap(buffer_all));
-	buffer_all[n] = buf;
 	return true;
 }
 
@@ -1190,34 +1168,31 @@ bool (Buffer *buf).load_bytes(const char *data, size_t n, EolMode eol) {
 
 (char *, size_t, bool) (Buffer *buf).save_bytes() {
 	size_t i = 0;
-	size_t total = 0;
-	size_t off = 0;
-
-	char *nl = (char *)(void *)(buf.eol_mode == EModeCRLF ? "\r\n" : "\n");
-	size_t nllen = buf.eol_mode == EModeCRLF ? 2 : 1;
+	const char[..] nl = buf.eol_mode == EModeCRLF ? "\r\n" : "\n";
+	char[..] out = {0};
 	for (; i < len(buf.lines); i++) {
-		total = total + len(buf.lines[i].data);
+		if (len(buf.lines[i].data) != 0) {
+			if (!str_append(&out, buf.lines[i].data)) {
+				str_free(&out);
+				return (NULL, 0, false);
+			}
+		}
 		if (i + 1 < len(buf.lines)) {
-			total = total + nllen;
+			if (!str_append(&out, nl)) {
+				str_free(&out);
+				return (NULL, 0, false);
+			}
 		}
 	}
-	char *raw = malloc(total + 1);
-	if (raw == NULL) {
+	if (!str_reserve(&out, len(out) + 1)) {
+		str_free(&out);
 		return (NULL, 0, false);
 	}
-	char[..] out = ranged(raw, total + 1);
-	for (i = 0; i < len(buf.lines); i++) {
-		if (len(buf.lines[i].data) != 0) {
-			memcpy(raw + off, ptr(buf.lines[i].data), len(buf.lines[i].data));
-			off = off + len(buf.lines[i].data);
-		}
-		if (i + 1 < len(buf.lines)) {
-			memcpy(raw + off, nl, nllen);
-			off = off + nllen;
-		}
+	{
+		char[..] z = ranged(ptr(out), len(out) + 1, cap(out));
+		z[len(out)] = 0;
 	}
-	out[off] = 0;
-	return (raw, off, true);
+	return (ptr(out), len(out), true);
 }
 
 void (Buffer *buf).set_name(const char[..] name) {

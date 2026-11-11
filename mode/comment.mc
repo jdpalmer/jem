@@ -6,7 +6,7 @@
 #include <string.h>
 
 // mode_line_comment returns the line-comment prefix for lang, or "" if none.
-const char *mode_line_comment(LangMode lang) {
+const char[..] mode_line_comment(LangMode lang) {
 	switch (lang) {
 	case LModePython:
 	case LModeMake:
@@ -40,8 +40,9 @@ const char *mode_line_comment(LangMode lang) {
 	return "//";
 }
 
-static bool line_has_comment_prefix(Line *line, const char *prefix, size_t plen) {
-	if (line == NULL || prefix == NULL || plen == 0) {
+static bool line_has_comment_prefix(Line *line, const char[..] prefix) {
+	size_t plen = len(prefix);
+	if (line == NULL || plen == 0) {
 		return false;
 	}
 	size_t pos = line.first_nonblank();
@@ -49,14 +50,14 @@ static bool line_has_comment_prefix(Line *line, const char *prefix, size_t plen)
 	if (pos + plen > len(v)) {
 		return false;
 	}
-	return memcmp(ptr(v) + pos, prefix, plen) == 0;
+	return memcmp(ptr(v) + pos, ptr(prefix), plen) == 0;
 }
 
-static void comment_prefix_span(Line *line, const char *prefix, size_t plen, size_t *pos_out, size_t *end_out) {
+static void comment_prefix_span(Line *line, const char[..] prefix, size_t *pos_out, size_t *end_out) {
+	size_t plen = len(prefix);
 	size_t pos = line.first_nonblank();
 	size_t end = pos + plen;
 	char[..] v = line.view();
-	(void)prefix;
 	if (end < len(v) && v[end] == ' ') {
 		end++;
 	}
@@ -84,7 +85,7 @@ static void adjust_loc_for_insert(Location *loc, int line_num, size_t at, size_t
 	}
 }
 
-static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
+static bool mode_uncomment_lines(Window *win, Buffer *buf, const char[..] prefix,
 	int start_line, int end_line) {
 	int line_num = start_line;
 
@@ -100,10 +101,10 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 			Location finish = {0};
 			size_t old_len = 0;
 			char[..] old = {0};
-			if (line == NULL || !line_has_comment_prefix(line, prefix, plen)) {
+			if (line == NULL || !line_has_comment_prefix(line, prefix)) {
 				continue;
 			}
-			comment_prefix_span(line, prefix, plen, &pos, &end);
+			comment_prefix_span(line, prefix, &pos, &end);
 			old_len = end - pos;
 			old = p.alloc(char, old_len + 1);
 			if (ptr(old) == NULL) {
@@ -136,17 +137,18 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char *prefix, s
 	}
 }
 
-static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
+static bool mode_comment_lines(Window *win, Buffer *buf, const char[..] prefix,
 	int start_line, int end_line) {
 	char ins[16] = {0};
 	int line_num = start_line;
+	size_t plen = len(prefix);
 
 	if (plen == 0 || plen + 2 >= sizeof(ins)) {
 		return false;
 	}
-	memcpy(ins, prefix, plen);
+	memcpy(ins, ptr(prefix), plen);
 	size_t ins_len = plen;
-	if (ranged(prefix, plen)[plen - 1] != ' ') {
+	if (prefix[plen - 1] != ' ') {
 		ins[ins_len] = ' ';
 		ins_len++;
 	}
@@ -181,20 +183,20 @@ static bool mode_comment_lines(Window *win, Buffer *buf, const char *prefix, siz
 	return true;
 }
 
-static bool mode_toggle_comment_lines(Window *win, Buffer *buf, const char *prefix, size_t plen,
+static bool mode_toggle_comment_lines(Window *win, Buffer *buf, const char[..] prefix,
 	int start_line, int end_line) {
 	bool all_commented = true;
 	int line_num = start_line;
 	for (; line_num <= end_line; line_num++) {
-		if (!line_has_comment_prefix(buf.line(line_num), prefix, plen)) {
+		if (!line_has_comment_prefix(buf.line(line_num), prefix)) {
 			all_commented = false;
 			break;
 		}
 	}
 	if (all_commented) {
-		return mode_uncomment_lines(win, buf, prefix, plen, start_line, end_line);
+		return mode_uncomment_lines(win, buf, prefix, start_line, end_line);
 	}
-	return mode_comment_lines(win, buf, prefix, plen, start_line, end_line);
+	return mode_comment_lines(win, buf, prefix, start_line, end_line);
 }
 
 // mode_comment_dwim comments or uncomments the current line / region.
@@ -209,11 +211,10 @@ bool mode_comment_dwim(bool f, int n) {
 	if (buf.is_readonly) {
 		return false;
 	}
-	const char *prefix = mode_line_comment(buf.lang_mode);
-	if (prefix == NULL || *prefix == 0) {
+	const char[..] prefix = mode_line_comment(buf.lang_mode);
+	if (len(prefix) == 0) {
 		return false;
 	}
-	size_t plen = strlen(prefix);
 	int start_line = win.cursor.line;
 	int end_line = win.cursor.line;
 	if (win.mark.line != 0 && win.mark.line != win.cursor.line) {
@@ -225,5 +226,5 @@ bool mode_comment_dwim(bool f, int n) {
 			end_line = tmp;
 		}
 	}
-	return mode_toggle_comment_lines(win, buf, prefix, plen, start_line, end_line);
+	return mode_toggle_comment_lines(win, buf, prefix, start_line, end_line);
 }

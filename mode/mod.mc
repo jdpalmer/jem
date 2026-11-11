@@ -78,7 +78,7 @@ IndentConfig mode_indent_default(LangMode lang) {
 	return cfg;
 }
 
-const char *mode_display_name(LangMode lang) {
+const char[..] mode_display_name(LangMode lang) {
 	switch (lang) {
 	case LModeC:
 		return "C";

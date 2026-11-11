@@ -146,10 +146,9 @@ static Buffer *ensure_match_buffer() {
 	mb.set_name(MatchBufferName);
 	mb.lang_mode = LModeNone;
 	if (!buffer_list_append(mb)) {
-		mb.free();
 		return NULL;
 	}
-	return mb;
+	return buffer_find_by_name(MatchBufferName);
 }
 
 static void show_match_window() {

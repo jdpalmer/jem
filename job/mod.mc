@@ -292,10 +292,9 @@ static Buffer *job_ensure_named(const char[..] name) {
 	}
 	buf.set_name(name);
 	if (!buffer_list_add(buf)) {
-		buf.free();
 		return NULL;
 	}
-	return buf;
+	return buffer_find_by_name(name);
 }
 
 static bool job_set_line1(Buffer *buf, char *text) {

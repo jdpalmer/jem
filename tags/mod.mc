@@ -188,14 +188,11 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 		free(copy);
 		return false;
 	}
-	size_t n = len(list.items);
-	if (!reserve(&list.items, n + 1)) {
+	if (!push(&list.items, copy)) {
 		tag_entry_free(copy);
 		free(copy);
 		return false;
 	}
-	list.items = ranged(ptr(list.items), n + 1, cap(list.items));
-	list.items[n] = copy;
 	return true;
 }
 
@@ -1417,10 +1414,9 @@ static Buffer *tags_ensure_list_buf() {
 	}
 	buf.set_name("*tags*");
 	if (!buffer_list_add(buf)) {
-		buf.free();
 		return NULL;
 	}
-	return buf;
+	return buffer_find_by_name("*tags*");
 }
 
 static void tags_present_list(Buffer *buf) {

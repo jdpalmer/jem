@@ -355,7 +355,6 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 	for (;;) {
 		JsonBuffer key = {0};
 		JsonString owned_key = {0};
-		JsonValue *value = NULL;
 
 		if (!json_parse_string_into(parser, &key)) {
 			json_buffer_discard(&key);
@@ -370,7 +369,7 @@ static bool json_parse_string_into(JsonParser *parser, JsonBuffer *buffer) {
 			json_free(object);
 			return NULL;
 		}
-		value = json_parse_value(parser);
+		JsonValue *value = json_parse_value(parser);
 		if (value == NULL) {
 			json_buffer_discard(&key);
 			parser.depth--;

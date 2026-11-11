@@ -232,10 +232,9 @@ static Buffer *tag_detail_buffer() {
 	}
 	buf.set_name("*describe*");
 	if (!buffer_list_add(buf)) {
-		buf.free();
 		return NULL;
 	}
-	return buf;
+	return buffer_find_by_name("*describe*");
 }
 
 static Line *tag_detail_append_n(Buffer *buf, const char *text, size_t n) {

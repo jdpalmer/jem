@@ -247,12 +247,10 @@ static (Buffer *, bool) file_load_new(char *path) {
 	buf.file_mtime_ns = 0;
 	buf.notified_mtime_ns = 0;
 	if (!buffer_list_add(buf)) {
-		buf.free();
 		return (NULL, false);
 	}
-	buffer_set_current(buf);
 	display_set_echo("New file");
-	return (buf, true);
+	return (buffer_current(), true);
 }
 
 // file_load reads path into a new buffer and adds it to the list.
@@ -287,12 +285,10 @@ static (Buffer *, bool) file_load_new(char *path) {
 	file_sync_mtime(buf);
 	buf.saved_undo_serial = buf.serial;
 	if (!buffer_list_add(buf)) {
-		buf.free();
 		return (NULL, false);
 	}
-	buffer_set_current(buf);
 	display_set_echo("Reading file");
-	return (buf, true);
+	return (buffer_current(), true);
 }
 
 // file_save writes buf to its file_name (or path if provided).

@@ -1,6 +1,7 @@
 import "mode";
 import "buffer";
 import "window";
+import "str";
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -142,12 +143,12 @@ static void test_fill_paragraph() {
 }
 
 static void test_line_comment_prefix() {
-	check(strcmp(mode_line_comment(LModeGo), "//") == 0);
-	check(strcmp(mode_line_comment(LModePython), "#") == 0);
-	check(strcmp(mode_line_comment(LModeLisp), ";") == 0);
-	check(strcmp(mode_line_comment(LModeLua), "--") == 0);
-	check(strcmp(mode_line_comment(LModeModC), "//") == 0);
-	check(*mode_line_comment(LModeCSS) == 0);
+	check(str_eq(mode_line_comment(LModeGo), "//"));
+	check(str_eq(mode_line_comment(LModePython), "#"));
+	check(str_eq(mode_line_comment(LModeLisp), ";"));
+	check(str_eq(mode_line_comment(LModeLua), "--"));
+	check(str_eq(mode_line_comment(LModeModC), "//"));
+	check(len(mode_line_comment(LModeCSS)) == 0);
 }
 
 static void test_modc_mode_tabs() {
@@ -157,7 +158,7 @@ static void test_modc_mode_tabs() {
 	check(mode_detect("foo.c") == LModeC);
 	check(mode_detect("foo.cpp") == LModeC);
 	check(mode_detect("foo.hpp") == LModeC);
-	check(strcmp(mode_display_name(LModeModC), "%C") == 0);
+	check(str_eq(mode_display_name(LModeModC), "%C"));
 	cfg = mode_indent_default(LModeModC);
 	check(cfg.width == 8);
 	check(cfg.use_tabs != 0);

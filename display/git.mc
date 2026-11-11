@@ -50,7 +50,7 @@ static GitModelineCache g_git_caches[GitCacheMax];
 static char g_git_bin[GitPathMax];
 static bool g_git_bin_looked;
 
-static const char *git_prog() {
+static const char[..] git_prog() {
 	if (!g_git_bin_looked) {
 		g_git_bin_looked = true;
 		g_git_bin[0] = 0;
@@ -63,17 +63,17 @@ static const char *git_prog() {
 		}
 	}
 	if (g_git_bin[0] == 0) {
-		return NULL;
+		return "";
 	}
-	return g_git_bin;
+	return ranged(g_git_bin, strlen(g_git_bin));
 }
 
 /* Runs git with argv (excluding program). Returns false if exec failed. */
 static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_cap, int *exit_out) {
 	Cmd c = {0};
-	const char *prog = git_prog();
+	const char[..] prog = git_prog();
 	size_t got = 0;
-	if (prog == NULL || out == NULL || out_cap < 2 || exit_out == NULL) {
+	if (len(prog) == 0 || out == NULL || out_cap < 2 || exit_out == NULL) {
 		return false;
 	}
 	{
@@ -81,7 +81,7 @@ static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_c
 		outv[0] = 0;
 	}
 	*exit_out = -1;
-	c.init(str_from_cstr(prog), args, nargs);
+	c.init(prog, args, nargs);
 	auto (pf, pf_ok) = c.pipe(StdOut);
 	if (!pf_ok) {
 		c.close();
@@ -310,34 +310,30 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	} else if (diff_cap > (size_t)GitDiffCapMax) {
 		diff_cap = GitDiffCapMax;
 	}
-	char *diff_out = (char *)malloc(diff_cap);
-	if (diff_out == NULL) {
-		return;
-	}
-	{
-		char[..] dov = ranged(diff_out, diff_cap);
-		dov[0] = 0;
-	}
-	{
-		const char[..] dargs[9] = {0};
-		dargs[0] = "-C";
-		dargs[1] = str_from_cstr(dir);
-		dargs[2] = "diff";
-		dargs[3] = "--no-color";
-		dargs[4] = "--no-ext-diff";
-		dargs[5] = "--unified=0";
-		dargs[6] = "HEAD";
-		dargs[7] = "--";
-		dargs[8] = str_from_cstr(basename);
-		if (!git_run(dargs, 9, diff_out, diff_cap, &diff_exit) || diff_exit != 0) {
-			free(diff_out);
+	pool p {
+		char[..] diff_out = p.alloc(char, diff_cap);
+		if (ptr(diff_out) == NULL) {
 			return;
 		}
-	}
+		diff_out[0] = 0;
+		{
+			const char[..] dargs[9] = {0};
+			dargs[0] = "-C";
+			dargs[1] = str_from_cstr(dir);
+			dargs[2] = "diff";
+			dargs[3] = "--no-color";
+			dargs[4] = "--no-ext-diff";
+			dargs[5] = "--unified=0";
+			dargs[6] = "HEAD";
+			dargs[7] = "--";
+			dargs[8] = str_from_cstr(basename);
+			if (!git_run(dargs, 9, ptr(diff_out), diff_cap, &diff_exit) || diff_exit != 0) {
+				return;
+			}
+		}
 
-	{
 		size_t pos = 0;
-		const char[..] diffv = ranged(diff_out, strlen(diff_out));
+		const char[..] diffv = ranged(ptr(diff_out), strlen(ptr(diff_out)));
 		size_t end = len(diffv);
 		while (pos < end) {
 			size_t line_start = pos;
@@ -357,7 +353,7 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 			if (line_len >= sizeof(line)) {
 				line_len = sizeof(line) - 1;
 			}
-			memcpy(line, diff_out + line_start, line_len);
+			memcpy(line, ptr(diff_out) + line_start, line_len);
 			line[line_len] = 0;
 			if (!git_parse_hunk_header(line, &old_start, &old_count, &new_start, &new_count)) {
 				continue;
@@ -401,7 +397,6 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 			}
 		}
 	}
-	free(diff_out);
 }
 
 /* Refresh on path/mtime changes immediately; after edits only once idle;

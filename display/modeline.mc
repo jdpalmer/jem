@@ -133,7 +133,7 @@ void paint_modeline(Window *win, int row) {
 		colno = (int)cline.display_col_at_offset(win.cursor.offset) + 1;
 	}
 	snprintf(pos, sizeof(pos), "%3d%% L%d C%d", pct, lineno, colno);
-	const char *lang = mode_display_name(win.buffer.lang_mode);
+	const char[..] lang = mode_display_name(win.buffer.lang_mode);
 	const char *eol = "LF";
 	if (win.buffer.eol_mode == EModeCRLF) {
 		eol = "CRLF";
@@ -179,7 +179,7 @@ void paint_modeline(Window *win, int row) {
 	put_ascii(row, &col, " | ", gut);
 	put_ascii(row, &col, eol, gut);
 	put_ascii(row, &col, " | ", gut);
-	put_ascii(row, &col, lang, gut);
+	put_ascii(row, &col, ptr(lang), gut);
 	{
 		const char *git = git_modeline_text(win.buffer);
 		if (git != NULL && *git != 0) {
