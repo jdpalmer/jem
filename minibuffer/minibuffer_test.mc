@@ -45,8 +45,18 @@ static void test_history() {
 	minibuffer_cancel();
 }
 
+static void test_cursor_col() {
+	minibuffer_begin("Prompt: ", 0);
+	check(minibuffer_cursor_col() == (int)strlen("Prompt: "));
+	check(minibuffer_insert_paste("hi"));
+	check(minibuffer_cursor_col() == (int)strlen("Prompt: ") + 2);
+	minibuffer_cancel();
+	check(minibuffer_cursor_col() == 0);
+}
+
 int main() {
 	test_paste();
 	test_history();
+	test_cursor_col();
 	return 0;
 }

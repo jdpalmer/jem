@@ -1181,7 +1181,21 @@ void display_update() {
 	 * "?25l" as literal text that then needed a forced redraw to clear. */
 	screen_sync();
 
-	if (cur != NULL && cur.buffer != NULL) {
+	emit_sgr_cached(style_default());
+	if (minibuffer_active()) {
+		int cursor_col = minibuffer_cursor_col();
+		int echo_len = (int)strlen(g_echo);
+		if (cursor_col > echo_len) {
+			cursor_col = echo_len;
+		}
+		if (cursor_col >= term_cols()) {
+			cursor_col = term_cols() - 1;
+		}
+		if (cursor_col < 0) {
+			cursor_col = 0;
+		}
+		term_move(g_screen.rows - 1, cursor_col);
+	} else if (cur != NULL && cur.buffer != NULL) {
 		Line *line = cur.buffer.line(cur.cursor.line);
 		int cursor_row = cur.screen_top_row + content_row_offset(cur) + (cur.cursor.line - cur.top_line);
 		int cursor_col = window_gutter_width(cur);
@@ -1196,7 +1210,6 @@ void display_update() {
 			cursor_col = term_cols() - 1;
 		}
 		if (cursor_row >= 0 && cursor_row < term_rows()) {
-			emit_sgr_cached(style_default());
 			term_move(cursor_row, cursor_col);
 		}
 	}

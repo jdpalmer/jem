@@ -260,3 +260,11 @@ void minibuffer_format(char *out, size_t cap) {
 	}
 	snprintf(out, cap, "%s%s", g_mb.prompt, g_mb.text);
 }
+
+/* Screen column of the edit point on the echo line (byte cols, matching paint_echo). */
+int minibuffer_cursor_col() {
+	if (!g_mb.active) {
+		return 0;
+	}
+	return (int)strlen(g_mb.prompt) + (int)g_mb.cursor;
+}
