@@ -10,6 +10,7 @@ import "term";
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -33,9 +34,17 @@ static char g_read_path[ClipboardPathMax] = {0};
 static bool g_initialized;
 
 static bool clipboard_find(char *dst, size_t cap, const char[..] name) {
-	auto (found, ok) = os_look_path(ranged(dst, 0, cap), name);
-	(void)found;
-	return ok;
+	if (dst == NULL || cap < 2) {
+		return false;
+	}
+	pool p {
+		auto (found, ok) = os_look_path(&p, name);
+		if (!ok || len(found) == 0 || len(found) >= cap) {
+			return false;
+		}
+		snprintf(dst, cap, "%.*s", (int)len(found), ptr(found));
+		return true;
+	}
 }
 
 static bool clipboard_find_pair(ClipboardProvider provider,

@@ -31,89 +31,55 @@ enum {
 
 // file_resolve_path writes a cleaned logical path into dst (~, relative → cwd).
 bool file_resolve_path(char *dst, size_t dstcap, const char[..] path) {
-	char tmp[FilePathMax] = {
-		0 };
-	char joined[FilePathMax] = {
-		0 };
-	const char[..] to_clean = str_empty();
-
 	if (dst == NULL || dstcap < 2 || len(path) == 0) {
 		return false;
 	}
-	const char[..] logical = path;
-	if (logical[0] == '~') {
-#ifdef _WIN32
-		const char[..] home = str_empty();
-		bool hok = false;
-		char home_buf[FilePathMax] = {
-			0 };
-		{
-			auto (have, hv) = os_env("USERPROFILE");
-			if (have && len(hv) > 0) {
-				home = hv;
-				hok = true;
-			} else {
-				auto (hd, drive) = os_env("HOMEDRIVE");
-				auto (hp, pathv) = os_env("HOMEPATH");
-				if (hd && hp && len(drive) > 0 && len(pathv) > 0) {
-					snprintf(home_buf, sizeof(home_buf), "%.*s%.*s",
-						(int)len(drive), ptr(drive),
-						(int)len(pathv), ptr(pathv));
-					home = ranged(home_buf, strlen(home_buf));
-					hok = true;
-				}
+	pool p {
+		const char[..] logical = path;
+		const char[..] to_clean = str_empty();
+		if (logical[0] == '~') {
+			auto (home, hok) = os_home(&p);
+			if (!hok || len(home) == 0) {
+				return false;
 			}
-		}
-#else
-		auto (hok, home) = os_env("HOME");
-#endif
-		if (!hok || len(home) == 0) {
-			return false;
-		}
-		if (len(logical) == 1) {
-			to_clean = home;
-		} else if (len(logical) > 1 && (logical[1] == '/'
+			if (len(logical) == 1) {
+				to_clean = home;
+			} else if (len(logical) > 1 && (logical[1] == '/'
 #ifdef _WIN32
-			|| logical[1] == '\\'
+				|| logical[1] == '\\'
 #endif
-			)) {
-			auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), home,
-				logical[2..]);
+				)) {
+				auto (jv, jok) = path_join(&p, home, logical[2..]);
+				if (!jok) {
+					return false;
+				}
+				to_clean = jv;
+			} else {
+				return false;
+			}
+		} else if (!path_is_abs(logical)) {
+			auto (cw, cwok) = os_cwd(&p);
+			if (!cwok || len(cw) == 0) {
+				return false;
+			}
+			auto (jv, jok) = path_join(&p, cw, logical);
 			if (!jok) {
 				return false;
 			}
 			to_clean = jv;
 		} else {
-			return false;
+			to_clean = logical;
 		}
-	} else if (!path_is_abs(logical)) {
-		char cwd[FilePathMax] = {
-			0 };
-		auto (cw, cwok) = os_cwd(ranged(cwd, 0, sizeof(cwd)));
-		if (!cwok || len(cw) == 0) {
-			return false;
-		}
-		auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), cw, logical);
-		if (!jok) {
-			return false;
-		}
-		to_clean = jv;
-	} else {
-		to_clean = logical;
-	}
-	{
-		auto (view, ok) = path_clean(ranged(tmp, 0, sizeof(tmp)), to_clean);
+		auto (view, ok) = path_clean(&p, to_clean);
 		if (!ok || len(view) == 0 || ptr(view) == NULL) {
 			return false;
 		}
-		{
-			int n = snprintf(dst, dstcap, "%s", view);
-			if (n < 0 || (size_t)n >= dstcap) {
-				return false;
-			}
+		int n = snprintf(dst, dstcap, "%.*s", (int)len(view), ptr(view));
+		if (n < 0 || (size_t)n >= dstcap) {
+			return false;
 		}
+		return true;
 	}
-	return true;
 }
 
 static void file_apply_path_meta(Buffer *buf, const char[..] path) {
@@ -559,17 +525,15 @@ static void file_path_split(const char[..] path, char *dir, size_t dircap, char 
 }
 
 static bool file_entry_is_dir(const char[..] dir, const char[..] name) {
-	char joined[FilePathMax] = {0};
-
 	if (len(name) == 0) {
 		return false;
 	}
-	const char[..] dv = len(dir) > 0 ? dir : ".";
-	auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)), dv, name);
-	if (!jok) {
-		return false;
-	}
-	{
+	pool p {
+		const char[..] dv = len(dir) > 0 ? dir : ".";
+		auto (jv, jok) = path_join(&p, dv, name);
+		if (!jok) {
+			return false;
+		}
 		auto (info, ok) = fs_stat(jv);
 		if (!ok) {
 			return false;
@@ -682,5 +646,216 @@ bool file_complete_path(char *buf, size_t cap) {
 		return false;
 	}
 	snprintf(buf, cap, "%s", newbuf);
+	return true;
+}
+
+// file_open_dir_from_prompt resolves a prompt directory prefix for dir_open.
+// Empty dirPart → "."; otherwise expand/resolve like file_complete_path.
+bool file_open_dir_from_prompt(char *dst, size_t dstcap, const char[..] dirPart) {
+	char resolved[FilePathMax] = {0};
+
+	if (dst == NULL || dstcap < 2) {
+		return false;
+	}
+	if (len(dirPart) == 0) {
+		snprintf(dst, dstcap, ".");
+		return true;
+	}
+	if (file_resolve_path(resolved, sizeof(resolved), dirPart)) {
+		size_t dl = strlen(resolved);
+		if (dl > 1 && resolved[dl - 1] == '/') {
+			resolved[dl - 1] = 0;
+		}
+		snprintf(dst, dstcap, "%s", resolved);
+		return true;
+	}
+	{
+		size_t n = len(dirPart);
+		char[..] dv = ranged(dst, dstcap);
+		if (n >= dstcap) {
+			n = dstcap - 1;
+		}
+		memcpy(dst, ptr(dirPart), n);
+		dv[n] = 0;
+		size_t dl = strlen(dst);
+		if (dl > 1 && dv[dl - 1] == '/') {
+			dv[dl - 1] = 0;
+		}
+	}
+	return true;
+}
+
+static bool file_contract_home(char *dst, size_t dstcap, const char[..] absPath) {
+	if (dst == NULL || dstcap < 3 || len(absPath) == 0) {
+		return false;
+	}
+	pool p {
+		auto (home, hok) = os_home(&p);
+		if (!hok || len(home) == 0) {
+			return false;
+		}
+		auto (hv, hok2) = path_clean(&p, home);
+		if (!hok2 || len(hv) == 0) {
+			return false;
+		}
+		auto (av, aok) = path_clean(&p, absPath);
+		if (!aok || len(av) == 0) {
+			return false;
+		}
+		size_t hlen = len(hv);
+		size_t alen = len(av);
+		if (alen == hlen && memcmp(ptr(av), ptr(hv), hlen) == 0) {
+			snprintf(dst, dstcap, "~/");
+			return true;
+		}
+		if (alen > hlen && memcmp(ptr(av), ptr(hv), hlen) == 0 && av[hlen] == '/') {
+			snprintf(dst, dstcap, "~/%.*s/", (int)(alen - hlen - 1), ptr(av) + hlen + 1);
+			return true;
+		}
+		return false;
+	}
+}
+
+// file_prompt_parent_dir writes the prompt directory one level above dirPart.
+// Empty dirPart means cwd: navigate to the absolute parent (so "../" from the
+// initial find-file listing is selectable).
+bool file_prompt_parent_dir(char *dst, size_t dstcap, const char[..] dirPart) {
+	char open_dir[FilePathMax] = {0};
+	char parent[FilePathMax] = {0};
+	char contracted[FilePathMax] = {0};
+
+	if (dst == NULL || dstcap < 2) {
+		return false;
+	}
+	snprintf(dst, dstcap, "");
+	if (!file_open_dir_from_prompt(open_dir, sizeof(open_dir), dirPart)) {
+		return false;
+	}
+	/* path_dir(".") is empty — resolve to an absolute path first. */
+	{
+		char abs_open[FilePathMax] = {0};
+		if (file_resolve_path(abs_open, sizeof(abs_open),
+			ranged(open_dir, strlen(open_dir)))) {
+			snprintf(open_dir, sizeof(open_dir), "%s", abs_open);
+		}
+	}
+	{
+		const char[..] pd = path_dir(ranged(open_dir, strlen(open_dir)));
+		if (len(pd) == 0) {
+			return true;
+		}
+		size_t n = len(pd);
+		if (n >= sizeof(parent)) {
+			n = sizeof(parent) - 1;
+		}
+		memcpy(parent, ptr(pd), n);
+		parent[n] = 0;
+	}
+	if (strcmp(parent, open_dir) == 0) {
+		if (len(dirPart) == 0) {
+			snprintf(dst, dstcap, "/");
+		} else {
+			snprintf(dst, dstcap, "%s", dirPart);
+		}
+		return true;
+	}
+	if (len(dirPart) == 0 ||
+		(len(dirPart) >= 2 && dirPart[0] == '~' && dirPart[1] == '/')) {
+		if (file_contract_home(contracted, sizeof(contracted),
+			ranged(parent, strlen(parent)))) {
+			snprintf(dst, dstcap, "%s", contracted);
+			return true;
+		}
+		if (strcmp(parent, "/") == 0) {
+			snprintf(dst, dstcap, "/");
+		} else {
+			snprintf(dst, dstcap, "%s/", parent);
+		}
+		return true;
+	}
+	if (path_is_abs(dirPart)) {
+		if (strcmp(parent, "/") == 0) {
+			snprintf(dst, dstcap, "/");
+		} else {
+			snprintf(dst, dstcap, "%s/", parent);
+		}
+		return true;
+	}
+	{
+		char trimmed[FilePathMax] = {0};
+		size_t n = len(dirPart);
+		int last = -1;
+		size_t i = 0;
+		if (n >= sizeof(trimmed)) {
+			n = sizeof(trimmed) - 1;
+		}
+		memcpy(trimmed, ptr(dirPart), n);
+		trimmed[n] = 0;
+		size_t end = strlen(trimmed);
+		while (end > 0 && trimmed[end - 1] == '/') {
+			end--;
+		}
+		trimmed[end] = 0;
+		for (; i < end; i++) {
+			if (trimmed[i] == '/') {
+				last = (int)i;
+			}
+		}
+		if (last >= 0) {
+			trimmed[last + 1] = 0;
+			snprintf(dst, dstcap, "%s", trimmed);
+		} else if (strcmp(trimmed, "..") == 0) {
+			/* Relative "../" prompt: keep climbing via absolute parent. */
+			if (file_contract_home(contracted, sizeof(contracted),
+				ranged(parent, strlen(parent)))) {
+				snprintf(dst, dstcap, "%s", contracted);
+			} else if (strcmp(parent, "/") == 0) {
+				snprintf(dst, dstcap, "/");
+			} else {
+				snprintf(dst, dstcap, "%s/", parent);
+			}
+		}
+	}
+	return true;
+}
+
+// file_apply_filename_selection joins dirPart with selected, or navigates up for "../".
+// Directory selections keep a trailing '/' so the next prompt lists that folder.
+bool file_apply_filename_selection(const char[..] dirPart, const char[..] selected,
+	char *out, size_t cap) {
+	if (out == NULL || cap < 2 || len(selected) == 0) {
+		return false;
+	}
+	char[..] ov = ranged(out, cap);
+	if (len(selected) >= 3 && selected[0] == '.' && selected[1] == '.' && selected[2] == '/') {
+		return file_prompt_parent_dir(out, cap, dirPart);
+	}
+	if (len(dirPart) == 0) {
+		size_t n = len(selected);
+		if (n >= cap) {
+			n = cap - 1;
+		}
+		memcpy(out, ptr(selected), n);
+		ov[n] = 0;
+	} else {
+		size_t dlen = len(dirPart);
+		size_t slen = len(selected);
+		if (dlen + slen >= cap) {
+			return false;
+		}
+		memcpy(out, ptr(dirPart), dlen);
+		memcpy(out + dlen, ptr(selected), slen);
+		ov[dlen + slen] = 0;
+	}
+	{
+		size_t slen = len(selected);
+		if (slen > 0 && selected[slen - 1] == '/') {
+			size_t n = strlen(out);
+			if (n + 1 < cap && (n == 0 || ov[n - 1] != '/')) {
+				ov[n] = '/';
+				ov[n + 1] = 0;
+			}
+		}
+	}
 	return true;
 }

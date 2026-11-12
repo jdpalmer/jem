@@ -22,7 +22,6 @@ import "syntax";
 #include <stdint.h>
 #include <ctype.h>
 #include <unistd.h>
-#include "temp.h"
 
 enum {
 	TagPathMax = 4096,
@@ -364,7 +363,6 @@ static char *tag_loc_pattern(TagLocHead *h) {
 
 static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 	TagJsonFields f = {0};
-	char resolved[TagPathMax] = {0};
 	TagEntry e = {0};
 	if (line == NULL || out == NULL) {
 		return TagJsonMalformed;
@@ -390,20 +388,22 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 		e.path = f.path;
 		f.path = str_empty();
 	} else {
-		auto (jv, jok) = path_join(ranged(resolved, 0, sizeof(resolved)),
-			ranged(tags_dir, strlen(tags_dir)), f.path);
-		if (!jok || len(jv) == 0) {
-			tag_entry_free(&e);
-			tag_json_fields_free(&f);
-			return TagJsonSkip;
+		pool p {
+			auto (jv, jok) = path_join(&p,
+				ranged(tags_dir, strlen(tags_dir)), f.path);
+			if (!jok || len(jv) == 0) {
+				tag_entry_free(&e);
+				tag_json_fields_free(&f);
+				return TagJsonSkip;
+			}
+			auto (ok, s) = str_dup(jv);
+			if (!ok) {
+				tag_entry_free(&e);
+				tag_json_fields_free(&f);
+				return TagJsonSkip;
+			}
+			e.path = s;
 		}
-		auto (ok, s) = str_dup(jv);
-		if (!ok) {
-			tag_entry_free(&e);
-			tag_json_fields_free(&f);
-			return TagJsonSkip;
-		}
-		e.path = s;
 	}
 	tag_json_fields_free(&f);
 	if (str_is_empty(e.name) || str_is_empty(e.path)) {
@@ -571,7 +571,6 @@ static void tag_file_name(char *dst, size_t cap) {
 
 static bool tag_start_dir(char *dst, size_t cap) {
 	Buffer *cur = buffer_current();
-	char tmp[TagPathMax] = {0};
 	if (cur != NULL && len(cur.file_name) > 0) {
 		char[..] d = path_dir(cur.file_name);
 		if (len(d) > 0 && ptr(d) != NULL) {
@@ -581,23 +580,22 @@ static bool tag_start_dir(char *dst, size_t cap) {
 			}
 		}
 	}
-	{
-		auto (cw, ok) = os_cwd(ranged(tmp, 0, sizeof(tmp)));
+	pool p {
+		auto (cw, ok) = os_cwd(&p);
 		if (!ok || len(cw) == 0) {
 			return false;
 		}
-		int n = snprintf(dst, cap, "%s", cw);
+		int n = snprintf(dst, cap, "%.*s", (int)len(cw), ptr(cw));
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
+		return true;
 	}
-	return true;
 }
 
 static bool tag_resolve_path(char *out, size_t cap) {
 	char tag_name[TagNameMax] = {0};
 	char dir[TagPathMax] = {0};
-	char cand[TagPathMax] = {0};
 	char prev[TagPathMax] = {0};
 	tag_file_name(tag_name, sizeof(tag_name));
 	char[..] tag_namev = ranged(tag_name, strlen(tag_name));
@@ -618,17 +616,18 @@ static bool tag_resolve_path(char *out, size_t cap) {
 	}
 	for (;;) {
 		char[..] dirv = ranged(dir, strlen(dir));
-		auto (jv, jok) = path_join(ranged(cand, 0, sizeof(cand)),
-			dirv, tag_namev);
-		if (jok && len(jv) > 0) {
-			auto (inf, ok) = fs_stat(jv);
-			(void)inf;
-			if (ok) {
-				int n = snprintf(out, cap, "%s", jv);
-				if (n < 0 || (size_t)n >= cap) {
-					return false;
+		pool p {
+			auto (jv, jok) = path_join(&p, dirv, tag_namev);
+			if (jok && len(jv) > 0) {
+				auto (inf, ok) = fs_stat(jv);
+				(void)inf;
+				if (ok) {
+					int n = snprintf(out, cap, "%.*s", (int)len(jv), ptr(jv));
+					if (n < 0 || (size_t)n >= cap) {
+						return false;
+					}
+					return true;
 				}
-				return true;
 			}
 		}
 		snprintf(prev, sizeof(prev), "%s", dir);
@@ -1611,23 +1610,23 @@ bool tags_visit_at_point() {
 static bool tags_project_root(char *dst, size_t cap) {
 	char dir[TagPathMax] = {0};
 	char prev[TagPathMax] = {0};
-	char git[TagPathMax] = {0};
 	if (!tag_start_dir(dir, sizeof(dir))) {
 		return false;
 	}
 	for (;;) {
 		char[..] dirv = ranged(dir, strlen(dir));
-		auto (jv, jok) = path_join(ranged(git, 0, sizeof(git)),
-			dirv, ".git");
-		if (jok && len(jv) > 0) {
-			auto (inf, ok) = fs_stat(jv);
-			(void)inf;
-			if (ok) {
-				if (strlen(dir) >= cap) {
-					return false;
+		pool p {
+			auto (jv, jok) = path_join(&p, dirv, ".git");
+			if (jok && len(jv) > 0) {
+				auto (inf, ok) = fs_stat(jv);
+				(void)inf;
+				if (ok) {
+					if (strlen(dir) >= cap) {
+						return false;
+					}
+					snprintf(dst, cap, "%s", dir);
+					return true;
 				}
-				snprintf(dst, cap, "%s", dir);
-				return true;
 			}
 		}
 		snprintf(prev, sizeof(prev), "%s", dir);
@@ -1656,17 +1655,21 @@ static bool tags_make_temp(char *dst, size_t cap, const char[..] target) {
 	if (len(parent) == 0 || ptr(parent) == NULL) {
 		return false;
 	}
-	int n = snprintf(dst, cap, "%s/.jem-tags-XXXXXX", parent);
-	if (n < 0 || (size_t)n >= cap) {
-		return false;
+	pool p {
+		auto (f, name, ok) = fs_create_temp(&p, parent, ".jem-tags-");
+		if (!ok || len(name) == 0) {
+			f.close();
+			return false;
+		}
+		f.close();
+		int n = snprintf(dst, cap, "%.*s", (int)len(name), ptr(name));
+		if (n < 0 || (size_t)n >= cap) {
+			fs_remove(name);
+			{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
+			return false;
+		}
+		return true;
 	}
-	int fd = mkstemp(dst);
-	if (fd < 0) {
-		{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
-		return false;
-	}
-	close(fd);
-	return true;
 }
 
 static bool tags_is_universal_ctags(const char[..] path_name) {
@@ -1715,8 +1718,15 @@ bool tags_build() {
 	char temp[TagPathMax] = {0};
 	tag_file_name(tag_name, sizeof(tag_name));
 	{
-		auto (found, ok) = os_look_path(ranged(ctags, 0, sizeof(ctags)), "ctags");
-		(void)found;
+		bool ok = false;
+		pool p {
+			auto (found, lok) = os_look_path(&p, "ctags");
+			if (lok && len(found) > 0 && len(found) < sizeof(ctags)) {
+				snprintf(ctags, sizeof(ctags), "%.*s",
+					(int)len(found), ptr(found));
+				ok = true;
+			}
+		}
 		if (!ok) {
 			display_set_echo("[universal-ctags not found in PATH]");
 			return false;
@@ -1742,9 +1752,17 @@ bool tags_build() {
 		}
 		snprintf(target, sizeof(target), "%s", tag_name);
 	} else {
-		auto (tv, ok) = path_join(ranged(target, 0, sizeof(target)),
-			ranged(root, strlen(root)), tag_namev);
-		if (!ok || len(tv) == 0) {
+		bool ok = false;
+		pool p {
+			auto (tv, jok) = path_join(&p,
+				ranged(root, strlen(root)), tag_namev);
+			if (jok && len(tv) > 0 && len(tv) < sizeof(target)) {
+				snprintf(target, sizeof(target), "%.*s",
+					(int)len(tv), ptr(tv));
+				ok = true;
+			}
+		}
+		if (!ok) {
 			display_set_echo("[cannot determine tags output path]");
 			return false;
 		}

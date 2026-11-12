@@ -134,8 +134,6 @@ static void job_clear() {
 
 static bool job_project_root(char *dst, size_t cap) {
 	Buffer *cur = buffer_current();
-	char dir[JobPathMax] = {
-		0 };
 
 	if (cur != NULL && len(cur.file_name) > 0) {
 		char[..] logical = cur.file_name;
@@ -149,17 +147,17 @@ static bool job_project_root(char *dst, size_t cap) {
 			}
 		}
 	}
-	{
-		auto (cw, ok) = os_cwd(ranged(dir, 0, sizeof(dir)));
+	pool p {
+		auto (cw, ok) = os_cwd(&p);
 		if (!ok || len(cw) == 0) {
 			return false;
 		}
-		int n = snprintf(dst, cap, "%s", cw);
+		int n = snprintf(dst, cap, "%.*s", (int)len(cw), ptr(cw));
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
+		return true;
 	}
-	return true;
 }
 
 [[provides]] static void *job_loc_alloc(char *path, int line, int column) {
@@ -195,8 +193,6 @@ static bool job_path_is_abs(char *p) {
 }
 
 static bool job_abs_path(char *dst, size_t cap, char *rel) {
-	char joined[JobPathMax] = {
-		0 };
 	if (rel == NULL || dst == NULL || cap < 2) {
 		return false;
 	}
@@ -207,8 +203,8 @@ static bool job_abs_path(char *dst, size_t cap, char *rel) {
 		snprintf(dst, cap, "%s", rel);
 		return true;
 	}
-	{
-		auto (jv, jok) = path_join(ranged(joined, 0, sizeof(joined)),
+	pool p {
+		auto (jv, jok) = path_join(&p,
 			ranged(g_job_root, strlen(g_job_root)), ranged(rel, strlen(rel)));
 		if (!jok || len(jv) == 0) {
 			return false;
@@ -217,8 +213,8 @@ static bool job_abs_path(char *dst, size_t cap, char *rel) {
 		if (n < 0 || (size_t)n >= cap) {
 			return false;
 		}
+		return true;
 	}
-	return true;
 }
 
 /* Parse tool line: path:line:text or path:line:col:text.
@@ -695,13 +691,21 @@ static bool job_start_argv(const char[..] program, const char[..] *argv, size_t 
 	job_bufs_reset();
 	g_job_kind = kind;
 
-	auto (found, lok) = os_look_path(
-		ranged(prog_path, 0, sizeof(prog_path)), program);
-	(void)found;
-	if (!lok) {
-		display_set_echo("[job: program not found]");
-		g_job_kind = JobNone;
-		return false;
+	{
+		bool lok = false;
+		pool p {
+			auto (found, ok) = os_look_path(&p, program);
+			if (ok && len(found) > 0 && len(found) < sizeof(prog_path)) {
+				snprintf(prog_path, sizeof(prog_path), "%.*s",
+					(int)len(found), ptr(found));
+				lok = true;
+			}
+		}
+		if (!lok) {
+			display_set_echo("[job: program not found]");
+			g_job_kind = JobNone;
+			return false;
+		}
 	}
 	c.init(ranged(prog_path, strlen(prog_path)), argv, nargs);
 	if (!c.dir(workdir)) {
@@ -815,10 +819,6 @@ char *job_last_compile_command() {
 }
 
 bool job_start_grep(char *pattern) {
-	char rg[JobPathMax] = {
-		0 };
-	char grep[JobPathMax] = {
-		0 };
 	const char[..] argv_rg[6] = {
 		0 };
 	const char[..] argv_grep[4] = {
@@ -832,10 +832,10 @@ bool job_start_grep(char *pattern) {
 		display_set_echo("[grep: no project root]");
 		return false;
 	}
-	{
-		auto (found, rok) = os_look_path(ranged(rg, 0, sizeof(rg)), "rg");
+	pool p {
+		auto (found, ok) = os_look_path(&p, "rg");
 		(void)found;
-		if (rok) {
+		if (ok) {
 			argv_rg[0] = "-n";
 			argv_rg[1] = "--column";
 			argv_rg[2] = "--no-heading";
@@ -845,10 +845,8 @@ bool job_start_grep(char *pattern) {
 			return job_start_argv("rg", argv_rg, 6,
 				ranged(g_job_root, strlen(g_job_root)), JobGrep);
 		}
-	}
-	{
-		auto (found, gok) = os_look_path(ranged(grep, 0, sizeof(grep)), "grep");
-		(void)found;
+		auto (gfound, gok) = os_look_path(&p, "grep");
+		(void)gfound;
 		if (!gok) {
 			display_set_echo("[grep: need rg or grep on PATH]");
 			return false;
@@ -882,8 +880,15 @@ bool job_start_compile(char *command) {
 		if (have && len(comspec) > 0) {
 			snprintf(sh, sizeof(sh), "%.*s", (int)len(comspec), ptr(comspec));
 		} else {
-			auto (found, ok) = os_look_path(ranged(sh, 0, sizeof(sh)), "cmd.exe");
-			(void)found;
+			bool ok = false;
+			pool p {
+				auto (found, lok) = os_look_path(&p, "cmd.exe");
+				if (lok && len(found) > 0 && len(found) < sizeof(sh)) {
+					snprintf(sh, sizeof(sh), "%.*s",
+						(int)len(found), ptr(found));
+					ok = true;
+				}
+			}
 			if (!ok) {
 				display_set_echo("[compile: COMSPEC/cmd.exe not found]");
 				return false;
@@ -896,8 +901,15 @@ bool job_start_compile(char *command) {
 	}
 #else
 	{
-		auto (found, ok) = os_look_path(ranged(sh, 0, sizeof(sh)), "/bin/sh");
-		(void)found;
+		bool ok = false;
+		pool p {
+			auto (found, lok) = os_look_path(&p, "/bin/sh");
+			if (lok && len(found) > 0 && len(found) < sizeof(sh)) {
+				snprintf(sh, sizeof(sh), "%.*s",
+					(int)len(found), ptr(found));
+				ok = true;
+			}
+		}
 		if (!ok) {
 			display_set_echo("[compile: /bin/sh not found]");
 			return false;

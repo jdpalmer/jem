@@ -5,6 +5,7 @@ import "window";
 import "term";
 import "display";
 import "file";
+import "fnpick";
 import "killring";
 import "markring";
 import "minibuffer";
@@ -55,7 +56,8 @@ enum ListenerKind {
 	ListenerAskChoose = 11, /* horizontal LF/CRLF (etc.) choose */
 	ListenerKillBuffer = 12, /* fuzzy kill-buffer */
 	ListenerDescribeCommand = 13,
-	ListenerVarFuzzy = 14 /* set/describe variable name pick */
+	ListenerVarFuzzy = 14, /* set/describe variable name pick */
+	ListenerAskFilename = 15 /* fuzzy find/read/write-file */
 };
 
 enum AskStringKind {
@@ -1437,20 +1439,90 @@ bool cmd_undo(bool f, int n) {
 	return true;
 }
 
+static bool finish_ask_filename(int phase, const char *text_copy) {
+	Window *w = window_current();
+	if (text_copy == NULL) {
+		text_copy = "";
+	}
+	if (phase == (int)AskFindFile) {
+		auto (buf, ok) = file_visit(ranged(text_copy, strlen(text_copy)));
+		if (ok && buf != NULL) {
+			window_switch_buffer(buf);
+			tags_preload();
+			display_set_echo("File visited");
+		} else {
+			display_set_echo("Visit failed");
+		}
+		return true;
+	}
+	if (phase == (int)AskWriteFile) {
+		Buffer *b = buffer_current();
+		const char[..] textv = ranged(text_copy, strlen(text_copy));
+		if (len(textv) == 0 || b == NULL) {
+			display_set_echo("Write failed");
+			return true;
+		}
+		if (file_needs_overwrite_confirm(b, textv)) {
+			push_listener(ListenerAskYesNo);
+			{
+				Listener *Ow = top_listener();
+				if (Ow != NULL) {
+					Ow.ask_phase = AskYesOverwrite;
+					snprintf(Ow.ask_buf, sizeof(Ow.ask_buf), "%s", text_copy);
+				}
+			}
+			minibuffer_begin("file changed on disk. overwrite (y/n) ", 1);
+			return true;
+		}
+		if (file_save(b, textv)) {
+			if (w != NULL) {
+				w.should_redraw = true;
+				w.should_update_mode_line = true;
+			}
+			display_set_echo("Wrote file");
+		} else {
+			display_set_echo("Write failed");
+			term_beep();
+		}
+		return true;
+	}
+	if (phase == (int)AskReadFile) {
+		if (*text_copy == 0) {
+			display_set_echo("Read failed");
+			return true;
+		}
+		if (file_read_into_current(ranged(text_copy, strlen(text_copy)))) {
+			if (w != NULL) {
+				w.buffer = buffer_current();
+				w.cursor = w.buffer.cursor;
+				w.top_line = 1;
+				w.should_redraw = true;
+				w.should_update_mode_line = true;
+			}
+		} else {
+			display_set_echo("Read failed");
+			term_beep();
+		}
+		return true;
+	}
+	return true;
+}
+
 bool cmd_write_file(bool f, int n) {
 	Buffer *b = buffer_current();
 	(void)f;
 	(void)n;
-	push_listener(ListenerAskString);
+	push_listener(ListenerAskFilename);
 	{
 		Listener *L = top_listener();
 		if (L != NULL) {
 			L.ask_phase = AskWriteFile;
 		}
 	}
-	minibuffer_begin("Write file: ", 2);
 	if (b != NULL && len(b.file_name) > 0) {
-		minibuffer_set_text(b.file_name);
+		fuzzy_filename_open("Write file: ", b.file_name);
+	} else {
+		fuzzy_filename_open("Write file: ", str_empty());
 	}
 	return true;
 }
@@ -1492,28 +1564,28 @@ bool cmd_save_buffer(bool f, int n) {
 bool cmd_find_file(bool f, int n) {
 	(void)f;
 	(void)n;
-	push_listener(ListenerAskString);
+	push_listener(ListenerAskFilename);
 	{
 		Listener *L = top_listener();
 		if (L != NULL) {
 			L.ask_phase = AskFindFile;
 		}
 	}
-	minibuffer_begin("Find file: ", 2);
+	fuzzy_filename_open("Find file: ", str_empty());
 	return true;
 }
 
 bool cmd_read_file(bool f, int n) {
 	(void)f;
 	(void)n;
-	push_listener(ListenerAskString);
+	push_listener(ListenerAskFilename);
 	{
 		Listener *L = top_listener();
 		if (L != NULL) {
 			L.ask_phase = AskReadFile;
 		}
 	}
-	minibuffer_begin("Read file: ", 2);
+	fuzzy_filename_open("Read file: ", str_empty());
 	return true;
 }
 
@@ -2508,6 +2580,27 @@ static bool handle_listener_key(uint32_t key) {
 		display_set_echo("Quit");
 		return true;
 	}
+	if (L.kind == ListenerAskFilename) {
+		FuzzyKeyResult fr = fuzzy_filename_handle_key(key);
+		int phase = L.ask_phase;
+		if (fr == FuzzyContinue) {
+			return true;
+		}
+		if (fr == FuzzyAccept) {
+			char text_copy[1024] = {0};
+			char *raw = fuzzy_filename_text();
+			if (raw != NULL) {
+				snprintf(text_copy, sizeof(text_copy), "%s", raw);
+			}
+			fuzzy_filename_close();
+			pop_listener();
+			return finish_ask_filename(phase, text_copy);
+		}
+		fuzzy_filename_close();
+		pop_listener();
+		display_set_echo("Quit");
+		return true;
+	}
 	if (L.kind == ListenerDescribeCommand) {
 		FuzzyKeyResult fr = fuzzy_command_handle_key(key);
 		if (fr == FuzzyContinue) {
@@ -2536,21 +2629,6 @@ static bool handle_listener_key(uint32_t key) {
 			}
 			pop_listener();
 			display_set_echo("Quit");
-			return true;
-		}
-		if (L.kind == ListenerAskString &&
-			(key == term_key_value(TermKeyTab) || key == (uint32_t)'\t') &&
-			minibuffer_kind() == 2) {
-			char tmp[1024] = {0};
-			char *raw = minibuffer_text();
-			if (raw != NULL) {
-				snprintf(tmp, sizeof(tmp), "%s", raw);
-			}
-			if (file_complete_path(tmp, sizeof(tmp))) {
-				minibuffer_set_text(ranged(tmp, strlen(tmp)));
-			} else {
-				term_beep();
-			}
 			return true;
 		}
 		if ((L.kind == ListenerAskString ||
@@ -2660,67 +2738,9 @@ static bool handle_listener_key(uint32_t key) {
 			minibuffer_cancel();
 			pop_listener();
 			if (kind == ListenerAskString) {
-				Window *w = window_current();
-				if (phase == (int)AskFindFile) {
-					auto (buf, ok) = file_visit(ranged(text_copy, strlen(text_copy)));
-					if (ok && buf != NULL) {
-						window_switch_buffer(buf);
-						tags_preload();
-						display_set_echo("File visited");
-					} else {
-						display_set_echo("Visit failed");
-					}
-					return true;
-				}
-				if (phase == (int)AskWriteFile) {
-					Buffer *b = buffer_current();
-					const char[..] textv = ranged(text_copy, strlen(text_copy));
-					if (len(textv) == 0 || b == NULL) {
-						display_set_echo("Write failed");
-						return true;
-					}
-					if (file_needs_overwrite_confirm(b, textv)) {
-						push_listener(ListenerAskYesNo);
-						{
-							Listener *Ow = top_listener();
-							if (Ow != NULL) {
-								Ow.ask_phase = AskYesOverwrite;
-								snprintf(Ow.ask_buf, sizeof(Ow.ask_buf), "%s", text_copy);
-							}
-						}
-						minibuffer_begin("file changed on disk. overwrite (y/n) ", 1);
-						return true;
-					}
-					if (file_save(b, textv)) {
-						if (w != NULL) {
-							w.should_redraw = true;
-							w.should_update_mode_line = true;
-						}
-						display_set_echo("Wrote file");
-					} else {
-						display_set_echo("Write failed");
-						term_beep();
-					}
-					return true;
-				}
-				if (phase == (int)AskReadFile) {
-					if (text_copy[0] == 0) {
-						display_set_echo("Read failed");
-						return true;
-					}
-					if (file_read_into_current(ranged(text_copy, strlen(text_copy)))) {
-						if (w != NULL) {
-							w.buffer = buffer_current();
-							w.cursor = w.buffer.cursor;
-							w.top_line = 1;
-							w.should_redraw = true;
-							w.should_update_mode_line = true;
-						}
-					} else {
-						display_set_echo("Read failed");
-						term_beep();
-					}
-					return true;
+				if (phase == (int)AskFindFile || phase == (int)AskWriteFile ||
+					phase == (int)AskReadFile) {
+					return finish_ask_filename(phase, text_copy);
 				}
 				if (phase == (int)AskGrep) {
 					if (text_copy[0] == 0) {

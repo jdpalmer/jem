@@ -1,6 +1,7 @@
 // runtime/config.mc — ~/.jem.json variables + keybindings (jem.go/runtime/config.go).
 // JSON DOM via the top-level json package (jem.c util_json).
 import "json";
+import "os";
 import "str";
 
 #include <ctype.h>
@@ -301,37 +302,16 @@ bool config_apply_json(char *text, size_t n) {
 void config_load() {
 	char path[ConfigPathMax] = {0};
 	char[..] data = {0};
-#ifdef _WIN32
-	char home_buf[ConfigPathMax] = {0};
-	{
-		auto (have, home) = os_env("USERPROFILE");
-		if (have && len(home) > 0) {
-			snprintf(home_buf, sizeof(home_buf), "%.*s",
-				(int)len(home), ptr(home));
-		} else {
-			auto (hd, drive) = os_env("HOMEDRIVE");
-			auto (hp, pathv) = os_env("HOMEPATH");
-			if (hd && hp && len(drive) > 0 && len(pathv) > 0) {
-				snprintf(home_buf, sizeof(home_buf), "%.*s%.*s",
-					(int)len(drive), ptr(drive),
-					(int)len(pathv), ptr(pathv));
-			}
-		}
-		if (home_buf[0] == 0) {
+	pool p {
+		auto (home, ok) = os_home(&p);
+		if (!ok || len(home) == 0) {
 			return;
 		}
-	}
-	int wn = snprintf(path, sizeof(path), "%s\\.jem.json", home_buf);
-#else
-	auto (have, home) = os_env("HOME");
-	if (!have || len(home) == 0) {
-		return;
-	}
-	int wn = snprintf(path, sizeof(path), "%.*s/.jem.json",
-		(int)len(home), ptr(home));
-#endif
-	if (wn < 0 || (size_t)wn >= sizeof(path)) {
-		return;
+		int wn = snprintf(path, sizeof(path), "%.*s/.jem.json",
+			(int)len(home), ptr(home));
+		if (wn < 0 || (size_t)wn >= sizeof(path)) {
+			return;
+		}
 	}
 	FILE *fp = fopen(path, "r");
 	if (fp == NULL) {

@@ -547,15 +547,13 @@ bool window_only() {
 
 bool window_delete() {
 	Window *cur = window_current();
-	size_t i = 0;
-	size_t j = i;
 	if (cur == NULL || window_active.count <= (size_t)1) {
 		return false;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (size_t i = 0; i < window_active.count; i++) {
 		if (window_active.windows[i] == cur) {
 			free(cur);
-			for (; j + 1 < window_active.count; j++) {
+			for (size_t j = i; j + 1 < window_active.count; j++) {
 				window_active.windows[j] = window_active.windows[j + 1];
 			}
 			window_active.count--;

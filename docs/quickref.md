@@ -38,7 +38,7 @@ buffer; the first file is displayed on startup.
 | `C-x C-w` | Write the current buffer to a new file name |
 | `C-x C-v` | Revert the current buffer to the on-disk file |
 
-The file prompt supports **Tab completion** of file and directory names.
+The file prompt shows a fuzzy match list of the typed directory; **Tab** inserts the selection (or falls back to prefix completion).
 
 Files modified on disk since they were loaded are automatically reloaded if
 the buffer has no unsaved changes.  If the buffer has unsaved changes, jem

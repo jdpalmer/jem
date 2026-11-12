@@ -86,6 +86,17 @@ static void spawn_pause_end() {
 	display_set_echo("");
 }
 
+static bool spawn_look_into(char *dst, size_t cap, const char[..] name) {
+	pool p {
+		auto (found, ok) = os_look_path(&p, name);
+		if (!ok || len(found) == 0 || len(found) >= cap) {
+			return false;
+		}
+		snprintf(dst, cap, "%.*s", (int)len(found), ptr(found));
+		return true;
+	}
+}
+
 static bool spawn_resolve_shell(bool oneshot) {
 	g_spawn_prog[0] = 0;
 #ifdef _WIN32
@@ -97,17 +108,11 @@ static bool spawn_resolve_shell(bool oneshot) {
 				(int)len(comspec), ptr(comspec));
 			return true;
 		}
-		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)),
-			"cmd.exe");
-		(void)found;
-		return ok;
+		return spawn_look_into(g_spawn_prog, sizeof(g_spawn_prog), "cmd.exe");
 	}
 #else
 	if (oneshot) {
-		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)),
-			"/bin/sh");
-		(void)found;
-		return ok;
+		return spawn_look_into(g_spawn_prog, sizeof(g_spawn_prog), "/bin/sh");
 	}
 	{
 		auto (have, shell_view) = os_env("SHELL");
@@ -116,10 +121,7 @@ static bool spawn_resolve_shell(bool oneshot) {
 				(int)len(shell_view), ptr(shell_view));
 			return true;
 		}
-		auto (found, ok) = os_look_path(ranged(g_spawn_prog, 0, sizeof(g_spawn_prog)),
-			"/bin/sh");
-		(void)found;
-		return ok;
+		return spawn_look_into(g_spawn_prog, sizeof(g_spawn_prog), "/bin/sh");
 	}
 #endif
 }

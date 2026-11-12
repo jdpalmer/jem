@@ -11,7 +11,6 @@ import "str";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "../file/temp.h"
 
 static void check(bool value) {
 	if (!value) {
@@ -66,9 +65,11 @@ static void test_delete_this_file() {
 	char dir[512] = {0};
 	char path[512] = {0};
 
-	int n = snprintf(dir, sizeof(dir), "/tmp/jem-del-XXXXXX");
-	check(n > 0);
-	check(mkdtemp(dir) != NULL);
+	pool p {
+		auto (d, ok) = fs_mkdir_temp(&p, "", "jem-del-");
+		check(ok && len(d) > 0 && len(d) < sizeof(dir));
+		snprintf(dir, sizeof(dir), "%.*s", (int)len(d), ptr(d));
+	}
 	snprintf(path, sizeof(path), "%s/victim.txt", dir);
 	{
 		auto (w, wok) = writer_open(ranged(path, strlen(path)), OpenWrite | OpenCreate | OpenTrunc, 0);

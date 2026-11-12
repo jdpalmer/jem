@@ -13,11 +13,18 @@ import "str";
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "temp.h"
 
 static void check(bool ok) {
 	if (!ok) {
 		abort();
+	}
+}
+
+static void make_temp_dir(char *dir, size_t cap, const char[..] pattern) {
+	pool p {
+		auto (d, ok) = fs_mkdir_temp(&p, "", pattern);
+		check(ok && len(d) > 0 && len(d) < cap);
+		snprintf(dir, cap, "%.*s", (int)len(d), ptr(d));
 	}
 }
 
@@ -45,14 +52,36 @@ static void write_path(char *path, const char *text) {
 	w.close();
 }
 
+static void test_apply_filename_selection() {
+	char out[512] = {0};
+
+	check(file_apply_filename_selection(str_empty(), "foo.txt", out, sizeof(out)));
+	check(strcmp(out, "foo.txt") == 0);
+
+	check(file_apply_filename_selection("dir/", "bar.go", out, sizeof(out)));
+	check(strcmp(out, "dir/bar.go") == 0);
+
+	check(file_apply_filename_selection("dir/", "sub/", out, sizeof(out)));
+	check(strcmp(out, "dir/sub/") == 0);
+
+	check(file_apply_filename_selection("a/b/", "../", out, sizeof(out)));
+	check(strcmp(out, "a/") == 0);
+
+	check(file_apply_filename_selection("a/", "../", out, sizeof(out)));
+	check(out[0] == 0);
+
+	/* From cwd listing, "../" must climb to an absolute/~/ parent, not no-op. */
+	check(file_apply_filename_selection(str_empty(), "../", out, sizeof(out)));
+	check(out[0] != 0);
+	check(out[strlen(out) - 1] == '/');
+}
+
 static void test_complete_path() {
 	char dir[512] = {0};
 	char path[512] = {0};
 	char buf[512] = {0};
 
-	int n = snprintf(dir, sizeof(dir), "/tmp/jem-fcomp-XXXXXX");
-	check(n > 0);
-	check(mkdtemp(dir) != NULL);
+	make_temp_dir(dir, sizeof(dir), "jem-fcomp-");
 
 	snprintf(path, sizeof(path), "%s/alpha.txt", dir);
 	write_path(path, "hi");
@@ -79,8 +108,7 @@ static void test_check_reload_clean_buffer() {
 	char path[512] = {0};
 	int ask_line = 0;
 
-	snprintf(dir, sizeof(dir), "/tmp/jem-arevert-XXXXXX");
-	check(mkdtemp(dir) != NULL);
+	make_temp_dir(dir, sizeof(dir), "jem-arevert-");
 	snprintf(path, sizeof(path), "%s/watch.txt", dir);
 	write_path(path, "first\n");
 
@@ -110,8 +138,7 @@ static void test_check_reload_skips_dirty_when_notified() {
 	char path[512] = {0};
 	int ask_line = 0;
 
-	snprintf(dir, sizeof(dir), "/tmp/jem-arevert2-XXXXXX");
-	check(mkdtemp(dir) != NULL);
+	make_temp_dir(dir, sizeof(dir), "jem-arevert2-");
 	snprintf(path, sizeof(path), "%s/dirty.txt", dir);
 	write_path(path, "first\n");
 
@@ -137,8 +164,7 @@ static void test_check_reload_dirty_sets_notified() {
 	char path[512] = {0};
 	int ask_line = 0;
 
-	snprintf(dir, sizeof(dir), "/tmp/jem-arevert3-XXXXXX");
-	check(mkdtemp(dir) != NULL);
+	make_temp_dir(dir, sizeof(dir), "jem-arevert3-");
 	snprintf(path, sizeof(path), "%s/dirty2.txt", dir);
 	write_path(path, "first\n");
 
@@ -162,8 +188,7 @@ static void test_check_reload_auto_revert_dirty() {
 	char path[512] = {0};
 	int ask_line = 0;
 
-	snprintf(dir, sizeof(dir), "/tmp/jem-arevert4-XXXXXX");
-	check(mkdtemp(dir) != NULL);
+	make_temp_dir(dir, sizeof(dir), "jem-arevert4-");
 	snprintf(path, sizeof(path), "%s/auto.txt", dir);
 	write_path(path, "first\n");
 
@@ -192,8 +217,7 @@ static void test_save_preserves_mode_and_symlink() {
 	char linkbuf[512] = {0};
 	struct stat st = {0};
 
-	snprintf(dir, sizeof(dir), "/tmp/jem-fsave-XXXXXX");
-	check(mkdtemp(dir) != NULL);
+	make_temp_dir(dir, sizeof(dir), "jem-fsave-");
 	snprintf(target, sizeof(target), "%s/script.sh", dir);
 	snprintf(linkpath, sizeof(linkpath), "%s/alias.sh", dir);
 	write_path(target, "old\n");
@@ -226,6 +250,7 @@ static void test_save_preserves_mode_and_symlink() {
 }
 
 int main() {
+	test_apply_filename_selection();
 	test_complete_path();
 	test_check_reload_clean_buffer();
 	test_check_reload_skips_dirty_when_notified();

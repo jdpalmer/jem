@@ -26,6 +26,12 @@ vgcore.*
 # modc
 .modc-cache/
 **/.modc-cache/
+*.pkg.mc
+*.pkg.meta
+*.pkg.o
+**/.pkg.mc
+**/.pkg.meta
+**/.pkg.o
 
 # Built binary / default modc output
 /jem

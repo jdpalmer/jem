@@ -54,11 +54,11 @@ static const char[..] git_prog() {
 	if (!g_git_bin_looked) {
 		g_git_bin_looked = true;
 		g_git_bin[0] = 0;
-		{
-			auto (found, ok) = os_look_path(ranged(g_git_bin, 0, sizeof(g_git_bin)), "git");
-			(void)found;
-			if (!ok) {
-				g_git_bin[0] = 0;
+		pool p {
+			auto (found, ok) = os_look_path(&p, "git");
+			if (ok && len(found) > 0 && len(found) < sizeof(g_git_bin)) {
+				snprintf(g_git_bin, sizeof(g_git_bin), "%.*s",
+					(int)len(found), ptr(found));
 			}
 		}
 	}

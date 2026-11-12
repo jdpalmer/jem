@@ -11,7 +11,6 @@ import "path";
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "../file/temp.h"
 
 static void check(bool value) {
 	if (!value) {
@@ -40,10 +39,19 @@ static int run_git(const char *dir, const char *a0, const char *a1, const char *
 	const char[..] args[6] = {0};
 	size_t n = 0;
 	char gitbin[512] = {0};
-	auto (found, ok) = os_look_path(ranged(gitbin, 0, sizeof(gitbin)), "git");
-	(void)found;
-	if (!ok) {
-		return -1;
+	{
+		bool ok = false;
+		pool p {
+			auto (found, lok) = os_look_path(&p, "git");
+			if (lok && len(found) > 0 && len(found) < sizeof(gitbin)) {
+				snprintf(gitbin, sizeof(gitbin), "%.*s",
+					(int)len(found), ptr(found));
+				ok = true;
+			}
+		}
+		if (!ok) {
+			return -1;
+		}
 	}
 	args[n++] = "-C";
 	args[n++] = ranged(dir, strlen(dir));
@@ -75,9 +83,11 @@ static void test_modeline_and_gutter() {
 	char dir[512] = {0};
 	char path[512] = {0};
 
-	int n = snprintf(dir, sizeof(dir), "/tmp/jem-git-XXXXXX");
-	check(n > 0);
-	check(mkdtemp(dir) != NULL);
+	pool p {
+		auto (d, ok) = fs_mkdir_temp(&p, "", "jem-git-");
+		check(ok && len(d) > 0 && len(d) < sizeof(dir));
+		snprintf(dir, sizeof(dir), "%.*s", (int)len(d), ptr(d));
+	}
 	check(run_git(dir, "init", NULL, NULL) == 0);
 	check(run_git(dir, "config", "user.email", "t@example.com") == 0);
 	check(run_git(dir, "config", "user.name", "t") == 0);

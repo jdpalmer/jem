@@ -66,12 +66,10 @@ static Window *window_ensure_buffer([[retains]] Buffer *buf) {
 
 static void window_hide_match() {
 	Window *mw = window_match();
-	size_t i = 0;
-	size_t j = i;
 	if (mw == NULL || window_active.count <= (size_t)1) {
 		return;
 	}
-	for (i = 0; i < window_active.count; i++) {
+	for (size_t i = 0; i < window_active.count; i++) {
 		if (window_active.windows[i] != mw) {
 			continue;
 		}
@@ -83,7 +81,7 @@ static void window_hide_match() {
 			window_select(sel);
 		}
 		free(mw);
-		for (; j + 1 < window_active.count; j++) {
+		for (size_t j = i; j + 1 < window_active.count; j++) {
 			window_active.windows[j] = window_active.windows[j + 1];
 		}
 		window_active.count--;
