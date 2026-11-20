@@ -32,12 +32,18 @@ jem is a terminal text editor in the spirit of MicroEMACS, written in
   %C is easy
 * [UTF-8](https://utf8everywhere.org/) only
 
-## Build
-
-Requires `modc` and `qbe` on `PATH`. Sibling packages resolve via `-M .`:
+## Install
 
 ```bash
-cd jem.mc
+brew install jdpalmer/tap/jem
+```
+
+## Build
+
+Requires [`modc`](https://github.com/jdpalmer/modc) and `modc-qbe` on `PATH`
+(`brew install jdpalmer/tap/modc`). Sibling packages resolve via `-M .`:
+
+```bash
 modc build -M . -o jem
 ./jem [files...]
 ```
