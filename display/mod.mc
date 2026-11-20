@@ -34,6 +34,7 @@ Screen g_screen;
 static Screen g_prev;
 static bool g_theme_light;
 static bool g_screen_dirty;
+static bool g_echo_dirty;
 static bool g_have_style;
 static TextStyle g_active_style;
 static char g_echo[256];
@@ -1023,6 +1024,7 @@ void display_init() {
 	g_echo[0] = 0;
 	g_echo_generation = 0;
 	g_screen_dirty = true;
+	g_echo_dirty = true;
 	g_have_style = false;
 	screen_resize(&g_screen, term_rows() + 1, term_cols());
 	screen_resize(&g_prev, term_rows() + 1, term_cols());
@@ -1035,6 +1037,7 @@ void display_shutdown() {
 
 void display_set_echo(const char[..] msg) {
 	g_echo_generation++;
+	g_echo_dirty = true;
 	if (len(msg) == 0 || ptr(msg) == NULL) {
 		g_echo[0] = 0;
 		return;
@@ -1106,9 +1109,9 @@ void display_set_theme_mode(int mode) {
 }
 
 void display_update() {
-	size_t wi = 0;
 	Window *cur = window_current();
 	int total_rows = term_rows() + 1;
+	bool need_work = false;
 
 	if (term_refresh_size()) {
 		window_retile();
@@ -1132,49 +1135,84 @@ void display_update() {
 		}
 	}
 
-	if (cur != NULL) {
+	/* jem.go forces the current modeline every DisplayUpdate so L/C stays
+	 * live, but its runtime only calls Update after an event. jem.mc polls
+	 * every 100ms for jobs/reload; rewriting the cursor each tick keeps
+	 * iTerm2's tab activity spinner going while idle. Only refresh the
+	 * modeline when this window already has work. */
+	if (cur != NULL && (cur.did_move || cur.did_edit || cur.should_redraw)) {
 		cur.should_update_mode_line = true;
-	}
-
-	for (; wi < window_active.count; wi++) {
-		Window *win = window_active.windows[wi];
-		int old_top = 0;
-		if (win == NULL || win.buffer == NULL) {
-			continue;
-		}
-		if (!win.should_redraw && !win.did_move && !win.did_edit && !win.should_update_mode_line) {
-			continue;
-		}
-		old_top = win.top_line;
-		win.ensure_visible();
-		adjust_hscroll(win);
-		/* Region / search overlays need a full body paint each tick. */
-		if ((win.mark.line != 0 || win.search_span_count > 0) && !win.should_redraw) {
-			win.did_edit = false;
-			win.did_move = false;
-			win.should_redraw = true;
-		}
-		if (win.did_edit && !win.did_move && !win.should_redraw) {
-			paint_cursor_line(win);
-		} else if (win.did_edit || win.should_redraw) {
-			apply_hardware_scroll(win, old_top);
-			paint_window_body(win);
-		}
-		if (win.should_update_mode_line && !win.no_mode_line) {
-			paint_modeline(win, win.screen_top_row + win.height);
-		}
-		win.should_redraw = false;
-		win.did_move = false;
-		win.did_edit = false;
-		win.should_update_mode_line = false;
 	}
 
 	if (minibuffer_active()) {
 		char mb_line[1024] = {0};
 		minibuffer_format(mb_line, sizeof(mb_line));
-		snprintf(g_echo, sizeof(g_echo), "%s", mb_line);
+		if (strcmp(g_echo, mb_line) != 0) {
+			snprintf(g_echo, sizeof(g_echo), "%s", mb_line);
+			g_echo_dirty = true;
+		}
 	}
-	paint_echo(g_screen.rows - 1);
+
+	if (g_screen_dirty || g_echo_dirty) {
+		need_work = true;
+	}
+	{
+		size_t wi = 0;
+		for (; wi < window_active.count; wi++) {
+			Window *win = window_active.windows[wi];
+			if (win == NULL || win.buffer == NULL) {
+				continue;
+			}
+			if (win.should_redraw || win.did_move || win.did_edit || win.should_update_mode_line) {
+				need_work = true;
+				break;
+			}
+		}
+	}
+	if (!need_work) {
+		return;
+	}
+
+	{
+		size_t wi = 0;
+		for (; wi < window_active.count; wi++) {
+			Window *win = window_active.windows[wi];
+			int old_top = 0;
+			if (win == NULL || win.buffer == NULL) {
+				continue;
+			}
+			if (!win.should_redraw && !win.did_move && !win.did_edit && !win.should_update_mode_line) {
+				continue;
+			}
+			old_top = win.top_line;
+			win.ensure_visible();
+			adjust_hscroll(win);
+			/* Region / search overlays need a full body paint each tick. */
+			if ((win.mark.line != 0 || win.search_span_count > 0) && !win.should_redraw) {
+				win.did_edit = false;
+				win.did_move = false;
+				win.should_redraw = true;
+			}
+			if (win.did_edit && !win.did_move && !win.should_redraw) {
+				paint_cursor_line(win);
+			} else if (win.did_edit || win.should_redraw) {
+				apply_hardware_scroll(win, old_top);
+				paint_window_body(win);
+			}
+			if (win.should_update_mode_line && !win.no_mode_line) {
+				paint_modeline(win, win.screen_top_row + win.height);
+			}
+			win.should_redraw = false;
+			win.did_move = false;
+			win.did_edit = false;
+			win.should_update_mode_line = false;
+		}
+	}
+
+	if (g_screen_dirty || g_echo_dirty) {
+		paint_echo(g_screen.rows - 1);
+		g_echo_dirty = false;
+	}
 
 	/* Match jem.c / jem.go: never hide-cursor around ordinary paints.
 	 * jem.mc used to emit \x1b[?25l every dirty frame; a torn write left
