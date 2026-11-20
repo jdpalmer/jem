@@ -1108,6 +1108,31 @@ void display_set_theme_mode(int mode) {
 	display_invalidate();
 }
 
+/* Tab/window title: buffer name, with a leading '*' when dirty.
+ * Do not append " (jem)" — iTerm2 (and similar) already show the job name as
+ * "(jem)", which would otherwise read "name (jem) (jem)". */
+static void display_sync_title() {
+	Window *cur = window_current();
+	char title[256] = {0};
+	const char *name = "[No File]";
+	bool dirty = false;
+	char name_buf[192] = {0};
+	if (cur != NULL && cur.buffer != NULL) {
+		dirty = cur.buffer.is_changed;
+		if (len(cur.buffer.name) > 0 && ptr(cur.buffer.name) != NULL) {
+			snprintf(name_buf, sizeof(name_buf), "%.*s", (int)len(cur.buffer.name),
+				ptr(cur.buffer.name));
+			name = name_buf;
+		}
+	}
+	if (dirty) {
+		snprintf(title, sizeof(title), "*%s", name);
+	} else {
+		snprintf(title, sizeof(title), "%s", name);
+	}
+	term_set_title(title);
+}
+
 void display_update() {
 	Window *cur = window_current();
 	int total_rows = term_rows() + 1;
@@ -1169,6 +1194,8 @@ void display_update() {
 			}
 		}
 	}
+	/* Deduped OSC write; safe on the idle path (no output when unchanged). */
+	display_sync_title();
 	if (!need_work) {
 		return;
 	}

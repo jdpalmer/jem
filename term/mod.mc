@@ -79,6 +79,15 @@ static bool g_open;
 static int g_mouse_col;
 static int g_mouse_row;
 
+enum {
+	TermTitleMax = 256
+};
+
+/* Last title we emitted; skip duplicate OSC writes (idle poll). */
+static char g_set_title[TermTitleMax];
+/* True after CSI 22 ; 0 t push; term_close pops with CSI 23 ; 0 t. */
+static bool g_title_pushed;
+
 static char g_obuf[TermOutCap];
 static size_t g_olen;
 
@@ -667,6 +676,65 @@ static void term_enable_modes() {
 	g_altbuf = true;
 }
 
+/* Emit OSC 0 title. Control bytes are dropped so a hostile buffer name cannot
+ * break out of the sequence. */
+static void term_title_emit(const char *title) {
+	char safe[TermTitleMax] = {0};
+	size_t n = 0;
+	size_t i = 0;
+	if (title == NULL) {
+		title = "";
+	}
+	{
+		const char[..] src = ranged(title, strlen(title));
+		for (; i < len(src) && n + 1 < sizeof(safe); i++) {
+			char c = src[i];
+			if (c < 0x20 || c == 0x7f) {
+				continue;
+			}
+			safe[n++] = c;
+		}
+	}
+	safe[n] = 0;
+	term_emit("\x1b]0;", 4);
+	if (n > 0) {
+		term_emit(safe, n);
+	}
+	term_emit("\x07", 1);
+}
+
+/* Push/pop the terminal's private title stack (XTWINOPS 22/23). Preferred over
+ * CSI 21 t report/restore: many hosts disable title reporting for security,
+ * but still implement the stack (iTerm2, Ghostty, Kitty, WezTerm, …). */
+static void term_title_push() {
+	if (!g_is_tty || g_title_pushed) {
+		return;
+	}
+	term_emit("\x1b[22;0t", sizeof("\x1b[22;0t") - 1);
+	g_title_pushed = true;
+}
+
+static void term_title_pop() {
+	if (!g_title_pushed) {
+		return;
+	}
+	term_emit("\x1b[23;0t", sizeof("\x1b[23;0t") - 1);
+	g_title_pushed = false;
+}
+
+// term_set_title sets the terminal tab/window title (OSC 0). No-ops if unchanged.
+void term_set_title(const char *title) {
+	if (title == NULL) {
+		title = "";
+	}
+	if (strcmp(title, g_set_title) == 0) {
+		return;
+	}
+	snprintf(g_set_title, sizeof(g_set_title), "%s", title);
+	term_title_emit(g_set_title);
+	term_out_flush();
+}
+
 // term_open enters raw mode and probes Kitty keyboard support.
 bool term_open() {
 	int rows = 0;
@@ -713,6 +781,8 @@ bool term_open() {
 	}
 	g_kitty = true;
 	term_enable_modes();
+	term_title_push();
+	g_set_title[0] = 0;
 	g_open = true;
 	return true;
 }
@@ -731,6 +801,8 @@ void term_close() {
 		term_emit("\x1b[?1049l", sizeof("\x1b[?1049l") - 1);
 		g_altbuf = false;
 	}
+	term_title_pop();
+	g_set_title[0] = 0;
 	term_out_flush();
 	if (g_is_tty && g_tty_raw) {
 		tty_set_cooked(&g_fin);
@@ -781,6 +853,8 @@ bool term_resume() {
 		g_kitty = true;
 	}
 	term_enable_modes();
+	term_title_push();
+	g_set_title[0] = 0;
 	g_open = true;
 	return true;
 }
