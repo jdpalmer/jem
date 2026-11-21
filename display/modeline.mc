@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Root VERSION (no Make step); trailing newline stripped at display time. */
+const char[..] app_version =
+#embed "../VERSION"
+;
+
 static bool g_macro_recording;
 static bool g_macro_present;
 
@@ -174,7 +179,16 @@ void paint_modeline(Window *win, int row) {
 	col++;
 	put_rune(&g_screen, row, col, 'b', name_st);
 	col++;
-	put_ascii(row, &col, "  jem 26.1 | ", gut);
+	{
+		char ver_label[64] = {0};
+		const char[..] ver = app_version;
+		size_t vlen = len(ver);
+		while (vlen > 0 && (ver[vlen - 1] == '\n' || ver[vlen - 1] == '\r')) {
+			vlen--;
+		}
+		snprintf(ver_label, sizeof(ver_label), "  jem %.*s | ", (int)vlen, ptr(ver));
+		put_ascii(row, &col, ver_label, gut);
+	}
 	put_ascii(row, &col, fitted, name_st);
 	put_ascii(row, &col, " | ", gut);
 	put_ascii(row, &col, eol, gut);
