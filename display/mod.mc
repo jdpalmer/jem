@@ -73,13 +73,13 @@ TextStyle style_gutter() {
 TextStyle style_modeline_name() {
 	TermColor bg = text_style_bg(style_gutter());
 	if (g_theme_light) {
-		return text_style_make(TermColorBase01, bg, (uint16_t)TextStyleBold);
+		return text_style_make(TermColorBase01, bg, TextStyleBold);
 	}
-	return text_style_make(TermColorBase1, bg, (uint16_t)TextStyleBold);
+	return text_style_make(TermColorBase1, bg, TextStyleBold);
 }
 
 TextStyle style_modeline_dirty() {
-	return text_style_make(TermColorRed, text_style_bg(style_gutter()), (uint16_t)TextStyleBold);
+	return text_style_make(TermColorRed, text_style_bg(style_gutter()), TextStyleBold);
 }
 
 static TermColor theme_selection_bg() {
@@ -182,11 +182,11 @@ static void sel_line(SelState *ss, int line_number, size_t line_len, ssize_t *st
 			return;
 		}
 		if (ss.start_line == ss.end_line) {
-			*start = ss.start_o;
+			*start = (ssize_t)ss.start_o;
 			*end = ss.end_o;
 			ss.phase = SelAfter;
 		} else {
-			*start = ss.start_o;
+			*start = (ssize_t)ss.start_o;
 			*end = line_len;
 			ss.phase = SelInside;
 		}
@@ -247,7 +247,7 @@ static bool screen_resize(Screen *s, int rows, int cols) {
 	}
 	DispCell[..] pv = ranged(p, n);
 	for (; i < n; i++) {
-		pv[i].ch = ' ';
+		pv[i].ch = (uint32_t)' ';
 		pv[i].style = def;
 	}
 	free(ptr(s.cells));
@@ -380,7 +380,7 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 	int i = 0;
 	int marker = GitLineDiffNone;
 	char num[16] = {0};
-	uint32_t mark_ch = ' ';
+	uint32_t mark_ch = (uint32_t)' ';
 	if (win == NULL || screen_row < 0) {
 		return;
 	}
@@ -395,14 +395,14 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 		marker = git_line_diff(win.buffer, lineno);
 	}
 	if (marker == (int)GitLineDiffAdded) {
-		mark_ch = '+';
-		mark_st = text_style_make(TermColorGreen, text_style_bg(st), (uint16_t)TextStyleBold);
+		mark_ch = (uint32_t)'+';
+		mark_st = text_style_make(TermColorGreen, text_style_bg(st), TextStyleBold);
 	} else if (marker == (int)GitLineDiffModified) {
-		mark_ch = '~';
-		mark_st = text_style_make(TermColorYellow, text_style_bg(st), (uint16_t)TextStyleBold);
+		mark_ch = (uint32_t)'~';
+		mark_st = text_style_make(TermColorYellow, text_style_bg(st), TextStyleBold);
 	} else if (marker == (int)GitLineDiffDeleted) {
-		mark_ch = '-';
-		mark_st = text_style_make(TermColorRed, text_style_bg(st), (uint16_t)TextStyleBold);
+		mark_ch = (uint32_t)'-';
+		mark_st = text_style_make(TermColorRed, text_style_bg(st), TextStyleBold);
 	}
 	put_rune(&g_screen, screen_row, 0, mark_ch, mark_st);
 	int num_width = width - 2;
@@ -424,9 +424,9 @@ static void paint_gutter(Window *win, int screen_row, int lineno) {
 		put_rune(&g_screen, screen_row, 1 + i, ch, st);
 	}
 	if (width >= 2) {
-		uint32_t clip = ' ';
+		uint32_t clip = (uint32_t)' ';
 		if (win.h_scroll > 0) {
-			clip = '<';
+			clip = (uint32_t)'<';
 		}
 		put_rune(&g_screen, screen_row, width - 1, clip, st);
 	}
@@ -449,7 +449,7 @@ void paint_blank_row(Window *win, int screen_row) {
 	int col = 0;
 	int cols = term_cols();
 	for (; col < cols; col++) {
-		put_rune(&g_screen, screen_row, col, ' ', def);
+		put_rune(&g_screen, screen_row, col, (uint32_t)' ', def);
 	}
 	paint_gutter(win, screen_row, 0);
 }
@@ -499,14 +499,14 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 	if (line_len == 0) {
 		int fill = gutter;
 		if (sel_start >= 0) {
-			paint_content_cell(screen_row, 0, h_scroll, gutter, ' ', selection_style(def));
+			paint_content_cell(screen_row, 0, h_scroll, gutter, (uint32_t)' ', selection_style(def));
 			fill = gutter + 1;
 			if (fill < gutter) {
 				fill = gutter;
 			}
 		}
 		while (fill < cols) {
-			put_rune(&g_screen, screen_row, fill, ' ', def);
+			put_rune(&g_screen, screen_row, fill, (uint32_t)' ', def);
 			fill++;
 		}
 		paint_gutter(win, screen_row, buf_line);
@@ -550,13 +550,13 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 		scol = gutter + (dcol - h_scroll);
 		if (dcol >= h_scroll && scol >= cols) {
 			if (cols > 0) {
-				put_rune(&g_screen, screen_row, cols - 1, '$', def);
+				put_rune(&g_screen, screen_row, cols - 1, (uint32_t)'$', def);
 			}
 			break;
 		}
 		if (r == '\t') {
 			for (c = 0; c < w; c++) {
-				paint_content_cell(screen_row, dcol + c, h_scroll, gutter, ' ', st);
+				paint_content_cell(screen_row, dcol + c, h_scroll, gutter, (uint32_t)' ', st);
 			}
 		} else {
 			paint_content_cell(screen_row, dcol, h_scroll, gutter, r, st);
@@ -576,7 +576,7 @@ void paint_line_text(Window *win, int screen_row, int buf_line, SelState *sel) {
 			fill = gutter;
 		}
 		while (fill < cols) {
-			put_rune(&g_screen, screen_row, fill, ' ', def);
+			put_rune(&g_screen, screen_row, fill, (uint32_t)' ', def);
 			fill++;
 		}
 	}
@@ -588,7 +588,7 @@ void paint_echo(int row) {
 	int i = 0;
 	size_t n = strlen(g_echo);
 	for (; i < term_cols(); i++) {
-		uint32_t ch = ' ';
+		uint32_t ch = (uint32_t)' ';
 		if ((size_t)i < n) {
 			ch = g_echo[i];
 		}
@@ -764,7 +764,7 @@ static void row_sync(int row) {
 		for (; i < cols; i++) {
 			DispCell *b = cell_at(&g_prev, row, i);
 			if (b != NULL) {
-				b.ch = ' ';
+				b.ch = (uint32_t)' ';
 				b.style = normal;
 			}
 		}
@@ -791,7 +791,7 @@ static void reset_front_to_spaces() {
 	}
 	int n = g_prev.rows * g_prev.cols;
 	for (; i < n; i++) {
-		g_prev.cells[i].ch = ' ';
+		g_prev.cells[i].ch = (uint32_t)' ';
 		g_prev.cells[i].style = normal;
 	}
 }
@@ -875,7 +875,7 @@ static void clear_front_rows(int from, int to) {
 		for (; c < g_prev.cols; c++) {
 			DispCell *b = cell_at(&g_prev, r, c);
 			if (b != NULL) {
-				b.ch = ' ';
+				b.ch = (uint32_t)' ';
 				b.style = normal;
 			}
 		}

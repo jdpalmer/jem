@@ -268,7 +268,7 @@ static bool tag_detail_append_lines(Buffer *buf, char *text) {
 	}
 	for (;;) {
 		if (*p == '\n' || *p == 0) {
-			if (tag_detail_append_n(buf, start, p - start) == NULL) {
+			if (tag_detail_append_n(buf, start, (size_t)(p - start)) == NULL) {
 				return false;
 			}
 			if (*p == 0) {

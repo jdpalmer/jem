@@ -242,7 +242,7 @@ static void test_save_preserves_mode_and_symlink() {
 		check(rok);
 		auto (n, ok) = r.read(ranged(text, sizeof(text) - 1));
 		check(ok && n > 0);
-		size_t got = n;
+		size_t got = (size_t)n;
 		r.close();
 		text[got] = 0;
 	}

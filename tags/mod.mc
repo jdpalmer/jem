@@ -431,7 +431,7 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 		if (n == 0) {
 			break;
 		}
-		if (!str_append(&data, ranged(chunk, n))) {
+		if (!str_append(&data, ranged(chunk, (size_t)n))) {
 			r.close();
 			str_free(&data);
 			return (NULL, 0, false);
@@ -1700,7 +1700,7 @@ static bool tags_is_universal_ctags(const char[..] path_name) {
 		if (!rok || n == 0) {
 			break;
 		}
-		used += n;
+		used += (size_t)n;
 	}
 	text[used] = 0;
 	output.close();

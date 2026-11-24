@@ -162,7 +162,7 @@ static (char *, size_t, bool) file_read_all(const char[..] path) {
 		if (n == 0) {
 			break;
 		}
-		if (!str_append(&data, ranged(chunk, n))) {
+		if (!str_append(&data, ranged(chunk, (size_t)n))) {
 			r.close();
 			str_free(&data);
 			return (NULL, 0, false);

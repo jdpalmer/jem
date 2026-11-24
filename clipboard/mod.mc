@@ -134,7 +134,7 @@ static bool clipboard_write_all(File *file, const char[..] data) {
 		if (!ok || n <= 0) {
 			return false;
 		}
-		offset += n;
+		offset += (size_t)n;
 	}
 	return true;
 }
@@ -211,7 +211,7 @@ static (char *, size_t, bool) clipboard_read_native() {
 			break;
 		}
 		if (len(data) < (size_t)ClipboardReadMax) {
-			keep = n;
+			keep = (size_t)n;
 			if (keep > (size_t)ClipboardReadMax - len(data)) {
 				keep = (size_t)ClipboardReadMax - len(data);
 			}

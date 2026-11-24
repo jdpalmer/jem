@@ -973,11 +973,11 @@ static bool job_read_ready(File *file) {
 	char chunk[4096] = {0};
 	if (file == &g_job_out) {
 		auto (n, ok) = g_job_out.read(ranged(chunk, sizeof(chunk)));
-		return ok && n > 0 && job_accum_append(ranged(chunk, n));
+		return ok && n > 0 && job_accum_append(ranged(chunk, (size_t)n));
 	}
 	if (file == &g_job_err) {
 		auto (n, ok) = g_job_err.read(ranged(chunk, sizeof(chunk)));
-		return ok && n > 0 && job_err_append(ranged(chunk, n));
+		return ok && n > 0 && job_err_append(ranged(chunk, (size_t)n));
 	}
 	return false;
 }

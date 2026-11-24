@@ -779,7 +779,7 @@ static size_t expand_regex_replacement_size(char *repl, ReCapture[..] caps) {
 				if (idx < len(caps)) {
 					ReCapture cap = caps[idx];
 					if (cap.start >= 0 && cap.length >= 0) {
-						size = size + cap.length;
+						size = size + (size_t)cap.length;
 					}
 				}
 			} else if (esc == 'n') {
@@ -809,8 +809,9 @@ static void expand_regex_replacement_into(char *repl, char *match_text, ReCaptur
 				if (idx < len(caps)) {
 					ReCapture cap = caps[idx];
 					if (cap.start >= 0 && cap.length >= 0) {
-						memcpy(ptr(expanded) + used, match_text + cap.start, cap.length);
-						used = used + cap.length;
+						memcpy(ptr(expanded) + used, match_text + cap.start,
+							(size_t)cap.length);
+						used = used + (size_t)cap.length;
 					}
 				}
 			} else if (esc == 'n') {

@@ -177,7 +177,7 @@ bool json_uint32_value(const JsonValue *value, uint32_t *out) {
 		if (c < '0' || c > '9') {
 			return false;
 		}
-		digit = c - '0';
+		digit = (uint32_t)(c - '0');
 		if (acc > 429496729u) {
 			return false;
 		}

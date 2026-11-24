@@ -128,11 +128,11 @@ static bool json_parse_hex4(JsonParser *parser, uint16_t *value) {
 			return false;
 		}
 		if (c >= '0' && c <= '9') {
-			nibble = c - '0';
+			nibble = (unsigned int)(c - '0');
 		} else if (c >= 'a' && c <= 'f') {
-			nibble = c - 'a' + 10;
+			nibble = (unsigned int)(c - 'a' + 10);
 		} else if (c >= 'A' && c <= 'F') {
-			nibble = c - 'A' + 10;
+			nibble = (unsigned int)(c - 'A' + 10);
 		} else {
 			json_set_error(parser, "Invalid hex escape");
 			return false;
@@ -184,7 +184,7 @@ static bool json_parse_string_into(JsonParser *parser, char[..] *buffer) {
 				continue;
 			}
 			char_start = parser.cursor - 1;
-			remaining = parser.end - char_start;
+			remaining = (size_t)(parser.end - char_start);
 			available = remaining >= 4 ? 4 : remaining;
 			used = json_utf8_decode_strict(char_start, available, &codepoint);
 			if (used == 0) {
@@ -319,7 +319,7 @@ static bool json_parse_string_into(JsonParser *parser, char[..] *buffer) {
 		json_set_error(parser, "Invalid number format");
 		return NULL;
 	}
-	size_t nbytes = s.p - parser.cursor;
+	size_t nbytes = (size_t)(s.p - parser.cursor);
 	parser.cursor = s.p;
 	parser.column = parser.column + nbytes;
 	JsonValue *value = json_new_number(number);

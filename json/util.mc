@@ -47,7 +47,7 @@ static size_t json_utf8_encode(uint32_t codepoint, char *out_raw) {
 	return 4;
 }
 
-static bool json_utf8_cont(int c) {
+static bool json_utf8_cont(uint32_t c) {
 	return (c & 0xC0) == 0x80;
 }
 

@@ -424,7 +424,7 @@ static (ReStatus, size_t, size_t) re_find_raw(const char[..] pattern, const char
 	if (offset < 0) {
 		return (ReNone, 0, 0);
 	}
-	return (ReFound, offset, matchlength);
+	return (ReFound, (size_t)offset, (size_t)matchlength);
 }
 
 // Find the first match of pattern in text.

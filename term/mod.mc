@@ -59,7 +59,7 @@ enum TermBufLimits {
 };
 
 uint32_t term_key_value(TermKeys key) {
-	return key;
+	return (uint32_t)key;
 }
 
 static int g_rows = 24;
@@ -437,7 +437,7 @@ static void term_emit_csi(int first, bool has_second, int second, char final_b) 
 	}
 	seq[n++] = 0x1b;
 	seq[n++] = '[';
-	n = term_append_u32(seq, n, first);
+	n = term_append_u32(seq, n, (uint32_t)first);
 	if (n < 0) {
 		return;
 	}
@@ -446,7 +446,7 @@ static void term_emit_csi(int first, bool has_second, int second, char final_b) 
 			return;
 		}
 		seq[n++] = ';';
-		n = term_append_u32(seq, n, second);
+		n = term_append_u32(seq, n, (uint32_t)second);
 		if (n < 0) {
 			return;
 		}
@@ -512,22 +512,22 @@ static uint32_t csi_modifier_flags(int modifier_param) {
 	uint32_t base = 0;
 	switch (final_b) {
 	case 'A':
-		base = TermKeyUp;
+		base = term_key_value(TermKeyUp);
 		break;
 	case 'B':
-		base = TermKeyDown;
+		base = term_key_value(TermKeyDown);
 		break;
 	case 'C':
-		base = TermKeyRight;
+		base = term_key_value(TermKeyRight);
 		break;
 	case 'D':
-		base = TermKeyLeft;
+		base = term_key_value(TermKeyLeft);
 		break;
 	case 'H':
-		base = TermKeyHome;
+		base = term_key_value(TermKeyHome);
 		break;
 	case 'F':
-		base = TermKeyEnd;
+		base = term_key_value(TermKeyEnd);
 		break;
 	default:
 		return (0, false);
@@ -546,7 +546,7 @@ static uint32_t csi_u_key_code(int codepoint, int modifier_param, int event_type
 	}
 	switch (codepoint) {
 	case 27:
-		return 27 | modifiers;
+		return (uint32_t)27 | modifiers;
 	case 13:
 		return term_key_value(TermKeyEnter) | (modifiers &
 			(term_key_value(TermCTL) | term_key_value(TermSHIFT) | term_key_value(TermMETA)));
@@ -556,14 +556,14 @@ static uint32_t csi_u_key_code(int codepoint, int modifier_param, int event_type
 		if ((modifiers & term_key_value(TermSHIFT)) != 0) {
 			return term_key_value(TermSHIFT) | term_key_value(TermKeyTab);
 		}
-		return TermKeyTab;
+		return term_key_value(TermKeyTab);
 	case 127:
 		return term_key_value(TermCTL) | (uint32_t)'H';
 	case 32:
 		if ((modifiers & term_key_value(TermCTL)) != 0) {
 			return term_key_value(TermCTL) | (uint32_t)' ';
 		}
-		return 32 | modifiers;
+		return (uint32_t)32 | modifiers;
 	case TermKittyKeyLeft:
 		return term_key_value(TermKeyLeft) | modifiers;
 	case TermKittyKeyUp:
@@ -601,7 +601,7 @@ static uint32_t csi_u_key_code(int codepoint, int modifier_param, int event_type
 			}
 			return (uint32_t)codepoint | term_key_value(TermMETA);
 		}
-		return codepoint;
+		return (uint32_t)codepoint;
 	}
 	if (codepoint >= 128 && codepoint < 0x110000) {
 		modifiers &= ~term_key_value(TermSHIFT);
@@ -1208,19 +1208,19 @@ static uint32_t term_decode_utf8(char first) {
 	}
 	if (need == 2) {
 		uint32_t r = (uint32_t)(first & 0x1F) << 6;
-		r |= buf[1] & 0x3F;
+		r |= (uint32_t)(buf[1] & 0x3F);
 		return r;
 	}
 	if (need == 3) {
 		uint32_t r = (uint32_t)(first & 0x0F) << 12;
 		r |= (uint32_t)(buf[1] & 0x3F) << 6;
-		r |= buf[2] & 0x3F;
+		r |= (uint32_t)(buf[2] & 0x3F);
 		return r;
 	}
 	uint32_t r = (uint32_t)(first & 0x07) << 18;
 	r |= (uint32_t)(buf[1] & 0x3F) << 12;
 	r |= (uint32_t)(buf[2] & 0x3F) << 6;
-	r |= buf[3] & 0x3F;
+	r |= (uint32_t)(buf[3] & 0x3F);
 	return r;
 }
 

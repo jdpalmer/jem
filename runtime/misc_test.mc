@@ -82,12 +82,12 @@ static void test_set_eol_mode() {
 	buf.set_name("eoltest");
 	check(buf.eol_mode == EModeLF);
 	check(cmd_set_eol_mode(false, 1));
-	check(cmd_choose_handle_key('c'));
+	check(cmd_choose_handle_key((uint32_t)'c'));
 	check(buf.eol_mode == EModeCRLF);
 	check(buf.is_changed);
 	expect_contains(display_echo_text(), "CRLF");
 	check(cmd_set_eol_mode(false, 1));
-	check(cmd_choose_handle_key('l'));
+	check(cmd_choose_handle_key((uint32_t)'l'));
 	check(buf.eol_mode == EModeLF);
 	expect_contains(display_echo_text(), "LF");
 }

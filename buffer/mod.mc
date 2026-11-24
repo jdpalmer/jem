@@ -161,20 +161,20 @@ size_t utf8_prev_offset(const char[..] data, size_t offset) {
 	}
 	if ((c & 0xE0) == 0xC0 && offset + 1 < n) {
 		uint32_t r = (uint32_t)(c & 0x1F) << 6;
-		r |= data[offset + 1] & 0x3F;
+		r |= (uint32_t)(data[offset + 1] & 0x3F);
 		return (r, 2);
 	}
 	if ((c & 0xF0) == 0xE0 && offset + 2 < n) {
 		uint32_t r = (uint32_t)(c & 0x0F) << 12;
 		r |= (uint32_t)(data[offset + 1] & 0x3F) << 6;
-		r |= data[offset + 2] & 0x3F;
+		r |= (uint32_t)(data[offset + 2] & 0x3F);
 		return (r, 3);
 	}
 	if ((c & 0xF8) == 0xF0 && offset + 3 < n) {
 		uint32_t r = (uint32_t)(c & 0x07) << 18;
 		r |= (uint32_t)(data[offset + 1] & 0x3F) << 12;
 		r |= (uint32_t)(data[offset + 2] & 0x3F) << 6;
-		r |= data[offset + 3] & 0x3F;
+		r |= (uint32_t)(data[offset + 3] & 0x3F);
 		return (r, 4);
 	}
 	return (c, 1);

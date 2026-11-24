@@ -79,7 +79,7 @@ TextStyle ident_style_for(LangMode lang, const char[..] ident) {
 		return TextStyleDefault;
 	}
 	if (word_in_list(ident, keys)) {
-		return text_style_make(TermColorBlue, TermColorDefault, (uint16_t)TextStyleBold);
+		return text_style_make(TermColorBlue, TermColorDefault, TextStyleBold);
 	}
 	if (word_in_list(ident, types)) {
 		return text_style_make(TermColorMagenta, TermColorDefault, 0);

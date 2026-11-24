@@ -2311,11 +2311,11 @@ void init_commands() {
 	bind_key(term_key_value(TermMETA) | (uint32_t)'>', cmd_goto_eof);
 	bind_key(term_key_value(TermMETA) | (uint32_t)'M', cmd_back_to_indentation);
 	bind_key(term_key_value(TermKeyEnter), cmd_newline_and_indent);
-	bind_key('\r', cmd_newline_and_indent);
-	bind_key('\n', cmd_newline_and_indent);
+	bind_key((uint32_t)'\r', cmd_newline_and_indent);
+	bind_key((uint32_t)'\n', cmd_newline_and_indent);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'J', cmd_newline_and_indent);
 	bind_key(term_key_value(TermKeyTab), cmd_indent_line);
-	bind_key('}', cmd_close_brace);
+	bind_key((uint32_t)'}', cmd_close_brace);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'O', cmd_open_line);
 	bind_key(term_key_value(TermCTL) | (uint32_t)'H', cmd_delete_backward);
 	bind_key(127, cmd_delete_backward);
@@ -2387,7 +2387,7 @@ static bool handle_listener_key(uint32_t key) {
 	killring_tick();
 	if (L.kind == ListenerUniversal) {
 		if (key >= '0' && key <= '9') {
-			L.universal_n = key - '0';
+			L.universal_n = (int)(key - (uint32_t)'0');
 			display_set_echo("C-u digit");
 			return true;
 		}

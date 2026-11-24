@@ -98,7 +98,7 @@ static bool git_run(const char[..] args[], size_t nargs, char *out, size_t out_c
 		if (!ok || n == 0) {
 			break;
 		}
-		got += n;
+		got += (size_t)n;
 	}
 	{
 		char[..] outv = ranged(out, out_cap);
@@ -286,7 +286,7 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 		if (file_untracked) {
 			snprintf(dirty, sizeof(dirty), "[?]");
 			for (; i < cache.diff_count; i++) {
-				cache.line_diffs[i] = (uint8_t)GitLineDiffAdded;
+				cache.line_diffs[i] = GitLineDiffAdded;
 			}
 		} else if (file_index_status != '.' || file_worktree_status != '.') {
 			snprintf(dirty, sizeof(dirty), "[%c%c]", file_index_status, file_worktree_status);

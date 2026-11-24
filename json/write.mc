@@ -72,8 +72,8 @@ static bool json_append_escaped_string(char[..] *buffer, const char[..] value) {
 				escape[1] = 'u';
 				escape[2] = '0';
 				escape[3] = '0';
-				escape[4] = json_hex_digit((c & 0xFF) >> 4);
-				escape[5] = json_hex_digit(c & 0x0F);
+				escape[4] = json_hex_digit((unsigned int)((c & 0xFF) >> 4));
+				escape[5] = json_hex_digit((unsigned int)(c & 0x0F));
 				if (!json_buffer_append_bytes(buffer, escape, 6)) {
 					return false;
 				}

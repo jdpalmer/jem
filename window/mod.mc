@@ -236,7 +236,7 @@ static void sync_goal_col(Window *win) {
 		win.goal_col = 0;
 		return;
 	}
-	win.goal_col = line.display_col_at_offset(win.cursor.offset);
+	win.goal_col = (ssize_t)line.display_col_at_offset(win.cursor.offset);
 }
 
 static void ensure_goal_col(Window *win) {
@@ -256,9 +256,9 @@ static void apply_goal_col(Window *win) {
 		return;
 	}
 	if (win.goal_col < 0) {
-		win.goal_col = line.display_col_at_offset(win.cursor.offset);
+		win.goal_col = (ssize_t)line.display_col_at_offset(win.cursor.offset);
 	}
-	win.cursor.offset = line.offset_at_display_col(win.goal_col);
+	win.cursor.offset = line.offset_at_display_col((size_t)win.goal_col);
 }
 
 static void mark_moved(Window *win) {

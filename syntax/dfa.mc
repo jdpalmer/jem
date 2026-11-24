@@ -24,11 +24,11 @@ static TextStyle a_preproc() {
 }
 
 static TextStyle a_heading() {
-	return text_style_make(TermColorYellow, TermColorDefault, (uint16_t)TextStyleBold);
+	return text_style_make(TermColorYellow, TermColorDefault, TextStyleBold);
 }
 
 static TextStyle a_bold() {
-	return text_style_make(TermColorDefault, TermColorDefault, (uint16_t)TextStyleBold);
+	return text_style_make(TermColorDefault, TermColorDefault, TextStyleBold);
 }
 
 static void put_paint(TextStyle[..] styles, size_t i, TextStyle val) {
@@ -144,7 +144,7 @@ static TextStyle paren_style(TermColor base, int depth) {
 	if ((depth & 3) != 0) {
 		fg = cycle[depth & 3];
 	}
-	return text_style_make(fg, TermColorDefault, (uint16_t)TextStyleBold);
+	return text_style_make(fg, TermColorDefault, TextStyleBold);
 }
 
 static void paint_delimiter(SynState* syn, int ch, size_t idx, TextStyle[..] styles) {

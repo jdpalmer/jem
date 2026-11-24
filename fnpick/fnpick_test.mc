@@ -94,8 +94,8 @@ static void test_open_tab_parent_and_accept_file() {
 	window_select(g_win);
 
 	fuzzy_filename_open("Find file: ", str_empty());
-	check(fuzzy_filename_handle_key('a') == FuzzyContinue);
-	check(fuzzy_filename_handle_key('l') == FuzzyContinue);
+	check(fuzzy_filename_handle_key((uint32_t)'a') == FuzzyContinue);
+	check(fuzzy_filename_handle_key((uint32_t)'l') == FuzzyContinue);
 	check(fuzzy_filename_handle_key(term_key_value(TermKeyEnter)) == FuzzyAccept);
 	{
 		char *text = fuzzy_filename_text();

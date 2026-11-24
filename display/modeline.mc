@@ -152,32 +152,32 @@ void paint_modeline(Window *win, int row) {
 	int hint_col = cols - hint_len;
 
 	if (win.buffer.is_changed) {
-		put_rune(&g_screen, row, col, '*', dirty_st);
+		put_rune(&g_screen, row, col, (uint32_t)'*', dirty_st);
 	} else {
-		put_rune(&g_screen, row, col, ' ', gut);
+		put_rune(&g_screen, row, col, (uint32_t)' ', gut);
 	}
 	col++;
 	if (win.buffer.notified_mtime_ns != 0) {
-		put_rune(&g_screen, row, col, 'D', dirty_st);
+		put_rune(&g_screen, row, col, (uint32_t)'D', dirty_st);
 	} else {
-		put_rune(&g_screen, row, col, ' ', gut);
+		put_rune(&g_screen, row, col, (uint32_t)' ', gut);
 	}
 	col++;
 	if (g_macro_recording) {
-		put_rune(&g_screen, row, col, 'm', dirty_st);
+		put_rune(&g_screen, row, col, (uint32_t)'m', dirty_st);
 	} else if (g_macro_present) {
-		put_rune(&g_screen, row, col, 'm', name_st);
+		put_rune(&g_screen, row, col, (uint32_t)'m', name_st);
 	} else {
-		put_rune(&g_screen, row, col, ' ', gut);
+		put_rune(&g_screen, row, col, (uint32_t)' ', gut);
 	}
 	col++;
 	if (markring_count() > 0) {
-		put_rune(&g_screen, row, col, 's', name_st);
+		put_rune(&g_screen, row, col, (uint32_t)'s', name_st);
 	} else {
-		put_rune(&g_screen, row, col, ' ', gut);
+		put_rune(&g_screen, row, col, (uint32_t)' ', gut);
 	}
 	col++;
-	put_rune(&g_screen, row, col, 'b', name_st);
+	put_rune(&g_screen, row, col, (uint32_t)'b', name_st);
 	col++;
 	{
 		char ver_label[64] = {0};
@@ -216,9 +216,9 @@ void paint_modeline(Window *win, int row) {
 		marker_col = -1;
 	}
 	while (col < pad_end && col < cols) {
-		uint32_t ch = ' ';
+		uint32_t ch = (uint32_t)' ';
 		if (col == marker_col) {
-			ch = '^';
+			ch = (uint32_t)'^';
 		}
 		put_rune(&g_screen, row, col, ch, gut);
 		col++;
@@ -227,9 +227,9 @@ void paint_modeline(Window *win, int row) {
 		put_ascii(row, &col, hint, gut);
 	}
 	while (col < cols) {
-		uint32_t ch = ' ';
+		uint32_t ch = (uint32_t)' ';
 		if (col == marker_col) {
-			ch = '^';
+			ch = (uint32_t)'^';
 		}
 		put_rune(&g_screen, row, col, ch, gut);
 		col++;
