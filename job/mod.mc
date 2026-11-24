@@ -778,7 +778,6 @@ bool job_take_tags_changed() {
 bool job_start_tags(char *ctags, char *root, char *target, char *temp,
 	char *exclude_name) {
 	char exclude_arg[JobPathMax + 16] = {0};
-	const char[..] argv[11] = {0};
 	if (ctags == NULL || root == NULL || target == NULL || temp == NULL ||
 		exclude_name == NULL) {
 		return false;
@@ -789,26 +788,24 @@ bool job_start_tags(char *ctags, char *root, char *target, char *temp,
 		return false;
 	}
 	snprintf(exclude_arg, sizeof(exclude_arg), "--exclude=%s", exclude_name);
-	argv[0] = "--options=NONE";
-	argv[1] = "-R";
-	argv[2] = "--exclude=.git";
-	argv[3] = ranged(exclude_arg, strlen(exclude_arg));
-	argv[4] = "--exclude=.jem-tags-*";
-	argv[5] = "--output-format=json";
-	argv[6] = "--fields=+nKSzastP";
-	argv[7] = "--extras=+q";
-	argv[8] = "-f";
-	argv[9] = ranged(temp, strlen(temp));
-	argv[10] = ".";
-	snprintf(g_job_tags_target, sizeof(g_job_tags_target), "%s", target);
-	snprintf(g_job_tags_temp, sizeof(g_job_tags_temp), "%s", temp);
-	bool ok = job_start_argv(ranged(ctags, strlen(ctags)), argv, 11,
-		ranged(root, strlen(root)), JobTags);
-	if (!ok) {
-		fs_remove(ranged(temp, strlen(temp)));
-		g_job_tags_temp[0] = 0;
-		g_job_tags_target[0] = 0;
-		return false;
+	{
+		const char[..] excludev = ranged(exclude_arg, strlen(exclude_arg));
+		const char[..] tempv = ranged(temp, strlen(temp));
+		const char[..] argv[11] = {
+			"--options=NONE", "-R", "--exclude=.git", excludev,
+			"--exclude=.jem-tags-*", "--output-format=json",
+			"--fields=+nKSzastP", "--extras=+q", "-f", tempv, ".",
+		};
+		snprintf(g_job_tags_target, sizeof(g_job_tags_target), "%s", target);
+		snprintf(g_job_tags_temp, sizeof(g_job_tags_temp), "%s", temp);
+		bool ok = job_start_argv(ranged(ctags, strlen(ctags)), argv, 11,
+			ranged(root, strlen(root)), JobTags);
+		if (!ok) {
+			fs_remove(ranged(temp, strlen(temp)));
+			g_job_tags_temp[0] = 0;
+			g_job_tags_target[0] = 0;
+			return false;
+		}
 	}
 	display_set_echo("[building tags...] (C-g to cancel)");
 	return true;
@@ -819,10 +816,6 @@ char *job_last_compile_command() {
 }
 
 bool job_start_grep(char *pattern) {
-	const char[..] argv_rg[6] = {
-		0 };
-	const char[..] argv_grep[4] = {
-		0 };
 	if (pattern == NULL || *pattern == 0) {
 		display_set_echo("[empty grep pattern]");
 		return false;
@@ -832,18 +825,16 @@ bool job_start_grep(char *pattern) {
 		display_set_echo("[grep: no project root]");
 		return false;
 	}
+	const char[..] patv = ranged(g_job_arg0, strlen(g_job_arg0));
+	const char[..] rootv = ranged(g_job_root, strlen(g_job_root));
 	pool p {
 		auto (found, ok) = os_look_path(&p, "rg");
 		(void)found;
 		if (ok) {
-			argv_rg[0] = "-n";
-			argv_rg[1] = "--column";
-			argv_rg[2] = "--no-heading";
-			argv_rg[3] = "--color=never";
-			argv_rg[4] = ranged(g_job_arg0, strlen(g_job_arg0));
-			argv_rg[5] = ".";
-			return job_start_argv("rg", argv_rg, 6,
-				ranged(g_job_root, strlen(g_job_root)), JobGrep);
+			const char[..] argv_rg[6] = {
+				"-n", "--column", "--no-heading", "--color=never", patv, ".",
+			};
+			return job_start_argv("rg", argv_rg, 6, rootv, JobGrep);
 		}
 		auto (gfound, gok) = os_look_path(&p, "grep");
 		(void)gfound;
@@ -851,19 +842,13 @@ bool job_start_grep(char *pattern) {
 			display_set_echo("[grep: need rg or grep on PATH]");
 			return false;
 		}
-		argv_grep[0] = "-rn";
-		argv_grep[1] = ranged(g_job_arg0, strlen(g_job_arg0));
-		argv_grep[2] = ".";
-		return job_start_argv("grep", argv_grep, 3,
-			ranged(g_job_root, strlen(g_job_root)), JobGrep);
+		const char[..] argv_grep[3] = {"-rn", patv, "."};
+		return job_start_argv("grep", argv_grep, 3, rootv, JobGrep);
 	}
 }
 
 bool job_start_compile(char *command) {
-	char sh[JobPathMax] = {
-		0 };
-	const char[..] argv[2] = {
-		0 };
+	char sh[JobPathMax] = {0};
 	if (command == NULL || *command == 0) {
 		display_set_echo("[empty compile command]");
 		return false;
@@ -894,8 +879,9 @@ bool job_start_compile(char *command) {
 				return false;
 			}
 		}
-		argv[0] = "/C";
-		argv[1] = ranged(g_job_arg0, strlen(g_job_arg0));
+		const char[..] argv[2] = {
+			"/C", ranged(g_job_arg0, strlen(g_job_arg0)),
+		};
 		return job_start_argv(ranged(sh, strlen(sh)), argv, 2,
 			ranged(g_job_root, strlen(g_job_root)), JobCompile);
 	}
@@ -914,8 +900,9 @@ bool job_start_compile(char *command) {
 			display_set_echo("[compile: /bin/sh not found]");
 			return false;
 		}
-		argv[0] = "-c";
-		argv[1] = ranged(g_job_arg0, strlen(g_job_arg0));
+		const char[..] argv[2] = {
+			"-c", ranged(g_job_arg0, strlen(g_job_arg0)),
+		};
 		return job_start_argv(ranged(sh, strlen(sh)), argv, 2,
 			ranged(g_job_root, strlen(g_job_root)), JobCompile);
 	}

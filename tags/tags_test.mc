@@ -63,7 +63,7 @@ static void test_stale_line_recovery() {
 	Location at = { .line = 1, .offset = 0 };
 	check(buf.replace_raw(at, at, text, strlen(text), &new_end));
 	entry.line = 1;
-	entry.pattern = str_from_cstr(pattern);
+	entry.pattern = ranged(pattern, strlen(pattern));
 	check_int(tags_resolve_line(buf, &entry), 3);
 }
 

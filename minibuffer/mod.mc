@@ -143,7 +143,7 @@ bool minibuffer_step_history(int dir) {
 			if (entry == NULL) {
 				return false;
 			}
-			minibuffer_set_text(str_from_cstr(entry));
+			minibuffer_set_text(ranged(entry, strlen(entry)));
 		}
 		return true;
 	}
@@ -168,7 +168,7 @@ bool minibuffer_step_history(int dir) {
 		if (entry == NULL) {
 			return false;
 		}
-		minibuffer_set_text(str_from_cstr(entry));
+		minibuffer_set_text(ranged(entry, strlen(entry)));
 	}
 	return true;
 }

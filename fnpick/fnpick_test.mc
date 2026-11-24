@@ -42,9 +42,9 @@ static Window *setup_window(Buffer *buf) {
 }
 
 static void write_path(char *path, const char *text) {
-	auto (w, wok) = writer_open(str_from_cstr(path), OpenWrite | OpenCreate | OpenTrunc, 0);
+	auto (w, wok) = writer_open(ranged(path, strlen(path)), OpenWrite | OpenCreate | OpenTrunc, 0);
 	check(wok);
-	(void)w.write(str_from_cstr(text));
+	(void)w.write(ranged(text, strlen(text)));
 	w.close();
 }
 

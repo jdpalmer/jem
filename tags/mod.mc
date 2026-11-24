@@ -882,7 +882,7 @@ static bool tag_scope_matches(const char[..] scope, char *hint) {
 	if (str_is_empty(scope) || hint == NULL || *hint == 0) {
 		return false;
 	}
-	const char[..] hv = str_from_cstr(hint);
+	const char[..] hv = ranged(hint, strlen(hint));
 	if (str_eq(scope, hv)) {
 		return true;
 	}
@@ -1601,8 +1601,11 @@ bool tags_visit_at_point() {
 		return false;
 	}
 	/* Views into loc metadata; not owned — do not str_free. */
-	entry.path = str_from_cstr(p);
-	entry.pattern = str_from_cstr(tag_loc_pattern(h));
+	entry.path = ranged(p, strlen(p));
+	{
+		char *pat = tag_loc_pattern(h);
+		entry.pattern = pat != NULL ? ranged(pat, strlen(pat)) : str_empty();
+	}
 	entry.line = h.line;
 	return tags_visit_entry(&entry);
 }
@@ -1674,13 +1677,12 @@ static bool tags_make_temp(char *dst, size_t cap, const char[..] target) {
 
 static bool tags_is_universal_ctags(const char[..] path_name) {
 	Cmd cmd = {0};
-	const char[..] args[1] = {0};
+	const char[..] args[1] = {"--version"};
 	char text[512] = {0};
 	size_t used = 0;
 	if (len(path_name) == 0) {
 		return false;
 	}
-	args[0] = "--version";
 	cmd.init(path_name, args, 1);
 	cmd.stdio(StdErr, IoNull);
 	auto (output, ok) = cmd.pipe(StdOut);

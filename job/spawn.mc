@@ -130,7 +130,6 @@ static bool spawn_resolve_shell(bool oneshot) {
 // Returns process exit code, or -1 on setup failure.
 int spawn_run(const char *command) {
 	Cmd c = {0};
-	const char[..] argv[2] = {0};
 
 	if (job_running()) {
 		display_set_echo("[busy: background job running]");
@@ -153,21 +152,6 @@ int spawn_run(const char *command) {
 		return -1;
 	}
 
-	size_t nargs = 0;
-#ifdef _WIN32
-	if (oneshot) {
-		argv[0] = "/C";
-		argv[1] = ranged(g_spawn_line, strlen(g_spawn_line));
-		nargs = 2;
-	}
-#else
-	if (oneshot) {
-		argv[0] = "-c";
-		argv[1] = ranged(g_spawn_line, strlen(g_spawn_line));
-		nargs = 2;
-	}
-#endif
-
 	term_move(term_rows(), 0);
 #ifndef _WIN32
 	if (oneshot) {
@@ -184,6 +168,16 @@ int spawn_run(const char *command) {
 		spawn_print_notice("Launching interactive shell", NULL);
 	}
 
+#ifdef _WIN32
+	const char[..] argv[2] = {
+		"/C", ranged(g_spawn_line, strlen(g_spawn_line)),
+	};
+#else
+	const char[..] argv[2] = {
+		"-c", ranged(g_spawn_line, strlen(g_spawn_line)),
+	};
+#endif
+	size_t nargs = oneshot ? 2 : 0;
 	c.init(ranged(g_spawn_prog, strlen(g_spawn_prog)), argv, nargs);
 	if (!c.start()) {
 		c.close();

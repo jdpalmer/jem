@@ -180,7 +180,6 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	bool file_untracked = false;
 	char file_index_status = '.';
 	char file_worktree_status = '.';
-	const char[..] args[8] = {0};
 	size_t i = 0;
 
 	cache.valid = true;
@@ -206,7 +205,7 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 	}
 
 	{
-		char[..] fv = str_from_cstr(fname);
+		char[..] fv = ranged(fname, strlen(fname));
 		auto dv = path_dir(fv);
 		auto bv = path_base(fv);
 		if (len(dv) == 0) {
@@ -220,16 +219,17 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 		snprintf(basename, sizeof(basename), "%.*s", (int)len(bv), ptr(bv));
 	}
 
-	args[0] = "-C";
-	args[1] = str_from_cstr(dir);
-	args[2] = "status";
-	args[3] = "--branch";
-	args[4] = "--porcelain=2";
-	args[5] = "--untracked-files=all";
-	args[6] = "--";
-	args[7] = str_from_cstr(basename);
-	if (!git_run(args, 8, status_out, sizeof(status_out), &status_exit) || status_exit != 0) {
-		return;
+	{
+		const char[..] dirv = ranged(dir, strlen(dir));
+		const char[..] basev = ranged(basename, strlen(basename));
+		const char[..] args[8] = {
+			"-C", dirv, "status", "--branch", "--porcelain=2",
+			"--untracked-files=all", "--", basev,
+		};
+		if (!git_run(args, 8, status_out, sizeof(status_out), &status_exit) ||
+			status_exit != 0) {
+			return;
+		}
 	}
 
 	{
@@ -317,17 +317,14 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 		}
 		diff_out[0] = 0;
 		{
-			const char[..] dargs[9] = {0};
-			dargs[0] = "-C";
-			dargs[1] = str_from_cstr(dir);
-			dargs[2] = "diff";
-			dargs[3] = "--no-color";
-			dargs[4] = "--no-ext-diff";
-			dargs[5] = "--unified=0";
-			dargs[6] = "HEAD";
-			dargs[7] = "--";
-			dargs[8] = str_from_cstr(basename);
-			if (!git_run(dargs, 9, ptr(diff_out), diff_cap, &diff_exit) || diff_exit != 0) {
+			const char[..] dirv = ranged(dir, strlen(dir));
+			const char[..] basev = ranged(basename, strlen(basename));
+			const char[..] dargs[9] = {
+				"-C", dirv, "diff", "--no-color", "--no-ext-diff",
+				"--unified=0", "HEAD", "--", basev,
+			};
+			if (!git_run(dargs, 9, ptr(diff_out), diff_cap, &diff_exit) ||
+				diff_exit != 0) {
 				return;
 			}
 		}

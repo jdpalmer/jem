@@ -46,9 +46,9 @@ static Window *setup_window(Buffer *buf) {
 }
 
 static void write_path(char *path, const char *text) {
-	auto (w, wok) = writer_open(str_from_cstr(path), OpenWrite | OpenCreate | OpenTrunc, 0);
+	auto (w, wok) = writer_open(ranged(path, strlen(path)), OpenWrite | OpenCreate | OpenTrunc, 0);
 	check(wok);
-	(void)w.write(str_from_cstr(text));
+	(void)w.write(ranged(text, strlen(text)));
 	w.close();
 }
 
@@ -88,7 +88,7 @@ static void test_complete_path() {
 	snprintf(path, sizeof(path), "%s/alphabet.go", dir);
 	write_path(path, "");
 	snprintf(path, sizeof(path), "%s/subdir", dir);
-	check(fs_mkdir(str_from_cstr(path)));
+	check(fs_mkdir(ranged(path, strlen(path))));
 
 	snprintf(buf, sizeof(buf), "%s/alp", dir);
 	check(file_complete_path(buf, sizeof(buf)));
@@ -228,7 +228,7 @@ static void test_save_preserves_mode_and_symlink() {
 	Buffer *buf = buffer_current();
 	check(buf != NULL);
 	check(buf.load_bytes("new\n", 4, EModeLF));
-	buf.set_file_name(str_from_cstr(linkpath));
+	buf.set_file_name(ranged(linkpath, strlen(linkpath)));
 	(void)setup_window(buf);
 	check(file_save(buf, ""));
 
@@ -238,7 +238,7 @@ static void test_save_preserves_mode_and_symlink() {
 	check((st.st_mode & 0x1ff) == 0x1ed); /* 0777 / 0755 */
 
 	{
-		auto (r, rok) = reader_open(str_from_cstr(target), OpenRead, 0);
+		auto (r, rok) = reader_open(ranged(target, strlen(target)), OpenRead, 0);
 		check(rok);
 		auto (n, ok) = r.read(ranged(text, sizeof(text) - 1));
 		check(ok && n > 0);

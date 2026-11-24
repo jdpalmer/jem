@@ -1675,7 +1675,7 @@ bool cmd_compile(bool f, int n) {
 	{
 		char *last = job_last_compile_command();
 		if (last != NULL && *last != 0) {
-			minibuffer_set_text(str_from_cstr(last));
+			minibuffer_set_text(ranged(last, strlen(last)));
 		}
 	}
 	return true;
