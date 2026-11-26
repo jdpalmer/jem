@@ -27,14 +27,14 @@ static void test_json_entry() {
 	TagJsonFields fields = {0};
 	int result = tag_json_parse_line(json, &fields);
 	check_int(result, TagJsonEntry);
-	check(str_eq(fields.name, "say\\\"hi"));
-	check(str_eq(fields.path, "src/a.mc"));
-	check(str_eq(fields.kind, "function"));
-	check(str_eq(fields.pattern, "/^say_hi$/"));
+	check(fields.name.eq("say\\\"hi"));
+	check(fields.path.eq("src/a.mc"));
+	check(fields.kind.eq("function"));
+	check(fields.pattern.eq("/^say_hi$/"));
 	check_int(fields.line, 42);
-	check(str_eq(fields.signature, "(char *s)"));
-	check(str_eq(fields.scope, "Api"));
-	check(str_eq(fields.typeref, "typename:void"));
+	check(fields.signature.eq("(char *s)"));
+	check(fields.scope.eq("Api"));
+	check(fields.typeref.eq("typename:void"));
 	tag_json_fields_free(&fields);
 }
 

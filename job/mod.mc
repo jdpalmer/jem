@@ -138,7 +138,7 @@ static bool job_project_root(char *dst, size_t cap) {
 	if (cur != NULL && len(cur.file_name) > 0) {
 		char[..] logical = cur.file_name;
 		{
-			char[..] d = path_dir(logical);
+			char[..] d = logical.dir();
 			if (len(d) > 0 && ptr(d) != NULL) {
 				int n = snprintf(dst, cap, "%s", d);
 				if (n >= 0 && (size_t)n < cap) {
@@ -920,7 +920,7 @@ bool job_cursor_loc(char *path_out, size_t path_cap, int *line_out, int *col_out
 	if (len(buf.name) == 0) {
 		return false;
 	}
-	if (!str_eq(buf.name, "*grep*") && !str_eq(buf.name, "*compile*")) {
+	if (!buf.name.eq("*grep*") && !buf.name.eq("*compile*")) {
 		return false;
 	}
 	Line *line = buf.line(w.cursor.line);

@@ -35,7 +35,7 @@ static bool json_string_equals(const char[..] string, const char *text, size_t n
 	if (text == NULL && nbytes != 0) {
 		return false;
 	}
-	return str_eq(string, ranged(text != NULL ? text : "", nbytes));
+	return string.eq(ranged(text != NULL ? text : "", nbytes));
 }
 
 [[provides]] JsonValue *json_new_null() {
@@ -195,7 +195,7 @@ const char *json_string_value(const JsonValue *value) {
 	if (value == NULL || value.type != JSON_STRING) {
 		return NULL;
 	}
-	if (str_is_empty(value.string)) {
+	if (value.string.is_empty()) {
 		return "";
 	}
 	return ptr(value.string);
@@ -336,7 +336,7 @@ const char *json_object_key_at(const JsonValue *object, size_t index) {
 	}
 	{
 		const char[..] key = object.object.entries[index].key;
-		if (str_is_empty(key)) {
+		if (key.is_empty()) {
 			return "";
 		}
 		return ptr(key);

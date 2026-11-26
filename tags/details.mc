@@ -143,12 +143,12 @@ static LangMode tag_detail_lang_for_entry(TagEntry *entry) {
 		return cur != NULL ? cur.lang_mode : LModeNone;
 	}
 	for (auto b : buffer_all) {
-		if (b != NULL && len(b.file_name) > 0 && !str_is_empty(entry.path) &&
+		if (b != NULL && len(b.file_name) > 0 && !entry.path.is_empty() &&
 			tags_paths_equal(b.file_name, entry.path)) {
 			return b.lang_mode;
 		}
 	}
-	if (!str_is_empty(entry.path)) {
+	if (!entry.path.is_empty()) {
 		LangMode detected = mode_detect(entry.path);
 		if (detected != LModeNone) {
 			return detected;
@@ -162,7 +162,7 @@ static int tag_detail_entry_line(TagEntry *entry) {
 		return 0;
 	}
 	for (auto b : buffer_all) {
-		if (b != NULL && len(b.file_name) > 0 && !str_is_empty(entry.path) &&
+		if (b != NULL && len(b.file_name) > 0 && !entry.path.is_empty() &&
 			tags_paths_equal(b.file_name, entry.path)) {
 			return tags_resolve_line(b, entry);
 		}
@@ -171,7 +171,7 @@ static int tag_detail_entry_line(TagEntry *entry) {
 }
 
 static (char *, size_t, bool) tag_detail_source_bytes(TagEntry *entry) {
-	if (entry == NULL || str_is_empty(entry.path)) {
+	if (entry == NULL || entry.path.is_empty()) {
 		return (NULL, 0, false);
 	}
 	for (auto b : buffer_all) {
@@ -187,7 +187,7 @@ static (char *, size_t, bool) tag_detail_source_bytes(TagEntry *entry) {
 static void tag_detail_source_comment(TagEntry *entry, char *dst, size_t cap) {
 	int used_lines = 0;
 	size_t total = 0;
-	if (entry == NULL || str_is_empty(entry.path) || dst == NULL || cap == 0) {
+	if (entry == NULL || entry.path.is_empty() || dst == NULL || cap == 0) {
 		return;
 	}
 	{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
@@ -283,12 +283,12 @@ static bool tag_detail_append_lines(Buffer *buf, char *text) {
 static void tag_detail_format_signature(char *dst, size_t cap,
 	const char[..] sig) {
 	char trimmed[2048] = {0};
-	const char[..] s = str_trim(sig);
+	const char[..] s = sig.trim();
 	if (dst == NULL || cap == 0) {
 		return;
 	}
 	{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
-	if (str_is_empty(s)) {
+	if (s.is_empty()) {
 		return;
 	}
 	snprintf(trimmed, sizeof(trimmed), "%s", s);
@@ -340,7 +340,7 @@ bool tags_show_details(TagEntry *entry) {
 	char shown_path[TagPathMax] = {0};
 	char signature[2048] = {0};
 	Window *old = window_current();
-	if (entry == NULL || str_is_empty(entry.name) || str_is_empty(entry.path)) {
+	if (entry == NULL || entry.name.is_empty() || entry.path.is_empty()) {
 		return false;
 	}
 	Buffer *buf = tag_detail_buffer();
@@ -364,7 +364,7 @@ bool tags_show_details(TagEntry *entry) {
 			return false;
 		}
 	}
-	if (!str_is_empty(entry.signature)) {
+	if (!entry.signature.is_empty()) {
 		tag_detail_format_signature(signature, sizeof(signature),
 			entry.signature);
 		if (!tag_detail_append(buf, "") ||

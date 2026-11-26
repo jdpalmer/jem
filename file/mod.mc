@@ -57,7 +57,7 @@ bool file_resolve_path(char *dst, size_t dstcap, const char[..] path) {
 			} else {
 				return false;
 			}
-		} else if (!path_is_abs(logical)) {
+		} else if (!logical.is_abs()) {
 			auto (cw, cwok) = os_cwd(&p);
 			if (!cwok || len(cw) == 0) {
 				return false;
@@ -83,7 +83,7 @@ bool file_resolve_path(char *dst, size_t dstcap, const char[..] path) {
 }
 
 static void file_apply_path_meta(Buffer *buf, const char[..] path) {
-	const char[..] base = path_base(path);
+	const char[..] base = path.base();
 	buf.set_file_name(path);
 	if (len(base) > 0 && ptr(base) != NULL) {
 		buf.set_name(base);
@@ -310,7 +310,7 @@ bool file_save(Buffer *buf, const char[..] path) {
 		use = ranged(resolved, strlen(resolved));
 	}
 	for (auto b : buffer_all) {
-		if (b != NULL && str_eq(use, b.file_name)) {
+		if (b != NULL && use.eq(b.file_name)) {
 			/* Re-apply language/indent defaults (e.g. .mc → tabs) in case the
 			 * buffer was opened under an older mode mapping. */
 			file_apply_path_meta(b, use);
@@ -731,7 +731,7 @@ bool file_prompt_parent_dir(char *dst, size_t dstcap, const char[..] dirPart) {
 	if (!file_open_dir_from_prompt(open_dir, sizeof(open_dir), dirPart)) {
 		return false;
 	}
-	/* path_dir(".") is empty — resolve to an absolute path first. */
+	/* ".".dir() is empty — resolve to an absolute path first. */
 	{
 		char abs_open[FilePathMax] = {0};
 		if (file_resolve_path(abs_open, sizeof(abs_open),
@@ -740,7 +740,7 @@ bool file_prompt_parent_dir(char *dst, size_t dstcap, const char[..] dirPart) {
 		}
 	}
 	{
-		const char[..] pd = path_dir(ranged(open_dir, strlen(open_dir)));
+		const char[..] pd = ranged(open_dir, strlen(open_dir)).dir();
 		if (len(pd) == 0) {
 			return true;
 		}
@@ -773,7 +773,7 @@ bool file_prompt_parent_dir(char *dst, size_t dstcap, const char[..] dirPart) {
 		}
 		return true;
 	}
-	if (path_is_abs(dirPart)) {
+	if (dirPart.is_abs()) {
 		if (strcmp(parent, "/") == 0) {
 			snprintf(dst, dstcap, "/");
 		} else {

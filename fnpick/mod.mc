@@ -162,7 +162,7 @@ static bool fn_at_fs_root(const char *abs_dir) {
 		return true;
 	}
 	{
-		const char[..] pd = path_dir(ranged(abs_dir, strlen(abs_dir)));
+		const char[..] pd = ranged(abs_dir, strlen(abs_dir)).dir();
 		size_t n = len(pd);
 		if (n == 0) {
 			return true;

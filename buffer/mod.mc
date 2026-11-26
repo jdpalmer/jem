@@ -325,7 +325,7 @@ bool (Buffer *buf).is_scratch() {
 	if (len(buf.name) == 0) {
 		return false;
 	}
-	return str_eq(buf.name, ScratchName);
+	return buf.name.eq(ScratchName);
 }
 
 void (Buffer *buf).mark_changed() {
@@ -461,7 +461,7 @@ bool buffer_list_append([[retains]] Buffer *buf) {
 
 Buffer *buffer_find_by_name(const char[..] name) {
 	for (auto b : buffer_all) {
-		if (b != NULL && str_eq(b.name, name)) {
+		if (b != NULL && b.name.eq(name)) {
 			return b;
 		}
 	}

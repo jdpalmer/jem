@@ -564,11 +564,11 @@ bool cmd_newline_and_indent(bool f, int n) {
 	Buffer *b = buffer_current();
 	(void)f;
 	if (b != NULL && len(b.name) > 0) {
-		if (str_eq(b.name, "*grep*") || str_eq(b.name, "*compile*")) {
+		if (b.name.eq("*grep*") || b.name.eq("*compile*")) {
 			return job_visit_at_point();
 		}
-		if (str_eq(b.name, "*tags*") ||
-			str_eq(b.name, "*describe*")) {
+		if (b.name.eq("*tags*") ||
+			b.name.eq("*describe*")) {
 			return tags_visit_at_point();
 		}
 	}
@@ -1729,7 +1729,7 @@ static bool insert_tag_completion(TagEntry *entry) {
 	Window *w = window_current();
 	char prefix[TagNameMax] = {0};
 	if (w == NULL || w.buffer == NULL || entry == NULL ||
-		str_is_empty(entry.name)) {
+		entry.name.is_empty()) {
 		return false;
 	}
 	if (w.buffer.is_readonly) {
@@ -1742,7 +1742,7 @@ static bool insert_tag_completion(TagEntry *entry) {
 	}
 	size_t plen = strlen(prefix);
 	if (len(entry.name) < plen ||
-		!str_eq(entry.name[0 .. plen], ranged(prefix, plen))) {
+		!entry.name[0 .. plen].eq(ranged(prefix, plen))) {
 		return false;
 	}
 	size_t n = len(entry.name) - plen;

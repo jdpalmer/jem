@@ -337,7 +337,7 @@ bool cmd_upper_region(bool f, int n) {
 static int cmp_char_slice(void *a, void *b) {
 	const char[..] *sa = (const char[..] *)a;
 	const char[..] *sb = (const char[..] *)b;
-	return str_cmp(*sa, *sb);
+	return (*sa).cmp(*sb);
 }
 
 // cmd_sort_region sorts complete lines in the active region alphabetically.

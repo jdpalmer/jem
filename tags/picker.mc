@@ -62,7 +62,7 @@ static void tag_picker_rebuild(const char *query) {
 		TagPickScore candidate = {0};
 		char namebuf[TagNameMax] = {0};
 		int pos = 0;
-		if (entry == NULL || str_is_empty(entry.name)) {
+		if (entry == NULL || entry.name.is_empty()) {
 			continue;
 		}
 		if (snprintf(namebuf, sizeof(namebuf), "%s", entry.name) < 0) {
@@ -121,12 +121,12 @@ static void tag_picker_refresh() {
 			if (i == g_tp_selected) {
 				snprintf(arrow, sizeof(arrow), "→ ");
 			}
-			if (entry == NULL || str_is_empty(entry.name)) {
+			if (entry == NULL || entry.name.is_empty()) {
 				continue;
 			}
 			tags_format_annotation(entry, annotation, sizeof(annotation));
 			tags_display_path(entry, shown_path, sizeof(shown_path));
-			if (!str_is_empty(entry.signature)) {
+			if (!entry.signature.is_empty()) {
 				signature = entry.signature;
 			}
 			if (g_tp_with_path) {

@@ -119,11 +119,11 @@ static void test_fill_paragraph() {
 }
 
 static void test_line_comment_prefix() {
-	check(str_eq(mode_line_comment(LModeGo), "//"));
-	check(str_eq(mode_line_comment(LModePython), "#"));
-	check(str_eq(mode_line_comment(LModeLisp), ";"));
-	check(str_eq(mode_line_comment(LModeLua), "--"));
-	check(str_eq(mode_line_comment(LModeModC), "//"));
+	check(mode_line_comment(LModeGo).eq("//"));
+	check(mode_line_comment(LModePython).eq("#"));
+	check(mode_line_comment(LModeLisp).eq(";"));
+	check(mode_line_comment(LModeLua).eq("--"));
+	check(mode_line_comment(LModeModC).eq("//"));
 	check(len(mode_line_comment(LModeCSS)) == 0);
 }
 
@@ -133,7 +133,7 @@ static void test_modc_mode_tabs() {
 	check(mode_detect("foo.c") == LModeC);
 	check(mode_detect("foo.cpp") == LModeC);
 	check(mode_detect("foo.hpp") == LModeC);
-	check(str_eq(mode_display_name(LModeModC), "%C"));
+	check(mode_display_name(LModeModC).eq("%C"));
 	IndentConfig cfg = mode_indent_default(LModeModC);
 	check(cfg.width == 8);
 	check(cfg.use_tabs != 0);

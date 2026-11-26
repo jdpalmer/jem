@@ -216,18 +216,18 @@ static bool tag_list_append(TagList *list, TagEntry *entry) {
 }
 
 static int tag_entry_name_cmp(TagEntry *a, TagEntry *b) {
-	if (a == NULL || str_is_empty(a.name)) {
-		return b == NULL || str_is_empty(b.name) ? 0 : -1;
+	if (a == NULL || a.name.is_empty()) {
+		return b == NULL || b.name.is_empty() ? 0 : -1;
 	}
-	if (b == NULL || str_is_empty(b.name)) {
+	if (b == NULL || b.name.is_empty()) {
 		return 1;
 	}
-	int cmp = str_cmp(a.name, b.name);
+	int cmp = a.name.cmp(b.name);
 	if (cmp != 0) {
 		return cmp;
 	}
-	if (!str_is_empty(a.path) && !str_is_empty(b.path)) {
-		cmp = str_cmp(a.path, b.path);
+	if (!a.path.is_empty() && !b.path.is_empty()) {
+		cmp = a.path.cmp(b.path);
 		if (cmp != 0) {
 			return cmp;
 		}
@@ -309,7 +309,7 @@ static size_t tag_index_lower_bound(const char[..] name) {
 	while (lo < hi) {
 		size_t mid = lo + (hi - lo) / 2;
 		const char[..] at = g_tags.by_name[mid].name;
-		if (!str_is_empty(at) && str_cmp(at, name) < 0) {
+		if (!at.is_empty() && at.cmp(name) < 0) {
 			lo = mid + 1;
 		} else {
 			hi = mid;
@@ -320,7 +320,7 @@ static size_t tag_index_lower_bound(const char[..] name) {
 
 [[provides]] void *tags_loc_alloc(const char[..] path, int line, int column,
 	const char[..] pattern) {
-	if (str_is_empty(path)) {
+	if (path.is_empty()) {
 		return NULL;
 	}
 	size_t plen = len(path);
@@ -384,7 +384,7 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 	e.pattern = f.pattern;
 	f.pattern = str_empty();
 	e.line = f.line;
-	if (path_is_abs(f.path)) {
+	if (f.path.is_abs()) {
 		e.path = f.path;
 		f.path = str_empty();
 	} else {
@@ -406,7 +406,7 @@ static int tag_parse_line(char *line, char *tags_dir, TagEntry *out) {
 		}
 	}
 	tag_json_fields_free(&f);
-	if (str_is_empty(e.name) || str_is_empty(e.path)) {
+	if (e.name.is_empty() || e.path.is_empty()) {
 		tag_entry_free(&e);
 		return TagJsonSkip;
 	}
@@ -461,7 +461,7 @@ static bool tag_db_load(const char[..] path) {
 		return false;
 	}
 	{
-		const char[..] d = path_dir(path);
+		const char[..] d = path.dir();
 		if (len(d) == 0 || ptr(d) == NULL) {
 			/* keep empty tags_dir */
 		} else {
@@ -572,7 +572,7 @@ static void tag_file_name(char *dst, size_t cap) {
 static bool tag_start_dir(char *dst, size_t cap) {
 	Buffer *cur = buffer_current();
 	if (cur != NULL && len(cur.file_name) > 0) {
-		char[..] d = path_dir(cur.file_name);
+		char[..] d = cur.file_name.dir();
 		if (len(d) > 0 && ptr(d) != NULL) {
 			int n = snprintf(dst, cap, "%s", d);
 			if (n >= 0 && (size_t)n < cap) {
@@ -599,7 +599,7 @@ static bool tag_resolve_path(char *out, size_t cap) {
 	char prev[TagPathMax] = {0};
 	tag_file_name(tag_name, sizeof(tag_name));
 	char[..] tag_namev = ranged(tag_name, strlen(tag_name));
-	if (path_is_abs(tag_namev)) {
+	if (tag_namev.is_abs()) {
 		auto (inf, ok) = fs_stat(tag_namev);
 		(void)inf;
 		if (!ok) {
@@ -632,7 +632,7 @@ static bool tag_resolve_path(char *out, size_t cap) {
 		}
 		snprintf(prev, sizeof(prev), "%s", dir);
 		{
-			char[..] parent = path_dir(dirv);
+			char[..] parent = dirv.dir();
 			int n = 0;
 			if (len(parent) == 0 || ptr(parent) == NULL) {
 				return false;
@@ -652,7 +652,7 @@ static void tag_search_anchor(char *dst, size_t cap) {
 	char tag_name[TagNameMax] = {0};
 	char dir[TagPathMax] = {0};
 	tag_file_name(tag_name, sizeof(tag_name));
-	if (path_is_abs(ranged(tag_name, strlen(tag_name)))) {
+	if (ranged(tag_name, strlen(tag_name)).is_abs()) {
 		snprintf(dst, cap, "abs:%s", tag_name);
 		return;
 	}
@@ -793,7 +793,7 @@ bool tags_paths_equal(const char[..] a, const char[..] b) {
 	if (len(a) == 0 || len(b) == 0) {
 		return false;
 	}
-	if (str_eq(a, b)) {
+	if (a.eq(b)) {
 		return true;
 	}
 	if (file_resolve_path(aclean, sizeof(aclean), a) &&
@@ -879,21 +879,21 @@ static bool tag_ascii_eq(const char[..] a, const char[..] b) {
 }
 
 static bool tag_scope_matches(const char[..] scope, char *hint) {
-	if (str_is_empty(scope) || hint == NULL || *hint == 0) {
+	if (scope.is_empty() || hint == NULL || *hint == 0) {
 		return false;
 	}
 	const char[..] hv = ranged(hint, strlen(hint));
-	if (str_eq(scope, hv)) {
+	if (scope.eq(hv)) {
 		return true;
 	}
 	size_t slen = len(scope);
 	size_t hlen = len(hv);
 	return slen > hlen && scope[slen - hlen - 1] == '.' &&
-		str_eq(scope[slen - hlen ..], hv);
+		scope[slen - hlen ..].eq(hv);
 }
 
 static int tag_kind_score(const char[..] kind, bool want_member) {
-	if (str_is_empty(kind)) {
+	if (kind.is_empty()) {
 		return 5;
 	}
 	if (tag_ascii_eq(kind, "member") ||
@@ -931,7 +931,7 @@ static int tag_score(TagEntry *e, const char[..] cur_path, char *scope_hint) {
 		return 0;
 	}
 	int score = tag_kind_score(e.kind, want_member);
-	if (len(cur_path) > 0 && !str_is_empty(e.path) &&
+	if (len(cur_path) > 0 && !e.path.is_empty() &&
 		tags_paths_equal(cur_path, e.path)) {
 		score += 100;
 	}
@@ -942,7 +942,7 @@ static int tag_score(TagEntry *e, const char[..] cur_path, char *scope_hint) {
 }
 
 static int tag_nullable_cmp(const char[..] a, const char[..] b) {
-	return str_cmp(a, b);
+	return a.cmp(b);
 }
 
 static int tag_rank_cmp(TagEntry *a, TagEntry *b, const char[..] cur_path,
@@ -993,12 +993,12 @@ static void tag_list_sort_ranked(TagList *list) {
 }
 
 bool tags_collect_matches(const char[..] name, TagList *out) {
-	if (str_is_empty(name) || out == NULL || !tags_ready()) {
+	if (name.is_empty() || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
 	size_t i = tag_index_lower_bound(name);
-	while (i < len(g_tags.by_name) && str_eq(g_tags.by_name[i].name, name)) {
+	while (i < len(g_tags.by_name) && g_tags.by_name[i].name.eq(name)) {
 		if (!tag_list_append(out, g_tags.by_name[i])) {
 			tags_list_free(out);
 			return false;
@@ -1013,7 +1013,7 @@ bool tags_collect_completions(const char[..] prefix, TagList *out) {
 	Buffer *cur = buffer_current();
 	char[..] cur_path = cur != NULL ? cur.file_name : str_empty();
 	char scope_hint[TagNameMax] = {0};
-	if (str_is_empty(prefix) || out == NULL || !tags_ready()) {
+	if (prefix.is_empty() || out == NULL || !tags_ready()) {
 		return false;
 	}
 	tags_list_free(out);
@@ -1024,12 +1024,12 @@ bool tags_collect_completions(const char[..] prefix, TagList *out) {
 		TagEntry *best = NULL;
 		const char[..] name = g_tags.by_name[i].name;
 		size_t j = i;
-		if (str_is_empty(name) || len(name) < plen ||
-			!str_eq(name[0 .. plen], prefix)) {
+		if (name.is_empty() || len(name) < plen ||
+			!name[0 .. plen].eq(prefix)) {
 			break;
 		}
 		while (j < len(g_tags.by_name) &&
-			str_eq(g_tags.by_name[j].name, name)) {
+			g_tags.by_name[j].name.eq(name)) {
 			TagEntry *candidate = g_tags.by_name[j];
 			if (best == NULL || tag_rank_cmp(candidate, best,
 				cur_path, scope_hint) < 0) {
@@ -1038,8 +1038,8 @@ bool tags_collect_completions(const char[..] prefix, TagList *out) {
 			j++;
 		}
 		{
-			auto (found, _) = str_find(name, ".");
-			if (!str_eq(name, prefix) && !found &&
+			auto (found, _) = name.find(".");
+			if (!name.eq(prefix) && !found &&
 				!tag_list_append(out, best)) {
 				tags_list_free(out);
 				return false;
@@ -1185,10 +1185,10 @@ void tags_maybe_show_call_hint() {
 	}
 	const char[..] nv = ranged(name, strlen(name));
 	size_t i = tag_index_lower_bound(nv);
-	while (i < len(g_tags.by_name) && str_eq(g_tags.by_name[i].name, nv)) {
+	while (i < len(g_tags.by_name) && g_tags.by_name[i].name.eq(nv)) {
 		TagEntry *entry = g_tags.by_name[i++];
 		int score = 0;
-		if (str_is_empty(entry.signature)) {
+		if (entry.signature.is_empty()) {
 			continue;
 		}
 		score = tag_score(entry, cur_path, scope);
@@ -1214,18 +1214,18 @@ void tags_format_annotation(TagEntry *entry, char *dst, size_t cap) {
 	if (entry == NULL) {
 		return;
 	}
-	if (!str_is_empty(entry.kind)) {
+	if (!entry.kind.is_empty()) {
 		kind = entry.kind;
 	}
 	const char[..] typeref = entry.typeref;
-	if (str_starts_with(typeref, "typename:")) {
+	if (typeref.starts_with("typename:")) {
 		typeref = typeref[9 ..];
 	}
-	if (!str_is_empty(typeref) && !str_is_empty(entry.scope)) {
+	if (!typeref.is_empty() && !entry.scope.is_empty()) {
 		snprintf(dst, cap, "(%s/%s@%s)", kind, typeref, entry.scope);
-	} else if (!str_is_empty(typeref)) {
+	} else if (!typeref.is_empty()) {
 		snprintf(dst, cap, "(%s/%s)", kind, typeref);
-	} else if (!str_is_empty(entry.scope)) {
+	} else if (!entry.scope.is_empty()) {
 		snprintf(dst, cap, "(%s@%s)", kind, entry.scope);
 	} else {
 		snprintf(dst, cap, "(%s)", kind);
@@ -1238,10 +1238,10 @@ void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 		return;
 	}
 	{ char[..] __dv = ranged(dst, cap); __dv[0] = 0; };
-	if (entry == NULL || str_is_empty(entry.path)) {
+	if (entry == NULL || entry.path.is_empty()) {
 		return;
 	}
-	char[..] dir = path_dir(ranged(g_tags.path, strlen(g_tags.path)));
+	char[..] dir = ranged(g_tags.path, strlen(g_tags.path)).dir();
 	if (ptr(dir) != NULL && len(dir) > 0) {
 		int n = snprintf(root, sizeof(root), "%s", dir);
 		if (n < 0 || (size_t)n >= sizeof(root)) {
@@ -1252,7 +1252,7 @@ void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 	{
 		const char[..] pv = entry.path;
 		if (rlen > 0 && rlen < len(pv) &&
-			str_eq(pv[0 .. rlen], ranged(root, rlen)) &&
+			pv[0 .. rlen].eq(ranged(root, rlen)) &&
 			pv[rlen] == '/') {
 			snprintf(dst, cap, "%s", pv[rlen + 1 ..]);
 		} else {
@@ -1262,22 +1262,22 @@ void tags_display_path(TagEntry *entry, char *dst, size_t cap) {
 }
 
 static bool tag_qualified_duplicate(TagList *list, TagEntry *entry) {
-	if (entry == NULL || str_is_empty(entry.name)) {
+	if (entry == NULL || entry.name.is_empty()) {
 		return false;
 	}
 	{
-		auto (found, _) = str_find(entry.name, ".");
+		auto (found, _) = entry.name.find(".");
 		if (!found) {
 			return false;
 		}
 	}
 	for (auto other : list.items) {
-		if (other == NULL || str_is_empty(other.name) ||
+		if (other == NULL || other.name.is_empty() ||
 			other.line != entry.line ||
 			tag_nullable_cmp(other.kind, entry.kind) != 0) {
 			continue;
 		}
-		auto (found, _) = str_find(other.name, ".");
+		auto (found, _) = other.name.find(".");
 		if (!found) {
 			return true;
 		}
@@ -1292,7 +1292,7 @@ bool tags_collect_in_file(const char[..] file_path, TagList *out) {
 	}
 	tags_list_free(out);
 	for (auto *entry : g_tags.entries) {
-		if (!str_is_empty(entry.path) &&
+		if (!entry.path.is_empty() &&
 			tags_paths_equal(entry.path, file_path)) {
 			if (!tag_list_append(out, entry)) {
 				tags_list_free(out);
@@ -1330,7 +1330,7 @@ static bool tag_pattern_needle(const char[..] pattern, char *dst, size_t cap,
 	bool *anchored) {
 	size_t start = 1;
 	size_t out = 0;
-	if (str_is_empty(pattern) || dst == NULL || cap < 2 || anchored == NULL) {
+	if (pattern.is_empty() || dst == NULL || cap < 2 || anchored == NULL) {
 		return false;
 	}
 	const char[..] pv = pattern;
@@ -1424,7 +1424,7 @@ int tags_resolve_line(Buffer *buf, TagEntry *entry) {
 
 bool tags_visit_entry(TagEntry *e) {
 	Window *w = window_current();
-	if (e == NULL || str_is_empty(e.path) || e.line < 1) {
+	if (e == NULL || e.path.is_empty() || e.line < 1) {
 		return false;
 	}
 	if (w != NULL) {
@@ -1502,10 +1502,10 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 		char linebuf[TagPathMax + TagNameMax + 64] = {0};
 		Line *ln = NULL;
 		const char[..] kind = "tag";
-		if (e == NULL || str_is_empty(e.path) || str_is_empty(e.name)) {
+		if (e == NULL || e.path.is_empty() || e.name.is_empty()) {
 			continue;
 		}
-		if (!str_is_empty(e.kind)) {
+		if (!e.kind.is_empty()) {
 			kind = e.kind;
 		}
 		snprintf(linebuf, sizeof(linebuf), "%s  %s:%d  (%s)", e.name, e.path,
@@ -1524,7 +1524,7 @@ static bool tags_show_match_list(TagList *matches, char *title) {
 
 bool tags_goto_name(const char[..] name) {
 	TagList matches = {0};
-	if (str_is_empty(name)) {
+	if (name.is_empty()) {
 		display_set_echo("[empty tag name]");
 		return false;
 	}
@@ -1587,8 +1587,8 @@ bool tags_visit_at_point() {
 		return false;
 	}
 	Buffer *buf = w.buffer;
-	if (len(buf.name) == 0 || (!str_eq(buf.name, "*tags*") &&
-		!str_eq(buf.name, "*describe*"))) {
+	if (len(buf.name) == 0 || (!buf.name.eq("*tags*") &&
+		!buf.name.eq("*describe*"))) {
 		return false;
 	}
 	Line *line = buf.line(w.cursor.line);
@@ -1634,7 +1634,7 @@ static bool tags_project_root(char *dst, size_t cap) {
 		}
 		snprintf(prev, sizeof(prev), "%s", dir);
 		{
-			char[..] parent = path_dir(dirv);
+			char[..] parent = dirv.dir();
 			if (len(parent) == 0 || ptr(parent) == NULL) {
 				break;
 			}
@@ -1654,7 +1654,7 @@ static bool tags_make_temp(char *dst, size_t cap, const char[..] target) {
 	if (dst == NULL || cap < 2 || len(target) == 0) {
 		return false;
 	}
-	const char[..] parent = path_dir(target);
+	const char[..] parent = target.dir();
 	if (len(parent) == 0 || ptr(parent) == NULL) {
 		return false;
 	}
@@ -1747,7 +1747,7 @@ bool tags_build() {
 		return false;
 	}
 	char[..] tag_namev = ranged(tag_name, strlen(tag_name));
-	if (path_is_abs(tag_namev)) {
+	if (tag_namev.is_abs()) {
 		if (strlen(tag_name) >= sizeof(target)) {
 			display_set_echo("[tags output path is too long]");
 			return false;
@@ -1774,7 +1774,7 @@ bool tags_build() {
 		return false;
 	}
 	{
-		char[..] base = path_base(ranged(target, strlen(target)));
+		char[..] base = ranged(target, strlen(target)).base();
 		if (len(base) == 0 || ptr(base) == NULL) {
 			fs_remove(ranged(temp, strlen(temp)));
 			display_set_echo("[invalid tags output path]");

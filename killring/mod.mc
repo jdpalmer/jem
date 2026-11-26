@@ -90,7 +90,7 @@ bool killring_read_clipboard() {
 		free(data);
 		return false;
 	}
-	if (g_count > 0 && str_eq(g_ring[0].data, ranged(data, n))) {
+	if (g_count > 0 && g_ring[0].data.eq(ranged(data, n))) {
 		free(data);
 		return true;
 	}

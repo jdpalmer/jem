@@ -120,7 +120,7 @@ static int cmp_access_desc(void *a, void *b) {
 	if (ta != tb) {
 		return ta > tb ? -1 : 1;
 	}
-	return str_cmp(ba.name, bb.name);
+	return ba.name.cmp(bb.name);
 }
 
 static void sort_buffers_by_access(Buffer **list, int n) {
@@ -249,7 +249,7 @@ void fuzzy_buffer_open_with_prompt(const char[..] prompt) {
 		if (b == NULL || len(b.name) == 0) {
 			continue;
 		}
-		if (str_eq(b.name, "*match*")) {
+		if (b.name.eq("*match*")) {
 			continue;
 		}
 		list[n++] = b;

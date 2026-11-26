@@ -357,28 +357,28 @@ static bool tag_json_skip_value(TagJsonCursor *c, int depth) {
 }
 
 static char[..] *tag_json_field_slot(TagJsonFields *f, const char[..] key) {
-	if (str_eq(key, "_type")) {
+	if (key.eq("_type")) {
 		return &f.type;
 	}
-	if (str_eq(key, "name")) {
+	if (key.eq("name")) {
 		return &f.name;
 	}
-	if (str_eq(key, "path")) {
+	if (key.eq("path")) {
 		return &f.path;
 	}
-	if (str_eq(key, "kind")) {
+	if (key.eq("kind")) {
 		return &f.kind;
 	}
-	if (str_eq(key, "signature")) {
+	if (key.eq("signature")) {
 		return &f.signature;
 	}
-	if (str_eq(key, "scope")) {
+	if (key.eq("scope")) {
 		return &f.scope;
 	}
-	if (str_eq(key, "typeref")) {
+	if (key.eq("typeref")) {
 		return &f.typeref;
 	}
-	if (str_eq(key, "pattern")) {
+	if (key.eq("pattern")) {
 		return &f.pattern;
 	}
 	return NULL;
@@ -414,7 +414,7 @@ int tag_json_parse_line(char *line, TagJsonFields *out) {
 			c.p++;
 			tag_json_ws(&c);
 			slot = tag_json_field_slot(&f, key);
-			if (str_eq(key, "line")) {
+			if (key.eq("line")) {
 				int value = 0;
 				bool valid = false;
 				if (!tag_json_number(&c, &value, &valid)) {
@@ -472,11 +472,11 @@ int tag_json_parse_line(char *line, TagJsonFields *out) {
 		tag_json_fields_free(&f);
 		return TagJsonMalformed;
 	}
-	if (str_is_empty(f.type) || !str_eq(f.type, "tag")) {
+	if (f.type.is_empty() || !f.type.eq("tag")) {
 		tag_json_fields_free(&f);
 		return TagJsonSkip;
 	}
-	if (!semantic_ok || str_is_empty(f.name) || str_is_empty(f.path) ||
+	if (!semantic_ok || f.name.is_empty() || f.path.is_empty() ||
 		!f.line_valid) {
 		tag_json_fields_free(&f);
 		return TagJsonSkip;

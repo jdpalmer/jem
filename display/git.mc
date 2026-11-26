@@ -206,8 +206,8 @@ static void git_refresh_cache(GitModelineCache *cache, Buffer *buf, const char *
 
 	{
 		char[..] fv = ranged(fname, strlen(fname));
-		auto dv = path_dir(fv);
-		auto bv = path_base(fv);
+		auto dv = fv.dir();
+		auto bv = fv.base();
 		if (len(dv) == 0) {
 			snprintf(dir, sizeof(dir), ".");
 		} else {
