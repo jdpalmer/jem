@@ -575,7 +575,7 @@ static bool replace_leading(Window *win, char *prefix, size_t plen) {
 			if (ptr(old) == NULL) {
 				return false;
 			}
-			memcpy(ptr(old), ptr(line.data), first);
+			copy(old, line.data[0 .. first]);
 		}
 		if (!win.set_text(begin, end, prefix, plen)) {
 			return false;

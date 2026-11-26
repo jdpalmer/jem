@@ -113,7 +113,7 @@ static bool mode_uncomment_lines(Window *win, Buffer *buf, const char[..] prefix
 				buffer_undo.end_command();
 				return false;
 			}
-			memcpy(ptr(old), ptr(line.data) + pos, old_len);
+			copy(old[0 .. old_len], line.data[pos .. pos + old_len]);
 			old[old_len] = 0;
 			begin.line = line_num;
 			begin.offset = pos;

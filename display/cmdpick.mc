@@ -119,7 +119,7 @@ static void cmdpick_refresh() {
 			if (len + (size_t)n + 1 > cap) {
 				break;
 			}
-			memcpy(ptr(out) + len, line, n);
+			copy(out[len .. len + (size_t)n], line[0 .. (size_t)n]);
 			len += n;
 			out[len] = 0;
 		}

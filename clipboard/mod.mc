@@ -259,7 +259,7 @@ static bool clipboard_write_osc52(const char[..] text) {
 		if (ptr(encoded) == NULL) {
 			return false;
 		}
-		memcpy(ptr(encoded), "\x1b]52;c;", 7);
+		copy(encoded[0 .. 7], "\x1b]52;c;");
 		size_t out = 7;
 		for (; i < len(text); i += 3) {
 			uint32_t a = text[i];

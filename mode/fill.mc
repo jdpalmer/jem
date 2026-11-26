@@ -100,7 +100,7 @@ bool mode_fill_paragraph(bool f, int n) {
 			}
 			{
 				char[..] slot = ranged(ptr(blob), blob_len + wlen + 1, cap(blob));
-				memcpy(ptr(blob) + blob_len, ptr(v) + i, wlen);
+				copy(slot[blob_len .. blob_len + wlen], v[i .. i + wlen]);
 				slot[blob_len + wlen] = 0;
 				words[word_count] = ptr(blob) + blob_len;
 				word_count++;

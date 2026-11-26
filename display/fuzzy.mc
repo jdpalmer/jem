@@ -210,7 +210,7 @@ static void fuzzy_refresh_match_window() {
 			if (len + (size_t)n + 1 > cap) {
 				break;
 			}
-			memcpy(ptr(out) + len, line, n);
+			copy(out[len .. len + (size_t)n], line[0 .. (size_t)n]);
 			len += n;
 			out[len] = 0;
 		}

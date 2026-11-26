@@ -49,7 +49,7 @@ static void fit_buffer_name(const char[..] name, char[..] out) {
 		if (n >= cap) {
 			n = cap - 1;
 		}
-		memcpy(ptr(out), ptr(name), n);
+		copy(out[0 .. n], name[0 .. n]);
 		out[n] = 0;
 		return;
 	}
@@ -84,7 +84,7 @@ static void fit_buffer_name(const char[..] name, char[..] out) {
 		}
 	}
 	if (end > 0) {
-		memcpy(ptr(out), ptr(name), end);
+		copy(out[0 .. end], name[0 .. end]);
 	}
 	out[end] = 0xE2;
 	out[end + 1] = 0x80;

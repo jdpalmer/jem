@@ -425,7 +425,7 @@ static void fn_refresh_match_window() {
 				if (out_len + (size_t)n + 1 > cap) {
 					break;
 				}
-				memcpy(ptr(out) + out_len, line, n);
+				copy(out[out_len .. out_len + (size_t)n], line[0 .. (size_t)n]);
 				out_len += n;
 				out[out_len] = 0;
 			}

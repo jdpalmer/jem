@@ -149,7 +149,7 @@ static void tag_picker_refresh() {
 			if (used + (size_t)n + 1 > cap) {
 				break;
 			}
-			memcpy(ptr(out) + used, line, n);
+			copy(out[used .. used + (size_t)n], line[0 .. (size_t)n]);
 			used += n;
 			out[used] = 0;
 		}

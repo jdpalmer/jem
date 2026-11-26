@@ -531,19 +531,19 @@ static void search_collect_visible_spans_regex(Window *win) {
 			Line *line = win.buffer.line(line_n);
 			size_t lim = 0;
 			size_t cursor = 0;
-			char[..] copy = {0};
+			char[..] text = {0};
 			if (line == NULL) {
 				continue;
 			}
 			lim = line.byte_len();
-			copy = p.alloc(char, lim + 1);
-			if (ptr(copy) == NULL) {
+			text = p.alloc(char, lim + 1);
+			if (ptr(text) == NULL) {
 				continue;
 			}
 			if (lim > 0) {
-				memcpy(ptr(copy), ptr(line.data), lim);
+				copy(text[0 .. lim], line.data[0 .. lim]);
 			}
-			copy[lim] = 0;
+			text[lim] = 0;
 			cursor = 0;
 			while (cursor <= lim && n < (int)SearchSpanMax) {
 				size_t moff = 0;
@@ -551,7 +551,7 @@ static void search_collect_visible_spans_regex(Window *win) {
 				ReStatus st = ReNone;
 				{
 					auto (rst, roff, rlen) = re_find(ranged(g_search.needle, g_search.needle_len),
-						copy[cursor..lim]);
+						text[cursor..lim]);
 					st = rst;
 					moff = roff;
 					mlen = rlen;
@@ -809,9 +809,10 @@ static void expand_regex_replacement_into(char *repl, char *match_text, ReCaptur
 				if (idx < len(caps)) {
 					ReCapture cap = caps[idx];
 					if (cap.start >= 0 && cap.length >= 0) {
-						memcpy(ptr(expanded) + used, match_text + cap.start,
-							(size_t)cap.length);
-						used = used + (size_t)cap.length;
+						size_t clen = (size_t)cap.length;
+						copy(expanded[used .. used + clen],
+							ranged(match_text + cap.start, clen));
+						used = used + clen;
 					}
 				}
 			} else if (esc == 'n') {
@@ -859,7 +860,8 @@ bool search_replace_one() {
 			return false;
 		}
 		if (g_search.match_end.line == begin.line) {
-			memcpy(ptr(old), ptr(line.data) + begin.offset, old_len);
+			copy(old[0 .. old_len],
+				line.data[begin.offset .. begin.offset + old_len]);
 		}
 		old[old_len] = 0;
 		char *repl = g_search.replacement;
